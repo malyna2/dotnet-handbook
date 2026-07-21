@@ -32,8 +32,8 @@ Let's begin.
 - [Chapter 3: ASP.NET Core & Web APIs](#chapter-3-aspnet-core--web-apis) · ~26 min
 - [Chapter 4: Data Access & Databases](#chapter-4-data-access--databases) · ~28 min
 
-**Part II — Designing Software That Lasts** · *~2h 35m*
-- [Chapter 5: Design Patterns & Principles](#chapter-5-design-patterns--principles) · ~50 min
+**Part II — Designing Software That Lasts** · *~3h 02m*
+- [Chapter 5: Design Patterns, Principles & Clean Code](#chapter-5-design-patterns-principles-clean-code) · ~77 min
 - [Chapter 6: Architecture & Application Design](#chapter-6-architecture--application-design) · ~35 min
 - [Chapter 7: Testing](#chapter-7-testing) · ~37 min
 - [Chapter 8: Asynchronous & Concurrent Programming](#chapter-8-asynchronous--concurrent-programming) · ~33 min
