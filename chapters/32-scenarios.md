@@ -411,20 +411,6 @@ builder.Services.AddHealthChecks()
 
 > **In an interview:** "The failure I'm most afraid of isn't the broker dying — it's that death cascading into a full outage because threads hang on it and starve the pool. So I fail fast with a circuit breaker and timeouts, isolate it behind a bulkhead so it can't consume resources the rest of the service needs, and retry with exponential backoff plus jitter to avoid a retry storm on recovery. The architectural key is the Transactional Outbox: I write orders to my own database and relay to the broker asynchronously, so a broker outage becomes a delay, not data loss. Poison messages go to a dead-letter queue, and readiness probes report degraded rather than dead for optional dependencies so Kubernetes doesn't yank healthy pods."
 
----
-
-## Sources & Further Reading
-
-- **Microsoft Learn** — .NET garbage collection fundamentals, Server vs. Workstation GC, and DATAS: https://learn.microsoft.com/dotnet/standard/garbage-collection/ ; ASP.NET Core rate limiting, health checks, and `Microsoft.Extensions.Resilience` / Polly integration.
-- **Azure Architecture Center** — cloud design patterns, especially Transactional Outbox, Saga, Circuit Breaker, Bulkhead, Queue-Based Load Leveling, Rate Limiting, and Health Endpoint Monitoring: https://learn.microsoft.com/azure/architecture/patterns/
-- **Azure Well-Architected Framework — Reliability and Performance Efficiency pillars:** https://learn.microsoft.com/azure/well-architected/
-- **AWS Well-Architected Framework — Reliability Pillar** (retries with backoff and jitter, bulkheads, throttling): https://docs.aws.amazon.com/wellarchitected/
-- **AWS Architecture Blog — "Exponential Backoff And Jitter"** — the canonical treatment of why jitter matters.
-- **"Designing Data-Intensive Applications," Martin Kleppmann** (O'Reilly) — dual writes, exactly-once semantics, idempotency, event sourcing, and consistency models.
-- **"Release It!" (2nd ed.), Michael Nygard** (Pragmatic Bookshelf) — circuit breakers, bulkheads, timeouts, and stability patterns for production systems.
-- **Polly documentation** — resilience strategies (retry, circuit breaker, timeout, hedging): https://www.pollydocs.org/
-
-
 ## Scenario 5 — Disaster: the database is gone. How backups should really be done
 
 ### The scenario
@@ -854,6 +840,13 @@ Have a plan *before* the breach: detect, contain, assess scope (which data, whos
 ## Sources & Further Reading
 
 *A note on Scenario 9:* the material on GDPR/CCPA/HIPAA is engineering guidance, **not legal advice** — consult your legal/privacy team for how these frameworks apply to your product.
+
+**Scaling, reliability & the runtime (Scenarios 1–4)**
+- Microsoft Learn — *.NET garbage collection fundamentals*, Server vs. Workstation GC, and DATAS; ASP.NET Core rate limiting, health checks, and `Microsoft.Extensions.Resilience` / Polly integration.
+- Azure Architecture Center — *Cloud design patterns* (Transactional Outbox, Saga, Circuit Breaker, Bulkhead, Queue-Based Load Leveling, Rate Limiting, Health Endpoint Monitoring): https://learn.microsoft.com/azure/architecture/patterns/
+- Azure & AWS Well-Architected Frameworks — Reliability and Performance Efficiency pillars; AWS Architecture Blog, *"Exponential Backoff And Jitter."*
+- *"Release It!"* (2nd ed.), Michael Nygard — circuit breakers, bulkheads, timeouts, and stability patterns.
+- Polly documentation — resilience strategies (retry, circuit breaker, timeout, hedging): https://www.pollydocs.org/
 
 **Backups & disaster recovery**
 - Microsoft Learn — *Automated backups and point-in-time restore in Azure SQL Database* (retention 1–35 days, PITR, long-term retention).

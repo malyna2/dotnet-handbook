@@ -77,6 +77,7 @@ function highlight(code, lang){
   return scan(code,MIN_RE,MIN_CLASSES);
 }
 
+var usedIds={};
 function render(md){
   var lines=md.replace(/\r\n/g,"\n").split("\n");
   var html=[], i=0;
@@ -96,7 +97,9 @@ function render(md){
     var hm=line.match(/^(#{1,6})\s+(.*)$/);
     if(hm){
       var lvl=hm[1].length, txt=hm[2].trim();
-      var slug=txt.toLowerCase().replace(/[^\w\s-]/g,"").replace(/[\s_]+/g,"-").replace(/^-+|-+$/g,"");
+      var base=(txt.toLowerCase().replace(/[^\w\s-]/g,"").replace(/[\s_]+/g,"-").replace(/^-+|-+$/g,""))||"section";
+      usedIds[base]=(usedIds[base]||0)+1;
+      var slug=usedIds[base]===1?base:base+"-"+usedIds[base];
       html.push("<h"+lvl+' id="'+slug+'">'+inline(txt)+"</h"+lvl+">");
       i++; continue;
     }
@@ -226,6 +229,7 @@ function go(slug, push, restore){
   var c=bySlug[slug]||BOOK[0];
   current=c;
   removePopup();
+  usedIds={};
   content.innerHTML=render(c.md);
   postProcess(c);
   buildOutline(c);
@@ -442,6 +446,10 @@ window.addEventListener("scroll",function(){
     if(hd.getBoundingClientRect().top<120) activeId=hd.id;
   });
   links.forEach(function(a){a.classList.toggle("active",a.dataset.id===activeId);});
+  var _act=outlineEl.querySelector("a.active");
+  if(_act){ var _oT=outlineEl.scrollTop,_oH=outlineEl.clientHeight,_aT=_act.offsetTop,_aH=_act.offsetHeight;
+    if(_aT<_oT) outlineEl.scrollTop=_aT-8;
+    else if(_aT+_aH>_oT+_oH) outlineEl.scrollTop=_aT+_aH-_oH+8; }
 },{passive:true});
 
 /* ---------------- Toast ---------------- */
