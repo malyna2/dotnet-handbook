@@ -406,6 +406,16 @@ function textOffsetInBlock(block, container, offsetInNode){
   return total;
 }
 // The sentence at `off`, plus the previous and next sentence.
+function wordAtOffset(text, off){
+  if(off<0) off=0; if(off>=text.length) off=text.length-1;
+  if(off<0) return "";
+  var ws=function(c){ return c===undefined || /\s/.test(c); };
+  if(ws(text[off])){ if(off>0 && !ws(text[off-1])) off=off-1; else return ""; }
+  var l=off, r=off;
+  while(l>0 && !ws(text[l-1])) l--;
+  while(r<text.length && !ws(text[r])) r++;
+  return text.slice(l,r).replace(/^[^\w.#]+/,"").replace(/[^\w#]+$/,"").trim();
+}
 function expandAtOffset(text, off){
   var sents=splitSentencesSmart(text), idx=-1, i;
   for(i=0;i<sents.length;i++){ if(off>=sents[i].s && off<sents[i].e){ idx=i; break; } }
@@ -460,7 +470,7 @@ selBtn.addEventListener("mousedown",function(e){ e.preventDefault(); }); // pres
 selBtn.addEventListener("click",function(){
   var r=rectFromSelection(); if(r) lastRect=r;
   selBtn.hidden=true;
-  var textToTranslate=expandSelection(window.getSelection(), lastSel);
+  var textToTranslate=lastSel;
   var anchor=lastRect;
   showPopup("…", anchor, true);
   translate(textToTranslate).then(function(uk){ showPopup(uk, anchor, false); })
@@ -499,7 +509,7 @@ content.addEventListener("click",function(e){
   var rng=caretAt(e.clientX, e.clientY);
   if(!rng || !rng.startContainer || !block.contains(rng.startContainer)) return;
   var off=textOffsetInBlock(block, rng.startContainer, rng.startOffset);
-  var textToTranslate=expandAtOffset(block.textContent, off);
+  var textToTranslate=wordAtOffset(block.textContent, off);
   if(!textToTranslate) return;
   var rect={left:e.clientX, top:e.clientY, width:0, height:0, bottom:e.clientY};
   lastRect=rect;
