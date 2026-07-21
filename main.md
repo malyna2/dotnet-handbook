@@ -35,7 +35,7 @@ Use the **sidebar** on the left (or the **Browse chapters** cards below) to jump
 
 # Chapter 1: C# Language Mastery
 
-_⏱️ Estimated read time: ~46 min · 5470 words (study pace)_
+_⏱️ Estimated read time: ~45 min · 5470 words (study pace)_
 
 A senior .NET developer is not someone who knows more keywords than a mid-level developer. The difference is that a senior understands what the language does *underneath* the syntax: where the bytes live, when work actually happens, why a seemingly innocent line allocates on the heap, and what the compiler is really generating on your behalf. This chapter walks through the C# language from that vantage point. We assume you can already write loops, classes, and `async` methods. Our job is to explain the "why" so deeply that the "what" becomes obvious.
 
@@ -715,7 +715,7 @@ Master these fundamentals and you stop guessing about performance and behavior. 
 
 # Chapter 2: .NET Runtime & Internals
 
-_⏱️ Estimated read time: ~38 min · 5804 words (study pace)_
+_⏱️ Estimated read time: ~40 min · 5804 words (study pace)_
 
 A senior .NET developer is expected to reason about what happens *beneath* the C# they write. When a request slows down under load, when memory climbs and never comes back, when a `Scoped` service throws in a singleton, or when a container image is 200 MB larger than it should be — the answers all live in the runtime. This chapter is a deep tour of that machinery: how memory is managed, how your IL becomes machine code, how the modern hosting stack (configuration, dependency injection, logging, background work) is wired together, and how to serialize data efficiently. By the end you should be able to hold a mental model of the CLR precise enough to debug production problems and make informed architectural decisions.
 
@@ -1753,7 +1753,7 @@ The through-line of this chapter is that ASP.NET Core is a **pipeline of composa
 
 # Chapter 4: Data Access & Databases
 
-_⏱️ Estimated read time: ~28 min · 4109 words (study pace)_
+_⏱️ Estimated read time: ~30 min · 4109 words (study pace)_
 
 Almost every non-trivial application is, underneath all its features, a machine for moving data in and out of a database safely and quickly. You can write flawless business logic and beautiful APIs, but if your data access layer holds locks too long, fires a thousand queries where one would do, or corrupts a balance under concurrent writes, the whole system fails in ways that are hard to reproduce and harder to fix. This chapter takes you from the mechanics of Entity Framework Core down to the SQL and storage engine underneath it, then back up through caching, NoSQL, and deployment. The goal is that you stop treating the database as a black box and start reasoning about what it actually does.
 
@@ -2186,7 +2186,7 @@ The through-line of this chapter is that the database is not a black box. EF Cor
 
 # Chapter 5: Design Patterns, Principles & Clean Code
 
-_⏱️ Estimated read time: ~77 min · 10020 words (study pace)_
+_⏱️ Estimated read time: ~1 h 15 min · 10020 words (study pace)_
 
 A senior developer is not someone who has memorized twenty-three patterns from a book. A senior developer is someone who can look at a tangle of code and *feel* where the seams should be, who reaches for a pattern the way a carpenter reaches for the right chisel, and who — crucially — knows when to leave the chisel in the box and just drive the nail.
 
@@ -3720,7 +3720,7 @@ The senior move is restraint. Reach for the simplest structure that fits the for
 
 # Chapter 7: Testing
 
-_⏱️ Estimated read time: ~36 min · 5240 words (study pace)_
+_⏱️ Estimated read time: ~35 min · 5240 words (study pace)_
 
 Most developers arrive at their first senior interview able to write a test. Far fewer can explain *why* one test is worth writing and another is worth deleting, why a green test suite can still be worthless, or why the team that mocks everything ends up trusting nothing. This chapter is about that second, harder layer of understanding. We will write plenty of code, but the code is in service of judgment. By the end you should be able to look at a pull request and say, with reasons, "this test earns its keep" or "this test is a liability."
 
@@ -4346,7 +4346,7 @@ Write tests that would fail if the behaviour broke, that read clearly when they 
 
 # Chapter 8: Asynchronous & Concurrent Programming
 
-_⏱️ Estimated read time: ~33 min · 4842 words (study pace)_
+_⏱️ Estimated read time: ~35 min · 4842 words (study pace)_
 
 Few topics separate a mid-level .NET developer from a senior one as sharply as a genuine understanding of asynchrony. Almost everyone can sprinkle `async` and `await` on a method until the compiler stops complaining. Far fewer can explain what those keywords actually *do*, why a stray `.Result` can freeze a web server solid, or when reaching for a thread actively makes things slower.
 
@@ -4915,7 +4915,7 @@ Master these, and asynchronous code stops being a source of mysterious hangs and
 
 # Chapter 9: Messaging & Distributed Systems
 
-_⏱️ Estimated read time: ~36 min · 5005 words (study pace)_
+_⏱️ Estimated read time: ~35 min · 5005 words (study pace)_
 
 Somewhere along the road from junior to senior, you stop asking "how do I call this API?" and start asking "what happens when this API is down, slow, or lying to me?" That shift in mindset is the heart of distributed systems. This chapter is about the tools and patterns we use to build systems out of many independent parts that keep working even when some of those parts fail.
 
@@ -5517,7 +5517,7 @@ None of these patterns is exotic once you've internalized the core insight: **th
 
 # Chapter 10: Cloud — AWS & Azure
 
-_⏱️ Estimated read time: ~24 min · 4142 words (study pace)_
+_⏱️ Estimated read time: ~25 min · 4142 words (study pace)_
 
 For most of computing history, running software meant owning hardware. You bought servers, racked them in a room with expensive cooling, hired people to replace failed disks at 3 a.m., and paid for enough capacity to survive your busiest day of the year — capacity that sat idle the other 364 days. The cloud rewired this economic model. Instead of buying a power station, you plug into the grid and pay for the kilowatt-hours you actually use. That single shift in mindset — from *owning capacity* to *renting capability* — is the thread that runs through everything in this chapter.
 
@@ -5913,7 +5913,7 @@ Two habits underpin real seniority in the cloud: define everything as code (Terr
 
 # Chapter 11: Containers & Orchestration
 
-_⏱️ Estimated read time: ~34 min · 5257 words (study pace)_
+_⏱️ Estimated read time: ~35 min · 5257 words (study pace)_
 
 For most of computing history, "it works on my machine" was a punchline and a genuine source of pain. You'd build software against a particular version of the .NET runtime, a specific OpenSSL, a certain timezone database, and a filesystem laid out just so — and then ship it to a server that differed in a dozen invisible ways. Containers are the industry's collective answer to that problem: package the application *together with* everything it needs to run, then run that package identically everywhere.
 
@@ -6481,7 +6481,7 @@ At scale, **Kubernetes** takes over: you *declare* desired state — Deployments
 
 # Chapter 12: DevOps & CI/CD
 
-_⏱️ Estimated read time: ~32 min · 4665 words (study pace)_
+_⏱️ Estimated read time: ~30 min · 4665 words (study pace)_
 
 DevOps is not a job title, a tool, or a team you can buy. It is a way of working in which the people who write software and the people who run it in production share responsibility for the whole lifecycle. The practical machinery that makes this possible is automation: version control that lets many people change the same codebase safely, pipelines that build and test every change, and deployment mechanisms that push validated code to users without drama. This chapter takes you from the internals of Git all the way to canary deployments, with .NET as the running example throughout. By the end you should be able to design a pipeline, reason about a branching strategy, and explain to a junior why rebasing a shared branch is a bad idea.
 
@@ -7020,7 +7020,7 @@ None of these practices is exotic. Their power is cumulative: together they turn
 
 # Chapter 13: Observability
 
-_⏱️ Estimated read time: ~26 min · 4312 words (study pace)_
+_⏱️ Estimated read time: ~25 min · 4312 words (study pace)_
 
 Imagine you are the pilot of a modern aircraft. You cannot see the engines, you cannot feel the air pressure at 35,000 feet with your bare skin, and you certainly cannot inspect every one of the thousands of moving parts in real time. Yet you fly with confidence. Why? Because in front of you sits a cockpit full of instruments: altimeters, fuel gauges, temperature readouts, and warning lights that scream at you the moment something drifts out of tolerance. The aircraft is a black box, but the instruments make it *observable*.
 
@@ -7463,7 +7463,7 @@ Build the cockpit before you need it. When the 3 a.m. page arrives — and it wi
 
 # Chapter 14: Security
 
-_⏱️ Estimated read time: ~32 min · 5050 words (study pace)_
+_⏱️ Estimated read time: ~30 min · 5050 words (study pace)_
 
 Security is not a feature you bolt on at the end of a sprint. It is a property of a system that emerges from thousands of small decisions: how you parse input, where you store a connection string, which overload of a crypto API you call, and whether you trusted a value that came from the network. A senior .NET developer is expected to make those decisions correctly by reflex, and to recognize when a colleague has not.
 
@@ -8498,7 +8498,7 @@ The senior mindset: **the AI drafts, you own.** Treat generated code exactly lik
 
 # Chapter 17: Soft Skills & Engineering Practices
 
-_⏱️ Estimated read time: ~29 min · 5066 words (study pace)_
+_⏱️ Estimated read time: ~30 min · 5066 words (study pace)_
 
 You already know how to write good C#. You can wire up dependency injection, reason about `async`/`await`, tune an EF Core query, and design a clean bounded context. That is the price of admission to being a *middle* engineer. It is not what makes you a senior one.
 
@@ -8887,7 +8887,7 @@ You already have the technical foundation. The path from middle to senior runs s
 
 # Chapter 18: The AI-Native Developer — Thriving and Building in the AI Era
 
-_⏱️ Estimated read time: ~77 min · 14332 words (study pace)_
+_⏱️ Estimated read time: ~1 h 15 min · 14332 words (study pace)_
 
 For most of your career the deal has been simple: you learn to write code, and in exchange the industry pays you well to write it. That deal is being renegotiated in real time. By 2025 and into 2026, a competent AI coding assistant can produce a working REST endpoint, a unit test suite, an EF Core migration, or a plausible refactor faster than you can open the file. The raw act of turning a clear specification into syntactically correct C# — the thing you spent years getting good at — has largely been commoditized. That is not a threat to be defended against. It is a promotion, if you understand what you are being promoted into.
 
@@ -10080,7 +10080,7 @@ The other fallacies — the network is secure, topology doesn't change, there is
 
 # Chapter 20: Distributed Systems Theory & Reliability Engineering
 
-_⏱️ Estimated read time: ~21 min · 3830 words (study pace)_
+_⏱️ Estimated read time: ~20 min · 3830 words (study pace)_
 
 A single-process program lives in a comfortable universe. Memory reads are instantaneous, function calls always return, and if something crashes, the whole thing crashes together — you never have to reason about *half* your program being alive while the other half is dead. The moment you split that program across two machines connected by a network, you leave that comfortable universe forever. Messages get lost. Clocks disagree. One node thinks another is dead when it is merely slow. And crucially, **you can never tell the difference between a slow node and a dead one** — that single fact is the source of most of the pain in this chapter.
 
@@ -10315,7 +10315,7 @@ The mid-level instinct is to make the network invisible and hope. The senior ins
 
 # Chapter 21: Background Processing, Scheduling & the Actor Model
 
-_⏱️ Estimated read time: ~28 min · 3847 words (study pace)_
+_⏱️ Estimated read time: ~30 min · 3847 words (study pace)_
 
 Almost every non-trivial system does work that no user is waiting on: sending emails, retrying failed payments, rebuilding search indexes, aggregating metrics, cleaning up expired data. The naive approach - do it inline on the request thread - couples user-facing latency to work that has no business being on the hot path, and it silently loses that work whenever a request is cancelled or a pod restarts.
 
@@ -10797,7 +10797,7 @@ The arc of this chapter is a maturation in how you think about "later" work. A `
 
 # Chapter 22: Data at Scale & Multi-Tenancy
 
-_⏱️ Estimated read time: ~24 min · 4319 words (study pace)_
+_⏱️ Estimated read time: ~25 min · 4319 words (study pace)_
 
 For most of a system's life, a single well-tuned database is enough. You add indexes, you cache the hot paths, you buy a bigger machine, and the graphs stay green. Then one day they don't. The write-ahead log can't flush fast enough, a nightly report locks a table that customers need, connections pile up faster than the pool can hand them out, and your one biggest customer's traffic starts starving everyone else. Scaling data is the art of pushing that day as far into the future as possible, and knowing what to do when it finally arrives.
 
@@ -11078,7 +11078,7 @@ Now `context.Invoices.ToList()` returns only the current tenant's invoices — t
 
 # Chapter 23: Serialization & Schema Evolution
 
-_⏱️ Estimated read time: ~29 min · 4504 words (study pace)_
+_⏱️ Estimated read time: ~30 min · 4504 words (study pace)_
 
 Every non-trivial system eventually stops being a single process holding objects in memory. The moment your data crosses a boundary — a socket, a message broker, a file on disk, a cache, an HTTP response — those in-memory objects have to be flattened into a sequence of bytes and reconstructed on the other side. That flattening is *serialization*, and the reconstruction is *deserialization*. It sounds mechanical, almost beneath a senior engineer's attention. It is not. The decisions you make here quietly determine how fast your service is, how much you pay for network and storage, whether two teams can deploy independently, and whether a schema change ships smoothly on a Tuesday or triggers a 2 a.m. incident.
 
@@ -11849,7 +11849,7 @@ The senior mindset that unifies them: **every test is an investment with a cost 
 
 # Chapter 25: Real-World Engineering Essentials
 
-_⏱️ Estimated read time: ~26 min · 3814 words (study pace)_
+_⏱️ Estimated read time: ~25 min · 3814 words (study pace)_
 
 Most textbook code lives in a fantasy world. The clock is always noon, everyone speaks American English, prices are round dollar amounts, files fit in memory, and email "just sends." Production is where those assumptions go to die. The incidents that wake engineers at 3 a.m. are rarely caused by clever algorithms gone wrong — they are caused by a timestamp stored in the server's local time, a `double` that lost a penny, a `ToUpper()` that mangled a Turkish username, or a 2 GB upload that pinned a web server's memory.
 
@@ -12238,7 +12238,7 @@ This is the pattern behind every resilient real-world app: **the request path st
 
 # Chapter 26: Data Structures, Algorithms & System Design Fundamentals
 
-_⏱️ Estimated read time: ~31 min · 4598 words (study pace)_
+_⏱️ Estimated read time: ~30 min · 4598 words (study pace)_
 
 Most working developers can build features all day without ever writing a sorting algorithm from scratch. So why does this material still matter? Because the moment you cross from "mid-level" to "senior," your job stops being "make it work" and becomes "make it work *at scale, under constraints, and predictably*." A senior engineer is the person who looks at a nested loop over a growing list and quietly senses it will become a production incident in six months. That instinct is not magic — it is fluency in the language of data structures, algorithms, and system design.
 
@@ -13792,7 +13792,7 @@ public decimal Price(Cart cart)
 
 # Chapter 30: Linux & the Command Line for .NET Developers
 
-_⏱️ Estimated read time: ~33 min · 3910 words (study pace)_
+_⏱️ Estimated read time: ~35 min · 3910 words (study pace)_
 
 For most of its life, .NET meant Windows. You wrote C# in Visual Studio, pressed F5, deployed to IIS, and rarely thought about the operating system underneath. That world still exists, but it is no longer where most new .NET code *runs*. Since .NET Core, the runtime is cross-platform, open source, and — crucially — the default target for cloud deployment is a Linux container.
 
@@ -14276,7 +14276,7 @@ Practice by doing: spin up an Ubuntu container (`docker run -it ubuntu bash`), p
 
 # Chapter 31: Putting It All Together — A Capstone Learning Path
 
-_⏱️ Estimated read time: ~12 min · 2461 words (study pace)_
+_⏱️ Estimated read time: ~10 min · 2461 words (study pace)_
 
 You have reached the capstone chapter — the two that follow it (the real-world scenario playbook and the interview question bank) are reference material to return to. If you have worked through the ones before it you now hold a wide inventory of tools: the C# language, the runtime, ASP.NET Core, EF Core, design patterns, architecture, testing, async, messaging, cloud, containers, DevOps, observability, security, performance, networking, distributed-systems theory, background processing and actors, data at scale, serialization and schema evolution, advanced testing, real-world essentials, algorithms and system design, compliance and cost, frontend, legacy modernization, Linux, the AI-native craft, and the human side of it all. Knowing about each of these is not the same as being able to reach for the right one under pressure. Senior engineers are not defined by how many concepts they can name; they are defined by how quickly they can assemble those concepts into a working system and defend the trade-offs they made along the way.
 
@@ -14443,7 +14443,7 @@ You have the map, you have the capstone, and you have the habits. The only thing
 
 # Chapter 32: Real-World Scenarios & Architectural Decisions
 
-_⏱️ Estimated read time: ~65 min · 11385 words (study pace)_
+_⏱️ Estimated read time: ~1 h 5 min · 11385 words (study pace)_
 
 Every senior engineer eventually learns that the hard part of the job is not writing code — it is deciding what to do when the code you already shipped meets reality. Reality shows up as a traffic spike you did not plan for, a "successful" request that silently lost data, a p99 latency graph that looks like a seismograph, and a dependency that vanishes at the worst possible moment. This chapter is a war-room playbook. Each scenario is a story you could plausibly live through on a production on-call rotation, framed around one question: *how do you react, and what architectural decision does that push you toward?*
 
@@ -15324,7 +15324,7 @@ Have a plan *before* the breach: detect, contain, assess scope (which data, whos
 
 # Chapter 33: Interview Questions & How to Answer Them
 
-_⏱️ Estimated read time: ~34 min · 6704 words (study pace)_
+_⏱️ Estimated read time: ~35 min · 6704 words (study pace)_
 
 This chapter is a recall-and-rehearse bank. Every topic here is taught in depth earlier in the book; the goal now is to turn that knowledge into crisp spoken answers under pressure. Read a question, cover the answer, and say your version out loud. If it comes out rambling, tighten it.
 
@@ -15757,7 +15757,7 @@ Practice out loud, time yourself, and remember: interviewers hire for *reasoning
 
 # Appendix A: Quick-Reference Roadmap & Checklist
 
-_⏱️ Estimated read time: ~12 min · 2399 words (study pace)_
+_⏱️ Estimated read time: ~10 min · 2399 words (study pace)_
 
 > This appendix reproduces the original one-page roadmap the book was built from. Use it as a checklist to track what you've leveled up. Each section maps to a full chapter above.
 
@@ -16143,7 +16143,7 @@ You'll touch **80% of this list** in one evolving project — far more valuable 
 
 # Appendix B: .NET Version Comparison Cheat-Sheet
 
-_⏱️ Estimated read time: ~7 min · 1453 words (study pace)_
+_⏱️ Estimated read time: ~5 min · 1453 words (study pace)_
 
 This appendix is a fast, interview-oriented reference for the modern .NET release line (.NET 5 and later — the unified, cross-platform successor to both .NET Core and .NET Framework). It is deliberately shallow: enough to answer "what changed between versions" crisply in an interview, not a migration guide. Every date and support designation below was verified against Microsoft's official support policy and release documentation (see **Sources**).
 

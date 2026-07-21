@@ -77,7 +77,13 @@ def with_readtime(md, is_home):
         return "\n".join(lines)
     total, prose, code = word_stats("\n".join(lines))
     mins = (prose * 10 // 200 + code * 10 // 60 + 5) // 10  # ~200 wpm prose, ~60 wpm code
-    rt = "_⏱️ Estimated read time: ~%d min · %d words (study pace)_" % (mins, total)
+    mins = max(5, int(round(mins / 5.0)) * 5)              # round to the nearest 5 minutes
+    if mins >= 60:
+        h, m = divmod(mins, 60)
+        label = ("%d h" % h) + (" %d min" % m if m else "")
+    else:
+        label = "%d min" % mins
+    rt = "_⏱️ Estimated read time: ~%s · %d words (study pace)_" % (label, total)
     out, injected = [], False
     for ln in lines:
         out.append(ln)

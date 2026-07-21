@@ -209,8 +209,8 @@ function saveLast(){ if(!current) return; try{
 function scheduleSave(){ clearTimeout(_saveT); _saveT=setTimeout(saveLast,400); }
 
 function readTime(md){
-  var m=md.match(/Estimated read time:\s*(~\s*\d+\s*min)/i);
-  return m?m[1].replace(/\s+/g,""):"";
+  var m=md.match(/Estimated read time:\s*~\s*(\d+\s*h(?:\s*\d+\s*min)?|\d+\s*min)/i);
+  return m?("~"+m[1].replace(/\s+/g," ").trim()):"";
 }
 function buildNav(){
   var html="", lastPart=null;
