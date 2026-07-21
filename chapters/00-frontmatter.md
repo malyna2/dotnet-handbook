@@ -24,7 +24,7 @@ Let's begin.
 
 ## Table of Contents
 
-> **Total study time: ~16 hours** (reading prose at ~200 wpm and parsing every code sample at ~60 wpm). A straight cover-to-cover read is closer to **12 hours**; a quick skim, **~9 hours**. Per-chapter estimates are listed below and repeated under each chapter heading.
+> **Total study time: ~18 hours** (reading prose at ~200 wpm and parsing every code sample at ~60 wpm). A straight cover-to-cover read is closer to **13 hours**; a quick skim, **~10 hours**. Per-chapter estimates are listed below and repeated under each chapter heading.
 
 **Part I — The Language and the Platform** · *~2h 20m*
 - [Chapter 1: C# Language Mastery](#chapter-1-c-language-mastery) · ~47 min
@@ -72,6 +72,10 @@ Let's begin.
 
 **Part VIII — Capstone**
 - [Chapter 31: Putting It All Together — A Capstone Learning Path](#chapter-31-putting-it-all-together--a-capstone-learning-path) · ~12 min
+
+**Part IX — The War Room: Scenarios & Interviews** · *~1h 39m*
+- [Chapter 32: Real-World Scenarios & Architectural Decisions](#chapter-32-real-world-scenarios--architectural-decisions) · ~65 min
+- [Chapter 33: Interview Questions & How to Answer Them](#chapter-33-interview-questions--how-to-answer-them) · ~34 min
 
 **Appendices**
 - [Appendix A: Quick-Reference Roadmap & Checklist](#appendix-a-quick-reference-roadmap--checklist)

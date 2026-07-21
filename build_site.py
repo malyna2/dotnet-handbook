@@ -39,6 +39,8 @@ ORDER = [
     ("29-legacy-brownfield",      "Part VII — Foundations, Governance & Specializations"),
     ("30-linux-cli",              "Part VII — Foundations, Governance & Specializations"),
     ("31-capstone",               "Part VIII — Capstone"),
+    ("32-scenarios",              "Part IX — The War Room: Scenarios & Interviews"),
+    ("33-interview",              "Part IX — The War Room: Scenarios & Interviews"),
     ("99-appendix-roadmap",       "Appendices"),
     ("100-appendix-b-versions",   "Appendices"),
 ]
