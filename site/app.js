@@ -200,6 +200,7 @@ var content=document.getElementById("content");
 var navEl=document.getElementById("nav");
 var outlineEl=document.getElementById("outline");
 var current=null;
+var pendingFind=null;
 var _saveT;
 function saveLast(){ if(!current) return; try{
   localStorage.setItem("last", current.slug);
@@ -241,6 +242,7 @@ function go(slug, push, restore){
   document.title=(c.nav?c.nav+" · ":"")+".NET Handbook";
   closeSidebar();
   if(push!==false) history.replaceState(null,"","#/"+c.slug);
+  if(pendingFind){ highlightFind(pendingFind); pendingFind=null; }
 }
 function highlightNav(slug){
   navEl.querySelectorAll("a").forEach(function(a){a.classList.toggle("active",a.dataset.slug===slug);});
@@ -329,7 +331,13 @@ function runSearch(q){
   }).join("");
   searchResults.hidden=false;
   searchResults.querySelectorAll("a").forEach(function(a){
-    a.addEventListener("click",function(){searchResults.hidden=true;searchBox.value="";});
+    a.addEventListener("click",function(ev){
+      ev.preventDefault();
+      var slug=a.getAttribute("href").slice(2);
+      pendingFind=q; searchResults.hidden=true; searchBox.value="";
+      if(current && current.slug===slug){ highlightFind(pendingFind); pendingFind=null; }
+      else location.hash="#/"+slug;
+    });
   });
 }
 searchBox.addEventListener("input",function(){runSearch(this.value);});
@@ -347,6 +355,69 @@ function rectFromSelection(){
   if(sel && sel.rangeCount){ var r=sel.getRangeAt(0).getBoundingClientRect(); if(r.width||r.height) return r; }
   return null;
 }
+
+function splitSentencesSmart(text){
+  var res=[], start=0, re=/[.!?]+["'’”)\]]*\s+(?=[A-Z0-9"“'(])/g, m;
+  while((m=re.exec(text))){ var end=m.index+m[0].length; res.push({s:start,e:end}); start=end; }
+  if(start<text.length) res.push({s:start,e:text.length});
+  return res;
+}
+function nearestBlock(node){
+  var el=node&&node.nodeType===3?node.parentNode:node;
+  while(el&&el!==content){
+    if(/^(P|LI|TD|TH|BLOCKQUOTE|H1|H2|H3|H4|H5|H6|DIV|DD|DT|FIGCAPTION)$/.test(el.tagName)) return el;
+    el=el.parentNode;
+  }
+  return null;
+}
+// Expand a selection to the sentence(s) it covers PLUS one sentence on each side,
+// so partial selections and abbreviations like ".NET" still translate as full context.
+function expandSelection(sel, fallback){
+  try{
+    if(!sel||!sel.anchorNode) return fallback;
+    var block=nearestBlock(sel.anchorNode);
+    var selText=sel.toString();
+    var text=block?block.textContent:"";
+    if(!text) return selText||fallback;
+    var idx=text.indexOf(selText);
+    if(idx<0) return selText||fallback;
+    var start=idx, end=idx+selText.length;
+    var sents=splitSentencesSmart(text), first=-1, last=-1, i;
+    for(i=0;i<sents.length;i++){ if(sents[i].e>start && sents[i].s<end){ if(first<0)first=i; last=i; } }
+    if(first<0) return selText||fallback;
+    var lo=Math.max(0,first-1), hi=Math.min(sents.length-1,last+1);
+    var withN=text.slice(sents[lo].s, sents[hi].e).trim();
+    if(withN.length<=480) return withN;                    // MyMemory free-tier length guard
+    var matched=text.slice(sents[first].s, sents[last].e).trim();
+    if(matched.length<=480) return matched;
+    return (selText||fallback).slice(0,480);
+  }catch(e){ return fallback; }
+}
+// Scroll to and briefly highlight the first occurrence of q in the current chapter.
+function highlightFind(q){
+  q=(q||"").trim(); if(!q) return;
+  var old=content.querySelector("mark.find-hit");
+  if(old) old.replaceWith(document.createTextNode(old.textContent));
+  var ql=q.toLowerCase();
+  var walker=document.createTreeWalker(content,NodeFilter.SHOW_TEXT,null), node;
+  while((node=walker.nextNode())){
+    var par=node.parentNode; if(!par) continue;
+    if(par.closest && par.closest("pre,code,.tr-popup")) continue;
+    var idx=node.nodeValue.toLowerCase().indexOf(ql);
+    if(idx>=0){
+      try{
+        var range=document.createRange();
+        range.setStart(node,idx); range.setEnd(node,idx+q.length);
+        var mark=document.createElement("mark"); mark.className="find-hit";
+        range.surroundContents(mark);
+        mark.scrollIntoView({block:"center",behavior:"smooth"});
+        setTimeout(function(){ if(mark.parentNode) mark.replaceWith(document.createTextNode(mark.textContent)); },4000);
+      }catch(e){}
+      return;
+    }
+  }
+}
+
 document.addEventListener("mouseup",function(e){
   if(e.target.closest && e.target.closest(".tr-popup,.sel-translate")) return;
   setTimeout(function(){
@@ -366,9 +437,10 @@ selBtn.addEventListener("mousedown",function(e){ e.preventDefault(); }); // pres
 selBtn.addEventListener("click",function(){
   var r=rectFromSelection(); if(r) lastRect=r;
   selBtn.hidden=true;
+  var textToTranslate=expandSelection(window.getSelection(), lastSel);
   var anchor=lastRect;
   showPopup("…", anchor, true);
-  translate(lastSel).then(function(uk){ showPopup(uk, anchor, false); })
+  translate(textToTranslate).then(function(uk){ showPopup(uk, anchor, false); })
     .catch(function(err){ removePopup(); toast(err.message||"Translation failed. Check your connection."); });
 });
 function showPopup(text, r, loading){
