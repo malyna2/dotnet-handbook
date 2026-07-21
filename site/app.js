@@ -394,6 +394,29 @@ function expandSelection(sel, fallback){
   }catch(e){ return fallback; }
 }
 // Scroll to and briefly highlight the first occurrence of q in the current chapter.
+function caretAt(x,y){
+  if(document.caretRangeFromPoint) return document.caretRangeFromPoint(x,y);
+  if(document.caretPositionFromPoint){ var pp=document.caretPositionFromPoint(x,y);
+    if(pp){ var r=document.createRange(); r.setStart(pp.offsetNode,pp.offset); return r; } }
+  return null;
+}
+function textOffsetInBlock(block, container, offsetInNode){
+  var w=document.createTreeWalker(block, NodeFilter.SHOW_TEXT, null), n, total=0;
+  while((n=w.nextNode())){ if(n===container) return total+offsetInNode; total+=n.nodeValue.length; }
+  return total;
+}
+// The sentence at `off`, plus the previous and next sentence.
+function expandAtOffset(text, off){
+  var sents=splitSentencesSmart(text), idx=-1, i;
+  for(i=0;i<sents.length;i++){ if(off>=sents[i].s && off<sents[i].e){ idx=i; break; } }
+  if(idx<0){ for(i=0;i<sents.length;i++){ if(off<sents[i].e){ idx=i; break; } } }
+  if(idx<0) idx=sents.length-1;
+  if(idx<0) return "";
+  var lo=Math.max(0,idx-1), hi=Math.min(sents.length-1,idx+1);
+  var out=text.slice(sents[lo].s, sents[hi].e).trim();
+  if(out.length<=480) return out;
+  return text.slice(sents[idx].s, sents[idx].e).trim().slice(0,480);
+}
 function highlightFind(q){
   q=(q||"").trim(); if(!q) return;
   var old=content.querySelector("mark.find-hit");
@@ -464,6 +487,25 @@ function showPopup(text, r, loading){
 }
 document.addEventListener("mousedown",function(e){
   if(popup && !e.target.closest(".tr-popup") && !e.target.closest(".sel-translate")) removePopup();
+});
+// Click a word in the text to translate its sentence plus the previous and next one.
+content.addEventListener("click",function(e){
+  if(e.target.closest("a, button, pre, code, .codeblock, .tr-popup, .sel-translate")) return;
+  var sel=window.getSelection();
+  if(sel && sel.toString().trim().length>0) return;      // a drag-selection is handled by the button
+  var start=e.target.nodeType===3?e.target.parentNode:e.target;
+  var block=nearestBlock(start);
+  if(!block) return;
+  var rng=caretAt(e.clientX, e.clientY);
+  if(!rng || !rng.startContainer || !block.contains(rng.startContainer)) return;
+  var off=textOffsetInBlock(block, rng.startContainer, rng.startOffset);
+  var textToTranslate=expandAtOffset(block.textContent, off);
+  if(!textToTranslate) return;
+  var rect={left:e.clientX, top:e.clientY, width:0, height:0, bottom:e.clientY};
+  lastRect=rect;
+  showPopup("…", rect, true);
+  translate(textToTranslate).then(function(uk){ showPopup(uk, rect, false); })
+    .catch(function(err){ removePopup(); toast(err.message||"Translation failed. Check your connection."); });
 });
 
 /* ---------------- Theme ---------------- */
