@@ -269,7 +269,7 @@ foreach (var x in items)
 
 ## Async Performance
 
-Chapter 14 covered async correctness. Here we cover its cost. Every `async` method that actually suspends builds a state machine and, if it awaits an incomplete operation, allocates a `Task`. Usually this is fine. In extremely hot async paths — think a method called millions of times that *often completes synchronously* (a cache hit, a buffered read) — that per-call `Task` allocation adds up.
+Chapter 8 covered async correctness. Here we cover its cost. Every `async` method that actually suspends builds a state machine and, if it awaits an incomplete operation, allocates a `Task`. Usually this is fine. In extremely hot async paths — think a method called millions of times that *often completes synchronously* (a cache hit, a buffered read) — that per-call `Task` allocation adds up.
 
 **`ValueTask<T>`** exists for exactly this case. It can wrap a synchronously-available result *without allocating a Task*, only falling back to a real Task when the operation truly runs asynchronously.
 

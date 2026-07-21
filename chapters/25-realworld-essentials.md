@@ -192,8 +192,14 @@ public readonly record struct Money
 
     public static Money operator +(Money a, Money b) => a.Add(b);
 
-    public override string ToString() =>
-        (MinorUnits / 100m).ToString("C", CultureInfo.CurrentCulture);
+    // Minor-unit digits vary by currency (JPY 0, USD 2, BHD 3), so scale by the currency's
+    // exponent rather than assuming 2 decimals, and show the ISO code to avoid the wrong-symbol trap.
+    public override string ToString()
+    {
+        var digits = Currency switch { "JPY" or "KRW" or "VND" => 0, "BHD" or "KWD" or "OMR" => 3, _ => 2 };
+        var amount = MinorUnits / (decimal)Math.Pow(10, digits);
+        return $"{amount.ToString("N" + digits, CultureInfo.CurrentCulture)} {Currency}";
+    }
 }
 ```
 

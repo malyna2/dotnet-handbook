@@ -183,7 +183,7 @@ public T CreateAndInit<T>() where T : class, IInitializable, new()
 }
 ```
 
-The full menu of constraints: `where T : struct` (non-nullable value type), `where T : class` (reference type), `where T : notnull`, `where T : unmanaged` (blittable value type, no references — enables pointer tricks), `where T : new()` (parameterless constructor), `where T : SomeBaseClass`, `where T : ISomeInterface`, and `where T : U` (one type parameter derived from another). Since C# 11 you can also constrain to a delegate or enum type.
+The full menu of constraints: `where T : struct` (non-nullable value type), `where T : class` (reference type), `where T : notnull`, `where T : unmanaged` (blittable value type, no references — enables pointer tricks), `where T : new()` (parameterless constructor), `where T : SomeBaseClass`, `where T : ISomeInterface`, and `where T : U` (one type parameter derived from another). Since C# 7.3 you can also constrain to a delegate or enum type.
 
 > **Gotcha:** The `new()` constraint compiles to `Activator.CreateInstance`, which historically had overhead. For hot paths, a factory delegate parameter can be faster.
 
@@ -6702,7 +6702,7 @@ on:
     branches: [ main ]
 
 env:
-  DOTNET_VERSION: '8.0.x'
+  DOTNET_VERSION: '9.0.x'
   DOTNET_SKIP_FIRST_TIME_EXPERIENCE: true
   DOTNET_NOLOGO: true
 
@@ -6836,7 +6836,7 @@ Setting the same properties in every `.csproj` is tedious and error-prone. **`Di
 ```xml
 <Project>
   <PropertyGroup>
-    <TargetFramework>net8.0</TargetFramework>
+    <TargetFramework>net9.0</TargetFramework>
     <LangVersion>latest</LangVersion>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
@@ -8234,7 +8234,7 @@ foreach (var x in items)
 
 ## Async Performance
 
-Chapter 14 covered async correctness. Here we cover its cost. Every `async` method that actually suspends builds a state machine and, if it awaits an incomplete operation, allocates a `Task`. Usually this is fine. In extremely hot async paths — think a method called millions of times that *often completes synchronously* (a cache hit, a buffered read) — that per-call `Task` allocation adds up.
+Chapter 8 covered async correctness. Here we cover its cost. Every `async` method that actually suspends builds a state machine and, if it awaits an incomplete operation, allocates a `Task`. Usually this is fine. In extremely hot async paths — think a method called millions of times that *often completes synchronously* (a cache hit, a buffered read) — that per-call `Task` allocation adds up.
 
 **`ValueTask<T>`** exists for exactly this case. It can wrap a synchronously-available result *without allocating a Task*, only falling back to a real Task when the operation truly runs asynchronously.
 
@@ -11849,7 +11849,7 @@ The senior mindset that unifies them: **every test is an investment with a cost 
 
 # Chapter 25: Real-World Engineering Essentials
 
-_⏱️ Estimated read time: ~25 min · 3814 words (study pace)_
+_⏱️ Estimated read time: ~25 min · 3882 words (study pace)_
 
 Most textbook code lives in a fantasy world. The clock is always noon, everyone speaks American English, prices are round dollar amounts, files fit in memory, and email "just sends." Production is where those assumptions go to die. The incidents that wake engineers at 3 a.m. are rarely caused by clever algorithms gone wrong — they are caused by a timestamp stored in the server's local time, a `double` that lost a penny, a `ToUpper()` that mangled a Turkish username, or a 2 GB upload that pinned a web server's memory.
 
@@ -12041,8 +12041,14 @@ public readonly record struct Money
 
     public static Money operator +(Money a, Money b) => a.Add(b);
 
-    public override string ToString() =>
-        (MinorUnits / 100m).ToString("C", CultureInfo.CurrentCulture);
+    // Minor-unit digits vary by currency (JPY 0, USD 2, BHD 3), so scale by the currency's
+    // exponent rather than assuming 2 decimals, and show the ISO code to avoid the wrong-symbol trap.
+    public override string ToString()
+    {
+        var digits = Currency switch { "JPY" or "KRW" or "VND" => 0, "BHD" or "KWD" or "OMR" => 3, _ => 2 };
+        var amount = MinorUnits / (decimal)Math.Pow(10, digits);
+        return $"{amount.ToString("N" + digits, CultureInfo.CurrentCulture)} {Currency}";
+    }
 }
 ```
 
@@ -12742,7 +12748,7 @@ public class Customer
     [PersonalData(DataSensitivity.Sensitive)]
     public string? HealthNotes { get; set; }
 
-    public DateTimeOnly CreatedOn { get; set; }        // not personal
+    public DateTimeOffset CreatedOn { get; set; }      // not personal
 }
 ```
 
@@ -13796,7 +13802,7 @@ _⏱️ Estimated read time: ~35 min · 3910 words (study pace)_
 
 For most of its life, .NET meant Windows. You wrote C# in Visual Studio, pressed F5, deployed to IIS, and rarely thought about the operating system underneath. That world still exists, but it is no longer where most new .NET code *runs*. Since .NET Core, the runtime is cross-platform, open source, and — crucially — the default target for cloud deployment is a Linux container.
 
-If you want to move from mid-level to senior, being fluent on Linux is not optional. The senior developer is the one who can SSH into a misbehaving box at 2 a.m., read the journal, spot that the process was killed by the OOM killer, notice the container is running as UID 1000 and can't write to a volume, and fix it — without opening a GUI. This chapter gets you there.
+If you want to move from mid-level to senior, being fluent on Linux is not optional. The senior developer is the one who can SSH into a misbehaving box at 2 a.m., read the journal, spot that the process was killed by the OOM killer, notice the container is running as UID 1654 and can't write to a volume, and fix it — without opening a GUI. This chapter gets you there.
 
 ## Why Linux Matters for Modern .NET
 
@@ -13889,17 +13895,17 @@ chown -R appuser /app/logs             # recursive, for a whole tree
 Now the classic container failure. Your Dockerfile switches to a non-root user for security:
 
 ```dockerfile
-USER app        # runs as UID 1000, not root
+USER app        # runs as UID 1654, not root
 ```
 
-Your app then tries to write to `/app/data`, but that directory was created earlier in the build as `root` with `755` — meaning only root can write. At runtime your process is UID 1000, gets **write denied**, and .NET throws `UnauthorizedAccessException`. The fix is to give ownership to the runtime user during the build:
+Your app then tries to write to `/app/data`, but that directory was created earlier in the build as `root` with `755` — meaning only root can write. At runtime your process is UID 1654, gets **write denied**, and .NET throws `UnauthorizedAccessException`. The fix is to give ownership to the runtime user during the build:
 
 ```dockerfile
 RUN mkdir -p /app/data && chown -R app:app /app/data
 USER app
 ```
 
-> **Pitfall:** Mounted volumes bring their *host* ownership into the container. A volume owned by host UID 0 mounted into a container running as UID 1000 will be unwritable no matter what your Dockerfile does. Match the UIDs, or set ownership on the volume, or run an init step as root that `chown`s the mount.
+> **Pitfall:** Mounted volumes bring their *host* ownership into the container. A volume owned by host UID 0 mounted into a container running as UID 1654 will be unwritable no matter what your Dockerfile does. Match the UIDs, or set ownership on the volume, or run an init step as root that `chown`s the mount.
 
 > **Best practice:** Run containers as non-root. The official .NET 8+ images include a pre-created `app` user (UID 1654) and even default to it. Don't undo that for convenience — a compromised root container is a compromised host.
 
@@ -14443,11 +14449,11 @@ You have the map, you have the capstone, and you have the habits. The only thing
 
 # Chapter 32: Real-World Scenarios & Architectural Decisions
 
-_⏱️ Estimated read time: ~1 h 5 min · 11385 words (study pace)_
+_⏱️ Estimated read time: ~1 h 5 min · 11395 words (study pace)_
 
 Every senior engineer eventually learns that the hard part of the job is not writing code — it is deciding what to do when the code you already shipped meets reality. Reality shows up as a traffic spike you did not plan for, a "successful" request that silently lost data, a p99 latency graph that looks like a seismograph, and a dependency that vanishes at the worst possible moment. This chapter is a war-room playbook. Each scenario is a story you could plausibly live through on a production on-call rotation, framed around one question: *how do you react, and what architectural decision does that push you toward?*
 
-Treat this as a reference you can open under pressure and as an interview crib sheet. The earlier chapters gave you the building blocks — scaling and cloud (Ch. 10), containers and Kubernetes (Ch. 11), data at scale (Ch. 22), messaging and distributed patterns (Ch. 9), distributed theory and SRE (Ch. 20), the runtime and GC (Ch. 2), and performance (Ch. 15). Here we do not re-teach those; we put them to work under fire and reason about the trade-offs. This is Part A, covering the first four scenarios (traffic surge, lost writes, GC pauses, and a failed critical dependency); later parts continue the playbook with more failure modes.
+Treat this as a reference you can open under pressure and as an interview crib sheet. The earlier chapters gave you the building blocks — scaling and cloud (Ch. 10), containers and Kubernetes (Ch. 11), data at scale (Ch. 22), messaging and distributed patterns (Ch. 9), distributed theory and SRE (Ch. 20), the runtime and GC (Ch. 2), and performance (Ch. 15). Here we do not re-teach those; we put them to work under fire and reason about the trade-offs. Each of the nine scenarios below follows the same shape: the situation, how you notice it, how to stop the bleeding, the root causes, the durable fix and its trade-offs, and how to talk about it in an interview.
 
 ---
 

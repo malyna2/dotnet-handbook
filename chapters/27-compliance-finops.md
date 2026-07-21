@@ -54,7 +54,7 @@ public class Customer
     [PersonalData(DataSensitivity.Sensitive)]
     public string? HealthNotes { get; set; }
 
-    public DateTimeOnly CreatedOn { get; set; }        // not personal
+    public DateTimeOffset CreatedOn { get; set; }      // not personal
 }
 ```
 

@@ -4,7 +4,7 @@ _⏱️ Estimated read time: ~33 min ·     3976 words (study pace)_
 
 For most of its life, .NET meant Windows. You wrote C# in Visual Studio, pressed F5, deployed to IIS, and rarely thought about the operating system underneath. That world still exists, but it is no longer where most new .NET code *runs*. Since .NET Core, the runtime is cross-platform, open source, and — crucially — the default target for cloud deployment is a Linux container.
 
-If you want to move from mid-level to senior, being fluent on Linux is not optional. The senior developer is the one who can SSH into a misbehaving box at 2 a.m., read the journal, spot that the process was killed by the OOM killer, notice the container is running as UID 1000 and can't write to a volume, and fix it — without opening a GUI. This chapter gets you there.
+If you want to move from mid-level to senior, being fluent on Linux is not optional. The senior developer is the one who can SSH into a misbehaving box at 2 a.m., read the journal, spot that the process was killed by the OOM killer, notice the container is running as UID 1654 and can't write to a volume, and fix it — without opening a GUI. This chapter gets you there.
 
 ## Why Linux Matters for Modern .NET
 
@@ -97,17 +97,17 @@ chown -R appuser /app/logs             # recursive, for a whole tree
 Now the classic container failure. Your Dockerfile switches to a non-root user for security:
 
 ```dockerfile
-USER app        # runs as UID 1000, not root
+USER app        # runs as UID 1654, not root
 ```
 
-Your app then tries to write to `/app/data`, but that directory was created earlier in the build as `root` with `755` — meaning only root can write. At runtime your process is UID 1000, gets **write denied**, and .NET throws `UnauthorizedAccessException`. The fix is to give ownership to the runtime user during the build:
+Your app then tries to write to `/app/data`, but that directory was created earlier in the build as `root` with `755` — meaning only root can write. At runtime your process is UID 1654, gets **write denied**, and .NET throws `UnauthorizedAccessException`. The fix is to give ownership to the runtime user during the build:
 
 ```dockerfile
 RUN mkdir -p /app/data && chown -R app:app /app/data
 USER app
 ```
 
-> **Pitfall:** Mounted volumes bring their *host* ownership into the container. A volume owned by host UID 0 mounted into a container running as UID 1000 will be unwritable no matter what your Dockerfile does. Match the UIDs, or set ownership on the volume, or run an init step as root that `chown`s the mount.
+> **Pitfall:** Mounted volumes bring their *host* ownership into the container. A volume owned by host UID 0 mounted into a container running as UID 1654 will be unwritable no matter what your Dockerfile does. Match the UIDs, or set ownership on the volume, or run an init step as root that `chown`s the mount.
 
 > **Best practice:** Run containers as non-root. The official .NET 8+ images include a pre-created `app` user (UID 1654) and even default to it. Don't undo that for convenience — a compromised root container is a compromised host.
 
