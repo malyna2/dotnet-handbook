@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="en" data-theme="auto">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>The Middle → Senior .NET Developer Handbook</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div id="app">
+  <!-- Top bar -->
+  <header id="topbar">
+    <button id="menuBtn" class="icon-btn" aria-label="Toggle navigation" title="Toggle navigation">☰</button>
+    <div class="brand" id="brandHome">.NET Handbook</div>
+    <div class="search-wrap">
+      <input id="search" type="search" placeholder="Search chapters…" autocomplete="off" spellcheck="false">
+      <div id="searchResults" class="search-results" hidden></div>
+    </div>
+    <div class="top-actions">
+      <button id="langBtn" class="pill" title="Translation settings">🇺🇦 UA</button>
+      <button id="themeBtn" class="icon-btn" title="Toggle light/dark">🌓</button>
+    </div>
+  </header>
+
+  <!-- Sidebar navigation -->
+  <nav id="sidebar" aria-label="Table of contents">
+    <div id="nav"></div>
+  </nav>
+  <div id="scrim"></div>
+
+  <!-- Main content -->
+  <main id="main">
+    <div id="reading-progress"></div>
+    <article id="content"></article>
+    <nav id="pager" class="pager"></nav>
+    <footer id="footer">
+      <p>Self-contained handbook · click any sentence or select text to translate to Ukrainian.</p>
+    </footer>
+  </main>
+
+  <!-- In-chapter section outline (right rail, desktop) -->
+  <aside id="outline" aria-label="On this page"></aside>
+</div>
+
+<!-- Floating "translate selection" button -->
+<button id="selTranslate" class="sel-translate" hidden>🇺🇦 Translate</button>
+
+<!-- Translation settings dialog -->
+<div id="langModal" class="modal" hidden>
+  <div class="modal-card">
+    <h3>Translation settings</h3>
+    <p class="muted">Translations use the free <b>MyMemory</b> API (English → Ukrainian). No account needed.
+    Anonymous use is rate-limited; adding your email raises the daily limit substantially.</p>
+    <label>Your email (optional, for higher limits)
+      <input id="emailInput" type="email" placeholder="you@example.com">
+    </label>
+    <label>Target language
+      <select id="targetLang">
+        <option value="uk" selected>Ukrainian (uk)</option>
+        <option value="pl">Polish (pl)</option>
+        <option value="de">German (de)</option>
+        <option value="es">Spanish (es)</option>
+        <option value="fr">French (fr)</option>
+        <option value="ru">Russian (ru)</option>
+      </select>
+    </label>
+    <div class="modal-actions">
+      <button id="clearCache" class="btn ghost">Clear cached translations</button>
+      <button id="langClose" class="btn">Done</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast" class="toast" hidden></div>
+
+<script src="content.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
