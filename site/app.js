@@ -348,7 +348,11 @@ document.addEventListener("click",function(e){
 
 /* ---------------- Select-to-translate → popup over the selection ---------------- */
 var selBtn=document.getElementById("selTranslate");
-var lastSel="", lastRect=null, popup=null;
+var lastSel="", lastRect=null, popup=null, pendingText="";
+function positionSelBtn(vx, vy){
+  selBtn.style.left=(vx+window.scrollX)+"px";
+  selBtn.style.top=(vy+window.scrollY)+"px";
+}
 function removePopup(){ if(popup){popup.remove();popup=null;} }
 function rectFromSelection(){
   var sel=window.getSelection();
@@ -456,21 +460,36 @@ document.addEventListener("mouseup",function(e){
   setTimeout(function(){
     var sel=window.getSelection();
     var txt=sel&&sel.toString().trim();
-    if(txt && txt.length>1 && sel.anchorNode && content.contains(sel.anchorNode)){
-      lastSel=txt; lastRect=rectFromSelection();
-      if(lastRect){
-        selBtn.style.left=(lastRect.left+lastRect.width/2+window.scrollX)+"px";
-        selBtn.style.top=(lastRect.top+window.scrollY)+"px";
-        selBtn.hidden=false;
+    // a real selection -> offer to translate the selected text
+    if(txt && txt.length>0 && sel.anchorNode && content.contains(sel.anchorNode)){
+      pendingText=txt; lastRect=rectFromSelection();
+      if(lastRect){ positionSelBtn(lastRect.left+lastRect.width/2, lastRect.top); selBtn.hidden=false; }
+      else selBtn.hidden=true;
+      return;
+    }
+    // a plain tap on a word -> offer to translate just that word
+    if(content.contains(e.target) && !(e.target.closest && e.target.closest("a, button, pre, code, .codeblock, .tr-popup, .sel-translate"))){
+      var block=nearestBlock(e.target.nodeType===3?e.target.parentNode:e.target);
+      var rng=caretAt(e.clientX, e.clientY);
+      if(block && rng && rng.startContainer && block.contains(rng.startContainer)){
+        var off=textOffsetInBlock(block, rng.startContainer, rng.startOffset);
+        var word=wordAtOffset(block.textContent, off);
+        if(word){
+          pendingText=word;
+          lastRect={left:e.clientX, top:e.clientY, width:0, height:0, bottom:e.clientY};
+          positionSelBtn(e.clientX, e.clientY); selBtn.hidden=false;
+          return;
+        }
       }
-    }else{ selBtn.hidden=true; }
+    }
+    selBtn.hidden=true;
   },10);
 });
 selBtn.addEventListener("mousedown",function(e){ e.preventDefault(); }); // preserve the selection
 selBtn.addEventListener("click",function(){
   var r=rectFromSelection(); if(r) lastRect=r;
   selBtn.hidden=true;
-  var textToTranslate=lastSel;
+  var textToTranslate=pendingText;
   var anchor=lastRect;
   showPopup("…", anchor, true);
   translate(textToTranslate).then(function(uk){ showPopup(uk, anchor, false); })
@@ -498,25 +517,8 @@ function showPopup(text, r, loading){
 document.addEventListener("mousedown",function(e){
   if(popup && !e.target.closest(".tr-popup") && !e.target.closest(".sel-translate")) removePopup();
 });
-// Click a word in the text to translate its sentence plus the previous and next one.
-content.addEventListener("click",function(e){
-  if(e.target.closest("a, button, pre, code, .codeblock, .tr-popup, .sel-translate")) return;
-  var sel=window.getSelection();
-  if(sel && sel.toString().trim().length>0) return;      // a drag-selection is handled by the button
-  var start=e.target.nodeType===3?e.target.parentNode:e.target;
-  var block=nearestBlock(start);
-  if(!block) return;
-  var rng=caretAt(e.clientX, e.clientY);
-  if(!rng || !rng.startContainer || !block.contains(rng.startContainer)) return;
-  var off=textOffsetInBlock(block, rng.startContainer, rng.startOffset);
-  var textToTranslate=wordAtOffset(block.textContent, off);
-  if(!textToTranslate) return;
-  var rect={left:e.clientX, top:e.clientY, width:0, height:0, bottom:e.clientY};
-  lastRect=rect;
-  showPopup("…", rect, true);
-  translate(textToTranslate).then(function(uk){ showPopup(uk, rect, false); })
-    .catch(function(err){ removePopup(); toast(err.message||"Translation failed. Check your connection."); });
-});
+// Word taps and text selections are handled by the mouseup listener above: both
+// show the Translate button, and the API is only called when that button is pressed.
 
 /* ---------------- Theme ---------------- */
 var themeBtn=document.getElementById("themeBtn");
