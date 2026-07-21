@@ -1,6 +1,6 @@
 # Chapter 5: Design Patterns, Principles & Clean Code
 
-_⏱️ Estimated read time: ~77 min · 10031 words (study pace)_
+_⏱️ Estimated read time: ~1 h 10 min · 8952 words (study pace)_
 
 A senior developer is not someone who has memorized twenty-three patterns from a book. A senior developer is someone who can look at a tangle of code and *feel* where the seams should be, who reaches for a pattern the way a carpenter reaches for the right chisel, and who — crucially — knows when to leave the chisel in the box and just drive the nail.
 
@@ -674,19 +674,15 @@ Dependency Inversion is the principle behind the entire .NET dependency injectio
 - **Law of Demeter (principle of least knowledge):** A method should talk only to its immediate collaborators, not reach through them. `order.Customer.Address.Country.Code` is a "train wreck" that couples you to the whole object graph; ask the nearest object for what you need instead. (LINQ chains are a deliberate exception — they operate on one pipeline, not a web of distinct objects.)
 - **Composition over Inheritance:** Prefer assembling behavior from small, injected parts over deep inheritance trees. Inheritance is rigid — it's decided at compile time, exposes you to fragile-base-class problems, and forces the whole contract of the parent onto the child. Composition (the engine behind Strategy, Decorator, and DI) is flexible and testable. When you're about to write `class X : Y` for code reuse rather than a true "is-a" relationship, stop and ask whether X should instead *have* a Y.
 
-## Clean Code: Writing Code Humans Can Read
+## Clean Code & Code Smells
 
-You will spend far more of your career reading code than writing it — reading to fix a bug, reading to add a feature, reading to remember what you yourself did three months ago. Studies and everyday experience agree that the ratio of reading to writing is lopsided, easily ten to one. That single observation reorganizes your priorities. If code is read ten times for every time it is written, then the reader — not the compiler, not your ego — is the customer you are writing for.
+You will spend far more of your career reading code than writing it — easily ten times more. That single observation reorganizes your priorities: the reader, not the compiler, is the customer you are writing for. The principles above are the *structural* side of good code; clean code is the *local* side — what a single name, method, or file looks like up close, which is where most developers actually spend their day. And it is not a matter of taste: messy code slows every future change and quietly taxes every estimate your team gives.
 
 > **Clarity beats cleverness.** The compiler does not reward you for a dense one-liner, and the next developer will silently curse you for it. Optimize for the person who has to understand this code under pressure at 2 a.m.
 
-Clean code is not a style preference or a matter of taste you can wave away. It is an economic decision. Messy code slows every future change, multiplies the chance of introducing bugs, and quietly taxes every estimate your team gives. The patterns and principles covered earlier in this chapter — SOLID, DRY, KISS, YAGNI, separation of concerns — are the *structural* side of good code. Clean code is the *local* side: what a single method, name, or file looks like up close. Both matter, and the local side is where most developers actually spend their day.
-
 ### Naming: the cheapest documentation you will ever write
 
-A good name does the work of a comment for free and never goes stale. A bad name actively lies to you. Naming is genuinely hard, but the payoff is enormous because names are the interface through which you read everything else.
-
-Aim for **intention-revealing names**. The name should answer why the thing exists, what it does, and how it is used — without forcing the reader to hunt for the answer elsewhere.
+A good name does the work of a comment for free and never goes stale; a bad name actively lies to you. Aim for **intention-revealing names** — the name should answer why the thing exists and what it does without forcing the reader to hunt elsewhere.
 
 ```csharp
 // BEFORE — every name forces a mental lookup
@@ -716,18 +712,16 @@ Nothing about the algorithm changed. What changed is that `cell.IsFlagged` tells
 
 A handful of concrete rules cover most cases:
 
-- **Avoid abbreviations and encodings.** `custMgr`, `strName`, `bIsActive` save a few keystrokes and cost every reader a translation step. Modern IDEs autocomplete; there is no excuse for `usr` over `user`. The old Hungarian-notation habit of baking the type into the name (`strName`, `iCount`) is obsolete in a statically typed language — the type is right there.
-- **Use searchable names.** A bare `7` scattered through a file is impossible to grep for and easy to confuse with other sevens. `MaxRetryAttempts = 7` can be found, understood, and changed in one place.
-- **Avoid disinformation.** Do not call something `accountList` if it is actually a `Dictionary`. Do not name a variable `hp` if it does not mean what "hp" means to the reader.
-- **Classes are nouns, methods are verbs.** `Customer`, `InvoiceGenerator`, `PaymentProcessor` for classes; `CalculateTotal()`, `SendEmail()`, `IsValid()` for methods. A method named `Customer()` or a class named `Process` breaks the reader's model.
-- **Keep a consistent vocabulary.** Pick one word per concept and stick with it. If you `Fetch` in one place, `Retrieve` in another, and `Get` in a third, the reader wonders whether the difference is meaningful. It usually is not — so pick one.
-- **Avoid mental mapping.** Do not make the reader remember that in this loop `i` is really the customer index and `j` is really the order index. Name them `customerIndex` and `orderIndex`. The only place a single-letter name earns its keep is a tiny, conventional scope like a short LINQ lambda.
+- **No abbreviations or encodings.** `custMgr`, `strName`, `bIsActive` save keystrokes and cost every reader a translation step; in a statically typed language the type is already in the declaration, and the IDE autocompletes.
+- **Use searchable names.** A bare `7` cannot be grepped; `MaxRetryAttempts = 7` can be found, understood, and changed in one place.
+- **Avoid disinformation.** Do not call something `accountList` if it is actually a `Dictionary`.
+- **Classes are nouns, methods are verbs.** `InvoiceGenerator` and `CalculateTotal()`; a class named `Process` breaks the reader's model.
+- **One word per concept.** If you `Fetch` in one place, `Retrieve` in another, and `Get` in a third, the reader wonders whether the difference is meaningful. It usually is not — pick one.
+- **No mental mapping.** Name loop variables `customerIndex`, not `i`. Single letters earn their keep only in a tiny, conventional scope like a short LINQ lambda.
 
 ### Functions: small, focused, honest
 
-The single most reliable structural rule for readable code is that **functions should be small and do one thing**. A function that fits on your screen without scrolling, whose statements all operate at the same conceptual level, is a function you can understand in one pass.
-
-"One thing" is easier to feel than to define, but a useful test is the **single level of abstraction**: within a function, do not mix high-level policy with low-level mechanics. If one line calls `CalculatePricing(order)` and the next line is fiddling with string indices, those belong at different levels and probably in different methods.
+The single most reliable structural rule for readable code is that **functions should be small and do one thing**. "One thing" is easier to feel than to define, but a useful test is the **single level of abstraction**: do not mix high-level policy with low-level mechanics. If one line calls `CalculatePricing(order)` and the next is fiddling with string indices, those belong at different levels and probably in different methods.
 
 ```csharp
 // BEFORE — one function, three levels of abstraction, several responsibilities
@@ -786,18 +780,15 @@ private static decimal LineTotal(OrderItem item)
 
 Some hard-won guidelines for function signatures:
 
-- **Few parameters.** Zero, one, or two are easy. Three is a warning sign. **More than three is a smell**: introduce a *parameter object* that groups related arguments into a named type. It reads better and resists the classic bug of passing arguments in the wrong order.
-- **Avoid flag/boolean parameters.** A call like `GenerateReport(true)` is unreadable at the call site — true *what*? A boolean parameter almost always means the function does two things; split it into `GenerateDetailedReport()` and `GenerateSummaryReport()`.
-- **Avoid output parameters.** In C#, `out` and `ref` parameters that mutate the caller's variables surprise readers. Prefer returning a value or a small record. (The idiomatic `TryParse` pattern is the sanctioned exception.)
-- **Command-Query Separation.** A method should either *do* something (a command that changes state, returns void) or *answer* something (a query that returns a value and changes nothing) — not both. `if (SetAttribute("x"))` is confusing because the reader cannot tell whether it is asking a question or performing an action.
-- **No hidden side effects.** A method named `IsValid` that quietly initializes a session, or `GetUser` that also updates a last-seen timestamp, betrays its name. Side effects that contradict the name are a rich source of bugs.
-- **Prefer exceptions to error codes.** Returning `-1` or `false` to signal failure forces the caller to check and pollutes the happy path with error handling. Throwing lets the happy path stay clean and makes ignoring the error a deliberate act.
+- **Few parameters.** Zero to two are easy; more than three is a smell — introduce a *parameter object* that groups related arguments into a named type. It reads better and resists the classic bug of passing arguments in the wrong order.
+- **No flag parameters.** `GenerateReport(true)` is unreadable at the call site — true *what*? A boolean parameter almost always means the function does two things; split it in two.
+- **Avoid output parameters.** `out` and `ref` parameters that mutate the caller's variables surprise readers; return a value or a small record instead. (The idiomatic `TryParse` pattern is the sanctioned exception.)
+- **Command-Query Separation.** A method should either *do* something (change state, return void) or *answer* something (return a value, change nothing) — not both. `if (SetAttribute("x"))` leaves the reader unsure whether it asks or acts.
+- **No hidden side effects.** An `IsValid` that quietly initializes a session, or a `GetUser` that also updates a last-seen timestamp, betrays its name — a rich source of bugs.
 
 ### Comments: explain the WHY, not the WHAT
 
-The best comment is the one you did not need to write because the code said it for you. A comment is a small failure — an admission that the code could not express intent on its own. Sometimes that failure is unavoidable and the comment is exactly right. Often it is a missed opportunity to rename a variable or extract a well-named method.
-
-The distinction that matters is **why versus what**. Code already states *what* it does; a comment restating that is noise that will drift out of date the moment someone edits the code without touching the comment.
+A comment is a small failure — an admission that the code could not express intent on its own. Sometimes that is unavoidable and the comment is exactly right; often it is a missed opportunity to rename a variable or extract a well-named method. The distinction that matters is **why versus what**: code already states *what* it does, and a comment restating that is noise that will drift out of date the moment someone edits the code without touching it.
 
 ```csharp
 // BAD — restates the obvious, and will lie the day the code changes
@@ -815,92 +806,41 @@ Good comments earn their place: they explain *intent* behind a non-obvious choic
 
 For **public APIs**, XML doc comments (`/// <summary>`) are the right kind of comment: they surface in IntelliSense, feed generated documentation, and describe a contract that consumers cannot see the implementation of. Document the public surface; keep private methods self-explanatory instead.
 
-### Formatting and structure
+### Formatting, error handling, and everyday discipline
 
-Formatting is not about beauty; it is about reducing the reader's cognitive load. The single most important rule is **consistency** — and you should not be enforcing it by hand. Push it down into an `.editorconfig` and Roslyn analyzers so the whole team formats identically and the CI build fails on drift (see the Tooling chapter for setting this up). Arguing about brace placement in code review is a waste of expensive human attention that a tool settles for free.
+Formatting is not about beauty; it is about reducing the reader's cognitive load, and its single rule is **consistency** — which you should not enforce by hand. Push it into an `.editorconfig` and Roslyn analyzers so CI fails on drift (see the Tooling chapter); arguing about brace placement in code review wastes expensive human attention a tool settles for free. Beyond that, aim for **locality**: declare variables near first use, keep a private helper just below the method that calls it, and use blank lines as punctuation between distinct thoughts.
 
-Beyond consistency, aim for **vertical density and locality**: keep related things close together. Declare a variable near where it is first used, not at the top of a 200-line method. Keep a private helper method just below the public method that calls it, so the reader can follow the call chain by scrolling down. Blank lines are punctuation — use them to separate distinct thoughts within a method, and do not scatter them randomly.
+Error handling shapes how readable the *success* path is. Prefer exceptions to error codes — returning `-1` or `false` pollutes the happy path and makes ignoring failure the default — and reach for the Result pattern covered earlier when failure is *expected* rather than exceptional. Never swallow exceptions: an empty `catch { }` hides exactly the information you will want later. Fail fast — validate at the boundary and throw immediately rather than letting a bad value travel deep into the system — and flatten nesting with the guard clauses covered earlier. Finally, **do not return `null`** as a routine result: prefer an empty collection for "no results" (callers just `foreach`), a `Result<T>` for meaningful failure, and nullable reference types so any remaining risk is at least visible to the compiler.
 
-### Error handling is part of clean code
+Two closing habits round this out. The **Boy-Scout Rule**: leave the code a little cleaner than you found it — rename one confusing variable, delete one block of commented-out code each time you pass through; small improvement compounds and reverses entropy. And a healthy suspicion of **clever code**: the deeply nested ternary or fifteen-line LINQ trick is satisfying to write and miserable to read. Cleverness that saves a line but costs the reader a minute is a bad trade — this is KISS applied at the keyboard, and the senior move is the boring version your teammates understand instantly.
 
-How you handle failure shapes how readable the *success* path is. As noted above, prefer **exceptions over return codes**. Beyond that:
+### Code smells: naming the pain
 
-- **Never swallow exceptions.** An empty `catch { }` hides the very information you will desperately want later. If you truly must ignore something, log it and leave a comment explaining why it is safe.
-- **Fail fast.** Validate inputs at the boundary and throw immediately (`ArgumentNullException`, `ArgumentException`) rather than letting a bad value travel deep into the system where the eventual failure is unrelatable to its cause.
-- **Use guard clauses and early returns** to flatten nested conditionals. As covered earlier in this chapter, deep nesting is hard to follow; inverting conditions and returning early keeps the main logic at the leftmost indentation.
-
-```csharp
-// BEFORE — the arrow of doom; the real work is buried four levels deep
-public decimal Discount(Customer customer)
-{
-    if (customer != null)
-    {
-        if (customer.IsActive)
-        {
-            if (customer.Orders.Any())
-            {
-                return customer.IsPremium ? 0.2m : 0.1m;
-            }
-        }
-    }
-    return 0m;
-}
-```
-
-```csharp
-// AFTER — guard clauses handle the exceptions first, logic stays flat
-public decimal Discount(Customer customer)
-{
-    ArgumentNullException.ThrowIfNull(customer);
-
-    if (!customer.IsActive) return 0m;
-    if (!customer.Orders.Any()) return 0m;
-
-    return customer.IsPremium ? 0.2m : 0.1m;
-}
-```
-
-Finally, **do not return `null`** as a routine result. Null is the invitation to a `NullReferenceException` and forces every caller to remember a defensive check. Prefer an empty collection for "no results", a `Result<T>` or `Option<T>` type for operations that can fail meaningfully (the Result pattern covered earlier), or nullable reference types with the compiler's null-flow analysis turned on so the risk is at least visible. Returning an empty `IEnumerable<T>` instead of null means the caller can just `foreach` without ceremony.
-
-### The Boy-Scout Rule and the cost of cleverness
-
-Two closing habits separate developers who keep a codebase healthy from those who let it rot.
-
-The first is the **Boy-Scout Rule**: leave the code a little cleaner than you found it. You do not need a grand refactoring project. Rename one confusing variable, extract one overgrown method, delete one block of commented-out code each time you pass through. Small, continuous improvement compounds and quietly reverses the entropy that otherwise creeps into every long-lived project.
-
-The second is a healthy suspicion of **clever code**. The bit-twiddling trick, the deeply nested ternary, the LINQ query that spans fifteen lines and three levels of `SelectMany` — these feel satisfying to write and are miserable to read. Cleverness that saves a line but costs the reader a minute is a bad trade. Write the boring, obvious version. The senior move is usually not the cleverest solution but the one your teammates understand instantly.
-
-## Code Smells & Their Refactorings
-
-A **code smell** is a surface-level symptom in the code that hints at a deeper design problem. The term, popularized by Martin Fowler and Kent Beck, is deliberately soft. A smell is not a bug — the code may work perfectly — and it is not automatically wrong. It is a *heuristic*: something that, in your experience, is worth a second look. A long method is not illegal; it is just a place where problems tend to hide.
+A **code smell** — the term popularized by Martin Fowler and Kent Beck — is a surface-level symptom that hints at a deeper design problem. A smell is not a bug (the code may work perfectly) and not automatically wrong; it is a *heuristic*, something worth a second look. Its real value is vocabulary: when you can name what bothers you ("this is Feature Envy"), you also know the standard refactorings that address it.
 
 > **Smells guide, they do not dictate.** A smell is a prompt to *consider* a refactoring, not a rule that forces one. Sometimes the smelly version is genuinely the clearest option, and forcing a "clean" structure onto it makes things worse.
 
-The value of learning the catalogue is that it gives you a shared vocabulary and a fast pattern-matcher. When you can name what bothers you about a piece of code ("this is Feature Envy"), you also know the standard set of refactorings that address it.
-
-### A catalogue of common smells
-
-| Smell | What it is | Common refactoring(s) |
+| Smell | The pain you feel | Refactor toward |
 |---|---|---|
-| **Long Method** | A method that does too much or is simply too long to grasp at a glance. | Extract Method; Replace Temp with Query; Decompose Conditional. |
-| **Large Class / God Object** | A class with too many fields and responsibilities that knows and does everything. | Extract Class; Extract Interface; move behavior to collaborators. |
-| **Long Parameter List** | More than ~3 parameters, or several that always travel together. | Introduce Parameter Object; Preserve Whole Object. |
-| **Duplicated Code** | The same structure repeated in multiple places (violates DRY). | Extract Method/Class; Pull Up Method; Form Template Method. |
-| **Feature Envy** | A method that is more interested in another class's data than its own. | Move Method; Extract Method then Move. |
-| **Primitive Obsession** | Using primitives (`string`, `decimal`, `int`) for domain concepts. | Replace Primitive with Value Object; Encapsulate. |
-| **Data Clumps** | The same group of fields/parameters appearing together repeatedly. | Extract Class; Introduce Parameter Object. |
-| **Shotgun Surgery** | One change forces many small edits across many classes. | Move Method/Field to consolidate the responsibility. |
-| **Divergent Change** | One class changes for many different reasons (violates SRP). | Extract Class to split along the axes of change. |
-| **Switch Statements / Type Code** | A `switch` on a type field, often duplicated across the codebase. | Replace Conditional with Polymorphism; Strategy. |
-| **Message Chains / Train Wreck** | `a.B().C().D().E()` — reaching through many objects (Law of Demeter). | Hide Delegate; Extract Method; add a purposeful method. |
-| **Temporal Coupling** | Methods that must be called in a specific hidden order to work. | Redesign API so misuse is impossible; combine steps. |
-| **Speculative Generality** | Abstraction built for a future that never arrives (violates YAGNI). | Collapse Hierarchy; Inline Class; delete the unused hooks. |
-| **Comments (as deodorant)** | Comments used to explain bad code instead of fixing it. | Extract Method with a good name; Rename. |
-| **Magic Numbers / Strings** | Unexplained literals scattered through the code. | Replace Magic Number with Named Constant; enum. |
+| **Long Method** | You scroll, lose the plot, can't test the middle | Extract Method; Decompose Conditional |
+| **God Class / Large Class** | Every change lands here; constant merge conflicts | Extract Class; move behavior to collaborators |
+| **Long Parameter List** | Unreadable call sites; arguments in the wrong order | Parameter Object |
+| **Duplicated Code** | You fix a bug twice and miss the third copy | Extract Method/Class — one home per piece of knowledge |
+| **Feature Envy** | A method keeps reaching into another class's data | Move Method to where the data lives |
+| **Primitive Obsession** | Same validation scattered; invalid values circulate freely | Value Object |
+| **Data Clumps** | The same field trio travels everywhere together | Extract Class (an `Address`, a `DateRange`) |
+| **Shotgun Surgery** | One small change means edits across many files | Move Method/Field to consolidate the responsibility |
+| **Divergent Change** | One class changes for unrelated reasons (SRP violated) | Extract Class along the axes of change |
+| **Switch on Type** | The same `switch` duplicated; each new case is a hunt | Replace Conditional with Polymorphism; Strategy |
+| **Message Chains** | `a.B().C().D()` breaks when anything in the chain moves | Hide Delegate; ask the nearest object (Demeter) |
+| **Temporal Coupling** | Methods only work when called in a secret order | Redesign the API so misuse won't compile |
+| **Speculative Generality** | Abstractions nobody uses that everyone pays for | Collapse Hierarchy; delete unused hooks (YAGNI) |
+| **Comments as deodorant** | Prose apologizing for code that can't explain itself | Extract Method with a good name; Rename |
+| **Magic Numbers / Strings** | Unexplained literals nobody dares to change | Named Constant; enum |
 
-Several of these are the local, code-level face of principles covered earlier in this chapter: Divergent Change is a Single Responsibility violation, Duplicated Code is a DRY violation, Message Chains break the Law of Demeter, and Speculative Generality is YAGNI ignored. The smell vocabulary and the principle vocabulary describe the same underlying forces from different distances.
+Several of these are the local, code-level face of the principles above: Divergent Change is SRP violated, Duplicated Code is DRY violated, Message Chains break the Law of Demeter, Speculative Generality is YAGNI ignored. The smell vocabulary and the principle vocabulary describe the same forces from different distances.
 
-### Refactoring 1: Primitive Obsession → Value Object
+### A worked refactoring: Primitive Obsession → Value Object
 
 Representing a domain concept as a bare primitive scatters its rules across the codebase and lets invalid values exist.
 
@@ -940,101 +880,15 @@ public class Customer
 
 The validation now lives in exactly one place, the type system guarantees that any `EmailAddress` in the system is valid, and the domain reads in domain terms. This is the same move that dissolves Data Clumps — a `street`/`city`/`postcode`/`country` quartet that keeps appearing together wants to become an `Address` value object.
 
-### Refactoring 2: Long Method → Extract Method + Replace Temp with Query
+The other two headline refactorings you have already seen in this chapter. **Long Method → Extract Method** is exactly the `ProcessOrder` walkthrough in the Functions section above; Fowler's *Replace Temp with Query* is the same move applied to temporary variables — turn each recomputed temp into a named query method, accepting a little recomputation in exchange for readability. And **Switch on Type → Polymorphism** is the same move as the Strategy/Open-Closed example from earlier in this chapter: each case becomes a class, and a new case becomes a new class instead of another edit to a `switch` that is quietly being duplicated across the codebase.
 
-Explaining variables are fine, but a method dense with temporary variables and inline computation is hard to skim. Extracting well-named queries turns computation into vocabulary.
+### Refactor under tests, in tiny steps
 
-```csharp
-// BEFORE — a wall of temps and inline logic
-public string Summarize(Invoice invoice)
-{
-    decimal subtotal = 0;
-    foreach (var line in invoice.Lines)
-        subtotal += line.Price * line.Quantity;
+Notice that the right-hand column of the smells table reduces to a small vocabulary of named moves — Extract Method/Class, Move Method, Parameter Object, Value Object, Replace Conditional with Polymorphism, Named Constant — that you will use constantly. The non-negotiable discipline around all of them: **refactor under test coverage, in tiny steps.** Refactoring by definition preserves behavior, and the only way you *know* behavior is preserved is a green test suite (see the Testing chapter). Make one small move, run the tests, commit; make the next. The catastrophic refactor is the one done in a single giant, untested edit — that is not refactoring, that is rewriting with extra confidence and no safety net.
 
-    decimal tax = subtotal * 0.2m;
-    decimal total = subtotal + tax;
+You also do not have to sniff out every smell by hand: **Roslyn analyzers** flag many issues at build time, **SonarQube**/SonarLint track duplication, complexity, and a large smell ruleset across the codebase, and cyclomatic-complexity metrics put a number on "this method is too tangled." Wire them into the pipeline as described in the Tooling chapter so smells surface in pull requests rather than in production incidents.
 
-    string status = total > 1000 ? "LARGE" : "STANDARD";
-    return $"{invoice.Number}: {total:C} ({status})";
-}
-```
-
-```csharp
-// AFTER — each concept is a named query; the summary reads like a sentence
-public string Summarize(Invoice invoice)
-    => $"{invoice.Number}: {Total(invoice):C} ({Size(invoice)})";
-
-private static decimal Subtotal(Invoice invoice)
-    => invoice.Lines.Sum(l => l.Price * l.Quantity);
-
-private static decimal Total(Invoice invoice)
-    => Subtotal(invoice) * (1 + TaxRate);
-
-private static string Size(Invoice invoice)
-    => Total(invoice) > LargeInvoiceThreshold ? "LARGE" : "STANDARD";
-```
-
-Replacing temporaries with query methods costs a little recomputation but buys readability and reusability — and if a hot path makes the recomputation matter, that is a measured optimization decision, not a default.
-
-### Refactoring 3: Switch on Type → Polymorphism / Strategy
-
-A `switch` on a type code is a smell because the *same* switch tends to appear in several places, and adding a new case means hunting them all down (Shotgun Surgery, waiting to happen).
-
-```csharp
-// BEFORE — a type code and a switch that will be duplicated elsewhere
-public decimal Pay(Employee e) => e.Type switch
-{
-    EmployeeType.Salaried => e.MonthlySalary,
-    EmployeeType.Hourly   => e.HourlyRate * e.HoursWorked,
-    EmployeeType.Commission => e.BaseSalary + e.Sales * e.CommissionRate,
-    _ => throw new ArgumentOutOfRangeException()
-};
-```
-
-```csharp
-// AFTER — each type owns its own behavior; adding a type touches one new class
-public abstract class Employee
-{
-    public abstract decimal CalculatePay();
-}
-
-public class SalariedEmployee : Employee
-{
-    public decimal MonthlySalary { get; init; }
-    public override decimal CalculatePay() => MonthlySalary;
-}
-
-public class HourlyEmployee : Employee
-{
-    public decimal HourlyRate { get; init; }
-    public decimal HoursWorked { get; init; }
-    public override decimal CalculatePay() => HourlyRate * HoursWorked;
-}
-```
-
-Now adding a `CommissionEmployee` is a new class in isolation, and the compiler helps ensure it implements the contract — no existing switch to find and edit. (When the behavior varies but the type hierarchy should not, the Strategy pattern covered earlier in this chapter is the same idea expressed through composition.)
-
-### The core refactoring moves — and how to apply them
-
-Most refactoring reduces to a small vocabulary of named moves you will use constantly:
-
-- **Extract Method / Extract Class** — pull a fragment into its own well-named unit.
-- **Introduce Parameter Object** — bundle arguments that travel together.
-- **Replace Conditional with Polymorphism** — turn a type switch into a hierarchy or strategy.
-- **Replace Magic Number with Named Constant** — give literals a name and a home.
-- **Encapsulate / Introduce Value Object** — wrap a primitive with its rules.
-- **Move Method / Move Field** — relocate behavior to the class that owns the data it uses.
-
-The non-negotiable discipline around all of them: **refactor under test coverage, in tiny steps.** Refactoring by definition preserves behavior, and the only way you *know* behavior is preserved is a green test suite (see the Testing chapter). Make one small move, run the tests, commit; make the next. The catastrophic refactor is the one done in a single giant, untested edit — that is not refactoring, that is rewriting with extra confidence and no safety net.
-
-### Let tools do the smelling for you
-
-You do not have to sniff out every smell by hand. **Roslyn analyzers** flag many issues at build time and can be tuned per project via `.editorconfig`. **SonarQube** (and the SonarLint IDE plugin) tracks duplication, complexity, and a large ruleset of smells across the codebase, and can gate your CI pipeline. **Cyclomatic complexity** and maintainability-index metrics — available in Visual Studio's Code Metrics and via analyzers — put a number on "this method is too tangled." Wire these into the pipeline as described in the Tooling chapter so smells surface in pull requests automatically rather than in production incidents.
-
-### A pragmatic closing note
-
-Smells are heuristics, not commandments. It is entirely possible to over-refactor — to shatter a perfectly readable 30-line method into eight one-line methods that force the reader to jump around the file to reconstruct a single thought, or to extract abstractions so eagerly that you commit the Speculative Generality smell in the name of cleaning up others. The goal is never "zero smells" for its own sake. The goals are **readability and changeability**: code a teammate can understand quickly and modify safely. If a refactoring serves those two ends, do it. If it only satisfies a checklist, leave it alone.
+A last pragmatic note: it is entirely possible to over-refactor — to shatter a perfectly readable 30-line method into eight one-line methods that force the reader to jump around the file to reconstruct a single thought, or to extract abstractions so eagerly that you commit Speculative Generality in the name of curing other smells. The goal is never "zero smells." The goals are **readability and changeability**: code a teammate can understand quickly and modify safely. If a refactoring serves those two ends, do it; if it only satisfies a checklist, leave it alone.
 
 > **Further reading:** *Clean Code* (Robert C. Martin), *Refactoring* (Martin Fowler), *The Pragmatic Programmer*.
 

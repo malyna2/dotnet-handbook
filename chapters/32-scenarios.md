@@ -6,6 +6,22 @@ Every senior engineer eventually learns that the hard part of the job is not wri
 
 Treat this as a reference you can open under pressure and as an interview crib sheet. The earlier chapters gave you the building blocks — scaling and cloud (Ch. 10), containers and Kubernetes (Ch. 11), data at scale (Ch. 22), messaging and distributed patterns (Ch. 9), distributed theory and SRE (Ch. 20), the runtime and GC (Ch. 2), and performance (Ch. 15). Here we do not re-teach those; we put them to work under fire and reason about the trade-offs. Each of the nine scenarios below follows the same shape: the situation, how you notice it, how to stop the bleeding, the root causes, the durable fix and its trade-offs, and how to talk about it in an interview.
 
+## The incident cheat-card
+
+This is the page to open at 3 a.m. — one row per scenario, each row expanded in full in the scenario it points to.
+
+| Symptom | Scarcest resource right now | First three actions |
+|---|---|---|
+| p95/p99 climbs, then errors; DB CPU pinned; connection pool exhausted; health checks flap (Scenario 1) | The primary database | 1. Scale out the stateless tier. 2. Feature-flag off non-critical load. 3. Serve from cache/CDN and rate-limit at the edge — fast 429s, not slow failures. |
+| "It said it worked" tickets; DB and broker disagree; downstream saw events with no upstream record (Scenario 2) | An accurate list of affected records | 1. Reconcile the two stores to enumerate the gap. 2. Recover from the durable source (payment records, events). 3. Disable the fire-and-forget path. |
+| Periodic p99 spikes with a flat p50; % Time in GC high; Gen 2 count and LOH climbing (Scenario 3) | Heap headroom | 1. Confirm it's really GC with `dotnet-counters`. 2. Switch to Server GC with background collection. 3. Raise a too-tight container memory limit. |
+| Publishes hang; thread-pool starvation spreads to unrelated endpoints; retries storm the dead broker (Scenario 4) | Request threads | 1. Trip the circuit breaker — fail fast, stop blocking. 2. Buffer locally via the outbox; keep accepting orders. 3. Back off with jitter to kill the retry storm. |
+| Primary unreachable or corrupt; replicas faithfully mirrored the damage (Scenario 5) | The last restorable backup | 1. Stop writes — fence the primary. 2. Pick the recovery target and locate the backup chain. 3. Restore to a *new* instance; state the RPO gap to stakeholders now. |
+| A field rename in another language's service silently breaks deserialization in production (Scenario 6) | A written contract per boundary | 1. Map every cross-language boundary: who calls whom, sync or async, payload. 2. Flag shared-database couplings as debt. 3. Standardize one integration style per boundary type. |
+| Sawtooth working set; `OOMKilled` (exit 137) every few hours — time kills it, not traffic (Scenario 7) | Memory headroom before the next kill | 1. Confirm leak vs. plateau vs. mis-set limit. 2. Buy time with a rolling restart / higher limit. 3. Take two gcdumps an hour apart and diff them. |
+| Ship date next week; "security" is a checkbox on someone's ticket (Scenario 8) | Review time before the ship date | 1. Walk the non-negotiables in priority order. 2. Test object-level access control — can Alice fetch Bob's order? 3. Scan dependencies and the repo history for leaked secrets. |
+| An erasure request citing GDPR; a junior just logged the full user object, PII included (Scenario 9) | Knowing where the PII actually lives | 1. Classify the fields and find every copy. 2. Stop the log leak — scrub at the boundary. 3. Erase via crypto-shred plus purge; loop in legal/privacy. |
+
 ---
 
 ## Scenario 1 — Black Friday: traffic is 5× and the shop is falling over
@@ -662,39 +678,38 @@ A new service is going to production next week. The security review is a checkbo
 
 ### The senior's non-negotiables
 
-Frame the whole thing around **defense in depth**: no single control is trusted to be perfect, so you layer them. If auth is bypassed, input validation still holds; if validation is bypassed, least-privilege limits the blast radius. Here is what earns a place on the list, roughly in priority order.
+Frame the whole thing around **defense in depth**: no single control is trusted to be perfect, so you layer them until any single bypass is contained. What earns a place on the list, roughly in priority order:
 
 | # | Control | What a senior insists on | Chapter cross-ref |
 |---|---|---|---|
-| 1 | **AuthN / AuthZ done right** | Real identity provider (OIDC), tokens validated (signature, issuer, audience, expiry), authorization checked **per resource** not just per route. No "we'll add roles later." | Ch 14 |
-| 2 | **Least privilege everywhere** | Every service, DB user, and cloud role gets the *minimum* permissions. The app's DB account cannot `DROP TABLE`. No shared god-credentials. | Ch 14, 27 |
-| 3 | **Secrets management** | **Zero secrets in code or config files.** Key Vault / Secrets Manager / environment-injected secrets, rotated, never committed. Scan history for leaked keys. | Ch 14 |
-| 4 | **Injection defenses** | Parameterized queries / an ORM — *never* string-concatenated SQL. Validate and constrain all input at the boundary. Applies to SQL, NoSQL, LDAP, OS commands. | Ch 14 |
-| 5 | **Output encoding / XSS** | Encode on output for the context (HTML, attribute, JS, URL). Framework auto-encoding on; `Html.Raw` treated as a red flag requiring justification. | Ch 14 |
-| 6 | **TLS everywhere + HSTS** | HTTPS end to end, including service-to-service. `Strict-Transport-Security` header. No plaintext internal hops "because it's the private network." | Ch 10, 14 |
-| 7 | **Dependency scanning & patching** | Automated SCA (Dependabot / `dotnet list package --vulnerable` / Snyk) in CI. Supply-chain awareness — a transitive package is your attack surface. | Ch 14 |
-| 8 | **Rate limiting + auth on *every* endpoint** | No unauthenticated internal endpoints "nobody knows about." Rate limits on auth, expensive, and public endpoints. ASP.NET Core rate-limiting middleware. | Ch 14 |
-| 9 | **Security headers / CSP** | `Content-Security-Policy`, `X-Content-Type-Options: nosniff`, frame protections. CSP as XSS mitigation in depth. | Ch 14 |
-| 10 | **Logging / auditing without leaking** | Audit security events (logins, permission changes, PII access). **Never log secrets, tokens, passwords, or full PII.** | Ch 9, 27 |
-| 11 | **Threat modeling** | Before building, ask "what can go wrong here?" for each trust boundary. STRIDE as a lightweight checklist. | Ch 14 |
-| 12 | **Zero-trust internal services** | Internal calls authenticate too (mTLS / tokens). "Inside the network" is not a trust boundary. | Ch 10 |
+| 1 | **AuthN / AuthZ done right** | Real identity provider (OIDC), tokens fully validated, authorization checked **per resource**, not just per route. | Ch 14 |
+| 2 | **Least privilege everywhere** | Minimum permissions for every service, DB user, and cloud role. No shared god-credentials. | Ch 14, 27 |
+| 3 | **Secrets management** | **Zero secrets in code or config.** Vault-injected, rotated; scan history for leaked keys. | Ch 14 |
+| 4 | **Injection defenses** | Parameterized queries / an ORM — *never* concatenated SQL. Validate and constrain input at the boundary. | Ch 14 |
+| 5 | **Output encoding / XSS** | Context-aware encoding on output; `Html.Raw` is a red flag requiring justification. | Ch 14 |
+| 6 | **TLS everywhere + HSTS** | HTTPS end to end, including service-to-service. No plaintext hops "because it's the private network." | Ch 10, 14 |
+| 7 | **Dependency scanning & patching** | Automated SCA in CI; a transitive package is your attack surface. | Ch 14 |
+| 8 | **Rate limiting + auth on *every* endpoint** | No unauthenticated endpoints "nobody knows about"; limits on auth, expensive, and public paths. | Ch 14 |
+| 9 | **Security headers / CSP** | CSP, `nosniff`, frame protections — XSS mitigation in depth. | Ch 14 |
+| 10 | **Logging / auditing without leaking** | Audit security events; **never log secrets, tokens, passwords, or full PII.** | Ch 9, 27 |
+| 11 | **Threat modeling** | "What can go wrong here?" per trust boundary, before building. STRIDE as the checklist. | Ch 14 |
+| 12 | **Zero-trust internal services** | Internal calls authenticate too. "Inside the network" is not a trust boundary. | Ch 10 |
 
 ### The OWASP Top 10 as a working checklist
 
-Do not treat OWASP as a poster. Treat it as a review checklist you *walk* before shipping: broken access control (test that user A cannot read user B's data), cryptographic failures (is anything sensitive unencrypted?), injection, insecure design, security misconfiguration (default creds, verbose errors, open buckets), vulnerable components (item 7 above), auth failures, data-integrity failures (unsigned deserialization — see **Ch 23**), logging/monitoring gaps, and SSRF. Most breaches are boring failures of these basics, not exotic zero-days.
+Do not treat OWASP as a poster. Treat it as a review checklist you *walk* before shipping — **Chapter 14** covers every category with its .NET mitigation, so the review is a walk, not a study session. Most breaches are boring failures of those basics, not exotic zero-days.
 
-> **Broken access control is consistently the #1 real-world vulnerability.** The bug is almost never "we forgot to add auth" — it is "we authenticated the user but didn't check that *this* user owns *this* record." Test authorization at the object level: can Alice fetch `/orders/{Bob's-id}`? If yes, you have the most common serious vulnerability in the industry.
+> **Broken access control is consistently the #1 real-world vulnerability**, and the bug is almost never "we forgot auth" — it is "we authenticated the user but didn't check that *this* user owns *this* record." The one test always worth running by hand: can Alice fetch `/orders/{Bob's-id}`?
 
 ### Prompt injection — the new item on the list
 
-If your service has an **AI feature** — an LLM summarizing user content, an agent calling tools — **prompt injection** joins the checklist. Untrusted input (a user message, a fetched web page, a document) can carry instructions that hijack the model. Treat model output as untrusted, never let the model's raw output trigger privileged actions without validation, constrain tool permissions (least privilege again), and keep a human or a deterministic check between the model and anything destructive. This is injection (item 4) wearing new clothes: *the LLM prompt is now an input boundary.*
+If your service has an **AI feature** — an LLM summarizing user content, an agent calling tools — **prompt injection** joins the checklist: untrusted input (a user message, a fetched page, a document) can carry instructions that hijack the model. Treat model output as untrusted, never let it trigger privileged actions without validation, constrain tool permissions (least privilege again), and keep a human or a deterministic check before anything destructive. This is injection (item 4) wearing new clothes: *the prompt is now an input boundary.*
 
 ### The reasoning a senior brings
 
 - **Security is prioritized, not exhaustive.** You cannot do everything; you do the highest-leverage things first. Access control and secrets management prevent more real breaches than any amount of exotic crypto.
 - **Defense in depth means assuming each layer will fail.** Design so that a single bypass is contained.
 - **It is cheaper early.** Threat-modeling a design costs an hour; retrofitting authorization into a shipped system costs a quarter.
-- **The boring basics win.** The industry's breaches are overwhelmingly unpatched dependencies, leaked secrets, and missing access checks — not movie-plot attacks.
 
 ---
 
@@ -708,54 +723,43 @@ Your product now stores real people's data: names, emails, addresses, maybe heal
 
 ### The core concepts
 
-- **PII / PHI.** Personally Identifiable Information (name, email, government IDs) and Protected Health Information carry the highest obligations. Know which of your fields are which — you cannot protect data you haven't classified.
-- **Data minimization.** The most powerful control is **not collecting it.** Every PII field is a liability. Do you actually need date of birth, or just "over 18"? The data you don't hold cannot be breached, subpoenaed, or mis-logged.
-- **Purpose limitation & consent.** Data collected for one purpose should not silently power another. Record *why* you hold each piece and the consent basis for it.
+**Chapter 27** covers the discipline in depth — classification (PII/PHI/special-category), data minimization, purpose limitation, consent. The triage-relevant core: you cannot protect, audit, or delete data you have not classified, and the strongest control is **not collecting the field at all**. Every PII field you hold is a liability that can be breached, subpoenaed, or mis-logged.
 
 ### Protecting the data at rest
 
-- **Encryption at rest and in transit** is table stakes (TDE, TLS). But whole-database encryption only protects against stolen disks, not a compromised app.
-- **Field-level encryption** encrypts specific sensitive columns (SSN, card number) with keys the database itself doesn't hold, so a DB compromise doesn't expose them in plaintext.
-- **Tokenization** replaces sensitive values with meaningless tokens, keeping the real value in a separate, tightly guarded vault — common for card data (PCI scope reduction).
-- **Hashing passwords vs. encrypting data — a critical distinction.** Passwords are **hashed** with a slow, salted algorithm (bcrypt, Argon2, PBKDF2) — hashing is *one-way*, you never need the original back, you only compare. PII you must display later (a user's address) is **encrypted** — *two-way*, because you need to recover the plaintext. Encrypting a password or hashing an address are both bugs.
+Encryption in transit and at rest (TLS, TDE) is table stakes — and whole-database encryption only protects against stolen disks, not a compromised app. For the genuinely sensitive columns, add **field-level encryption** (keys the database itself doesn't hold) or **tokenization** (real values in a separate vault). The cryptographic mechanics — including why passwords are *hashed* while displayable PII is *encrypted* — are **Chapter 14**'s territory; the decision here is which fields get which treatment.
 
 ### The right-to-be-forgotten vs. backups problem
 
-A deletion request seems simple until you remember **backups**. Your immutable, 35-day-retention backups contain the user's data, and you (correctly) cannot edit immutable backups. So how do you "delete" data that lives in snapshots you're legally required to keep and technically forbidden to alter?
-
-The answer the industry converged on is **crypto-shredding**: encrypt each user's PII with a **per-user key**, and to "forget" them, **destroy the key**. The ciphertext remains in live tables and backups, but without the key it is unrecoverable noise — effectively deleted. This resolves the deletion-vs-backups contradiction elegantly.
-
-The everyday companion is **soft delete** (a `DeletedAt` flag) for the live system — but note a soft-deleted row *still contains the PII*, so soft delete alone does **not** satisfy erasure. Combine: soft-delete for referential integrity, crypto-shred (or hard-purge) for the actual PII.
+A deletion request seems simple until you remember **backups**: your immutable, 35-day-retention backups contain the user's data, and you (correctly) cannot edit them. The industry's answer is **crypto-shredding** — encrypt each user's PII with a per-user key and destroy the key to "forget" them; the ciphertext left in every table and backup becomes unrecoverable noise (mechanics in **Chapter 27**). Soft delete alone does **not** satisfy erasure — combine it (for referential integrity) with crypto-shred or hard-purge for the actual PII.
 
 | Deletion approach | Satisfies erasure? | Handles backups? | Notes |
 |---|---|---|---|
 | `DELETE` the row | Live yes, backups no | ✗ | Backups still hold the data |
-| Soft delete (`DeletedAt`) | ✗ | ✗ | PII still present; a UX/integrity tool, not erasure |
-| Anonymize in place | Live yes | ✗ | Overwrite PII with nulls/tombstones; backups untouched |
-| **Crypto-shredding** | ✓ | ✓ | Destroy per-user key; ciphertext everywhere becomes unrecoverable |
+| Soft delete (`DeletedAt`) | ✗ | ✗ | A UX/integrity tool, not erasure |
+| Anonymize in place | Live yes | ✗ | Overwrite PII with nulls/tombstones |
+| **Crypto-shredding** | ✓ | ✓ | Destroy the per-user key |
 
 ### Retention, access, and audit
 
-- **Data retention & purge jobs.** Data has a lifespan. Automate purge jobs that delete/anonymize data past its retention window — don't hoard "just in case." Unbounded retention is unbounded liability.
-- **Access control & audit trails for PII.** Not everyone should read PII, and every read of sensitive data should be **auditable**: *who* accessed *whose* PII, *when*, and *why*. When a breach or insider-access question arises, this log is the only thing that answers it.
-- **Pseudonymization vs. anonymization.** **Pseudonymization** replaces identifiers with a reversible token (still personal data if you hold the mapping — reduces risk, doesn't remove obligation). **Anonymization** is *irreversible* — done properly, the data is no longer personal and falls outside most regulations. The bar for true anonymization is high; naive "remove the name" often isn't anonymous because of re-identification via combined fields.
+**Chapter 27** covers the mechanics — retention/purge jobs, audit trails, pseudonymization vs. anonymization. What matters in the room: unbounded retention is unbounded liability, and when a breach or insider-access question lands, the audit trail of *who* read *whose* PII, *when*, and *why* is the only thing that answers it.
 
 ### Data residency and logging pitfalls
 
-- **Data residency.** Some data must physically stay in a region (EU data in EU regions). This is an architecture constraint — regional deployments, region-pinned storage, careful routing (see **Chapter 10**). Retrofitting residency is painful; design for it if you have EU/regulated users.
-- **PII in logs and traces — the everyday leak.** The most common accidental PII exposure is not a hacker; it is a developer logging a whole request/user object into a log system with weak access controls, or PII landing in a distributed trace. **Scrub at the boundary:** structured-logging redaction, `[LogMasked]`-style attributes, never `LogInformation("{@user}")` on a PII-bearing object. Treat logs and traces as PII surfaces subject to the same controls as the database.
+- **Data residency.** Some data must physically stay in a region. That is an architecture constraint — regional deployments, region-pinned storage and backups — not a config flag; retrofitting it is a migration (**Chapters 10 and 27**).
+- **PII in logs and traces — the everyday leak.** The most common accidental exposure is not a hacker; it is exactly the junior's log line above — a whole user object dumped into an aggregator with weak access controls. **Scrub at the boundary** (Chapter 13's what-not-to-log discipline) and treat logs and traces as PII surfaces subject to the same controls as the database.
 
 ### Breach response basics
 
-Have a plan *before* the breach: detect, contain, assess scope (which data, whose), preserve evidence, and know your **notification obligations** (GDPR's tight breach-notification timelines, for instance) — which is exactly why the audit trail and data classification above matter. You cannot notify the right people if you don't know what data you held or who touched it.
+Have a plan *before* the breach: detect, contain, assess scope (which data, whose), preserve evidence, and know your **notification obligations** — GDPR's tight timelines are exactly why the classification and audit trail above matter. You cannot notify the right people if you don't know what you held or who touched it.
 
 ### How to prevent the pain
 
 - **Classify PII fields explicitly** at design time; you cannot protect or delete what you haven't labeled.
 - **Minimize collection** — the cheapest, strongest control.
-- **Design deletion in from the start** (per-user keys for crypto-shredding), not as a panicked retrofit when the first erasure request arrives.
-- **Automate retention/purge** and **PII-scrub logging** as platform defaults, so every service inherits them.
-- **Bring legal/privacy in early.** Treat GDPR/CCPA as *engineering requirements* — deletion, portability, consent, residency — and let the experts own the legal interpretation.
+- **Design deletion in from the start** (per-user keys for crypto-shredding), not as a panicked retrofit at the first erasure request.
+- **Automate retention/purge and PII-scrub logging** as platform defaults, so every service inherits them.
+- **Bring legal/privacy in early** and treat GDPR/CCPA as *engineering requirements* — deletion, portability, consent, residency.
 
 > A senior engineer treats personal data as **radioactive material**: valuable, useful, and dangerous to store. You minimize how much you hold, shield it (encryption, tokenization), track everyone who touches it (audit), plan its disposal (retention + crypto-shredding), and never let it leak into the places you weren't watching (logs, traces, backups). The regulations are just the legal encoding of that engineering discipline.
 

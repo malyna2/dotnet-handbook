@@ -6,6 +6,25 @@ Most application bugs that keep senior engineers up at night are not really *cod
 
 The difference between a mid-level developer and a senior one is often just this: the senior developer has a *mental model* of what happens between the moment their code calls `await httpClient.GetAsync(url)` and the moment bytes come back. This chapter builds that model. We will travel from the abstract layered models down to the wire, back up through DNS and HTTP, and finally into the operational machinery — load balancers, proxies, CDNs — that sits between your code and your users.
 
+Here is the whole journey at a glance; the rest of the chapter unpacks each hop:
+
+```
+await httpClient.GetAsync(url)
+  |
+  |  DNS lookup      name -> IP (cached per TTL)       \
+  |  TCP handshake   SYN / SYN-ACK / ACK      1 RTT     | skipped when a pooled
+  |  TLS 1.3         ClientHello/ServerHello  1 RTT     | connection is reused
+  |                                                     /  (SocketsHttpHandler)
+  v
+  HTTP request over the connection
+  |    (HTTP/2: one of many multiplexed streams on one TCP connection)
+  v
+  load balancer (L4/L7, often terminates TLS)
+  |
+  v
+  origin server --> response back down the same path --> your await resumes
+```
+
 Throughout, keep one idea in mind: **the network is a hostile, unreliable, shared medium that occasionally pretends to be a reliable function call.** Every abstraction in this chapter exists to manage that lie.
 
 ## The Layered Model: OSI and TCP/IP

@@ -66,6 +66,21 @@ The GC exploits this by dividing the heap into three **generations**:
 - **Gen 1** — a buffer between short-lived and long-lived. Objects that survive a Gen 0 collection are *promoted* to Gen 1.
 - **Gen 2** — long-lived objects. Survivors of Gen 1 are promoted here. Gen 2 also holds the Large Object Heap.
 
+```
+   new small objects
+        |
+        v
+   +--------+               +--------+               +-----------------+
+   | Gen 0  | --survivors-> | Gen 1  | --survivors-> |      Gen 2      |
+   +--------+   promoted    +--------+   promoted    +-----------------+
+    most objects                                      collected only by
+    die here (cheap,                                  full GCs (expensive)
+    frequent GCs)                                    +-----------------+
+   new objects >= 85,000 bytes --------------------> |       LOH       |
+                                                     +-----------------+
+                                                      collected with Gen 2
+```
+
 The magic is that **collecting a lower generation doesn't require scanning higher ones for most purposes**. A Gen 0 collection only examines Gen 0 objects (plus a clever mechanism, described below, to find references *from* older objects *into* Gen 0). Because Gen 0 is small and most of it is dead, Gen 0 collections are extremely cheap and frequent. Gen 2 collections (also called *full* collections) are expensive because they scan the entire heap — these are the ones you want to keep rare.
 
 > **The write barrier and card tables.** How can a Gen 0 collection be correct without scanning Gen 2? An old object might hold a reference to a young one (e.g., you add a freshly allocated item to a long-lived cache). The runtime handles this with a **write barrier**: every time you store a reference into an object's field, a tiny piece of JIT-emitted code marks a "card" (a small region of memory) as dirty in a **card table**. During a Gen 0 collection, the GC scans only the dirty cards of older generations to find cross-generational references. This is why reference assignments are marginally more expensive than value assignments — there's an invisible barrier running.

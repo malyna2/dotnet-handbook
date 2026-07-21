@@ -463,6 +463,20 @@ For .NET work this is close to ideal: build and run your app inside WSL2's Linux
 
 > **Best practice:** Keep your project files inside the WSL2 Linux filesystem (`~/projects/...`), not on the Windows drive (`/mnt/c/...`). Cross-filesystem access is dramatically slower, and file-watching (hot reload) is unreliable across the boundary.
 
+## Live-Container Triage: A Walkthrough
+
+Here is how the pieces of this chapter combine on a real page: "the orders container keeps dying, and now it's up but slow."
+
+Start with the logs. `docker logs --tail 200 orders` shows normal request logs that simply *stop* mid-flight — no exception, none of your graceful-shutdown lines. That silence is a signature: the app didn't crash, it was SIGKILLed — a SIGTERM would have produced those shutdown lines. Confirm on the host: `journalctl --since "1 hour ago" | grep -i oom` turns up the kernel's OOM killer reaping your dotnet process. The container hit its memory limit; the kernel ended the argument (exit code 137 = 128 + 9, i.e. SIGKILL).
+
+The replacement container is up but sluggish, so check the sockets next. `ss -tlnp | grep 8080` shows the process correctly bound to `0.0.0.0:8080` — it started and it's reachable. But drop the `l` and look at established connections: `ss -tnp | grep 8080` scrolls for pages. Connections are piling up, which means requests are arriving faster than they complete — the app is alive but drowning, not dead.
+
+Now the resource view. `top` shows the dotnet process at modest CPU but with resident memory already climbing toward the limit again; `ps aux | grep dotnet | sort -k4 -rn | head` confirms it. So it's a cycle: memory grows, the OOM killer fires, the container restarts, and the connection backlog makes everything slow in between.
+
+This is as far as the OS view goes. It has told you *that* memory grows and *when* the kernel kills you — but not *what* is growing. For that you attach the runtime-level tools from Chapter 15: `dotnet-counters` to watch GC heap size, allocation rate, and thread-pool queue length live, and `dotnet-dump`/`dotnet-gcdump` to see which types are accumulating and what roots them. The comparison is the diagnosis: if the GC heap is flat while the working set climbs, suspect native or buffer memory — or a limit set below the app's honest working set; if Gen 2 and the LOH climb together, you have a managed leak.
+
+That is the method: the OS view (`journalctl`, `ss`, `top`) shows what the machine sees, the runtime view (Chapter 15's `dotnet-*` tools) shows what the CLR sees — and it's the *disagreement* between them that tells you which layer is lying.
+
 ## Putting It Together
 
 The through-line of this chapter is that Linux is now the *native habitat* of production .NET. The filesystem tree, permission bits, signals, and pipes aren't trivia — they're the exact concepts that explain why a container won't start, why an app can't write a file, why a deployment hangs on shutdown, or why the port isn't reachable. When you can reason about these from the shell, you stop being dependent on someone else to diagnose production, and that self-sufficiency is exactly what separates a senior engineer from a mid-level one.

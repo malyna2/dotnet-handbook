@@ -87,6 +87,24 @@ app.UseAuthorization();         // Are you allowed?
 app.MapControllers();           // Terminal: executes the endpoint.
 ```
 
+That registration order creates the matryoshka nesting from the start of the chapter:
+
+```
+       request                                    response
+          |                                           ^
+          v                                           |
++-- UseExceptionHandler ------------------------------|------+
+|         |                                           |      |
+|  +-- UseRouting / UseCors / UseRateLimiter ---------|---+  |
+|  |      |                                           |   |  |
+|  |  +-- UseAuthentication -> UseAuthorization ------|-+ |  |
+|  |  |   |                                           | | |  |
+|  |  |   +-----> MapControllers (endpoint) ----------+ | |  |
+|  |  +-------------------------------------------------+ |  |
+|  +------------------------------------------------------+  |
++------------------------------------------------------------+
+```
+
 If you put `UseAuthorization` before `UseRouting`, the authorization middleware has no endpoint metadata to inspect and your `[Authorize]` attributes silently do nothing. If you put `UseCors` after the endpoint that handles the request, preflight requests break. **When something "just doesn't apply," suspect ordering first.**
 
 ## Minimal APIs vs Controllers (MVC)

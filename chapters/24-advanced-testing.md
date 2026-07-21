@@ -328,6 +328,20 @@ dotnet stryker --threshold-high 80 --threshold-low 60 --threshold-break 50
 
 > **Practical note:** mutation testing is computationally expensive — it reruns the suite once per mutant, potentially thousands of times. Don't run it on every commit over the whole solution. Run it **on the diff** in CI (Stryker supports `--since` to mutate only changed code), or on a nightly schedule for critical modules. Point it at your core domain logic, where a missed bug is most costly — not at DTOs and configuration glue.
 
+## Choosing Your Instruments
+
+Every technique in this chapter earns its keep by catching a defect class nothing else catches — at a price. Weigh both columns before adding one to your portfolio.
+
+| Technique | Defect class it uniquely catches | What it costs you | Reach for it when |
+|---|---|---|---|
+| Contract testing (Pact + broker) | Interface drift between services: renamed fields, changed shapes, broken consumers | Broker infrastructure; provider-state endpoints; buy-in from both teams | Multiple teams deploy services independently |
+| Property-based testing (FsCheck/CsCheck) | Edge-case inputs you never thought to write; violated invariants; races (CsCheck) | Writing generators for valid domain objects; a different way of thinking about assertions | Parsers, serializers, financial calcs, data structures, state machines |
+| Browser E2E (Playwright) | Whole-stack breakage only visible through the user's eyes | The slowest, flakiest layer; browser infrastructure in CI | A handful of critical user journeys — no more |
+| API-level E2E | Full-stack wiring against a real deployed environment (network, DB, auth) | A deployed environment to point at; slower than in-process tests | The HTTP surface *is* the product |
+| Load testing (k6/NBomber) | Latency and error regressions under concurrency that functional tests can't see | A production-like environment; noisy results on shared runners | Before traffic events; nightly with pass/fail thresholds |
+| Mutation testing (Stryker.NET) | Assertion-free "covered" code — tests that execute but verify nothing | Reruns the suite once per mutant; very CPU-expensive | Core domain logic; run on the diff or nightly |
+| Fake time + fixed seeds (`TimeProvider`) | Expiry/scheduling bugs; irreproducible time- and randomness-based flakes | Retrofitting injection into legacy code | Anything touching clocks, delays, timers, or random data |
+
 ## Bringing It Together
 
 Each technique in this chapter targets a specific weakness of the foundational testing you already know:

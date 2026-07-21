@@ -235,6 +235,19 @@ public OrderStatus MapStatus(string wireValue) => wireValue switch
 
 Protobuf leans into this: an unrecognized enum value in proto3 is preserved as its underlying integer rather than rejected, so it survives a round-trip through a consumer that doesn't understand it yet. Always model an `Unknown`/`Unspecified` zero value in your enums.
 
+The rules compress into a matrix once you remember what each format uses as a field's identity: the *name* (JSON, Avro) or the *number/key* (Protobuf, MessagePack). Everything below follows from that.
+
+| Change | JSON (STJ) | Protobuf | MessagePack (int keys) | Avro |
+|---|---|---|---|---|
+| Add optional field with default | ✅ | ✅ | ✅ (append) | ✅ (declare default) |
+| Remove a field | ⚠️ if-unused | ⚠️ reserve number | ⚠️ reserve key | ⚠️ if-unused |
+| Rename a field | ⚠️ keep-old-name | ✅ (number is identity) | ✅ (key is identity) | ⚠️ alias |
+| Change a field's type | ❌ | ❌ | ❌ | ❌ |
+| Reuse a removed field's tag/name | ❌ | ❌ silent garbage | ❌ silent garbage | ❌ |
+| Make an optional field required | ❌ | ❌* | ❌ | ❌ |
+
+\* proto3 can't even express `required` on the wire — the break surfaces in your validation layer instead, which makes it sneakier, not safer.
+
 ### Handling Unknown Fields
 
 Forward compatibility hinges on what a reader does with data it wasn't told about.

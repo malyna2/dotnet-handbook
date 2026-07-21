@@ -2,7 +2,7 @@
 
 _⏱️ Estimated read time: ~34 min ·     6706 words (study pace)_
 
-This chapter is a recall-and-rehearse bank. Every topic here is taught in depth earlier in the book; the goal now is to turn that knowledge into crisp spoken answers under pressure. Read a question, cover the answer, and say your version out loud. If it comes out rambling, tighten it.
+This chapter is a recall-and-rehearse bank. Every topic here is taught in depth earlier in the book; the goal now is to turn that knowledge into crisp spoken answers under pressure. Read a question, cover the answer, and say your version out loud. If it comes out rambling, tighten it. Each section starts with a *Revise* pointer to the chapter(s) that teach the material. **Red flag** lines show the wrong answer interviewers hear from juniors — if your spoken version sounds like one, go back and re-read.
 
 **Interview strategy in five habits:**
 
@@ -15,6 +15,8 @@ This chapter is a recall-and-rehearse bank. Every topic here is taught in depth 
 ---
 
 ## How to Approach Any Interview
+
+*Revise: Ch. 17 — Soft Skills & Engineering Practices*
 
 **How do you handle a question you don't know the answer to?**
 State what you do know, reason from first principles toward a plausible answer, and be explicit about the boundary: "I know GC has generations; I'm less sure of the exact LOH threshold, but I'd reason it's large because compaction is expensive." That earns more than silence or a confident wrong guess.
@@ -29,6 +31,8 @@ Talk about trade-offs, failure modes, operability, and cost — not just the hap
 
 ## Diagnosing a Performance Problem (a worked methodology)
 
+*Revise: Ch. 15 — Performance & Optimization · Ch. 13 — Observability*
+
 This is a flagship section because "the app is slow, what do you do?" is asked in almost every senior loop. Recite this as a repeatable method, not a grab-bag of tricks.
 
 **Walk me through how you diagnose a slow endpoint.**
@@ -37,6 +41,8 @@ This is a flagship section because "the app is slow, what do you do?" is asked i
 3. **Classify the bottleneck.** Decide which resource is saturated: CPU, memory/GC, disk I/O, network, database, or lock contention. Each has a different toolset and fix.
 4. **Go from cheap metrics to expensive profilers.** Start with always-on signals (APM dashboards, `dotnet-counters` for CPU/GC/thread-pool/request rate), then reach for `dotnet-trace` (CPU sampling), `dotnet-dump` (heap/leaks), and DB query plans only once you've narrowed the suspect.
 5. **Find the bottleneck, fix one thing, verify.** Change a single variable, re-measure against the baseline, and confirm the win before moving on. Then repeat.
+
+**Red flag:** "I'd add caching and make everything async" — naming fixes before measuring anything is optimizing on a guess.
 
 **How do you tell if it's CPU-bound vs waiting?**
 Check CPU utilization while the endpoint is slow. High CPU with low throughput → CPU-bound (hot loop, serialization, regex, crypto). Low CPU but high latency → you're *waiting* (DB, downstream HTTP, lock, exhausted thread pool). `dotnet-counters` showing a growing thread-pool queue with idle CPU is the classic sync-over-async / thread-starvation fingerprint.
@@ -68,8 +74,12 @@ Pull the execution plan for the slow query. Look for scans that should be seeks 
 
 ## C# Language
 
+*Revise: Ch. 1 — C# Language Mastery*
+
 **Value type vs reference type — the practical difference?**
 Value types (`struct`, `int`, `enum`) hold their data inline and are copied on assignment; reference types (`class`, arrays, `string`) hold a reference to heap data, so assignment copies the pointer, not the object. Value types typically live on the stack or inline within their container; reference types live on the heap. This drives copy semantics, equality defaults, and allocation behavior.
+
+**Red flag:** "Value types live on the stack, reference types on the heap" stated as an absolute — a struct field inside a class lives on the heap; the real difference is copy semantics.
 
 **What is boxing and why does it cost?**
 Boxing wraps a value type in a heap object so it can be treated as `object` or an interface reference; unboxing extracts it back. It costs a heap allocation plus a copy, and adds GC pressure in hot paths. Generics and `Span` largely eliminate the need. (See the Runtime & Memory chapter.)
@@ -101,6 +111,8 @@ foreach (var a in actions) a();   // prints 333 (pre-C# 5 foreach) — here: 333
 
 Each lambda closes over the *same* `i`, so all print its final value, `3`. Fix by copying into a loop-local: `int copy = i;` and capture `copy`. (Note: `foreach` variables are per-iteration since C# 5, but classic `for` loops still share the counter.)
 
+**Red flag:** "The lambda captures the value of `i` at that moment" — it captures the variable, so every lambda sees the final value.
+
 **Struct vs class — when do you reach for a struct?**
 Use a `struct` for small (~16 bytes or less), immutable, value-semantic data that's short-lived, to avoid heap allocation — e.g. a `Point` or a `Money`. Use a `class` for anything with identity, large state, inheritance, or reference-sharing needs. Big mutable structs are a trap: they copy on every pass and cause subtle bugs.
 
@@ -116,14 +128,20 @@ Deterministic cleanup of unmanaged or expensive resources (file handles, sockets
 **What actually happens on `await`?**
 The compiler rewrites the method into a state machine. At an `await`, if the awaited task isn't complete, the method *returns* to its caller and registers a continuation; when the task finishes, the continuation resumes the method (by default back on the captured context). It's not a thread — no thread is blocked while awaiting truly async I/O. (See the Async chapter.)
 
+**Red flag:** "`await` runs the method on a new background thread" — no thread is consumed at all during an awaited I/O wait.
+
 > **Follow-up:** *Does `await` create a new thread?* No. For I/O it uses an I/O completion callback and no thread is consumed during the wait. A new thread only appears if you explicitly offload with `Task.Run`.
 
 ---
 
 ## .NET Runtime, GC & Memory
 
+*Revise: Ch. 2 — .NET Runtime & Internals*
+
 **How does the GC work, and what are generations?**
 It's a tracing, generational, mark-and-sweep collector. Objects start in **gen 0**; survivors are promoted to **gen 1**, then **gen 2** (long-lived). Collections are generational because most objects die young — collecting gen 0 frequently and gen 2 rarely is cheap and effective. After a collection the heap is compacted to reduce fragmentation.
+
+**Red flag:** "If memory is high, call `GC.Collect()`" — forcing collections fights the generational design and hides whatever is rooting the objects.
 
 **What is the Large Object Heap?**
 Objects ≥ 85,000 bytes go on the LOH, collected as part of gen 2. It isn't compacted by default (compaction of big blocks is expensive), so it can fragment. Frequent large allocations — big arrays, large buffers — are a common source of memory bloat; pool or reuse them.
@@ -140,6 +158,8 @@ Managed memory is the GC-tracked heap for .NET objects. Unmanaged memory is ever
 **What causes a managed memory leak if the GC collects everything?**
 Unintended references keeping objects alive: static collections that grow forever, event handlers never unsubscribed (subscriber pinned by publisher), captured closures, long-lived caches without eviction, and `IDisposable` objects never disposed. The GC can't collect what's still reachable.
 
+**Red flag:** ".NET has a GC, so memory leaks aren't possible" — reachable-but-unwanted objects (static lists, event subscriptions) leak just fine.
+
 **How do you find a leak in production?**
 Watch the trend first — `dotnet-counters` or APM showing managed heap climbing without plateau. Then capture two heap snapshots over time (`dotnet-gcdump`), diff them to see which types are growing, and inspect the retention path (who holds the reference). The growing type plus its GC root usually names the bug.
 
@@ -150,8 +170,12 @@ Each box is a heap allocation and a copy, feeding gen-0 GC. In a tight loop that
 
 ## Async & Concurrency
 
+*Revise: Ch. 8 — Asynchronous & Concurrent Programming*
+
 **Async vs multithreading — what's the difference?**
 Multithreading uses multiple threads to do work in parallel (CPU-bound). Async is about *not blocking* a thread while waiting for something else (I/O-bound) — one thread can serve many in-flight operations. Async ≠ parallel: `await` on a single call is still sequential; you get concurrency by starting multiple tasks before awaiting.
+
+**Red flag:** "Async makes the code faster because it runs in parallel" — a single awaited call is just as slow; async buys scalability, not speed.
 
 **`Task` vs `ValueTask` — when `ValueTask`?**
 `Task` is a heap-allocated reference type; every async call allocates one. `ValueTask` avoids that allocation when the result is *often already available* synchronously (cache hits, buffered reads). Use it in hot, high-frequency APIs where most calls complete synchronously. Don't await a `ValueTask` twice or store it — it's single-consumption.
@@ -162,8 +186,12 @@ It tells the continuation not to resume on the captured synchronization context,
 **Why does `.Result` deadlock?**
 On a platform with a single-threaded sync context (classic UI, legacy ASP.NET), blocking on `.Result`/`.Wait()` holds that thread while the awaited continuation is queued to run *on the same thread* — mutual wait, deadlock. The fix is to be async all the way down and never block on async code. ASP.NET Core lacks that context so it deadlocks less, but sync-over-async still starves the thread pool.
 
+**Red flag:** "Wrap it in `Task.Run(...).Result` to make it safe" — that just burns an extra thread; the fix is async all the way down.
+
 **What is a `CancellationToken` for?**
 Cooperative cancellation. You pass a token through async calls; a caller can request cancellation (timeout, user abort, request aborted), and well-behaved methods check `IsCancellationRequested` / pass the token onward, throwing `OperationCanceledException`. Always thread the token through to DB and HTTP calls so work actually stops.
+
+**Red flag:** "Cancelling the token stops the operation immediately" — cancellation is cooperative; nothing stops unless the code observes the token.
 
 **How do you make a class thread-safe?**
 Options in rough order of preference: make it immutable (no shared mutable state, nothing to protect); confine mutation to one thread; use concurrent collections (`ConcurrentDictionary`); or guard shared state with a `lock`. Keep locked regions tiny, never `await` inside a `lock`, and always lock on a private dedicated object.
@@ -180,11 +208,15 @@ Asynchronous streaming — `await foreach` over items produced with latency (pag
 
 ## ASP.NET Core & Web
 
+*Revise: Ch. 3 — ASP.NET Core & Web APIs · Ch. 19 — Networking & Web Fundamentals*
+
 **Explain the middleware pipeline.**
 Middleware components form a chain; each gets the `HttpContext`, can act on the request, call `next()` to pass control down, and act on the response on the way back out — like nested layers. Order matters: exception handling first, then routing, auth (authentication before authorization), then endpoints. A component can short-circuit by not calling `next()`.
 
 **DI lifetimes — the three, and the trap?**
 **Singleton** (one instance for the app), **Scoped** (one per request), **Transient** (a new one each time). The trap is the **captive dependency**: injecting a Scoped (or Transient) service into a Singleton captures it for the app's lifetime, so a per-request service like `DbContext` leaks across requests and breaks. Never inject shorter-lived into longer-lived.
+
+**Red flag:** "Make everything singleton, it's faster" — a captured `DbContext` then leaks across requests; that's a correctness bug, not an optimization.
 
 **How does model binding work?**
 ASP.NET Core maps incoming request data — route values, query string, form fields, JSON body, headers — onto action parameters and model properties by name, then runs validation attributes. You steer the source with `[FromBody]`, `[FromQuery]`, `[FromRoute]`, etc. Binding failures populate `ModelState`, which you check before acting.
@@ -198,15 +230,21 @@ Minimal APIs are lightweight endpoint definitions with less ceremony — great f
 **JWT vs cookie auth?**
 Cookies are stateful-ish, browser-managed, sent automatically, and easy to revoke server-side — good for classic web apps (guard against CSRF). JWTs are self-contained bearer tokens carried in the `Authorization` header — stateless and ideal for APIs and cross-service auth, but hard to revoke before expiry, so keep them short-lived and pair with refresh tokens.
 
+**Red flag:** "JWTs are secure because the payload is encrypted" — it's only Base64-encoded and *signed*; anyone can read the claims.
+
 **REST: which status codes and idempotency?**
 200 OK, 201 Created (with `Location`), 204 No Content, 400 Bad Request, 401 Unauthorized, 403 Forbidden, 404 Not Found, 409 Conflict, 422 Unprocessable, 500 Server Error. `GET`, `PUT`, `DELETE` are idempotent (repeating them yields the same state); `POST` is not. Idempotency matters for retries — clients retry on network failure, so unsafe non-idempotent operations need an idempotency key.
 
 **What is CORS and why does it block things?**
 CORS is a browser security mechanism: a page on origin A calling an API on origin B is blocked unless the API returns headers explicitly allowing origin A. It's enforced by the browser, not the server — so it protects users, and it's why your JS gets a CORS error while `curl` works fine. Configure allowed origins/methods/headers server-side; avoid `AllowAnyOrigin` with credentials.
 
+**Red flag:** "CORS is server-side security that stops attackers calling the API" — it's a browser protection for users; any non-browser client bypasses it entirely.
+
 ---
 
 ## Entity Framework & Databases
+
+*Revise: Ch. 4 — Data Access & Databases*
 
 **What is change tracking?**
 EF Core's `DbContext` snapshots loaded entities and tracks their state (Added/Modified/Deleted/Unchanged). On `SaveChanges` it generates the SQL for exactly the changes. It's convenient but costs memory and CPU proportional to tracked entities — a reason to disable it for read-only queries.
@@ -216,6 +254,8 @@ For read-only queries you won't update. It skips building the change-tracking sn
 
 **What is the N+1 problem in EF?**
 One query loads N parents, then accessing a navigation property fires one query per parent — N+1 round-trips. Caused by lazy loading in a loop or projecting navigations without including them. Fix with eager loading (`Include`), a projection (`Select`) that joins, or a split query — turning N+1 into 1 or 2 queries.
+
+**Red flag:** "Make the loop parallel/async so the queries run faster" — parallel N+1 is still N+1 round-trips; the fix is fewer queries, not faster loops.
 
 **Lazy vs eager vs explicit loading?**
 **Eager** (`Include`) loads related data up front in the query. **Lazy** loads it on first access to the navigation (convenient, but the N+1 footgun). **Explicit** (`Load()`) loads related data on demand by an explicit call. Prefer eager or projection for predictable query counts; be wary of lazy loading in hot paths.
@@ -228,6 +268,8 @@ A **clustered** index defines the physical row order of the table — one per ta
 
 **When does an index hurt?**
 Every index must be maintained on insert/update/delete and consumes storage, so over-indexing slows writes. Very low-cardinality columns (a boolean) rarely benefit. Index the columns you filter, join, and sort on — measure with query plans rather than indexing everything.
+
+**Red flag:** "Indexes only help, so index every column" — every index is maintained on every write, taxing inserts and updates.
 
 **What causes a database deadlock and how do you avoid it?**
 Two transactions each hold a lock the other needs, in opposing order. Avoid by acquiring locks in a consistent order everywhere, keeping transactions short, using the lowest workable isolation level, and adding retry logic for the deadlock-victim error. Deadlocks are a design/ordering issue, not just bad luck.
@@ -248,6 +290,8 @@ Normalization organizes data to eliminate redundancy (each fact stored once) —
 
 ## Architecture & Design
 
+*Revise: Ch. 5 — Design Patterns, Principles & Clean Code · Ch. 6 — Architecture & Application Design · Ch. 9 — Messaging & Distributed Systems (outbox, saga)*
+
 **Explain SOLID with a one-liner each.**
 - **S**RP — a class has one reason to change (split the class that both formats *and* saves a report).
 - **O**CP — open to extension, closed to modification (add a new payment type via a new class, not by editing a `switch`).
@@ -261,6 +305,8 @@ IoC (Inversion of Control) is the broad principle: the framework controls flow a
 **Is the repository pattern still worth it over EF Core?**
 Contested. The argument *against*: `DbContext` is already a Unit of Work and `DbSet` is already a repository, so wrapping it adds a leaky abstraction. The argument *for*: a repository can centralize query logic, keep the domain persistence-ignorant, and simplify testing. Senior answer: don't add a generic repository reflexively; add task-specific repositories when they earn their keep, otherwise use EF directly.
 
+**Red flag:** "Always wrap EF in a generic repository — it's best practice" — `DbContext` already is a unit of work and repository; the reflexive wrapper is a leaky layer.
+
 **What is CQRS and when do you use it?**
 Command Query Responsibility Segregation splits the write model (commands that change state) from the read model (queries), often with different shapes and even different stores. Use it when read and write workloads diverge sharply or you want optimized read projections. It adds complexity — don't apply it to simple CRUD.
 
@@ -269,6 +315,8 @@ A cluster of domain objects treated as one consistency boundary, with a single *
 
 **Microservices vs monolith — the trade-off?**
 Monolith: simplest to build, deploy, and debug; one codebase, in-process calls, easy transactions — but scales and evolves as one unit. Microservices: independent deploy/scale/tech per service and team autonomy — but you pay with network latency, distributed transactions, operational complexity, and harder debugging. Most teams should start with a well-structured monolith.
+
+**Red flag:** "Microservices are the modern way; monoliths are legacy" — splitting without a clear need yields a distributed monolith.
 
 **Coupling and cohesion — define and relate.**
 Cohesion is how focused a module is on a single responsibility (high is good). Coupling is how dependent modules are on each other (low is good). Aim for high cohesion, low coupling: modules that each do one thing well and interact through narrow, stable interfaces.
@@ -285,6 +333,8 @@ Small teams, early-stage products, unclear domain boundaries, or when the operat
 **How do you handle the dual-write / lost-update problem across a DB and a message broker?**
 Writing to the DB and publishing an event as two separate operations can partially fail (DB commits, publish fails → lost event). Solve with the **Transactional Outbox**: write the event to an outbox table in the *same* DB transaction as the state change, then a relay process reads the outbox and publishes reliably. This gives at-least-once delivery without distributed transactions.
 
+**Red flag:** "Wrap the DB write and the publish in one transaction / try-catch" — the broker doesn't participate in your DB transaction, so a crash between the two still loses the event.
+
 **What is a saga?**
 A pattern for a long-running business transaction spanning multiple services without a distributed lock. Each step commits locally and publishes an event triggering the next; if a step fails, **compensating actions** undo the prior steps. Orchestration (a central coordinator) or choreography (services react to events) are the two flavors.
 
@@ -292,8 +342,12 @@ A pattern for a long-running business transaction spanning multiple services wit
 
 ## Distributed Systems & Scaling
 
+*Revise: Ch. 9 — Messaging & Distributed Systems · Ch. 20 — Distributed Systems Theory & Reliability Engineering*
+
 **Explain the CAP theorem.**
 Under a network **P**artition, a distributed system must choose between **C**onsistency (every read sees the latest write) and **A**vailability (every request gets a response). You can't have both during a partition. In practice systems are CP (refuse/stall to stay consistent) or AP (serve possibly-stale data to stay up); the choice is per-operation, and PACELC extends it to the latency trade-off when there's no partition.
+
+**Red flag:** "You pick any two of C, A, and P" — partition tolerance isn't optional; the real choice is C vs A *during* a partition.
 
 **How do you scale a web application?**
 Vertical first (bigger box — simple, limited), then horizontal: run many stateless instances behind a load balancer. Add caching (in-memory, distributed), read replicas or sharding for the database, a CDN for static assets, and async processing via queues to smooth spikes. Statelessness is the enabler for horizontal scale.
@@ -310,6 +364,8 @@ To decouple producer from consumer, absorb load spikes (buffering), enable async
 **Is exactly-once delivery real?**
 Not in a strict end-to-end sense over an unreliable network. Practically you get **at-least-once** delivery plus **idempotent** consumers, which yields exactly-once *processing* — the effect happens once even if the message arrives twice. Design consumers to dedupe (idempotency keys, processed-message table).
 
+**Red flag:** "Just configure the broker for exactly-once delivery" — no broker setting survives an unreliable network end-to-end; the guarantee comes from idempotent consumers.
+
 **What is the circuit breaker pattern?**
 A wrapper around a remote call that, after repeated failures, "trips" and fails fast for a cooldown period instead of hammering a struggling dependency — then allows a trial request (half-open) to test recovery. It protects both caller (no piling-up threads) and callee (room to recover). Pair with timeouts, retries with backoff, and bulkheads (Polly implements these).
 
@@ -323,8 +379,12 @@ It should degrade gracefully, not cascade-fail. Use timeouts (never wait forever
 
 ## Security
 
+*Revise: Ch. 14 — Security*
+
 **AuthN vs AuthZ?**
 **Authentication** verifies *who you are* (login, token validation). **Authorization** verifies *what you're allowed to do* (roles, policies, resource ownership). AuthN comes first; a valid identity still needs an authorization check per action. Conflating them ("logged in = allowed") is a classic vulnerability.
+
+**Red flag:** "If the user is authenticated, they can access the endpoint" — that's broken access control, OWASP's #1 risk.
 
 **Name a few OWASP Top 10 risks.**
 Broken access control, injection (SQL/command), cryptographic failures (weak/no encryption of secrets), insecure design, security misconfiguration, vulnerable/outdated components, identification/authentication failures, and SSRF. The theme: validate input, enforce access control server-side, encrypt secrets, and patch dependencies.
@@ -332,8 +392,12 @@ Broken access control, injection (SQL/command), cryptographic failures (weak/no 
 **How do you prevent SQL injection?**
 Use parameterized queries / prepared statements (or an ORM that parameterizes) so user input is always data, never concatenated into SQL. Never build queries by string concatenation. Add least-privilege DB accounts and input validation as defense in depth. EF Core and Dapper parameterize by default — the risk is raw string SQL.
 
+**Red flag:** "Sanitize the input by escaping quotes" — escaping-by-hand is a blocklist that always misses cases; parameterization makes input structurally data.
+
 **How do you store passwords?**
 Never plaintext or plain hash. Use a slow, salted, adaptive password hash — bcrypt, scrypt, Argon2, or PBKDF2 with a high work factor and a per-user salt. The salt defeats rainbow tables; the slowness defeats brute force. Increase the work factor over time. Never encrypt passwords (reversible) when you should hash them.
+
+**Red flag:** "Encrypt them with AES" or "hash with MD5/SHA-256" — encryption is reversible, and fast hashes are exactly what brute-forcers want.
 
 **How do you validate a JWT — what must you check?**
 Verify the signature against the trusted key, then validate the claims: issuer, audience, expiry (`exp`) and not-before (`nbf`), and the signing algorithm (reject `none` and don't let the token pick the algorithm). Only then trust its claims. Skipping audience/expiry checks or trusting the header's alg are the common JWT vulnerabilities.
@@ -344,6 +408,8 @@ Out of source control and out of plain config: use a secrets manager / vault (Az
 ---
 
 ## Testing
+
+*Revise: Ch. 7 — Testing · Ch. 24 — Advanced & Specialized Testing*
 
 **Unit vs integration test?**
 A **unit test** exercises one small piece (a class/method) in isolation with dependencies mocked — fast, focused, pinpoints failures. An **integration test** exercises several components together, often with a real database or HTTP host, to catch wiring and contract issues unit tests miss. You need both; the classic pyramid has many unit, fewer integration, fewest end-to-end.
@@ -360,9 +426,13 @@ Make the test method `async Task` and `await` the operation — never block with
 **What makes a good test?**
 Fast, isolated/independent (no order dependence, no shared state), deterministic (no flakiness from time, randomness, or network), readable (Arrange-Act-Assert, one logical assertion of behavior), and testing *behavior not implementation* so refactors don't break it. A test you don't trust is worse than no test.
 
+**Red flag:** "Good tests means 100% code coverage" — coverage proves code ran, not that behavior was asserted; a suite can hit every line yet catch nothing.
+
 ---
 
 ## System Design (mini)
+
+*Revise: Ch. 26 — Data Structures, Algorithms & System Design Fundamentals · Ch. 32 — Real-World Scenarios & Architectural Decisions*
 
 Use one structure for every design prompt: **Requirements → Scale estimate → API → Data model → Components → Bottlenecks & trade-offs.** Talk through it out loud; the interviewer wants your reasoning, not a memorized diagram.
 
@@ -392,6 +462,8 @@ Use one structure for every design prompt: **Requirements → Scale estimate →
 ---
 
 ## Behavioral / Seniority
+
+*Revise: Ch. 17 — Soft Skills & Engineering Practices*
 
 Answer these with **STAR** and keep the spotlight on *your* actions and a concrete result. Have three or four real stories prepared that you can flex to different questions.
 

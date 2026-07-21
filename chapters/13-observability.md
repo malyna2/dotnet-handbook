@@ -432,6 +432,18 @@ app.MapHealthChecks("/health/ready", new HealthCheckOptions
 
 Distinguish **liveness** (is the process alive? if not, restart it) from **readiness** (are its dependencies ready? if not, stop sending traffic but do not restart). Kubernetes uses these two probes to make orchestration decisions, and they feed your metrics: a rising count of failing readiness checks is an early warning that a dependency is degrading. Health checks are the simplest, cheapest observability signal, and the first one you should implement.
 
+## The 3 a.m. Walk: One Incident, Three Signals
+
+Here is how the pillars actually combine when the page arrives. It is 3:07 a.m. and the SLO burn-rate alert fires: p99 latency on the order API has been over 2 seconds for ten minutes. Note what woke you: a **metric**. Metrics are the cheap, always-on signal, so they are the tripwire.
+
+You open the Grafana dashboard backed by Prometheus. The RED panels tell the first part of the story: request rate is normal, error rate is near zero, but the duration histogram's p99 line stepped up sharply at 2:52. You slice by endpoint tag — every route is flat except `POST /orders`. In two minutes, a vague "the API is slow" has become "one endpoint's tail latency jumped at 2:52." That is as far as metrics can take you; aggregates cannot tell you *where inside a request* the time went.
+
+So you pick one victim. In Jaeger you query for slow traces on that route (tail sampling has kept the slow ones) and open a 4-second specimen. The waterfall is unambiguous: the ASP.NET Core root span is thin, the EF Core spans are milliseconds, and almost the entire duration sits in one child span — the `HttpClient` call to the payment gateway, created automatically by `AddHttpClientInstrumentation`. The trace has answered the second question: *which hop*.
+
+But a span only shows *that* the call took 3.8 seconds, not *why*. So you copy the trace ID from Jaeger, paste it into Seq, and — because every service stamps its logs via the Serilog span enricher — you get every structured log line from every service for that exact request. There they are: three warnings, `Payment gateway returned 429, retrying in 800ms (attempt 3)`. The gateway was not slow; it was rejecting you, and your own retries were stacking inside the span. A quick pivot on the same query shows the 429s started at 2:52 — right when the nightly reconciliation job began hammering the gateway with the same API key. Kill the job, latency recovers, go back to bed.
+
+Walk the chain again: the metric said *something is wrong and where*, the trace said *which hop*, the logs said *why*. Three tools, one investigation — and the only thing that connected them was the trace ID, propagated in every hop's `traceparent` header, recorded on every span, and stamped onto every log line. That correlation is not luck. It exists because the propagation, the enricher, and the sampler were wired up on a quiet afternoon, exactly as this chapter prescribed. At 3 a.m. you can only harvest what you instrumented at 3 p.m.
+
 ## Bringing It Together
 
 Observability is not a library you install; it is a design property you cultivate. The senior mindset treats telemetry as a first-class feature, budgeted for and reviewed like any other. Emit **structured logs** with correlation IDs and zero secrets. Record **metrics** chosen by RED and USE, guarding against cardinality explosions. Trace requests end to end with **OpenTelemetry**, propagating context across HTTP and messaging so a single trace ID unlocks the whole story. Feed **SLIs** into **SLOs** with **error budgets** that turn reliability into a shared, quantitative decision, and alert on symptoms, not noise.

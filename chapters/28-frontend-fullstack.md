@@ -1,10 +1,10 @@
 # Chapter 28: Frontend & Full-Stack for .NET Developers
 
-_⏱️ Estimated read time: ~20 min ·     3441 words (study pace)_
+_⏱️ Estimated read time: ~20 min · 3201 words (study pace)_
 
 You can spend a career on the server and be very good at it. But the moment your API meets a browser, a class of decisions lands on your desk that you cannot delegate away: how the client authenticates, what the payloads look like, why the SPA breaks in production but not locally, whether Blazor is a reasonable bet for the next project. A senior .NET developer does not need to be a frontend expert. They need enough literacy to design the boundary well, to talk credibly with the frontend team, and to pick the right UI technology instead of defaulting to whatever is fashionable.
 
-This chapter gives you that literacy. We start with how the web actually works in a browser, move through integrating .NET APIs with JavaScript SPAs, then cover Blazor and .NET MAUI so you know when a .NET-first UI is the smart choice and when it is not.
+This chapter gives you that literacy. We start with how the web actually works in a browser, move through integrating .NET APIs with JavaScript SPAs, then cover Blazor — plus a brief look at native clients from C# — so you know when a .NET-first UI is the smart choice and when it is not.
 
 ## The Web the Browser Sees
 
@@ -240,47 +240,15 @@ Interop crosses a serialization boundary and, in WASM, JS calls are async. Use i
 
 > **Honest caveat:** Blazor WASM's runtime download and Blazor Server's latency/connection model are real constraints, not marketing footnotes. Prototype the *worst* interaction on a *realistic* network before committing an entire product to a model.
 
-## .NET MAUI: One Codebase for Desktop and Mobile
+## Native Clients from C#: MAUI, Uno, Avalonia
 
-**.NET MAUI (Multi-platform App UI)** is the evolution of Xamarin.Forms: a framework for building native client apps for **iOS, Android, Windows, and macOS** from a single C# codebase and project. Instead of separate Xamarin projects per platform, MAUI uses a **single project** with multi-targeting; platform-specific code lives in folders under `Platforms/` when you need it.
+Native desktop and mobile UI is its own discipline, and a backend-leaning book does not need a deep tour of it. What you need is to recognize the three frameworks a .NET shop reaches for, because sooner or later one of them will be calling your API:
 
-MAUI renders to *native* controls on each platform (a `Button` becomes a real `UIButton` on iOS, an Android button on Android), so apps feel native and get platform look-and-feel, rather than drawing everything themselves.
+- **.NET MAUI** is the evolution of Xamarin.Forms: iOS, Android, Windows, and macOS apps from a single C#/XAML codebase, rendered to real native controls. The typical encounter is a line-of-business mobile app maintained by the same .NET team that owns the backend. (Its **Blazor Hybrid** variant hosts your existing Blazor web components inside the native shell via `BlazorWebView`, trading platform look-and-feel for web-UI reuse.)
+- **Uno Platform** targets mobile, desktop, *and* the browser (via WASM) from WinUI/XAML — broader reach than MAUI.
+- **Avalonia** is a mature XAML-based cross-platform desktop framework, popular where Linux desktop support matters — a platform MAUI does not target.
 
-### MVVM
-
-MAUI apps are built with **MVVM (Model-View-ViewModel)**. The View is XAML markup; the ViewModel is a plain C# class exposing bindable properties and commands; data binding keeps them in sync. The `CommunityToolkit.Mvvm` source generators remove most of the boilerplate:
-
-```csharp
-public partial class OrderViewModel : ObservableObject
-{
-    [ObservableProperty] private string customerName;
-
-    [RelayCommand]
-    private async Task Save() => await orderService.SaveAsync(CustomerName);
-}
-```
-
-```xml
-<Entry Text="{Binding CustomerName}" />
-<Button Text="Save" Command="{Binding SaveCommand}" />
-```
-
-The View never references the ViewModel's internals; it binds. This separation is testable and familiar to anyone who has done WPF.
-
-### MAUI vs. Blazor Hybrid vs. native
-
-- **Native (Swift/Kotlin, or SwiftUI/Jetpack Compose per platform):** maximum platform fidelity and immediate access to new OS features, at the cost of writing and maintaining two-plus codebases. Choose when the app *is* the product and platform polish is competitive advantage.
-- **.NET MAUI (XAML):** one C# codebase, near-native feel, good for line-of-business mobile/desktop apps by a .NET team. Choose when you want native controls and native performance without duplicating logic across platforms.
-- **Blazor Hybrid:** a MAUI (or WPF/WinForms) app that hosts a `BlazorWebView` and renders your Blazor *web* components inside the native shell, running on .NET locally (not WASM). Choose this when you already have Blazor web components and want to reuse that exact UI in a desktop/mobile app — one UI codebase spanning web and native. The tradeoff is that the UI is web-rendered inside a WebView, so it will not perfectly match each platform's native look.
-
-> **Rule of thumb:** Reusing web UI across native shells → Blazor Hybrid. Native-feeling client app from one C# codebase → MAUI XAML. Best-in-class per-platform experience and budget for it → native.
-
-### Neighbors worth knowing
-
-- **Uno Platform** takes WinUI/XAML and targets mobile, desktop, *and* the web (via WASM) — broader reach than MAUI, including browser.
-- **Avalonia** is a mature, XAML-based, cross-platform *desktop*-focused UI framework (with mobile/web support growing), popular for desktop apps that need to run on Linux, which MAUI does not target.
-
-You do not need to master these — just recognize them so you can evaluate options when MAUI's platform matrix (no Linux) or web reach is a gap.
+The senior-relevant point is that all three are *API consumers*. What they depend on is your side of the boundary: a clean, documented OpenAPI contract; token-based auth flows that work without browser cookies; resilience to flaky mobile networks; and above all versioning discipline — an installed app cannot be force-refreshed like a SPA, so old client versions will hit your API for months. Design that boundary well and the client framework is their choice, not your problem.
 
 ## How Much Frontend Should You Actually Learn?
 
@@ -306,7 +274,7 @@ There is no universally correct answer — there is the answer that fits *this* 
 ## Sources & Further Reading
 
 - **Microsoft Learn — ASP.NET Core Blazor** (hosting models, render modes, components, JS interop): learn.microsoft.com/aspnet/core/blazor
-- **Microsoft Learn — .NET MAUI documentation** (single project, MVVM, Blazor Hybrid): learn.microsoft.com/dotnet/maui
+- **Microsoft Learn — .NET MAUI documentation** (single project, Blazor Hybrid): learn.microsoft.com/dotnet/maui
 - **Microsoft Learn — Enable CORS in ASP.NET Core** and **API versioning with Asp.Versioning**
 - **Microsoft Learn — Overview of ASP.NET Core SignalR**
 - **Microsoft Learn — Secure SPAs / Backend-for-Frontend guidance** and **Duende BFF** documentation

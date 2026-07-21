@@ -141,6 +141,16 @@ publisher ──▶ │   SNS    │──▶├── SQS: warehouse-queue ─�
 | Best at | Flexible routing, task queues | High-throughput streaming, replay | Managed enterprise on Azure | Serverless cloud fan-out |
 | You operate it | Yes (or managed) | Yes (or managed) | No (managed) | No (managed) |
 
+That table compares products; the more important comparison is between the three *interaction models* they implement. Decide which model your problem is first — the broker choice usually falls out of it.
+
+| | Work queue (RabbitMQ queue, ASB queue, SQS) | Event stream (Kafka) | Pub-sub event bus (SNS→SQS, ASB topics, fanout exchange) |
+|---|---|---|---|
+| What it models | A to-do list: "do this task" | A ledger: ordered, replayable history of facts | A broadcast: "this happened", to whoever cares |
+| Delivery / replay | Each message to one worker; deleted on ack; no replay | Retained for the retention window; consumers track offsets; replay from any point | Each subscriber gets its own copy; gone once that subscriber acks; no replay for late joiners |
+| Consumer model | Competing consumers; add workers to add throughput | Consumer groups; parallelism capped at partition count; groups read independently | 0..N independent subscribers, each with its own buffer; publisher unaware |
+| Reach for it when | Delegating work, load-leveling, background jobs | High-throughput events, event sourcing, many independent readers of one firehose | Decoupling domains; adding consumers without touching the publisher |
+| Watch out for | DLQ silently filling; out-of-order under competing consumers | No global order across partitions; retention and partition-count decisions are up-front commitments | Commands smuggled in as "events" (hidden coupling); new subscribers can't see the past |
+
 ## Core Messaging Patterns
 
 Regardless of broker, the same handful of patterns recur. Learn them once and you can map them onto any technology.

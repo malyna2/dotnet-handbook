@@ -1,6 +1,6 @@
 # Chapter 6: Architecture & Application Design
 
-_⏱️ Estimated read time: ~35 min ·     5074 words (study pace)_
+_⏱️ Estimated read time: ~35 min · 5066 words (study pace)_
 
 You can write correct code and still build a system that becomes miserable to change. Correctness is about whether a single function returns the right answer; architecture is about whether, six months from now, a new feature takes an afternoon or a fortnight. This chapter is about the second question — the shape of the whole, the boundaries between the parts, and the trade-offs that senior engineers weigh almost unconsciously.
 
@@ -352,22 +352,31 @@ A **Backend for Frontend (BFF)** takes this further: instead of one general-purp
 
 ## The 12-Factor App
 
-The Twelve-Factor App is a methodology for building software-as-a-service that is portable, disposable, and cloud-friendly. It predates Kubernetes but maps perfectly onto containerized .NET services. Walking the factors:
+The Twelve-Factor App is a methodology for building software-as-a-service that is portable, disposable, and cloud-friendly; it predates Kubernetes but maps perfectly onto containerized .NET services. All twelve, at a glance:
 
-1. **Codebase** — one codebase tracked in version control, many deploys (dev, staging, prod all from the same repo).
-2. **Dependencies** — declare them explicitly (NuGet/`.csproj`); never rely on system-wide packages being present.
-3. **Config** — store config in the *environment*, not in code. Connection strings and secrets come from environment variables, not a checked-in `appsettings.json`. .NET's configuration providers layer this cleanly.
-4. **Backing services** — treat databases, queues, caches as attached resources addressed by URL/config, swappable without code changes.
-5. **Build, release, run** — strictly separate the three stages. Build produces an artifact; release binds it to config; run executes it. No editing code on the running server.
-6. **Processes** — run the app as one or more *stateless* processes. Persist nothing in local memory or disk between requests; push state to a backing service.
-7. **Port binding** — the app is self-contained and exports services via a port (Kestrel hosts HTTP directly; no external web server required).
-8. **Concurrency** — scale out by running more processes (horizontal scaling), not just bigger machines.
-9. **Disposability** — start fast and shut down gracefully. Handle `SIGTERM`, finish in-flight work, release resources. Crucial for elastic scaling and rolling deploys.
-10. **Dev/prod parity** — keep environments as similar as possible; containers make this achievable.
-11. **Logs** — treat logs as event *streams* written to stdout; let the platform aggregate them. Don't manage log files inside the app.
-12. **Admin processes** — run one-off tasks (migrations, scripts) as processes in the same environment against the same code and config.
+| Factor | In one phrase |
+|---|---|
+| 1. Codebase | One repo, many deploys |
+| 2. Dependencies | Declared explicitly via NuGet/`.csproj`; nothing preinstalled assumed |
+| 3. Config | From the environment, not the codebase |
+| 4. Backing services | Databases, queues, caches: attached, swappable resources |
+| 5. Build, release, run | Artifact → bind config → execute; never edit a running server |
+| 6. Processes | Stateless |
+| 7. Port binding | Self-contained: Kestrel serves HTTP, no external web server |
+| 8. Concurrency | Scale out with more processes, not bigger machines |
+| 9. Disposability | Fast startup, graceful shutdown |
+| 10. Dev/prod parity | Keep environments alike (containers) |
+| 11. Logs | Event streams to stdout |
+| 12. Admin processes | One-offs (migrations) run against the same code and config |
 
-> **Why this matters for a senior .NET dev:** these factors are the contract that makes an app cloud-native. Statelessness (6, 8) enables horizontal scaling; externalized config (3) enables the same artifact to flow through environments; disposability (9) enables zero-downtime deploys. Violate them and no amount of Kubernetes will save you.
+Four of these carry the .NET-specific weight:
+
+- **Config (3).** Connection strings and secrets come from environment variables or a secret store, never a checked-in `appsettings.json`; .NET's layered configuration providers make this natural, so one artifact flows unchanged through every environment.
+- **Statelessness + backing services (4, 6).** Nothing persisted in local memory or disk between requests; sessions and caches live in attached resources. This is the precondition for horizontal scaling (8).
+- **Disposability (9).** Handle `SIGTERM`, finish in-flight work, release resources — the generic host's graceful-shutdown pipeline exists for this; it is what makes rolling deploys and elastic scaling safe.
+- **Logs (11).** Structured logs to stdout; the platform aggregates. An app managing its own log files fights every orchestrator it runs under.
+
+> **Why this matters for a senior .NET dev:** these factors are the contract that makes an app cloud-native. Violate them and no amount of Kubernetes will save you.
 
 ## Distributed Data Patterns
 

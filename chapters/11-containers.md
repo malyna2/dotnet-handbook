@@ -101,7 +101,7 @@ Let's build a production-grade Dockerfile for an ASP.NET Core service. We'll lay
 # syntax=docker/dockerfile:1
 
 # ---- Stage 1: build & publish ----
-FROM mcr.microsoft.com/dotnet/sdk:9.0 AS build
+FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
 WORKDIR /src
 
 # Copy only the project files first so restore is cached
@@ -120,7 +120,7 @@ RUN dotnet publish "MyApi.csproj" \
     /p:UseAppHost=false
 
 # ---- Stage 2: runtime ----
-FROM mcr.microsoft.com/dotnet/aspnet:9.0 AS final
+FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS final
 WORKDIR /app
 
 # Copy only the published output from the build stage.
@@ -151,11 +151,11 @@ By default a container's process runs as **root** — root inside the container,
 
 ### Chiseled and distroless images: shrinking the attack surface
 
-A standard `aspnet:9.0` image is based on Debian and includes a shell, a package manager, and dozens of system utilities. Your app needs almost none of them — but an attacker who breaks in can use them. **Chiseled** images (Microsoft's take on "distroless") strip the image down to the bare minimum: the .NET runtime and its direct dependencies, with **no shell, no package manager, and a non-root user by default.**
+A standard `aspnet:10.0` image is based on Debian and includes a shell, a package manager, and dozens of system utilities. Your app needs almost none of them — but an attacker who breaks in can use them. **Chiseled** images (Microsoft's take on "distroless") strip the image down to the bare minimum: the .NET runtime and its direct dependencies, with **no shell, no package manager, and a non-root user by default.**
 
 ```dockerfile
 # Runtime stage using an Ubuntu Chiseled image.
-FROM mcr.microsoft.com/dotnet/aspnet:9.0-noble-chiseled AS final
+FROM mcr.microsoft.com/dotnet/aspnet:10.0-noble-chiseled AS final
 WORKDIR /app
 COPY --from=build /app/publish .
 # Chiseled images already run as non-root (UID 1654) and default to port 8080.

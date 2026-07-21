@@ -211,6 +211,21 @@ You don't actually know your system survives failure until you *cause* failure. 
 
 An RPO near zero demands synchronous replication (and CAP/PACELC latency costs — the theory comes full circle). A generous RPO of an hour lets you use cheap periodic backups. Match the cost of your DR strategy to the actual business value at risk; not every system deserves multi-region synchronous replication, and pretending otherwise just burns money you should spend elsewhere.
 
+## The Debugging Map: Symptom → Theory → Mitigation
+
+When production misbehaves, the fastest route to a fix is recognizing which piece of theory you're looking at. This table is the chapter in reverse — start from what you're seeing, name the cause, apply the pattern.
+
+| Symptom in production | Theory that explains it | Mitigation in .NET |
+|---|---|---|
+| Customer charged twice after a timeout | Ambiguous failure + at-least-once: a timeout never tells you whether the call landed | Idempotency keys; store and replay the original result |
+| Read right after a write returns the old value | Eventual consistency: replicas converge later, not instantly | Read-your-writes (sticky-route the session's reads); pay for stronger consistency only where correctness demands it |
+| Recovering dependency gets hammered flat by its own clients | Thundering herd: synchronized retry waves cause the overload they react to | Exponential backoff + full jitter (Polly `UseJitter`); retry budgets; retry only idempotent calls |
+| One slow dependency takes down the whole app | Cascading failure: shared thread/connection pools exhaust; you can't tell slow from dead | Bulkheads (per-dependency pools), circuit breaker, layered timeouts — the full resilience pipeline |
+| Two workers mutate the same resource despite a distributed lock | Lease expiry during a pause: the zombie holder still believes it owns the lock | Fencing tokens enforced *at the resource*; treat locks as efficiency, idempotency as correctness |
+| Newer write silently lost under "last write wins" | Clock drift: wall clocks tell you roughly when, never what happened before what | Logical/vector clocks, or a single ordering source (DB sequence); never order by `DateTime.UtcNow` across machines |
+| Memory balloons while a downstream consumer lags | No backpressure: unbounded buffering hides overload until the heap explodes | Bounded `System.Threading.Channels`; load shedding (fast 429s) |
+| Cluster refuses writes when nodes lose contact | CAP: a partition forces the C-vs-A choice; a quorum can't form | Raft-backed stores (etcd/Consul), odd-sized clusters; decide PA vs PC per domain, deliberately |
+
 ## Putting It Together
 
 The through-line of this chapter is a single, humbling idea: **in a distributed system, partial failure is the normal state, not an exception.** The theory — CAP, PACELC, consistency models, consensus, logical clocks — tells you precisely which guarantees are *achievable* and what they cost. The engineering — idempotency, backoff with jitter, circuit breakers, bulkheads, error budgets, chaos testing, measured RTO/RPO — builds systems that stay *useful* while individual parts fail underneath them.
