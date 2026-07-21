@@ -172,7 +172,7 @@ function parseList(lines,start){
 }
 
 /* ---------------- Translation (MyMemory) ---------------- */
-var settings={ email: localStorage.getItem("tr_email")||"", lang: localStorage.getItem("tr_lang")||"uk" };
+var settings={ email: localStorage.getItem("tr_email")||"", lang: localStorage.getItem("tr_lang")||"uk", easy: localStorage.getItem("tr_easy")==="1" };
 function cacheKey(t){return "tr:"+settings.lang+":"+t;}
 function getCached(t){try{return localStorage.getItem(cacheKey(t));}catch(e){return null;}}
 function setCached(t,v){try{localStorage.setItem(cacheKey(t),v);}catch(e){}}
@@ -458,6 +458,7 @@ function highlightFind(q){
 document.addEventListener("mouseup",function(e){
   if(e.target.closest && e.target.closest(".tr-popup,.sel-translate")) return;
   setTimeout(function(){
+    if(!settings.easy){ selBtn.hidden=true; return; }
     var sel=window.getSelection();
     var txt=sel&&sel.toString().trim();
     // a real selection -> offer to translate the selected text
@@ -549,6 +550,16 @@ document.getElementById("clearCache").addEventListener("click",function(){
   toast("Cleared "+n+" cached translations");
 });
 langModal.addEventListener("click",function(e){if(e.target===langModal)langModal.hidden=true;});
+
+/* ---------------- Easy Translate toggle ---------------- */
+var easyToggle=document.getElementById("easyToggle");
+easyToggle.checked=settings.easy;
+easyToggle.addEventListener("change",function(){
+  settings.easy=easyToggle.checked;
+  localStorage.setItem("tr_easy", settings.easy?"1":"0");
+  if(!settings.easy){ selBtn.hidden=true; removePopup(); }
+  toast(settings.easy?"Easy Translate: on — tap a word or select text":"Easy Translate: off");
+});
 
 /* ---------------- Sidebar (mobile) ---------------- */
 var sidebar=document.getElementById("sidebar"), scrim=document.getElementById("scrim");

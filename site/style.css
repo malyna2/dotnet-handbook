@@ -73,6 +73,17 @@ mark.find-hit{background:var(--accent);color:var(--accent-fg);border-radius:3px;
 .pill{background:var(--bg-alt);border:1px solid var(--border);color:var(--fg);border-radius:20px;
   padding:6px 12px;font-size:13px;cursor:pointer;white-space:nowrap}
 .pill:hover{border-color:var(--accent)}
+.switch{display:inline-flex;align-items:center;gap:7px;cursor:pointer;user-select:none}
+.switch input{position:absolute;opacity:0;width:0;height:0}
+.switch-track{position:relative;width:38px;height:22px;flex:none;background:var(--border);
+  border-radius:12px;transition:background .15s}
+.switch-thumb{position:absolute;top:2px;left:2px;width:18px;height:18px;border-radius:50%;
+  background:#fff;box-shadow:0 1px 2px rgba(0,0,0,.35);transition:transform .15s}
+.switch input:checked + .switch-track{background:var(--accent)}
+.switch input:checked + .switch-track .switch-thumb{transform:translateX(16px)}
+.switch input:focus-visible + .switch-track{outline:2px solid var(--accent);outline-offset:2px}
+.switch-lbl{font-size:13px;color:var(--fg-muted);white-space:nowrap}
+@media (max-width:620px){.switch-lbl{display:none}}
 #menuBtn{display:none}
 
 #sidebar{position:fixed;top:56px;bottom:0;left:0;width:var(--sidebar-w);overflow-y:auto;
