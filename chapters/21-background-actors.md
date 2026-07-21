@@ -100,24 +100,7 @@ builder.Services.AddHostedService<EmailDispatchWorker>();
 
 ### The outbox-driven worker
 
-In-memory channels have a fatal flaw for anything that matters: **if the process dies, the queue dies with it.** When a user places an order, you write the order to the database *and* you want to publish an `OrderPlaced` event. If you write to the DB, then publish to a broker as two separate operations, a crash between them leaves you either with an order nobody was told about, or an event for an order that was rolled back. This is the dual-write problem.
-
-The **transactional outbox** pattern solves it by making the "I need to publish X" fact part of the *same database transaction* as the business change. A background worker then reads the outbox and does the actual publishing.
-
-```csharp
-// During the business transaction - one atomic commit:
-await using var tx = await db.Database.BeginTransactionAsync(ct);
-db.Orders.Add(order);
-db.OutboxMessages.Add(new OutboxMessage
-{
-    Id = Guid.NewGuid(),
-    Type = nameof(OrderPlaced),
-    Payload = JsonSerializer.Serialize(new OrderPlaced(order.Id)),
-    OccurredOnUtc = DateTime.UtcNow
-});
-await db.SaveChangesAsync(ct);
-await tx.CommitAsync(ct);
-```
+In-memory channels have a fatal flaw for anything that matters: **if the process dies, the queue dies with it.** When a user places an order, you write the order to the database *and* you want to publish an `OrderPlaced` event - and doing that as two separate operations means a crash between them loses one side. That is the dual-write problem, and the **transactional outbox** pattern solves it by making the "I need to publish X" fact part of the *same database transaction* as the business change. Chapter 9 covers the mechanics - the outbox table, the atomic commit, and MassTransit's built-in support. Here the point is the other half of the pattern: the background worker that actually drains the table.
 
 The worker polls unprocessed rows and publishes them, marking each as done only after the broker acknowledges:
 
@@ -169,22 +152,7 @@ builder.Services.Configure<HostOptions>(o =>
 
 The moment you run more than one instance of your service - and in any serious deployment you will, for availability alone - two copies of that outbox worker are polling the same table. Both may grab the same row. Your message gets published twice.
 
-You cannot engineer this possibility away entirely. Distributed systems give you **at-least-once** delivery as the practical default; exactly-once is a comforting fiction that, when you look closely, is always at-least-once plus idempotent processing. So the senior move is to stop fighting duplicates and instead make processing **idempotent** - safe to run more than once with the same net effect.
-
-```csharp
-public async Task HandleAsync(OrderPlaced evt, CancellationToken ct)
-{
-    // Dedupe on a natural or supplied idempotency key.
-    bool alreadyHandled = await _db.ProcessedEvents
-        .AnyAsync(p => p.EventId == evt.EventId, ct);
-    if (alreadyHandled) return;
-
-    await _rewards.GrantSignupBonusAsync(evt.CustomerId, ct);
-
-    _db.ProcessedEvents.Add(new ProcessedEvent(evt.EventId, DateTime.UtcNow));
-    await _db.SaveChangesAsync(ct); // unique index on EventId is your backstop
-}
-```
+You cannot engineer this possibility away entirely. Distributed systems give you **at-least-once** delivery as the practical default; exactly-once is a comforting fiction that, when you look closely, is always at-least-once plus idempotent processing (Chapter 9 explains why). So the senior move is to stop fighting duplicates and instead make processing **idempotent** - safe to run more than once with the same net effect. The implementation - dedupe on a natural or supplied idempotency key, with a unique index as your backstop - is covered in Chapter 20; apply it to every handler a worker runs.
 
 For the polling contention itself, options range from a `SELECT ... FOR UPDATE SKIP LOCKED` (PostgreSQL) to claiming rows with an atomic `UPDATE ... SET LockedBy = @me WHERE ...`, to simply electing a single leader (covered in Part B) so only one instance polls at all. The right answer depends on throughput, but the principle is constant: **assume duplicates and design so they don't hurt.**
 

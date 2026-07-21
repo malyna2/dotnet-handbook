@@ -121,7 +121,7 @@ You *can* force LOH compaction on demand (`GCSettings.LargeObjectHeapCompactionM
 </PropertyGroup>
 ```
 
-> **Best practice:** ASP.NET Core defaults to Server GC and it's usually correct for throughput-oriented services. But in **containers with tight memory limits or few cores**, Server GC's per-core heaps can waste memory and even cause more frequent collections. Benchmark both. For a container capped at 1–2 cores, Workstation GC is often better.
+> **Best practice:** ASP.NET Core defaults to Server GC and it's usually correct for throughput-oriented services. Historically, Server GC's up-front per-core heaps wasted memory in **containers with tight limits or few cores**, and the standard workaround was switching those workloads to Workstation GC. **DATAS** (Dynamic Adaptation To Application Sizes) — opt-in in .NET 8, on by default with Server GC since .NET 9 — largely fixes this: it scales the number and size of GC heaps dynamically to the actual workload instead of committing a heap per core up front. On .NET 9+, measure before reaching for Workstation GC in small containers; DATAS is the intended fix, and the Workstation-in-tiny-containers trick is now mostly historical.
 
 ### Background (Concurrent) GC
 

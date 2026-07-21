@@ -18,6 +18,7 @@ You do not need a law degree, but you need a working mental model of the major r
 - **CCPA / CPRA (California)** — gives California residents rights to know what data is collected, to delete it, and to opt out of its "sale." Conceptually similar to GDPR but with a consumer/opt-out flavor rather than GDPR's consent-first stance.
 - **HIPAA (US healthcare)** — governs "Protected Health Information" (PHI). If your system touches medical records, it imposes strict rules on access controls, audit trails, and encryption, and it requires a signed *Business Associate Agreement* with vendors (including your cloud provider).
 - **PCI-DSS** — not a government law but a contractual standard from the payment-card industry. It governs how you store, process, and transmit cardholder data. The cheapest way to comply is almost always to *not* store card numbers at all and delegate to a tokenizing processor (Stripe, Adyen, Braintree).
+- **EU AI Act** — entered into force in August 2024, with obligations phasing in through 2026–27. Relevant if your system embeds AI features: it imposes risk-tiered obligations (prohibited, high-risk, limited, minimal), so the tier your feature falls into determines what you owe.
 
 The common thread: **these are all about personal data — who can access it, where it lives, how long you keep it, and whether you can prove what happened to it.** That reframing turns law into architecture.
 
@@ -140,6 +141,8 @@ public class RetentionPurgeService(IServiceProvider sp, ILogger<RetentionPurgeSe
 ### Data residency and sovereignty
 
 Some laws require that data about a country's residents stays within specific borders. This is not a code concern you can patch late — it is a *topology* decision. It affects which cloud regions you deploy to, where your databases and backups live, and where your CDN caches content. If you might serve EU customers under residency constraints, choose EU regions and confirm that logs, backups, and disaster-recovery replicas also stay in-region. Retrofitting residency onto a single-region system is a migration, not a config flag.
+
+For EU→US transfers specifically, the **EU–US Data Privacy Framework** (an adequacy decision from July 2023, successor to the invalidated Privacy Shield) is the current lawful transfer mechanism, with Standard Contractual Clauses remaining the fallback.
 
 ### Encryption ties it all together
 

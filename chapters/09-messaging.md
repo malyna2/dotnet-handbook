@@ -183,6 +183,8 @@ Ordering is deceptively hard in distributed systems. The moment you have competi
 
 Writing raw broker client code (the RabbitMQ `IModel`, Kafka's consumer loop) is tedious and error-prone. **MassTransit** is the dominant .NET abstraction layer. It gives you a broker-agnostic API, built-in retry/redelivery, the outbox, sagas, and serialization — while letting you swap RabbitMQ for Azure Service Bus with a config change.
 
+> **A note on licensing:** In late 2024 the MassTransit team announced that v9 will be a commercial product; v8 remains open source (Apache 2.0) and maintained during a multi-year transition. For new projects, factor this into the decision and know the alternatives: **Wolverine**, **Rebus**, or the raw broker client libraries. The concepts in this chapter transfer to all of them.
+
 Let's define a message contract. In MassTransit, an interface or record shared between publisher and consumer *is* the contract.
 
 ```csharp
@@ -319,21 +321,7 @@ This is where distributed systems get genuinely hard — and where interviews an
 
 ### Idempotent Consumers
 
-Foundational, so we start here. In a distributed system you will receive duplicate messages (we'll see why under delivery guarantees). An **idempotent** consumer produces the same result whether it processes a message once or five times.
-
-```csharp
-public async Task Consume(ConsumeContext<PaymentReceived> context)
-{
-    var msg = context.Message;
-
-    // Guard: have we already processed this message id?
-    if (await _processedStore.ExistsAsync(msg.MessageId))
-        return; // Already handled — safely ignore the duplicate.
-
-    await _ledger.CreditAccountAsync(msg.AccountId, msg.Amount);
-    await _processedStore.MarkProcessedAsync(msg.MessageId);
-}
-```
+Foundational, so we start here. In a distributed system you will receive duplicate messages (we'll see why under delivery guarantees). An **idempotent** consumer produces the same result whether it processes a message once or five times. The standard mechanism is deduplication: check whether this message's ID has already been processed, skip it if so, and record it once the work is done. Chapter 20 covers the mechanics of idempotency and idempotency keys in depth; here the point is that idempotent consumers are what make at-least-once delivery safe to live with.
 
 > **Best practice:** design every consumer to be idempotent *by default*. It's cheaper than trying to guarantee exactly-once delivery (which, as we'll see, is nearly impossible). Use natural keys where you can — "does an order with this ID already exist?" is more robust than a separate processed-messages table.
 
@@ -373,7 +361,7 @@ x.AddEntityFrameworkOutbox<AppDbContext>(o =>
 });
 ```
 
-The mirror image is the **Inbox pattern**: recording processed message IDs (as in the idempotency example) so that duplicate deliveries are detected and dropped. Outbox guarantees you *send* reliably; inbox guarantees you *receive* without double-processing. Together they give you effectively-once behavior on top of at-least-once transport.
+The mirror image is the **Inbox pattern**: recording processed message IDs (as described under idempotent consumers above) so that duplicate deliveries are detected and dropped. Outbox guarantees you *send* reliably; inbox guarantees you *receive* without double-processing. Together they give you effectively-once behavior on top of at-least-once transport.
 
 ### Saga: Managing Long-Running Distributed Transactions
 
@@ -453,38 +441,13 @@ The saga's state is *persisted*, so the process survives crashes and restarts. T
 
 ### Resilience Patterns: Retry, Circuit Breaker, Bulkhead
 
-These come from the world of resilient clients (the .NET library **Polly** is the standard implementation, and it's built into `Microsoft.Extensions.Http.Resilience`).
+These come from the world of resilient clients, and Chapter 20 covers the mechanics — the full Polly pipeline via `Microsoft.Extensions.Http.Resilience`, how the strategies layer, and why jitter matters. Here, the short version and the messaging angle:
 
-**Retry with exponential backoff and jitter.** When a call fails transiently, retry — but don't hammer. Back off exponentially (1s, 2s, 4s, 8s) so you give the struggling service room to recover. And add **jitter** (randomness) so that a thousand clients that all failed at the same instant don't retry in perfect unison and create a synchronized stampede — the "thundering herd."
-
-```csharp
-var pipeline = new ResiliencePipelineBuilder()
-    .AddRetry(new RetryStrategyOptions
-    {
-        MaxRetryAttempts = 4,
-        BackoffType = DelayBackoffType.Exponential,
-        UseJitter = true,                          // spread the retries out
-        Delay = TimeSpan.FromSeconds(1),
-    })
-    .Build();
-
-await pipeline.ExecuteAsync(async ct => await CallFlakyServiceAsync(ct));
-```
+- **Retry with exponential backoff and jitter.** When a call fails transiently, retry — but back off exponentially (1s, 2s, 4s, 8s) so the struggling service gets room to recover, and add jitter so a thousand clients that failed at the same instant don't retry in perfect unison — the "thundering herd."
+- **Circuit breaker.** When a downstream service is clearly down, retrying is pointless and harmful. A breaker watches the failure rate, "trips" once it crosses a threshold, fails fast for a cooldown period, then lets a trial request through and resumes if it succeeds. This protects both you (fail fast instead of hanging) and the struggling service (you stop piling on load).
+- **Bulkhead.** Named after a ship's watertight compartments: isolate resources per dependency so one misbehaving service can't consume *all* your threads or connections and sink the whole application.
 
 > **Pitfall:** retrying a *non-idempotent* operation can double-charge a customer. Only retry operations you know are safe to repeat — which loops us right back to idempotency.
-
-**Circuit Breaker.** If a downstream service is clearly down, retrying is pointless and harmful — you're wasting resources and delaying failure. A circuit breaker *watches the failure rate* and, once it crosses a threshold, "trips": it stops calling the service entirely and fails fast for a cooldown period. After the cooldown it lets a trial request through ("half-open"); if that succeeds, it closes and resumes normal traffic.
-
-```
-   CLOSED ──(failures exceed threshold)──▶ OPEN ──(cooldown elapses)──▶ HALF-OPEN
-     ▲                                                                     │
-     └──────────────(trial request succeeds)──────────────────────────────┘
-                     (trial fails → back to OPEN)
-```
-
-This protects both you (fail fast instead of hanging) and the struggling service (you stop piling on load so it can recover).
-
-**Bulkhead.** Named after a ship's watertight compartments: if one floods, the others keep the ship afloat. In software, you isolate resources so that one misbehaving dependency can't consume *all* your threads or connections and sink the whole application. Concretely: limit each downstream dependency to its own bounded pool of concurrent calls. If the recommendations service hangs, it exhausts only its 10-slot bulkhead, not your entire thread pool, and the checkout flow keeps working.
 
 ## Delivery Guarantees
 
@@ -508,34 +471,7 @@ Idempotency's practical implementation. Every message carries a unique ID. The c
 
 ## Consistency in a Distributed World
 
-### The CAP Theorem
-
-When you have data replicated across a network, CAP says you can have at most **two** of these three during a network **P**artition:
-
-- **Consistency** — every read sees the latest write (all nodes agree).
-- **Availability** — every request gets a (non-error) response.
-- **Partition tolerance** — the system keeps working despite network splits.
-
-Here's the crucial insight most explanations bury: **in a distributed system, partitions are not optional.** Networks fail. So P is a given, and the real choice, *during a partition*, is between C and A:
-
-- **CP system** — when the network splits, refuse requests that can't guarantee consistency (return errors or block). You stay correct but lose availability. Example: a system that requires a quorum to write.
-- **AP system** — keep serving from every node even if they might disagree, and reconcile later. You stay up but may serve stale data. Example: a shopping cart that accepts writes on both sides of a partition and merges them afterward.
-
-```
-          Network partition splits the cluster:
-          ┌── Node A ──┐        ┌── Node B ──┐
-          │  write x=5 │   ╳╳╳  │  read x=?  │
-          └────────────┘  (link └────────────┘
-                          down)
-   CP choice: Node B refuses/errors — consistency preserved, availability lost.
-   AP choice: Node B returns old x — availability preserved, consistency lost.
-```
-
-> **Nuance for seniors:** CAP is about behavior *only during a partition*. When the network is healthy you can have both C and A. Modern thinking (the PACELC extension) adds: *else* (when there's no partition), you still trade **L**atency vs **C**onsistency. Strong consistency across nodes costs coordination time.
-
-### Eventual Consistency
-
-Most large-scale systems choose availability and embrace **eventual consistency**: if you stop writing, all replicas *eventually* converge to the same value. In the meantime, reads might be stale. Your account balance updated on your phone might take a moment to appear on the website.
+Replicating data across a network forces a trade-off between consistency and availability — the territory of the CAP theorem and its PACELC refinement, which Chapter 20 covers in full. Here the point is the consequence you accept the moment you adopt messaging: **eventual consistency**. If you stop writing, all parts of the system *eventually* converge on the same state; in the meantime, reads might be stale. Your account balance updated on your phone might take a moment to appear on the website.
 
 This is exactly the model that messaging gives you. When the checkout publishes `OrderPlaced` and the analytics service processes it 200ms later, the system is *temporarily inconsistent* — the order exists but analytics doesn't know yet — and then converges. Accepting this is the price of decoupling, and for most business domains it's a fine price. The senior skill is identifying the few places where it *isn't* acceptable and applying stronger consistency there.
 

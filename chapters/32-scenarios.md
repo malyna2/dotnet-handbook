@@ -133,67 +133,11 @@ The other classic is **"return 200, then do the work."** Handing the caller a su
 
 ### The fix & architectural options (with trade-offs)
 
-**The Transactional Outbox.** The core trick: only write to *one* store transactionally — your database — and record the intent to publish in the *same* transaction, in an `outbox` table. A separate relay reads the outbox and publishes to the broker, marking rows sent. Now the DB write and the "I will publish" record commit atomically; the actual publish becomes a retryable, at-least-once background job.
+**The Transactional Outbox.** The core trick: only write to *one* store transactionally — your database — and record the intent to publish in the *same* transaction, in an `outbox` table. A separate relay reads the outbox and publishes to the broker, marking rows sent. Now the DB write and the "I will publish" record commit atomically; the actual publish becomes a retryable, at-least-once background job. (Ch. 9 covers the table and publisher mechanics; Ch. 21 shows the background relay itself.)
 
-```csharp
-// Inside the same DB transaction as the business write:
-public async Task PlaceOrderAsync(Order order, CancellationToken ct)
-{
-    await using var tx = await _db.Database.BeginTransactionAsync(ct);
+If the relay crashes after publishing but before marking a row processed, it republishes on restart — hence **at-least-once**, and hence consumers must **deduplicate**. That is the whole game: you trade the impossible "exactly-once delivery" for "at-least-once delivery + idempotent consumers," which together give **effectively-once processing**.
 
-    _db.Orders.Add(order);
-
-    _db.OutboxMessages.Add(new OutboxMessage
-    {
-        Id          = Guid.NewGuid(),
-        Type        = nameof(OrderPlaced),
-        Payload     = JsonSerializer.Serialize(new OrderPlaced(order.Id, order.Total)),
-        OccurredOn  = DateTime.UtcNow,
-        ProcessedOn = null
-    });
-
-    await _db.SaveChangesAsync(ct); // order + outbox row commit together, atomically
-    await tx.CommitAsync(ct);
-}
-```
-
-```csharp
-// A background relay drains the outbox — at-least-once delivery.
-public async Task RelayAsync(CancellationToken ct)
-{
-    var pending = await _db.OutboxMessages
-        .Where(m => m.ProcessedOn == null)
-        .OrderBy(m => m.OccurredOn)
-        .Take(100)
-        .ToListAsync(ct);
-
-    foreach (var msg in pending)
-    {
-        // Publish carries msg.Id so consumers can deduplicate.
-        await _broker.PublishAsync(msg.Type, msg.Payload, messageId: msg.Id, ct);
-        msg.ProcessedOn = DateTime.UtcNow;
-        await _db.SaveChangesAsync(ct);
-    }
-}
-```
-
-If the relay crashes after publishing but before marking `ProcessedOn`, it republishes on restart — hence **at-least-once**, and hence consumers must **deduplicate**. That is the whole game: you trade the impossible "exactly-once delivery" for "at-least-once delivery + idempotent consumers," which together give **effectively-once processing**.
-
-**Idempotency keys and dedup.** Give every message (and every externally-triggered command) a stable ID. Consumers record processed IDs (an `inbox`/processed-messages table) and skip duplicates:
-
-```csharp
-public async Task HandleAsync(OrderPlaced evt, Guid messageId, CancellationToken ct)
-{
-    if (await _db.ProcessedMessages.AnyAsync(m => m.Id == messageId, ct))
-        return; // already handled — ignore the duplicate
-
-    // ... do the work ...
-    _db.ProcessedMessages.Add(new ProcessedMessage { Id = messageId, At = DateTime.UtcNow });
-    await _db.SaveChangesAsync(ct);
-}
-```
-
-For inbound HTTP writes, accept a client-supplied `Idempotency-Key` header (Stripe's model): the first request does the work and stores the result keyed by that value; retries with the same key return the stored result instead of doing the work twice.
+**Idempotency keys and dedup.** Give every message (and every externally-triggered command) a stable ID. Consumers record processed IDs (an `inbox`/processed-messages table, backed by a unique index) and skip duplicates — Ch. 20 covers the implementation. For inbound HTTP writes, accept a client-supplied `Idempotency-Key` header (Stripe's model): the first request does the work and stores the result keyed by that value; retries with the same key return the stored result instead of doing the work twice.
 
 **Sagas for multi-service consistency.** When a business transaction spans services (reserve inventory → charge card → create shipment), you cannot hold one ACID transaction across all of them. A **saga** is a sequence of local transactions, each with a compensating action to undo it if a later step fails (release the reservation, refund the charge). This is eventual consistency by design — the system is briefly inconsistent and converges (Ch. 9).
 
@@ -349,27 +293,7 @@ Your order service publishes every order to RabbitMQ, where fulfillment, billing
 
 ### The fix & architectural options (with trade-offs)
 
-**Circuit breaker + fallback (Polly).** Wrap the dependency in a circuit breaker so that after a threshold of failures, calls short-circuit for a cool-off period and you serve a fallback instead of hanging. In modern .NET use `Microsoft.Extensions.Resilience` / `Polly.Core`:
-
-```csharp
-var pipeline = new ResiliencePipelineBuilder()
-    .AddRetry(new RetryStrategyOptions
-    {
-        MaxRetryAttempts = 3,
-        BackoffType      = DelayBackoffType.Exponential,
-        UseJitter        = true, // spread retries so they don't synchronize into a storm
-        Delay            = TimeSpan.FromMilliseconds(200)
-    })
-    .AddCircuitBreaker(new CircuitBreakerStrategyOptions
-    {
-        FailureRatio     = 0.5,               // open if >50% of calls fail
-        SamplingDuration = TimeSpan.FromSeconds(10),
-        MinimumThroughput = 20,
-        BreakDuration    = TimeSpan.FromSeconds(15) // cool-off before probing again
-    })
-    .AddTimeout(TimeSpan.FromSeconds(2))      // never hang indefinitely
-    .Build();
-```
+**Circuit breaker + fallback (Polly).** Wrap the dependency in a circuit breaker so that after a threshold of failures, calls short-circuit for a cool-off period and you serve a fallback instead of hanging — and give every call a timeout so nothing waits indefinitely. Ch. 20 builds the full `Microsoft.Extensions.Resilience` / Polly pipeline (retry + breaker + layered timeouts) and explains why the ordering of strategies matters. The decision that is specific to *this* incident is what the fallback should be — and for publishing, the answer is the outbox buffer below.
 
 **Retry with exponential backoff *and jitter*.** Backoff alone is not enough: if every instance retries on the same schedule, they synchronize into coordinated waves. Jitter randomizes the delay so load spreads out. Also make retries **idempotent** and **bounded** — retrying a non-idempotent write is how you double-charge a customer.
 

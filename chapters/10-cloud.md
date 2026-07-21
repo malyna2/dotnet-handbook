@@ -290,6 +290,8 @@ resource "azurerm_storage_account" "uploads" {
 
 The workflow is `terraform plan` (preview the diff) then `terraform apply` (execute it). Always read the plan before applying — it tells you exactly what will change, and crucially, what will be *destroyed*.
 
+> **A note on licensing:** In August 2023, HashiCorp relicensed Terraform from the open-source MPL to the source-available Business Source License (BUSL). Nothing changes for typical internal use, but the community forked the last MPL version as **OpenTofu**, now under the Linux Foundation and drop-in compatible at the fork point. Anyone picking an IaC tool today should know both names.
+
 ### Pulumi (in C#)
 
 **Pulumi** does what Terraform does but lets you use real programming languages — including **C#**. For a .NET team this is compelling: you get types, `for` loops, unit tests, and NuGet packages instead of a bespoke DSL. The same Azure example:

@@ -35,7 +35,7 @@ Use the **sidebar** on the left (or the **Browse chapters** cards below) to jump
 
 # Chapter 1: C# Language Mastery
 
-_⏱️ Estimated read time: ~45 min · 5470 words (study pace)_
+_⏱️ Estimated read time: ~45 min · 5451 words (study pace)_
 
 A senior .NET developer is not someone who knows more keywords than a mid-level developer. The difference is that a senior understands what the language does *underneath* the syntax: where the bytes live, when work actually happens, why a seemingly innocent line allocates on the heap, and what the compiler is really generating on your behalf. This chapter walks through the C# language from that vantage point. We assume you can already write loops, classes, and `async` methods. Our job is to explain the "why" so deeply that the "what" becomes obvious.
 
@@ -70,11 +70,7 @@ This single behavioral difference is the root of a hundred bugs and a hundred op
 
 Developers often summarize this as "value types go on the stack, reference types go on the heap." That is a useful first approximation and a dangerous belief to hold literally. The truth is more precise: **the storage location depends on where the variable lives, not only on its type.**
 
-The **stack** is a per-thread region of memory that grows and shrinks with method calls. Each method call pushes a *stack frame* containing its parameters and local variables; when the method returns, the frame is popped and its memory is instantly reclaimed. The stack is extremely fast because allocation is just moving a pointer, and deallocation is automatic.
-
-The **managed heap** is a shared region managed by the garbage collector (GC). Objects here live until the GC determines nothing references them anymore. Heap allocation is more expensive, and reclamation requires the GC to run.
-
-Now the nuance:
+In brief: the **stack** is per-thread memory that grows and shrinks with method calls — allocation is a pointer bump, and a returning method reclaims its frame instantly. The **managed heap** is the shared region where objects live until the garbage collector proves them unreachable; Chapter 2 covers the runtime mechanics — generations, compaction, collection triggers — in depth. What matters at the language level is where a given *variable's* data ends up, and the answer is more subtle than the folklore:
 
 - A value type declared as a **local variable** typically lives on the stack.
 - A value type that is a **field of a class** lives *inside that class's object on the heap*. An `int` field of a heap object is on the heap.
@@ -111,7 +107,7 @@ Console.WriteLine("Value: " + x);   // boxes x to call object.ToString via conca
 IComparable cmp = 10;    // boxes — interface is a reference type
 ```
 
-Each box is a heap allocation plus a copy. In a hot loop this destroys throughput. The fix is almost always **generics**, which we cover next: `List<int>` stores `int`s inline with no boxing, whereas the ancient `ArrayList` boxes every element.
+Each box is a heap allocation plus a copy. In a hot loop this destroys throughput. The fix is almost always **generics**, which we cover next.
 
 > **Best practice:** Prefer generic collections (`List<T>`, `Dictionary<TKey,TValue>`) over the legacy non-generic ones precisely because generics eliminate boxing. When you implement `Equals`/`GetHashCode` on a struct, also implement `IEquatable<T>` so equality comparisons don't box.
 
@@ -509,46 +505,13 @@ using (var stream = new FileStream("data.bin", FileMode.Open))
 using var reader = new StreamReader("data.txt");
 ```
 
-For a class that owns unmanaged resources directly, the **full Dispose pattern** coordinates deterministic disposal with the GC's finalizer as a safety net:
-
-```csharp
-public class NativeBuffer : IDisposable
-{
-    private IntPtr _handle = Marshal.AllocHGlobal(1024);
-    private bool _disposed;
-
-    public void Dispose()
-    {
-        Dispose(true);
-        GC.SuppressFinalize(this);   // we cleaned up; skip the finalizer
-    }
-
-    protected virtual void Dispose(bool disposing)
-    {
-        if (_disposed) return;
-        if (disposing)
-        {
-            // release managed resources here
-        }
-        // release unmanaged resources
-        Marshal.FreeHGlobal(_handle);
-        _handle = IntPtr.Zero;
-        _disposed = true;
-    }
-
-    ~NativeBuffer() => Dispose(false);   // finalizer: last-resort cleanup
-}
-```
-
-The `bool disposing` distinction matters: when called from `Dispose()` (`disposing == true`), other managed objects are still alive and safe to touch; when called from the finalizer (`disposing == false`), they may already be collected, so you only release unmanaged resources.
+For the rare class that directly owns an unmanaged resource, the **full Dispose pattern** adds a `Dispose(bool disposing)` method, a finalizer as a last-resort backstop, and `GC.SuppressFinalize` to skip that finalizer once `Dispose` has run. The `disposing` flag matters: when `true` (called from `Dispose()`), other managed objects are still alive and safe to touch; when `false` (the finalizer path), they may already be collected, so you release only unmanaged resources. Most classes need none of this — if you merely *contain* other `IDisposable` fields, implement `Dispose` to dispose them and skip the finalizer. Chapter 2 walks through the full pattern, the finalization queue, and its runtime cost in depth.
 
 **`IAsyncDisposable`** exists for resources whose cleanup involves I/O (flushing a buffer, closing a network stream) that shouldn't block a thread:
 
 ```csharp
 await using var conn = new AsyncDbConnection();   // DisposeAsync() awaited at scope end
 ```
-
-> **Best practice:** Most classes don't need a finalizer. Only write one if you directly hold unmanaged resources. If you merely *contain* other `IDisposable` fields, implement `Dispose` to dispose them and skip the finalizer entirely (it has real overhead — finalizable objects survive an extra GC generation).
 
 ## Iterators and yield return
 
@@ -704,6 +667,8 @@ string json = """
 
 The triple-quote (or more) delimiters mean embedded `"` need no escaping, and the closing quotes' indentation sets the baseline that's stripped from every line — so your literal stays visually aligned with your code.
 
+> **Where the language is heading.** C# 13 added **params collections** — `params` now accepts `Span<T>`, `ReadOnlySpan<T>`, and other collection types, not just arrays — and the dedicated `System.Threading.Lock` type. C# 14, shipping with .NET 10, brings the `field` keyword (auto-property accessors can reference their own backing field, so a property can add validation without hand-declaring one) and **extension members**, which generalize extension methods to extension properties and static extension members. Appendix B has the full version timeline.
+
 ## Bringing It Together
 
 The through-line of this chapter is that C#'s surface features rest on a small number of deep mechanisms: the value/reference divide governs memory and copying; generics give reuse without boxing; deferred execution and expression trees make LINQ both lazy and translatable; closures capture variables by reference and can leak or surprise; and `ref struct`/`Span<T>` let you write allocation-free code with compile-time safety. The modern syntax layered on top — records, patterns, primary constructors, collection expressions — is not cosmetic; each one encodes an intent (immutability, exhaustiveness, data-shaping) that the compiler can check and optimize.
@@ -715,7 +680,7 @@ Master these fundamentals and you stop guessing about performance and behavior. 
 
 # Chapter 2: .NET Runtime & Internals
 
-_⏱️ Estimated read time: ~40 min · 5804 words (study pace)_
+_⏱️ Estimated read time: ~40 min · 5866 words (study pace)_
 
 A senior .NET developer is expected to reason about what happens *beneath* the C# they write. When a request slows down under load, when memory climbs and never comes back, when a `Scoped` service throws in a singleton, or when a container image is 200 MB larger than it should be — the answers all live in the runtime. This chapter is a deep tour of that machinery: how memory is managed, how your IL becomes machine code, how the modern hosting stack (configuration, dependency injection, logging, background work) is wired together, and how to serialize data efficiently. By the end you should be able to hold a mental model of the CLR precise enough to debug production problems and make informed architectural decisions.
 
@@ -836,7 +801,7 @@ You *can* force LOH compaction on demand (`GCSettings.LargeObjectHeapCompactionM
 </PropertyGroup>
 ```
 
-> **Best practice:** ASP.NET Core defaults to Server GC and it's usually correct for throughput-oriented services. But in **containers with tight memory limits or few cores**, Server GC's per-core heaps can waste memory and even cause more frequent collections. Benchmark both. For a container capped at 1–2 cores, Workstation GC is often better.
+> **Best practice:** ASP.NET Core defaults to Server GC and it's usually correct for throughput-oriented services. Historically, Server GC's up-front per-core heaps wasted memory in **containers with tight limits or few cores**, and the standard workaround was switching those workloads to Workstation GC. **DATAS** (Dynamic Adaptation To Application Sizes) — opt-in in .NET 8, on by default with Server GC since .NET 9 — largely fixes this: it scales the number and size of GC heaps dynamically to the actual workload instead of committing a heap per core up front. On .NET 9+, measure before reaching for Workstation GC in small containers; DATAS is the intended fix, and the Workstation-in-tiny-containers trick is now mostly historical.
 
 ### Background (Concurrent) GC
 
@@ -1261,7 +1226,7 @@ Internalize these and you can reason from symptoms (a latency spike, a memory le
 
 # Chapter 3: ASP.NET Core & Web APIs
 
-_⏱️ Estimated read time: ~25 min · 3425 words (study pace)_
+_⏱️ Estimated read time: ~30 min · 4077 words (study pace)_
 
 ASP.NET Core is the beating heart of most .NET server-side work. If you've been building APIs for a couple of years, you already know how to make an endpoint return JSON. This chapter is about the *why* underneath: how a request actually travels through your application, where the extension points live, and how the senior-level decisions (versioning, resilience, auth, real-time) fit together. By the end you should be able to reason about the framework rather than just use it.
 
@@ -1461,6 +1426,30 @@ public class CreateProductValidator : AbstractValidator<CreateProductRequest>
 
 > **Best practice.** Keep validators free of infrastructure. If a rule needs a database check (e.g. "SKU must be unique"), that's arguably a domain/business concern better handled in your service layer, not in a validator that runs on every bind. Validators are for *shape and format*; business invariants belong deeper.
 
+## CancellationToken Propagation
+
+Every request carries an implicit expiry: the moment the client disconnects, times out, or navigates away, any work you're still doing on its behalf is wasted. The framework tells you when that happens — `HttpContext.RequestAborted` is a `CancellationToken` that trips when the connection drops — and both Minimal APIs and MVC will bind it for you: declare a `CancellationToken` parameter on your endpoint or action and the framework wires it to `RequestAborted` automatically.
+
+The token only helps if you *pass it through*. EF Core queries, `HttpClient` calls, stream reads — essentially every awaited I/O API — accept one:
+
+```csharp
+app.MapGet("/reports/{id:int}", async (int id, AppDbContext db,
+    ReportRenderer renderer, CancellationToken ct) =>
+{
+    var data = await db.ReportRows
+        .Where(r => r.ReportId == id)
+        .ToListAsync(ct);                    // Stops the query if the client is gone.
+
+    return Results.Ok(await renderer.RenderAsync(data, ct));
+});
+```
+
+When the client disconnects mid-query, EF Core cancels the database command; the connection returns to the pool and the request's threads free up. Without the token, the query runs to completion for a caller that will never read the response.
+
+Why this matters operationally: picture your API slowing down under load. Clients hit their own timeouts, abandon their requests, and *retry*. If your server doesn't observe cancellation, every abandoned request keeps executing — the original query is still hammering the database while the retry starts a duplicate. Load effectively doubles at precisely the moment the system is already struggling, and a slowdown snowballs into an outage. Propagating the token is what lets abandoned work actually stop, turning a retry storm into a manageable blip instead of a self-inflicted amplification attack.
+
+> **Gotcha:** Not everything should be cancellable. If you've charged a payment and are about to write the outbox record, cancelling *mid-write* because the client hung up is far worse than finishing wasted work — you'd take the money and lose the event. For operations that must run to completion once started, deliberately pass `CancellationToken.None` (or a token decoupled from the request) past that point of no return. The skill isn't "always pass the token"; it's knowing which operations are safe to abandon and which have already committed you.
+
 ## Filters
 
 Filters run *inside* the MVC/endpoint execution, giving you hooks that are aware of model binding and action results — something raw middleware can't see. They form their own mini-pipeline with a defined order: **Authorization → Resource → Action → (endpoint) → Result**, plus **Exception** filters that catch throws.
@@ -1615,6 +1604,8 @@ app.UseCors("spa");
 
 > **Pitfall.** `AllowAnyOrigin()` combined with `AllowCredentials()` is forbidden by the spec and won't work. Never reflexively allow all origins in production.
 
+> **Gotcha — CORS is not CSRF protection.** If browsers reach your endpoints with *cookie* authentication, they need **antiforgery** protection, and ASP.NET Core ships it: automatic in Razor Pages/MVC form tag helpers, and available to Minimal APIs via the antiforgery services added in .NET 8. Token-authenticated APIs — where the client sends an `Authorization` header — are not CSRF-vulnerable, because browsers never attach that header automatically to cross-site requests. Chapter 14 gives CSRF its full treatment.
+
 **Rate limiting** (built-in since .NET 7) protects you from abuse and thundering herds. Algorithms include fixed window, sliding window, token bucket, and concurrency limiters:
 
 ```csharp
@@ -1735,25 +1726,41 @@ app.MapHealthChecks("/health/ready",
 
 Tagging checks and filtering by tag is what keeps liveness and readiness cleanly separated.
 
+## Observability Wiring
+
+ASP.NET Core is instrumented *out of the box*. Kestrel and the hosting layer emit metrics (request rate, duration, active connections) through `System.Diagnostics.Metrics` and the older EventCounters, and every request runs inside an `Activity` — .NET's native distributed-tracing span. The instrumentation is always there; what's missing by default is something *listening*. That's what OpenTelemetry provides:
+
+```csharp
+builder.Services.AddOpenTelemetry()
+    .ConfigureResource(r => r.AddService("shop-api"))
+    .WithTracing(t => t
+        .AddAspNetCoreInstrumentation()      // Span per incoming request.
+        .AddHttpClientInstrumentation()      // Span per outbound call.
+        .AddOtlpExporter())                  // Ship to your collector.
+    .WithMetrics(m => m
+        .AddAspNetCoreInstrumentation()
+        .AddHttpClientInstrumentation()
+        .AddOtlpExporter());
+```
+
+With those few lines, every request produces a trace: a root span from the ASP.NET Core instrumentation, child spans for each `HttpClient` call, all exported over OTLP to whatever backend you run (Jaeger, Tempo, an APM vendor — the wire format is standard). Better still, propagation is automatic: `HttpClient` injects the **W3C trace-context** `traceparent` header on outbound calls and ASP.NET Core reads it on inbound ones, so when service A calls service B, both ends land in the *same* trace without either team writing propagation code. Combine that with the `IHttpClientFactory` discipline from earlier in this chapter and a slow endpoint stops being a mystery — the trace shows you exactly which downstream call ate the time budget.
+
+Chapter 13 covers observability as a discipline — custom `ActivitySource` spans, metrics design, log correlation, propagating context through message queues. The point here is narrower but important: the web framework *participates natively*. A few lines in `Program.cs` and every request carries a trace.
+
 ## A Brief Note on Blazor
 
-**Blazor** lets you build interactive web UIs in C# instead of JavaScript. Two hosting models matter:
-
-- **Blazor Server** runs your components on the server and streams UI diffs to the browser over a SignalR connection. Tiny download, full .NET on the server, but every interaction is a network round-trip and each user holds an open connection — latency-sensitive and stateful.
-- **Blazor WebAssembly (WASM)** downloads a .NET runtime and your app into the browser and runs entirely client-side. Works offline, no per-user server connection, but a larger initial download and client-grade resources.
-
-Modern .NET unifies these under **Blazor Web Apps** with per-component render modes, so you can mix static server rendering, interactive server, and WASM in one app. As an API-focused developer, the takeaway is simply that Blazor is another consumer of your APIs (WASM) or a server-side rendering host (Server) — the backend discipline in this chapter applies regardless.
+**Blazor** lets you build interactive web UIs in C# instead of JavaScript. **Blazor Server** runs your components on the server and streams UI diffs to the browser over a SignalR connection — tiny download, but every interaction is a round-trip and each user holds a stateful connection. **Blazor WebAssembly** runs the .NET runtime in the browser and calls your API like any SPA would — offline-capable, at the cost of a larger initial download. From this chapter's perspective, Blazor is just another consumer of your APIs or another host in your pipeline; Chapter 28 covers the render models, JS interop, and when to choose Blazor over a JavaScript SPA.
 
 ## Summary
 
-The through-line of this chapter is that ASP.NET Core is a **pipeline of composable components**, and nearly every feature — auth, CORS, rate limiting, error handling — is just middleware or a filter slotted into that pipeline in the right order. Master the request lifecycle and the rest becomes a matter of choosing the right tool: Minimal APIs or Controllers, JWT or cookies, policies over roles, REST at the edge and gRPC within, resilience on every outbound call, and consistent ProblemDetails when things go wrong. Those are the instincts that separate a senior engineer from someone who merely returns JSON.
+The through-line of this chapter is that ASP.NET Core is a **pipeline of composable components**, and nearly every feature — auth, CORS, rate limiting, error handling — is just middleware or a filter slotted into that pipeline in the right order. Master the request lifecycle and the rest becomes a matter of choosing the right tool: Minimal APIs or Controllers, JWT or cookies, policies over roles, REST at the edge and gRPC within, resilience on every outbound call, cancellation tokens propagated through every awaited I/O, a trace on every request, and consistent ProblemDetails when things go wrong. Those are the instincts that separate a senior engineer from someone who merely returns JSON.
 
 
 ---
 
 # Chapter 4: Data Access & Databases
 
-_⏱️ Estimated read time: ~30 min · 4109 words (study pace)_
+_⏱️ Estimated read time: ~30 min · 4307 words (study pace)_
 
 Almost every non-trivial application is, underneath all its features, a machine for moving data in and out of a database safely and quickly. You can write flawless business logic and beautiful APIs, but if your data access layer holds locks too long, fires a thousand queries where one would do, or corrupts a balance under concurrent writes, the whole system fails in ways that are hard to reproduce and harder to fix. This chapter takes you from the mechanics of Entity Framework Core down to the SQL and storage engine underneath it, then back up through caching, NoSQL, and deployment. The goal is that you stop treating the database as a black box and start reasoning about what it actually does.
 
@@ -1904,6 +1911,22 @@ var customer = _byId(ctx, 42);
 ```
 
 This is a micro-optimization — reach for it only when profiling shows query compilation is a bottleneck, not by default.
+
+### Set-Based Updates and Deletes: ExecuteUpdate and ExecuteDelete
+
+Change tracking is the wrong tool for bulk writes. Updating 100,000 rows via load-modify-`SaveChanges` means materializing 100,000 entities, snapshotting each one, and issuing 100,000 individual `UPDATE`s. Since EF Core 7, `ExecuteUpdate` and `ExecuteDelete` translate your LINQ predicate directly into a single set-based SQL `UPDATE`/`DELETE` — nothing is loaded, nothing is tracked:
+
+```csharp
+await ctx.Orders
+    .Where(o => o.Status == OrderStatus.Abandoned && o.Created < cutoff)
+    .ExecuteDeleteAsync();
+
+await ctx.Products
+    .Where(p => p.CategoryId == categoryId)
+    .ExecuteUpdateAsync(s => s.SetProperty(p => p.Price, p => p.Price * 0.9m));
+```
+
+> **Gotcha:** These bypass the change tracker entirely. Entities the context already tracks are *not* updated and silently go stale, and `SaveChanges` interceptors — and anything hooked to them, like auditing or domain-event dispatch — never fire. Use them for bulk maintenance and cleanup, not for writes your interceptors must see.
 
 ## SQL Fundamentals
 
@@ -2088,6 +2111,8 @@ That `GetOrCreateAsync` above is cache-aside in one call. It is simple and robus
 
 A **cache stampede** (or "dog-pile") happens when a popular key expires and hundreds of concurrent requests all miss simultaneously, all hammering the database at once to rebuild it — potentially overwhelming it exactly when traffic is highest. Defences include a **lock** so only one request rebuilds while others wait, **early/probabilistic refresh** (rebuild slightly before expiry), and serving slightly stale data during a refresh.
 
+.NET 9's **HybridCache** (`Microsoft.Extensions.Caching.Hybrid`) packages these ideas for you: it unifies an in-process L1 with a distributed L2 behind a single `GetOrCreateAsync` API, and it ships cache-stampede protection out of the box — concurrent misses for the same key collapse into one rebuild. If you find yourself hand-rolling a two-level cache plus a rebuild lock, reach for it instead.
+
 ## Concurrency: Optimistic vs Pessimistic
 
 When two users edit the same record at once, one can silently overwrite the other's changes — the **lost update** problem. Two philosophies address it.
@@ -2186,7 +2211,7 @@ The through-line of this chapter is that the database is not a black box. EF Cor
 
 # Chapter 5: Design Patterns, Principles & Clean Code
 
-_⏱️ Estimated read time: ~1 h 15 min · 10020 words (study pace)_
+_⏱️ Estimated read time: ~1 h 20 min · 10110 words (study pace)_
 
 A senior developer is not someone who has memorized twenty-three patterns from a book. A senior developer is someone who can look at a tangle of code and *feel* where the seams should be, who reaches for a pattern the way a carpenter reaches for the right chisel, and who — crucially — knows when to leave the chisel in the box and just drive the nail.
 
@@ -2579,6 +2604,8 @@ public record CustomerDto(int Id, string Name);
 The controller and handler are fully decoupled — neither references the other's type. MediatR's pipeline behaviors also let you insert cross-cutting concerns (validation, logging, transactions) around every request, which is Chain of Responsibility layered on top of Mediator.
 
 > **Overuse warning:** MediatR is popular to the point of cargo-culting. For a CRUD app with thin controllers, routing everything through an in-memory mediator can add ceremony — an extra request class and handler class per operation — without buying decoupling you actually need. Use it when the indirection pays for itself: many handlers, cross-cutting pipeline behaviors, or a genuine desire to keep the transport (controllers) ignorant of the application layer. A three-endpoint service does not need it.
+
+> **A note on licensing:** In April 2025, MediatR's maintainer (Jimmy Bogard) announced that MediatR and AutoMapper are moving to commercial licensing to fund their maintenance — existing versions remain under their open-source licenses, but new major versions are commercial. The practical consequence: the default of "just add MediatR" now deserves a license check, which only strengthens the advice above to ask whether you need the library at all. Hand-rolled handler interfaces plus DI cover most MediatR use; for mapping, manual code or the MIT-licensed, source-generated **Mapperly** are solid alternatives.
 
 ### The Rest, Briefly
 
@@ -3233,7 +3260,7 @@ So hold the patterns lightly and the principles tightly. When you feel real pain
 
 # Chapter 6: Architecture & Application Design
 
-_⏱️ Estimated read time: ~35 min · 5030 words (study pace)_
+_⏱️ Estimated read time: ~35 min · 5071 words (study pace)_
 
 You can write correct code and still build a system that becomes miserable to change. Correctness is about whether a single function returns the right answer; architecture is about whether, six months from now, a new feature takes an afternoon or a fortnight. This chapter is about the second question — the shape of the whole, the boundaries between the parts, and the trade-offs that senior engineers weigh almost unconsciously.
 
@@ -3455,6 +3482,8 @@ public sealed record PlaceOrderCommand(CustomerId CustomerId, IReadOnlyList<Cart
 
 public sealed record GetOrderSummaryQuery(OrderId Id) : IRequest<OrderSummaryDto>;
 ```
+
+> **Licensing note:** MediatR announced a move to commercial licensing for new major versions in April 2025 (existing versions remain open source) — see the full note in the Mediator section of the design-patterns chapter before making it a default dependency.
 
 At its heaviest, CQRS uses *physically separate stores*: writes go to a normalized transactional database through rich domain aggregates; a projection process updates a denormalized read store (say, a document DB or a set of flat read tables) optimized for queries. The read side is eventually consistent with the write side.
 
@@ -3720,7 +3749,7 @@ The senior move is restraint. Reach for the simplest structure that fits the for
 
 # Chapter 7: Testing
 
-_⏱️ Estimated read time: ~35 min · 5240 words (study pace)_
+_⏱️ Estimated read time: ~35 min · 5303 words (study pace)_
 
 Most developers arrive at their first senior interview able to write a test. Far fewer can explain *why* one test is worth writing and another is worth deleting, why a green test suite can still be worthless, or why the team that mocks everything ends up trusting nothing. This chapter is about that second, harder layer of understanding. We will write plenty of code, but the code is in service of judgment. By the end you should be able to look at a pull request and say, with reasons, "this test earns its keep" or "this test is a liability."
 
@@ -3973,6 +4002,8 @@ public void Convert_UsesProvidedRate_NSub()
 Many people find NSubstitute reads more cleanly because there's no `.Object` unwrapping and the setup looks like ordinary method calls. Moq is more explicit and, some argue, less prone to accidental "did I mean to stub or to verify?" ambiguity. Both are excellent; pick one *per codebase* and stay consistent — mixing them is needless cognitive tax.
 
 > **Pitfall (Moq specifically):** setting up a method with specific argument values and then calling with different values returns `default` silently rather than throwing. A method returning `null` where you expected a configured value is almost always an argument-matcher mismatch. Consider `MockBehavior.Strict` when you want unconfigured calls to throw loudly — at the cost of more brittle tests.
+
+> **A note on trust:** In August 2023, Moq v4.20 quietly bundled SponsorLink, a closed-source component that hashed developers' local git email addresses at build time. It was removed after community backlash, but the trust damage pushed many teams to NSubstitute — which partly explains its momentum, and interviewers still bring it up. The broader reminder: dependency trust is part of dependency choice.
 
 ### When NOT to Mock
 
@@ -4346,7 +4377,7 @@ Write tests that would fail if the behaviour broke, that read clearly when they 
 
 # Chapter 8: Asynchronous & Concurrent Programming
 
-_⏱️ Estimated read time: ~35 min · 4842 words (study pace)_
+_⏱️ Estimated read time: ~35 min · 4916 words (study pace)_
 
 Few topics separate a mid-level .NET developer from a senior one as sharply as a genuine understanding of asynchrony. Almost everyone can sprinkle `async` and `await` on a method until the compiler stops complaining. Far fewer can explain what those keywords actually *do*, why a stray `.Result` can freeze a web server solid, or when reaching for a thread actively makes things slower.
 
@@ -4674,6 +4705,8 @@ catch
 
 > **Pitfall:** With `WhenAny`, the tasks that did *not* win keep running. If one later faults and you never observe it, you have an unobserved exception. Make sure you eventually await or otherwise account for the losers.
 
+The classic "process results as they finish" idiom — loop, `WhenAny`, remove the winner from a list, repeat — is O(n²) over many tasks, because each iteration rescans the remaining set. .NET 9 replaces it with `Task.WhenEach`, which yields an `IAsyncEnumerable` of the tasks in completion order: `await foreach (var task in Task.WhenEach(tasks)) { ... }`. Prefer it whenever you want to consume completions as they arrive rather than wait for all of them.
+
 ### Throttling with SemaphoreSlim
 
 Firing 10,000 HTTP calls with `Task.WhenAll` will melt the remote server and exhaust your sockets. A `SemaphoreSlim` acts as a bouncer, capping how many operations run concurrently:
@@ -4915,7 +4948,7 @@ Master these, and asynchronous code stops being a source of mysterious hangs and
 
 # Chapter 9: Messaging & Distributed Systems
 
-_⏱️ Estimated read time: ~35 min · 5005 words (study pace)_
+_⏱️ Estimated read time: ~35 min · 4737 words (study pace)_
 
 Somewhere along the road from junior to senior, you stop asking "how do I call this API?" and start asking "what happens when this API is down, slow, or lying to me?" That shift in mindset is the heart of distributed systems. This chapter is about the tools and patterns we use to build systems out of many independent parts that keep working even when some of those parts fail.
 
@@ -5098,6 +5131,8 @@ Ordering is deceptively hard in distributed systems. The moment you have competi
 
 Writing raw broker client code (the RabbitMQ `IModel`, Kafka's consumer loop) is tedious and error-prone. **MassTransit** is the dominant .NET abstraction layer. It gives you a broker-agnostic API, built-in retry/redelivery, the outbox, sagas, and serialization — while letting you swap RabbitMQ for Azure Service Bus with a config change.
 
+> **A note on licensing:** In late 2024 the MassTransit team announced that v9 will be a commercial product; v8 remains open source (Apache 2.0) and maintained during a multi-year transition. For new projects, factor this into the decision and know the alternatives: **Wolverine**, **Rebus**, or the raw broker client libraries. The concepts in this chapter transfer to all of them.
+
 Let's define a message contract. In MassTransit, an interface or record shared between publisher and consumer *is* the contract.
 
 ```csharp
@@ -5234,21 +5269,7 @@ This is where distributed systems get genuinely hard — and where interviews an
 
 ### Idempotent Consumers
 
-Foundational, so we start here. In a distributed system you will receive duplicate messages (we'll see why under delivery guarantees). An **idempotent** consumer produces the same result whether it processes a message once or five times.
-
-```csharp
-public async Task Consume(ConsumeContext<PaymentReceived> context)
-{
-    var msg = context.Message;
-
-    // Guard: have we already processed this message id?
-    if (await _processedStore.ExistsAsync(msg.MessageId))
-        return; // Already handled — safely ignore the duplicate.
-
-    await _ledger.CreditAccountAsync(msg.AccountId, msg.Amount);
-    await _processedStore.MarkProcessedAsync(msg.MessageId);
-}
-```
+Foundational, so we start here. In a distributed system you will receive duplicate messages (we'll see why under delivery guarantees). An **idempotent** consumer produces the same result whether it processes a message once or five times. The standard mechanism is deduplication: check whether this message's ID has already been processed, skip it if so, and record it once the work is done. Chapter 20 covers the mechanics of idempotency and idempotency keys in depth; here the point is that idempotent consumers are what make at-least-once delivery safe to live with.
 
 > **Best practice:** design every consumer to be idempotent *by default*. It's cheaper than trying to guarantee exactly-once delivery (which, as we'll see, is nearly impossible). Use natural keys where you can — "does an order with this ID already exist?" is more robust than a separate processed-messages table.
 
@@ -5288,7 +5309,7 @@ x.AddEntityFrameworkOutbox<AppDbContext>(o =>
 });
 ```
 
-The mirror image is the **Inbox pattern**: recording processed message IDs (as in the idempotency example) so that duplicate deliveries are detected and dropped. Outbox guarantees you *send* reliably; inbox guarantees you *receive* without double-processing. Together they give you effectively-once behavior on top of at-least-once transport.
+The mirror image is the **Inbox pattern**: recording processed message IDs (as described under idempotent consumers above) so that duplicate deliveries are detected and dropped. Outbox guarantees you *send* reliably; inbox guarantees you *receive* without double-processing. Together they give you effectively-once behavior on top of at-least-once transport.
 
 ### Saga: Managing Long-Running Distributed Transactions
 
@@ -5368,38 +5389,13 @@ The saga's state is *persisted*, so the process survives crashes and restarts. T
 
 ### Resilience Patterns: Retry, Circuit Breaker, Bulkhead
 
-These come from the world of resilient clients (the .NET library **Polly** is the standard implementation, and it's built into `Microsoft.Extensions.Http.Resilience`).
+These come from the world of resilient clients, and Chapter 20 covers the mechanics — the full Polly pipeline via `Microsoft.Extensions.Http.Resilience`, how the strategies layer, and why jitter matters. Here, the short version and the messaging angle:
 
-**Retry with exponential backoff and jitter.** When a call fails transiently, retry — but don't hammer. Back off exponentially (1s, 2s, 4s, 8s) so you give the struggling service room to recover. And add **jitter** (randomness) so that a thousand clients that all failed at the same instant don't retry in perfect unison and create a synchronized stampede — the "thundering herd."
-
-```csharp
-var pipeline = new ResiliencePipelineBuilder()
-    .AddRetry(new RetryStrategyOptions
-    {
-        MaxRetryAttempts = 4,
-        BackoffType = DelayBackoffType.Exponential,
-        UseJitter = true,                          // spread the retries out
-        Delay = TimeSpan.FromSeconds(1),
-    })
-    .Build();
-
-await pipeline.ExecuteAsync(async ct => await CallFlakyServiceAsync(ct));
-```
+- **Retry with exponential backoff and jitter.** When a call fails transiently, retry — but back off exponentially (1s, 2s, 4s, 8s) so the struggling service gets room to recover, and add jitter so a thousand clients that failed at the same instant don't retry in perfect unison — the "thundering herd."
+- **Circuit breaker.** When a downstream service is clearly down, retrying is pointless and harmful. A breaker watches the failure rate, "trips" once it crosses a threshold, fails fast for a cooldown period, then lets a trial request through and resumes if it succeeds. This protects both you (fail fast instead of hanging) and the struggling service (you stop piling on load).
+- **Bulkhead.** Named after a ship's watertight compartments: isolate resources per dependency so one misbehaving service can't consume *all* your threads or connections and sink the whole application.
 
 > **Pitfall:** retrying a *non-idempotent* operation can double-charge a customer. Only retry operations you know are safe to repeat — which loops us right back to idempotency.
-
-**Circuit Breaker.** If a downstream service is clearly down, retrying is pointless and harmful — you're wasting resources and delaying failure. A circuit breaker *watches the failure rate* and, once it crosses a threshold, "trips": it stops calling the service entirely and fails fast for a cooldown period. After the cooldown it lets a trial request through ("half-open"); if that succeeds, it closes and resumes normal traffic.
-
-```
-   CLOSED ──(failures exceed threshold)──▶ OPEN ──(cooldown elapses)──▶ HALF-OPEN
-     ▲                                                                     │
-     └──────────────(trial request succeeds)──────────────────────────────┘
-                     (trial fails → back to OPEN)
-```
-
-This protects both you (fail fast instead of hanging) and the struggling service (you stop piling on load so it can recover).
-
-**Bulkhead.** Named after a ship's watertight compartments: if one floods, the others keep the ship afloat. In software, you isolate resources so that one misbehaving dependency can't consume *all* your threads or connections and sink the whole application. Concretely: limit each downstream dependency to its own bounded pool of concurrent calls. If the recommendations service hangs, it exhausts only its 10-slot bulkhead, not your entire thread pool, and the checkout flow keeps working.
 
 ## Delivery Guarantees
 
@@ -5423,34 +5419,7 @@ Idempotency's practical implementation. Every message carries a unique ID. The c
 
 ## Consistency in a Distributed World
 
-### The CAP Theorem
-
-When you have data replicated across a network, CAP says you can have at most **two** of these three during a network **P**artition:
-
-- **Consistency** — every read sees the latest write (all nodes agree).
-- **Availability** — every request gets a (non-error) response.
-- **Partition tolerance** — the system keeps working despite network splits.
-
-Here's the crucial insight most explanations bury: **in a distributed system, partitions are not optional.** Networks fail. So P is a given, and the real choice, *during a partition*, is between C and A:
-
-- **CP system** — when the network splits, refuse requests that can't guarantee consistency (return errors or block). You stay correct but lose availability. Example: a system that requires a quorum to write.
-- **AP system** — keep serving from every node even if they might disagree, and reconcile later. You stay up but may serve stale data. Example: a shopping cart that accepts writes on both sides of a partition and merges them afterward.
-
-```
-          Network partition splits the cluster:
-          ┌── Node A ──┐        ┌── Node B ──┐
-          │  write x=5 │   ╳╳╳  │  read x=?  │
-          └────────────┘  (link └────────────┘
-                          down)
-   CP choice: Node B refuses/errors — consistency preserved, availability lost.
-   AP choice: Node B returns old x — availability preserved, consistency lost.
-```
-
-> **Nuance for seniors:** CAP is about behavior *only during a partition*. When the network is healthy you can have both C and A. Modern thinking (the PACELC extension) adds: *else* (when there's no partition), you still trade **L**atency vs **C**onsistency. Strong consistency across nodes costs coordination time.
-
-### Eventual Consistency
-
-Most large-scale systems choose availability and embrace **eventual consistency**: if you stop writing, all replicas *eventually* converge to the same value. In the meantime, reads might be stale. Your account balance updated on your phone might take a moment to appear on the website.
+Replicating data across a network forces a trade-off between consistency and availability — the territory of the CAP theorem and its PACELC refinement, which Chapter 20 covers in full. Here the point is the consequence you accept the moment you adopt messaging: **eventual consistency**. If you stop writing, all parts of the system *eventually* converge on the same state; in the meantime, reads might be stale. Your account balance updated on your phone might take a moment to appear on the website.
 
 This is exactly the model that messaging gives you. When the checkout publishes `OrderPlaced` and the analytics service processes it 200ms later, the system is *temporarily inconsistent* — the order exists but analytics doesn't know yet — and then converges. Accepting this is the price of decoupling, and for most business domains it's a fine price. The senior skill is identifying the few places where it *isn't* acceptable and applying stronger consistency there.
 
@@ -5517,7 +5486,7 @@ None of these patterns is exotic once you've internalized the core insight: **th
 
 # Chapter 10: Cloud — AWS & Azure
 
-_⏱️ Estimated read time: ~25 min · 4142 words (study pace)_
+_⏱️ Estimated read time: ~25 min · 4202 words (study pace)_
 
 For most of computing history, running software meant owning hardware. You bought servers, racked them in a room with expensive cooling, hired people to replace failed disks at 3 a.m., and paid for enough capacity to survive your busiest day of the year — capacity that sat idle the other 364 days. The cloud rewired this economic model. Instead of buying a power station, you plug into the grid and pay for the kilowatt-hours you actually use. That single shift in mindset — from *owning capacity* to *renting capability* — is the thread that runs through everything in this chapter.
 
@@ -5806,6 +5775,8 @@ resource "azurerm_storage_account" "uploads" {
 ```
 
 The workflow is `terraform plan` (preview the diff) then `terraform apply` (execute it). Always read the plan before applying — it tells you exactly what will change, and crucially, what will be *destroyed*.
+
+> **A note on licensing:** In August 2023, HashiCorp relicensed Terraform from the open-source MPL to the source-available Business Source License (BUSL). Nothing changes for typical internal use, but the community forked the last MPL version as **OpenTofu**, now under the Linux Foundation and drop-in compatible at the fork point. Anyone picking an IaC tool today should know both names.
 
 ### Pulumi (in C#)
 
@@ -7463,7 +7434,7 @@ Build the cockpit before you need it. When the 3 a.m. page arrives — and it wi
 
 # Chapter 14: Security
 
-_⏱️ Estimated read time: ~30 min · 5050 words (study pace)_
+_⏱️ Estimated read time: ~35 min · 5304 words (study pace)_
 
 Security is not a feature you bolt on at the end of a sprint. It is a property of a system that emerges from thousands of small decisions: how you parse input, where you store a connection string, which overload of a crypto API you call, and whether you trusted a value that came from the network. A senior .NET developer is expected to make those decisions correctly by reflex, and to recognize when a colleague has not.
 
@@ -7486,6 +7457,8 @@ Before any specific technique, internalize four principles. They are not slogans
 ## The OWASP Top 10, with .NET Mitigations
 
 The OWASP Top 10 is the industry's consensus list of the most critical web application risks. Below is each category with the mitigation you apply in .NET. Learn the *category*, not just the trick — the categories are stable even as frameworks change.
+
+> **Note:** This walk-through follows the **2021 edition** (A01–A10 below). OWASP published a revised Top 10 in 2025 — notably elevating software supply chain failures to its own category — but the list is deliberately stable between editions, and every .NET mitigation here carries over unchanged.
 
 ### A01: Broken Access Control
 
@@ -7547,6 +7520,18 @@ For OS commands, never pass user input to a shell; use `ProcessStartInfo` with a
 ### A04: Insecure Design
 
 A category about missing or ineffective security controls at the *design* level — flaws no amount of clean coding can fix because the architecture itself is wrong (e.g., no rate limiting on a password-reset endpoint, or trusting a price sent by the client). The mitigation is threat modeling: before building, ask "how would I abuse this?" Design in rate limits, business-logic validation, and secure defaults from the start.
+
+For rate limiting, you no longer need a third-party package: since .NET 7, ASP.NET Core ships rate-limiting middleware with fixed-window, sliding-window, token-bucket, and concurrency policies, applied globally or per-endpoint.
+
+```csharp
+builder.Services.AddRateLimiter(o => o.AddFixedWindowLimiter("login", w =>
+{
+    w.PermitLimit = 5;
+    w.Window = TimeSpan.FromMinutes(1);
+}));
+app.UseRateLimiter();
+// then: app.MapPost("/login", ...).RequireRateLimiting("login");
+```
 
 ### A05: Security Misconfiguration
 
@@ -7718,6 +7703,12 @@ The decision axis: **buy vs. host, and standalone app vs. multi-app SSO.** If yo
 ### Password Hashing in ASP.NET Core Identity
 
 Identity's `PasswordHasher<T>` uses PBKDF2 with a per-user salt and many iterations by default — a sensible baseline. If you build your own login (generally discouraged), you must replicate this.
+
+### Passkeys (WebAuthn / FIDO2)
+
+Passkeys are public-key credentials standardized by WebAuthn/FIDO2, and they remove the weakest link in password authentication: the shared secret. The browser or OS holds a private key; the server stores only the corresponding public key, so a database breach yields nothing reusable — there is no password to crack, and nothing to stuff into other sites. Authentication is a signed challenge, and the signature is bound to the site's *origin*, which is what makes passkeys phishing-resistant: a credential registered for `example.com` simply will not sign a challenge from a look-alike domain, no matter how convincing the page. ASP.NET Core Identity gained first-class passkey support in .NET 10, so this is now a framework feature rather than a third-party integration.
+
+> **Best practice:** For new systems, treat passkeys as the *primary* factor and passwords as the fallback, not the other way around. Every login that happens via passkey is one that cannot be phished, stuffed, or brute-forced.
 
 ## Secrets Management
 
@@ -9660,7 +9651,7 @@ The recurring theme across all of Part III: an LLM is a powerful but unreliable 
 
 # Chapter 19: Networking & Web Fundamentals
 
-_⏱️ Estimated read time: ~25 min · 4451 words (study pace)_
+_⏱️ Estimated read time: ~25 min · 4341 words (study pace)_
 
 Most application bugs that keep senior engineers up at night are not really *code* bugs. They are *network* bugs wearing a code costume. A method that works flawlessly on your laptop times out in production. A service that handled a thousand requests per second suddenly throws `SocketException` under load. A cross-origin `fetch` gets blocked by the browser for reasons nobody on the team can quite articulate.
 
@@ -9762,7 +9753,7 @@ The methods carry semantic meaning that the whole ecosystem (caches, proxies, re
 - **PATCH** — partial update.
 - **DELETE** — remove; idempotent.
 
-> **Best practice:** *Idempotency* means calling N times has the same effect as calling once. It is not academic — it decides whether it is safe to auto-retry. A proxy or your Polly retry policy can safely retry a GET or PUT after a timeout; retrying a POST might charge a credit card twice. Design your APIs so that anything retriable is idempotent, and use idempotency keys for POSTs that must not double-execute.
+> **Best practice:** *Idempotency* means calling N times has the same effect as calling once. It is not academic — it decides whether it is safe to auto-retry. A proxy or your Polly retry policy can safely retry a GET or PUT after a timeout; retrying a POST might charge a credit card twice. Design your APIs so that anything retriable is idempotent, and use idempotency keys for POSTs that must not double-execute (Chapter 20 covers the mechanics).
 
 ## HTTP/1.1 vs HTTP/2 vs HTTP/3: A History of Fixing Head-of-Line Blocking
 
@@ -10046,19 +10037,11 @@ using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
 var response = await client.GetAsync(url, cts.Token);
 ```
 
-> **Best practice:** Combine timeouts, retries (with **exponential backoff and jitter** so retries don't stampede in lockstep), and **circuit breakers** (stop hammering a failing dependency) — the resilience trio. In .NET, `Microsoft.Extensions.Http.Resilience` (built on Polly) wires all three into `IHttpClientFactory` declaratively.
+> **Best practice:** Combine timeouts, retries (with **exponential backoff and jitter** so retries don't stampede in lockstep), and **circuit breakers** (stop hammering a failing dependency) — the resilience trio. In .NET, `Microsoft.Extensions.Http.Resilience` (built on Polly) wires all three into `IHttpClientFactory` declaratively; Chapter 20 builds the full pipeline and explains how the strategies layer.
 
 ## The Fallacies of Distributed Computing
 
-We close with the mental model that should underpin every networked design decision. In the 1990s, engineers at Sun Microsystems catalogued the **Fallacies of Distributed Computing** — false assumptions that developers repeatedly make. Three deserve special emphasis:
-
-**1. "The network is reliable."** It is not. Packets drop, connections reset, cables get cut, servers reboot mid-request. A remote call can fail *after* the server processed it but *before* you got the response — you genuinely cannot tell whether it succeeded. This is why idempotency, retries, and timeouts are not optional extras; they are load-bearing. Design for failure as the normal case.
-
-**2. "Latency is zero."** It is not. Light itself takes ~70ms to cross the Atlantic and back; add TCP/TLS handshakes, DNS, and queuing, and a "quick call" is tens to hundreds of milliseconds. Making 50 sequential network calls to render one page — the **N+1 network problem** — is why some apps feel slow no matter how fast the code is. Batch, parallelize, and cache. A remote call is *not* a method call, no matter how much the syntax pretends otherwise.
-
-**3. "Bandwidth is infinite" and "the network is free."** They are not. Data has cost — in transfer time, in cloud egress bills (often the biggest surprise line item), and in serialization overhead. Sending a 5 MB JSON blob to render a 20-row table is a real cost, not an abstraction.
-
-The other fallacies — the network is secure, topology doesn't change, there is one administrator, transport cost is zero — round out the list. Internalize all of them, and you will design systems that degrade gracefully instead of collapsing the first time reality asserts itself.
+We close with the mental model that should underpin every networked design decision: the **Fallacies of Distributed Computing**, the catalogue of false assumptions — the network is reliable, latency is zero, bandwidth is infinite, and five more — that Sun Microsystems engineers compiled in the 1990s. Chapter 20 works through all eight; for now, internalize the three this chapter has been circling all along. The network is *not* reliable — a call can fail *after* the server processed it but *before* you got the response, which is why idempotency, retries, and timeouts are load-bearing, not optional. Latency is *not* zero — 50 sequential calls to render one page (the **N+1 network problem**) is why some apps feel slow no matter how fast the code is; batch, parallelize, and cache. And bandwidth is neither infinite nor free — cloud egress bills (often the biggest surprise line item) make that painfully concrete.
 
 > **The senior mindset in one sentence:** Treat every network call as an *unreliable, slow, expensive, insecure* operation that will eventually fail — then be pleasantly surprised when it works.
 
@@ -10195,7 +10178,7 @@ public async Task<PaymentResult> Charge(string idempotencyKey, decimal amount)
 }
 ```
 
-Stripe's API famously works exactly this way. This ties directly to the **delivery guarantees** from earlier chapters: networks and message brokers give you *at-least-once* delivery in practice (exactly-once is largely a myth end-to-end). At-least-once means *duplicates will happen*. Idempotent consumers turn the achievable "at-least-once delivery" into the effective "exactly-once *processing*" you actually want.
+Stripe's API famously works exactly this way. This ties directly to the **delivery guarantees** from Chapter 9: networks and message brokers give you *at-least-once* delivery in practice (exactly-once is largely a myth end-to-end). At-least-once means *duplicates will happen*. Idempotent consumers turn the achievable "at-least-once delivery" into the effective "exactly-once *processing*" you actually want.
 
 > **Best practice:** Make every message consumer and every mutating API endpoint idempotent. It is the single most impactful reliability pattern in a message-driven system, because it lets you retry aggressively without fear.
 
@@ -10315,7 +10298,7 @@ The mid-level instinct is to make the network invisible and hope. The senior ins
 
 # Chapter 21: Background Processing, Scheduling & the Actor Model
 
-_⏱️ Estimated read time: ~30 min · 3847 words (study pace)_
+_⏱️ Estimated read time: ~25 min · 3797 words (study pace)_
 
 Almost every non-trivial system does work that no user is waiting on: sending emails, retrying failed payments, rebuilding search indexes, aggregating metrics, cleaning up expired data. The naive approach - do it inline on the request thread - couples user-facing latency to work that has no business being on the hot path, and it silently loses that work whenever a request is cancelled or a pod restarts.
 
@@ -10415,24 +10398,7 @@ builder.Services.AddHostedService<EmailDispatchWorker>();
 
 ### The outbox-driven worker
 
-In-memory channels have a fatal flaw for anything that matters: **if the process dies, the queue dies with it.** When a user places an order, you write the order to the database *and* you want to publish an `OrderPlaced` event. If you write to the DB, then publish to a broker as two separate operations, a crash between them leaves you either with an order nobody was told about, or an event for an order that was rolled back. This is the dual-write problem.
-
-The **transactional outbox** pattern solves it by making the "I need to publish X" fact part of the *same database transaction* as the business change. A background worker then reads the outbox and does the actual publishing.
-
-```csharp
-// During the business transaction - one atomic commit:
-await using var tx = await db.Database.BeginTransactionAsync(ct);
-db.Orders.Add(order);
-db.OutboxMessages.Add(new OutboxMessage
-{
-    Id = Guid.NewGuid(),
-    Type = nameof(OrderPlaced),
-    Payload = JsonSerializer.Serialize(new OrderPlaced(order.Id)),
-    OccurredOnUtc = DateTime.UtcNow
-});
-await db.SaveChangesAsync(ct);
-await tx.CommitAsync(ct);
-```
+In-memory channels have a fatal flaw for anything that matters: **if the process dies, the queue dies with it.** When a user places an order, you write the order to the database *and* you want to publish an `OrderPlaced` event - and doing that as two separate operations means a crash between them loses one side. That is the dual-write problem, and the **transactional outbox** pattern solves it by making the "I need to publish X" fact part of the *same database transaction* as the business change. Chapter 9 covers the mechanics - the outbox table, the atomic commit, and MassTransit's built-in support. Here the point is the other half of the pattern: the background worker that actually drains the table.
 
 The worker polls unprocessed rows and publishes them, marking each as done only after the broker acknowledges:
 
@@ -10484,22 +10450,7 @@ builder.Services.Configure<HostOptions>(o =>
 
 The moment you run more than one instance of your service - and in any serious deployment you will, for availability alone - two copies of that outbox worker are polling the same table. Both may grab the same row. Your message gets published twice.
 
-You cannot engineer this possibility away entirely. Distributed systems give you **at-least-once** delivery as the practical default; exactly-once is a comforting fiction that, when you look closely, is always at-least-once plus idempotent processing. So the senior move is to stop fighting duplicates and instead make processing **idempotent** - safe to run more than once with the same net effect.
-
-```csharp
-public async Task HandleAsync(OrderPlaced evt, CancellationToken ct)
-{
-    // Dedupe on a natural or supplied idempotency key.
-    bool alreadyHandled = await _db.ProcessedEvents
-        .AnyAsync(p => p.EventId == evt.EventId, ct);
-    if (alreadyHandled) return;
-
-    await _rewards.GrantSignupBonusAsync(evt.CustomerId, ct);
-
-    _db.ProcessedEvents.Add(new ProcessedEvent(evt.EventId, DateTime.UtcNow));
-    await _db.SaveChangesAsync(ct); // unique index on EventId is your backstop
-}
-```
+You cannot engineer this possibility away entirely. Distributed systems give you **at-least-once** delivery as the practical default; exactly-once is a comforting fiction that, when you look closely, is always at-least-once plus idempotent processing (Chapter 9 explains why). So the senior move is to stop fighting duplicates and instead make processing **idempotent** - safe to run more than once with the same net effect. The implementation - dedupe on a natural or supplied idempotency key, with a unique index as your backstop - is covered in Chapter 20; apply it to every handler a worker runs.
 
 For the polling contention itself, options range from a `SELECT ... FOR UPDATE SKIP LOCKED` (PostgreSQL) to claiming rows with an atomic `UPDATE ... SET LockedBy = @me WHERE ...`, to simply electing a single leader (covered in Part B) so only one instance polls at all. The right answer depends on throughput, but the principle is constant: **assume duplicates and design so they don't hurt.**
 
@@ -10797,7 +10748,7 @@ The arc of this chapter is a maturation in how you think about "later" work. A `
 
 # Chapter 22: Data at Scale & Multi-Tenancy
 
-_⏱️ Estimated read time: ~25 min · 4319 words (study pace)_
+_⏱️ Estimated read time: ~25 min · 4341 words (study pace)_
 
 For most of a system's life, a single well-tuned database is enough. You add indexes, you cache the hot paths, you buy a bigger machine, and the graphs stay green. Then one day they don't. The write-ahead log can't flush fast enough, a nightly report locks a table that customers need, connections pile up faster than the pool can hand them out, and your one biggest customer's traffic starts starving everyone else. Scaling data is the art of pushing that day as far into the future as possible, and knowing what to do when it finally arrives.
 
@@ -10837,41 +10788,35 @@ Common mitigations:
 
 ### Routing Reads and Writes in EF Core
 
-EF Core has no native primary/replica awareness, but the pattern is straightforward: give your `DbContext` two connection strings and choose one based on intent.
+EF Core has no native primary/replica awareness, but the pattern is straightforward: decide *at creation time* whether a context talks to the primary or a replica, and hand out the right one from a factory.
 
 ```csharp
-public sealed class CatalogContext : DbContext
+public sealed class CatalogContext(DbContextOptions<CatalogContext> options)
+    : DbContext(options)
 {
-    private readonly string _writeConn;
-    private readonly string _readConn;
-    private bool _readOnly;
+    public DbSet<Product> Products => Set<Product>();
+}
 
-    public CatalogContext(IConfiguration config)
+public sealed class CatalogContextFactory(IConfiguration config)
+{
+    public CatalogContext CreateWrite() => new(Build("Primary", readOnly: false));
+    public CatalogContext CreateRead()  => new(Build("Replica", readOnly: true));
+
+    private DbContextOptions<CatalogContext> Build(string name, bool readOnly)
     {
-        _writeConn = config.GetConnectionString("Primary")!;
-        _readConn  = config.GetConnectionString("Replica")!;
-    }
-
-    // Call before a read-only query to opt into the replica.
-    public CatalogContext AsReadOnly()
-    {
-        _readOnly = true;
-        return this;
-    }
-
-    protected override void OnConfiguring(DbContextOptionsBuilder options)
-    {
-        var conn = _readOnly ? _readConn : _writeConn;
-        options.UseNpgsql(conn);
-
-        // A replica connection should never accidentally issue writes.
-        if (_readOnly)
-            options.UseQueryTrackingBehavior(QueryTrackingBehavior.NoTracking);
+        var builder = new DbContextOptionsBuilder<CatalogContext>()
+            .UseNpgsql(config.GetConnectionString(name));
+        // A replica context should never accidentally issue writes.
+        if (readOnly)
+            builder.UseQueryTrackingBehavior(QueryTrackingBehavior.NoTracking);
+        return builder.Options;
     }
 }
 ```
 
-In practice you'd wrap this more cleanly — for example, a factory that returns a read-optimized context, or an interceptor that inspects whether the query tree contains writes. The key discipline is that **any `SaveChanges` must go to the primary**, and read-only queries that can tolerate lag go to a replica. Marking replica contexts `NoTracking` is doubly useful: it's faster, and it structurally prevents a replica context from ever trying to save.
+> **Pitfall:** The tempting alternative — one context with a `_readOnly` flag you flip before querying, checked in `OnConfiguring` — is subtly broken. A context's configuration is built once and then cached (per instance on first use, and across instances when the context is pooled or resolved from DI), so a flag flipped afterwards is silently ignored and your "replica" query runs against the primary. Choose the connection when the context is *constructed*, not later.
+
+The key discipline is that **any `SaveChanges` must go to the primary**, and read-only queries that can tolerate lag go to a replica. Marking replica contexts `NoTracking` is doubly useful: it's faster, and it structurally prevents a replica context from ever trying to save.
 
 ## Partitioning and Sharding
 
@@ -10905,7 +10850,7 @@ Once data is split, three things that used to be free become expensive or imposs
 
 **Distributed joins.** A join between two tables only works cheaply if both tables' relevant rows live on the *same* shard. This is why sharded systems try to **co-locate** related data — put a customer and all their orders on the same shard, keyed by `CustomerId` — so joins stay local. Join across the shard boundary and you're either shipping data over the network or denormalizing to avoid the join entirely.
 
-**Distributed transactions.** A single ACID transaction spanning two shards requires a protocol like two-phase commit (2PC), which is slow, locks resources across nodes, and stalls entirely if the coordinator dies mid-commit. In practice, most large systems **refuse** distributed transactions and instead embrace eventual consistency: each shard commits locally, and cross-shard consistency is reconciled asynchronously via patterns like the **Saga** (a sequence of local transactions with compensating actions on failure — see the chapter on distributed systems).
+**Distributed transactions.** A single ACID transaction spanning two shards requires a protocol like two-phase commit (2PC), which is slow, locks resources across nodes, and stalls entirely if the coordinator dies mid-commit. In practice, most large systems **refuse** distributed transactions and instead embrace eventual consistency: each shard commits locally, and cross-shard consistency is reconciled asynchronously via patterns like the **Saga** (a sequence of local transactions with compensating actions on failure — see Chapter 9).
 
 > **Pitfall:** Teams often shard to solve a performance problem and discover they've traded a *throughput* problem for a *correctness and complexity* problem. The uniform, transactional, joinable world of a single database is a luxury you don't appreciate until it's gone.
 
@@ -10927,15 +10872,7 @@ Sharded or not, large systems rarely keep all their data in one place. The catal
 
 A common goal is: *"when I save an order, reliably publish an OrderCreated event."* Two patterns address this.
 
-The **transactional outbox** writes the business change and an event row to an `outbox` table **in the same local transaction.** Because both are in one ACID transaction, they commit or fail together — no dual-write problem. A separate relay process then reads the outbox and publishes the events.
-
-```sql
-BEGIN;
-INSERT INTO orders (id, customer_id, total) VALUES (...);
-INSERT INTO outbox (id, aggregate_type, event_type, payload)
-    VALUES (gen_random_uuid(), 'Order', 'OrderCreated', '{...}'::jsonb);
-COMMIT;
-```
+The **transactional outbox** (Chapter 9 covers its mechanics) writes the business change and an event row to an `outbox` table **in the same local transaction.** Because both are in one ACID transaction, they commit or fail together — no dual-write problem. A separate relay process then reads the outbox and publishes the events.
 
 The relay can poll the outbox table — or, elegantly, **CDC can read the outbox table** and stream its rows to Kafka, giving you low-latency publishing with no polling. This "outbox + Debezium" combination is a widely used, robust pattern.
 
@@ -12244,7 +12181,7 @@ This is the pattern behind every resilient real-world app: **the request path st
 
 # Chapter 26: Data Structures, Algorithms & System Design Fundamentals
 
-_⏱️ Estimated read time: ~30 min · 4598 words (study pace)_
+_⏱️ Estimated read time: ~30 min · 4635 words (study pace)_
 
 Most working developers can build features all day without ever writing a sorting algorithm from scratch. So why does this material still matter? Because the moment you cross from "mid-level" to "senior," your job stops being "make it work" and becomes "make it work *at scale, under constraints, and predictably*." A senior engineer is the person who looks at a nested loop over a growing list and quietly senses it will become a production incident in six months. That instinct is not magic — it is fluency in the language of data structures, algorithms, and system design.
 
@@ -12646,16 +12583,19 @@ public static class Base62
     public static string Encode(long id)
     {
         if (id == 0) return "0";
-        var sb = new System.Text.StringBuilder();
+        Span<char> buf = stackalloc char[11];   // 62^11 > long.MaxValue
+        var i = buf.Length;
         while (id > 0)
         {
-            sb.Insert(0, Alphabet[(int)(id % 62)]);
+            buf[--i] = Alphabet[(int)(id % 62)];
             id /= 62;
         }
-        return sb.ToString();
+        return new string(buf[i..]);
     }
 }
 ```
+
+(Fill the buffer from the end and slice — building most-significant-digit-first with `Insert(0, …)` in a loop would be exactly the accidental O(n²) this chapter warned about.)
 
 **6. Components and flow.**
 - A **load balancer** fronts several stateless app servers.
@@ -12694,7 +12634,7 @@ Senior engineers aren't the ones who memorized the most algorithms. They're the 
 
 # Chapter 27: Compliance, Data Privacy & Cloud Cost (FinOps)
 
-_⏱️ Estimated read time: ~25 min · 4107 words (study pace)_
+_⏱️ Estimated read time: ~25 min · 4184 words (study pace)_
 
 For most of your early career, "the requirements" arrive from a product owner as user stories. Somewhere on the road to senior engineer, a second and third set of requirements appear that nobody writes on a sticky note but everybody expects you to honor: the law, and the invoice. A feature that leaks personal data or quietly triples the cloud bill is not "done," no matter how green the tests are. This chapter is about those two invisible stakeholders — the regulator and the CFO — and the concrete engineering decisions that keep both satisfied.
 
@@ -12712,6 +12652,7 @@ You do not need a law degree, but you need a working mental model of the major r
 - **CCPA / CPRA (California)** — gives California residents rights to know what data is collected, to delete it, and to opt out of its "sale." Conceptually similar to GDPR but with a consumer/opt-out flavor rather than GDPR's consent-first stance.
 - **HIPAA (US healthcare)** — governs "Protected Health Information" (PHI). If your system touches medical records, it imposes strict rules on access controls, audit trails, and encryption, and it requires a signed *Business Associate Agreement* with vendors (including your cloud provider).
 - **PCI-DSS** — not a government law but a contractual standard from the payment-card industry. It governs how you store, process, and transmit cardholder data. The cheapest way to comply is almost always to *not* store card numbers at all and delegate to a tokenizing processor (Stripe, Adyen, Braintree).
+- **EU AI Act** — entered into force in August 2024, with obligations phasing in through 2026–27. Relevant if your system embeds AI features: it imposes risk-tiered obligations (prohibited, high-risk, limited, minimal), so the tier your feature falls into determines what you owe.
 
 The common thread: **these are all about personal data — who can access it, where it lives, how long you keep it, and whether you can prove what happened to it.** That reframing turns law into architecture.
 
@@ -12834,6 +12775,8 @@ public class RetentionPurgeService(IServiceProvider sp, ILogger<RetentionPurgeSe
 ### Data residency and sovereignty
 
 Some laws require that data about a country's residents stays within specific borders. This is not a code concern you can patch late — it is a *topology* decision. It affects which cloud regions you deploy to, where your databases and backups live, and where your CDN caches content. If you might serve EU customers under residency constraints, choose EU regions and confirm that logs, backups, and disaster-recovery replicas also stay in-region. Retrofitting residency onto a single-region system is a migration, not a config flag.
+
+For EU→US transfers specifically, the **EU–US Data Privacy Framework** (an adequacy decision from July 2023, successor to the invalidated Privacy Shield) is the current lawful transfer mechanism, with Standard Contractual Clauses remaining the fallback.
 
 ### Encryption ties it all together
 
@@ -14449,7 +14392,7 @@ You have the map, you have the capstone, and you have the habits. The only thing
 
 # Chapter 32: Real-World Scenarios & Architectural Decisions
 
-_⏱️ Estimated read time: ~1 h 5 min · 11395 words (study pace)_
+_⏱️ Estimated read time: ~1 h · 11247 words (study pace)_
 
 Every senior engineer eventually learns that the hard part of the job is not writing code — it is deciding what to do when the code you already shipped meets reality. Reality shows up as a traffic spike you did not plan for, a "successful" request that silently lost data, a p99 latency graph that looks like a seismograph, and a dependency that vanishes at the worst possible moment. This chapter is a war-room playbook. Each scenario is a story you could plausibly live through on a production on-call rotation, framed around one question: *how do you react, and what architectural decision does that push you toward?*
 
@@ -14582,67 +14525,11 @@ The other classic is **"return 200, then do the work."** Handing the caller a su
 
 ### The fix & architectural options (with trade-offs)
 
-**The Transactional Outbox.** The core trick: only write to *one* store transactionally — your database — and record the intent to publish in the *same* transaction, in an `outbox` table. A separate relay reads the outbox and publishes to the broker, marking rows sent. Now the DB write and the "I will publish" record commit atomically; the actual publish becomes a retryable, at-least-once background job.
+**The Transactional Outbox.** The core trick: only write to *one* store transactionally — your database — and record the intent to publish in the *same* transaction, in an `outbox` table. A separate relay reads the outbox and publishes to the broker, marking rows sent. Now the DB write and the "I will publish" record commit atomically; the actual publish becomes a retryable, at-least-once background job. (Ch. 9 covers the table and publisher mechanics; Ch. 21 shows the background relay itself.)
 
-```csharp
-// Inside the same DB transaction as the business write:
-public async Task PlaceOrderAsync(Order order, CancellationToken ct)
-{
-    await using var tx = await _db.Database.BeginTransactionAsync(ct);
+If the relay crashes after publishing but before marking a row processed, it republishes on restart — hence **at-least-once**, and hence consumers must **deduplicate**. That is the whole game: you trade the impossible "exactly-once delivery" for "at-least-once delivery + idempotent consumers," which together give **effectively-once processing**.
 
-    _db.Orders.Add(order);
-
-    _db.OutboxMessages.Add(new OutboxMessage
-    {
-        Id          = Guid.NewGuid(),
-        Type        = nameof(OrderPlaced),
-        Payload     = JsonSerializer.Serialize(new OrderPlaced(order.Id, order.Total)),
-        OccurredOn  = DateTime.UtcNow,
-        ProcessedOn = null
-    });
-
-    await _db.SaveChangesAsync(ct); // order + outbox row commit together, atomically
-    await tx.CommitAsync(ct);
-}
-```
-
-```csharp
-// A background relay drains the outbox — at-least-once delivery.
-public async Task RelayAsync(CancellationToken ct)
-{
-    var pending = await _db.OutboxMessages
-        .Where(m => m.ProcessedOn == null)
-        .OrderBy(m => m.OccurredOn)
-        .Take(100)
-        .ToListAsync(ct);
-
-    foreach (var msg in pending)
-    {
-        // Publish carries msg.Id so consumers can deduplicate.
-        await _broker.PublishAsync(msg.Type, msg.Payload, messageId: msg.Id, ct);
-        msg.ProcessedOn = DateTime.UtcNow;
-        await _db.SaveChangesAsync(ct);
-    }
-}
-```
-
-If the relay crashes after publishing but before marking `ProcessedOn`, it republishes on restart — hence **at-least-once**, and hence consumers must **deduplicate**. That is the whole game: you trade the impossible "exactly-once delivery" for "at-least-once delivery + idempotent consumers," which together give **effectively-once processing**.
-
-**Idempotency keys and dedup.** Give every message (and every externally-triggered command) a stable ID. Consumers record processed IDs (an `inbox`/processed-messages table) and skip duplicates:
-
-```csharp
-public async Task HandleAsync(OrderPlaced evt, Guid messageId, CancellationToken ct)
-{
-    if (await _db.ProcessedMessages.AnyAsync(m => m.Id == messageId, ct))
-        return; // already handled — ignore the duplicate
-
-    // ... do the work ...
-    _db.ProcessedMessages.Add(new ProcessedMessage { Id = messageId, At = DateTime.UtcNow });
-    await _db.SaveChangesAsync(ct);
-}
-```
-
-For inbound HTTP writes, accept a client-supplied `Idempotency-Key` header (Stripe's model): the first request does the work and stores the result keyed by that value; retries with the same key return the stored result instead of doing the work twice.
+**Idempotency keys and dedup.** Give every message (and every externally-triggered command) a stable ID. Consumers record processed IDs (an `inbox`/processed-messages table, backed by a unique index) and skip duplicates — Ch. 20 covers the implementation. For inbound HTTP writes, accept a client-supplied `Idempotency-Key` header (Stripe's model): the first request does the work and stores the result keyed by that value; retries with the same key return the stored result instead of doing the work twice.
 
 **Sagas for multi-service consistency.** When a business transaction spans services (reserve inventory → charge card → create shipment), you cannot hold one ACID transaction across all of them. A **saga** is a sequence of local transactions, each with a compensating action to undo it if a later step fails (release the reservation, refund the charge). This is eventual consistency by design — the system is briefly inconsistent and converges (Ch. 9).
 
@@ -14798,27 +14685,7 @@ Your order service publishes every order to RabbitMQ, where fulfillment, billing
 
 ### The fix & architectural options (with trade-offs)
 
-**Circuit breaker + fallback (Polly).** Wrap the dependency in a circuit breaker so that after a threshold of failures, calls short-circuit for a cool-off period and you serve a fallback instead of hanging. In modern .NET use `Microsoft.Extensions.Resilience` / `Polly.Core`:
-
-```csharp
-var pipeline = new ResiliencePipelineBuilder()
-    .AddRetry(new RetryStrategyOptions
-    {
-        MaxRetryAttempts = 3,
-        BackoffType      = DelayBackoffType.Exponential,
-        UseJitter        = true, // spread retries so they don't synchronize into a storm
-        Delay            = TimeSpan.FromMilliseconds(200)
-    })
-    .AddCircuitBreaker(new CircuitBreakerStrategyOptions
-    {
-        FailureRatio     = 0.5,               // open if >50% of calls fail
-        SamplingDuration = TimeSpan.FromSeconds(10),
-        MinimumThroughput = 20,
-        BreakDuration    = TimeSpan.FromSeconds(15) // cool-off before probing again
-    })
-    .AddTimeout(TimeSpan.FromSeconds(2))      // never hang indefinitely
-    .Build();
-```
+**Circuit breaker + fallback (Polly).** Wrap the dependency in a circuit breaker so that after a threshold of failures, calls short-circuit for a cool-off period and you serve a fallback instead of hanging — and give every call a timeout so nothing waits indefinitely. Ch. 20 builds the full `Microsoft.Extensions.Resilience` / Polly pipeline (retry + breaker + layered timeouts) and explains why the ordering of strategies matters. The decision that is specific to *this* incident is what the fallback should be — and for publishing, the answer is the outbox buffer below.
 
 **Retry with exponential backoff *and jitter*.** Backoff alone is not enough: if every instance retries on the same schedule, they synchronize into coordinated waves. Jitter randomizes the delay so load spreads out. Also make retries **idempotent** and **bounded** — retrying a non-idempotent write is how you double-charge a customer.
 
@@ -15763,7 +15630,7 @@ Practice out loud, time yourself, and remember: interviewers hire for *reasoning
 
 # Appendix A: Quick-Reference Roadmap & Checklist
 
-_⏱️ Estimated read time: ~10 min · 2399 words (study pace)_
+_⏱️ Estimated read time: ~10 min · 2243 words (study pace)_
 
 > This appendix reproduces the original one-page roadmap the book was built from. Use it as a checklist to track what you've leveled up. Each section maps to a full chapter above.
 
@@ -16111,25 +15978,7 @@ The differentiator between middle and senior is rarely just technical.
 
 ## 18. Suggested Learning Path
 
-A pragmatic order if you're feeling overwhelmed:
-
-| Phase | Focus | Goal |
-|-------|-------|------|
-| **1. Solidify core** | C# deep dive, async/await, EF Core, SOLID, DI | Write clean, correct, idiomatic .NET |
-| **2. Build well** | ASP.NET Core, testing (unit + integration), design patterns, Clean Architecture | Design maintainable APIs test-first |
-| **3. Ship it** | Docker, CI/CD (GitHub Actions), Git mastery, observability (Serilog + OpenTelemetry) | Take code to production confidently |
-| **4. Scale it** | Cloud (AWS/Azure basics), Kubernetes, messaging (MassTransit + RabbitMQ), caching (Redis) | Build & operate distributed systems |
-| **5. Master it** | Performance/profiling, DDD, CQRS/event sourcing, security depth, architecture trade-offs | Make senior-level design decisions |
-
-### Project idea to tie it together
-Build a small **e-commerce or task-management system** that grows with you:
-1. Start as a monolith ASP.NET Core API + EF Core + PostgreSQL
-2. Add tests, Dockerize it, set up a CI/CD pipeline
-3. Add Redis caching, JWT auth, structured logging + tracing
-4. Split into 2–3 microservices communicating via RabbitMQ/MassTransit (Outbox pattern)
-5. Deploy to Kubernetes (or AWS ECS / Azure Container Apps) with IaC
-
-You'll touch **80% of this list** in one evolving project — far more valuable than isolated tutorials.
+**See Chapter 31.** The capstone chapter turns this checklist into a five-phase learning path and a single evolving project (ShopCore, a monolith that grows into a distributed system) with concrete acceptance criteria per step. Working through one project that grows with you touches ~80% of this list — far more valuable than isolated tutorials.
 
 ---
 

@@ -394,6 +394,8 @@ The controller and handler are fully decoupled — neither references the other'
 
 > **Overuse warning:** MediatR is popular to the point of cargo-culting. For a CRUD app with thin controllers, routing everything through an in-memory mediator can add ceremony — an extra request class and handler class per operation — without buying decoupling you actually need. Use it when the indirection pays for itself: many handlers, cross-cutting pipeline behaviors, or a genuine desire to keep the transport (controllers) ignorant of the application layer. A three-endpoint service does not need it.
 
+> **A note on licensing:** In April 2025, MediatR's maintainer (Jimmy Bogard) announced that MediatR and AutoMapper are moving to commercial licensing to fund their maintenance — existing versions remain under their open-source licenses, but new major versions are commercial. The practical consequence: the default of "just add MediatR" now deserves a license check, which only strengthens the advice above to ask whether you need the library at all. Hand-rolled handler interfaces plus DI cover most MediatR use; for mapping, manual code or the MIT-licensed, source-generated **Mapperly** are solid alternatives.
+
 ### The Rest, Briefly
 
 - **Command** encapsulates a request as an object, letting you parameterize, queue, log, and undo operations. A MediatR request is a command; so is any `ICommand` you push onto a queue. Undo/redo stacks are the canonical use.

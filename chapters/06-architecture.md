@@ -223,6 +223,8 @@ public sealed record PlaceOrderCommand(CustomerId CustomerId, IReadOnlyList<Cart
 public sealed record GetOrderSummaryQuery(OrderId Id) : IRequest<OrderSummaryDto>;
 ```
 
+> **Licensing note:** MediatR announced a move to commercial licensing for new major versions in April 2025 (existing versions remain open source) — see the full note in the Mediator section of the design-patterns chapter before making it a default dependency.
+
 At its heaviest, CQRS uses *physically separate stores*: writes go to a normalized transactional database through rich domain aggregates; a projection process updates a denormalized read store (say, a document DB or a set of flat read tables) optimized for queries. The read side is eventually consistent with the write side.
 
 ```

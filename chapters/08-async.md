@@ -328,6 +328,8 @@ catch
 
 > **Pitfall:** With `WhenAny`, the tasks that did *not* win keep running. If one later faults and you never observe it, you have an unobserved exception. Make sure you eventually await or otherwise account for the losers.
 
+The classic "process results as they finish" idiom — loop, `WhenAny`, remove the winner from a list, repeat — is O(n²) over many tasks, because each iteration rescans the remaining set. .NET 9 replaces it with `Task.WhenEach`, which yields an `IAsyncEnumerable` of the tasks in completion order: `await foreach (var task in Task.WhenEach(tasks)) { ... }`. Prefer it whenever you want to consume completions as they arrive rather than wait for all of them.
+
 ### Throttling with SemaphoreSlim
 
 Firing 10,000 HTTP calls with `Task.WhenAll` will melt the remote server and exhaust your sockets. A `SemaphoreSlim` acts as a bouncer, capping how many operations run concurrently:

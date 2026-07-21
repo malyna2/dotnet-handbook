@@ -152,6 +152,22 @@ var customer = _byId(ctx, 42);
 
 This is a micro-optimization — reach for it only when profiling shows query compilation is a bottleneck, not by default.
 
+### Set-Based Updates and Deletes: ExecuteUpdate and ExecuteDelete
+
+Change tracking is the wrong tool for bulk writes. Updating 100,000 rows via load-modify-`SaveChanges` means materializing 100,000 entities, snapshotting each one, and issuing 100,000 individual `UPDATE`s. Since EF Core 7, `ExecuteUpdate` and `ExecuteDelete` translate your LINQ predicate directly into a single set-based SQL `UPDATE`/`DELETE` — nothing is loaded, nothing is tracked:
+
+```csharp
+await ctx.Orders
+    .Where(o => o.Status == OrderStatus.Abandoned && o.Created < cutoff)
+    .ExecuteDeleteAsync();
+
+await ctx.Products
+    .Where(p => p.CategoryId == categoryId)
+    .ExecuteUpdateAsync(s => s.SetProperty(p => p.Price, p => p.Price * 0.9m));
+```
+
+> **Gotcha:** These bypass the change tracker entirely. Entities the context already tracks are *not* updated and silently go stale, and `SaveChanges` interceptors — and anything hooked to them, like auditing or domain-event dispatch — never fire. Use them for bulk maintenance and cleanup, not for writes your interceptors must see.
+
 ## SQL Fundamentals
 
 EF is a convenience over SQL, and to use it well you must understand the SQL it hides. A senior developer reads the generated SQL and the execution plan, not just the C#.
@@ -334,6 +350,8 @@ That `GetOrCreateAsync` above is cache-aside in one call. It is simple and robus
 **Invalidation** is deciding when cached data is stale. Two broad strategies: **expiration** (time-based — simple, but serves stale data for up to the TTL) and **explicit eviction** (remove the key when the underlying data changes — accurate, but you must remember every place that writes). Most systems combine both: evict on write, and set a TTL as a safety net for the writes you missed.
 
 A **cache stampede** (or "dog-pile") happens when a popular key expires and hundreds of concurrent requests all miss simultaneously, all hammering the database at once to rebuild it — potentially overwhelming it exactly when traffic is highest. Defences include a **lock** so only one request rebuilds while others wait, **early/probabilistic refresh** (rebuild slightly before expiry), and serving slightly stale data during a refresh.
+
+.NET 9's **HybridCache** (`Microsoft.Extensions.Caching.Hybrid`) packages these ideas for you: it unifies an in-process L1 with a distributed L2 behind a single `GetOrCreateAsync` API, and it ships cache-stampede protection out of the box — concurrent misses for the same key collapse into one rebuild. If you find yourself hand-rolling a two-level cache plus a rebuild lock, reach for it instead.
 
 ## Concurrency: Optimistic vs Pessimistic
 

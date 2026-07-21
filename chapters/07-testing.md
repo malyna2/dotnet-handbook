@@ -254,6 +254,8 @@ Many people find NSubstitute reads more cleanly because there's no `.Object` unw
 
 > **Pitfall (Moq specifically):** setting up a method with specific argument values and then calling with different values returns `default` silently rather than throwing. A method returning `null` where you expected a configured value is almost always an argument-matcher mismatch. Consider `MockBehavior.Strict` when you want unconfigured calls to throw loudly — at the cost of more brittle tests.
 
+> **A note on trust:** In August 2023, Moq v4.20 quietly bundled SponsorLink, a closed-source component that hashed developers' local git email addresses at build time. It was removed after community backlash, but the trust damage pushed many teams to NSubstitute — which partly explains its momentum, and interviewers still bring it up. The broader reminder: dependency trust is part of dependency choice.
+
 ### When NOT to Mock
 
 This is the senior-level point of the whole section. Mocking is a sharp tool that is routinely overused.

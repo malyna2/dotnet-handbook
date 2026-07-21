@@ -346,25 +346,7 @@ The differentiator between middle and senior is rarely just technical.
 
 ## 18. Suggested Learning Path
 
-A pragmatic order if you're feeling overwhelmed:
-
-| Phase | Focus | Goal |
-|-------|-------|------|
-| **1. Solidify core** | C# deep dive, async/await, EF Core, SOLID, DI | Write clean, correct, idiomatic .NET |
-| **2. Build well** | ASP.NET Core, testing (unit + integration), design patterns, Clean Architecture | Design maintainable APIs test-first |
-| **3. Ship it** | Docker, CI/CD (GitHub Actions), Git mastery, observability (Serilog + OpenTelemetry) | Take code to production confidently |
-| **4. Scale it** | Cloud (AWS/Azure basics), Kubernetes, messaging (MassTransit + RabbitMQ), caching (Redis) | Build & operate distributed systems |
-| **5. Master it** | Performance/profiling, DDD, CQRS/event sourcing, security depth, architecture trade-offs | Make senior-level design decisions |
-
-### Project idea to tie it together
-Build a small **e-commerce or task-management system** that grows with you:
-1. Start as a monolith ASP.NET Core API + EF Core + PostgreSQL
-2. Add tests, Dockerize it, set up a CI/CD pipeline
-3. Add Redis caching, JWT auth, structured logging + tracing
-4. Split into 2–3 microservices communicating via RabbitMQ/MassTransit (Outbox pattern)
-5. Deploy to Kubernetes (or AWS ECS / Azure Container Apps) with IaC
-
-You'll touch **80% of this list** in one evolving project — far more valuable than isolated tutorials.
+**See Chapter 31.** The capstone chapter turns this checklist into a five-phase learning path and a single evolving project (ShopCore, a monolith that grows into a distributed system) with concrete acceptance criteria per step. Working through one project that grows with you touches ~80% of this list — far more valuable than isolated tutorials.
 
 ---
 

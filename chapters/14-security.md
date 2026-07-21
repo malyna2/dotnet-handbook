@@ -24,6 +24,8 @@ Before any specific technique, internalize four principles. They are not slogans
 
 The OWASP Top 10 is the industry's consensus list of the most critical web application risks. Below is each category with the mitigation you apply in .NET. Learn the *category*, not just the trick — the categories are stable even as frameworks change.
 
+> **Note:** This walk-through follows the **2021 edition** (A01–A10 below). OWASP published a revised Top 10 in 2025 — notably elevating software supply chain failures to its own category — but the list is deliberately stable between editions, and every .NET mitigation here carries over unchanged.
+
 ### A01: Broken Access Control
 
 The most common serious flaw: a user can act on data or functions they should not reach. The classic form is **Insecure Direct Object Reference (IDOR)** — `GET /api/invoices/1005` returns invoice 1005 even though it belongs to another tenant, simply because the code fetched by ID without checking ownership.
@@ -84,6 +86,18 @@ For OS commands, never pass user input to a shell; use `ProcessStartInfo` with a
 ### A04: Insecure Design
 
 A category about missing or ineffective security controls at the *design* level — flaws no amount of clean coding can fix because the architecture itself is wrong (e.g., no rate limiting on a password-reset endpoint, or trusting a price sent by the client). The mitigation is threat modeling: before building, ask "how would I abuse this?" Design in rate limits, business-logic validation, and secure defaults from the start.
+
+For rate limiting, you no longer need a third-party package: since .NET 7, ASP.NET Core ships rate-limiting middleware with fixed-window, sliding-window, token-bucket, and concurrency policies, applied globally or per-endpoint.
+
+```csharp
+builder.Services.AddRateLimiter(o => o.AddFixedWindowLimiter("login", w =>
+{
+    w.PermitLimit = 5;
+    w.Window = TimeSpan.FromMinutes(1);
+}));
+app.UseRateLimiter();
+// then: app.MapPost("/login", ...).RequireRateLimiting("login");
+```
 
 ### A05: Security Misconfiguration
 
@@ -255,6 +269,12 @@ The decision axis: **buy vs. host, and standalone app vs. multi-app SSO.** If yo
 ### Password Hashing in ASP.NET Core Identity
 
 Identity's `PasswordHasher<T>` uses PBKDF2 with a per-user salt and many iterations by default — a sensible baseline. If you build your own login (generally discouraged), you must replicate this.
+
+### Passkeys (WebAuthn / FIDO2)
+
+Passkeys are public-key credentials standardized by WebAuthn/FIDO2, and they remove the weakest link in password authentication: the shared secret. The browser or OS holds a private key; the server stores only the corresponding public key, so a database breach yields nothing reusable — there is no password to crack, and nothing to stuff into other sites. Authentication is a signed challenge, and the signature is bound to the site's *origin*, which is what makes passkeys phishing-resistant: a credential registered for `example.com` simply will not sign a challenge from a look-alike domain, no matter how convincing the page. ASP.NET Core Identity gained first-class passkey support in .NET 10, so this is now a framework feature rather than a third-party integration.
+
+> **Best practice:** For new systems, treat passkeys as the *primary* factor and passwords as the fallback, not the other way around. Every login that happens via passkey is one that cannot be phished, stuffed, or brute-forced.
 
 ## Secrets Management
 

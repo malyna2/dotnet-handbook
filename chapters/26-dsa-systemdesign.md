@@ -402,16 +402,19 @@ public static class Base62
     public static string Encode(long id)
     {
         if (id == 0) return "0";
-        var sb = new System.Text.StringBuilder();
+        Span<char> buf = stackalloc char[11];   // 62^11 > long.MaxValue
+        var i = buf.Length;
         while (id > 0)
         {
-            sb.Insert(0, Alphabet[(int)(id % 62)]);
+            buf[--i] = Alphabet[(int)(id % 62)];
             id /= 62;
         }
-        return sb.ToString();
+        return new string(buf[i..]);
     }
 }
 ```
+
+(Fill the buffer from the end and slice — building most-significant-digit-first with `Insert(0, …)` in a loop would be exactly the accidental O(n²) this chapter warned about.)
 
 **6. Components and flow.**
 - A **load balancer** fronts several stateless app servers.

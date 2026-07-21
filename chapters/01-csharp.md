@@ -35,11 +35,7 @@ This single behavioral difference is the root of a hundred bugs and a hundred op
 
 Developers often summarize this as "value types go on the stack, reference types go on the heap." That is a useful first approximation and a dangerous belief to hold literally. The truth is more precise: **the storage location depends on where the variable lives, not only on its type.**
 
-The **stack** is a per-thread region of memory that grows and shrinks with method calls. Each method call pushes a *stack frame* containing its parameters and local variables; when the method returns, the frame is popped and its memory is instantly reclaimed. The stack is extremely fast because allocation is just moving a pointer, and deallocation is automatic.
-
-The **managed heap** is a shared region managed by the garbage collector (GC). Objects here live until the GC determines nothing references them anymore. Heap allocation is more expensive, and reclamation requires the GC to run.
-
-Now the nuance:
+In brief: the **stack** is per-thread memory that grows and shrinks with method calls — allocation is a pointer bump, and a returning method reclaims its frame instantly. The **managed heap** is the shared region where objects live until the garbage collector proves them unreachable; Chapter 2 covers the runtime mechanics — generations, compaction, collection triggers — in depth. What matters at the language level is where a given *variable's* data ends up, and the answer is more subtle than the folklore:
 
 - A value type declared as a **local variable** typically lives on the stack.
 - A value type that is a **field of a class** lives *inside that class's object on the heap*. An `int` field of a heap object is on the heap.
@@ -76,7 +72,7 @@ Console.WriteLine("Value: " + x);   // boxes x to call object.ToString via conca
 IComparable cmp = 10;    // boxes — interface is a reference type
 ```
 
-Each box is a heap allocation plus a copy. In a hot loop this destroys throughput. The fix is almost always **generics**, which we cover next: `List<int>` stores `int`s inline with no boxing, whereas the ancient `ArrayList` boxes every element.
+Each box is a heap allocation plus a copy. In a hot loop this destroys throughput. The fix is almost always **generics**, which we cover next.
 
 > **Best practice:** Prefer generic collections (`List<T>`, `Dictionary<TKey,TValue>`) over the legacy non-generic ones precisely because generics eliminate boxing. When you implement `Equals`/`GetHashCode` on a struct, also implement `IEquatable<T>` so equality comparisons don't box.
 
@@ -474,46 +470,13 @@ using (var stream = new FileStream("data.bin", FileMode.Open))
 using var reader = new StreamReader("data.txt");
 ```
 
-For a class that owns unmanaged resources directly, the **full Dispose pattern** coordinates deterministic disposal with the GC's finalizer as a safety net:
-
-```csharp
-public class NativeBuffer : IDisposable
-{
-    private IntPtr _handle = Marshal.AllocHGlobal(1024);
-    private bool _disposed;
-
-    public void Dispose()
-    {
-        Dispose(true);
-        GC.SuppressFinalize(this);   // we cleaned up; skip the finalizer
-    }
-
-    protected virtual void Dispose(bool disposing)
-    {
-        if (_disposed) return;
-        if (disposing)
-        {
-            // release managed resources here
-        }
-        // release unmanaged resources
-        Marshal.FreeHGlobal(_handle);
-        _handle = IntPtr.Zero;
-        _disposed = true;
-    }
-
-    ~NativeBuffer() => Dispose(false);   // finalizer: last-resort cleanup
-}
-```
-
-The `bool disposing` distinction matters: when called from `Dispose()` (`disposing == true`), other managed objects are still alive and safe to touch; when called from the finalizer (`disposing == false`), they may already be collected, so you only release unmanaged resources.
+For the rare class that directly owns an unmanaged resource, the **full Dispose pattern** adds a `Dispose(bool disposing)` method, a finalizer as a last-resort backstop, and `GC.SuppressFinalize` to skip that finalizer once `Dispose` has run. The `disposing` flag matters: when `true` (called from `Dispose()`), other managed objects are still alive and safe to touch; when `false` (the finalizer path), they may already be collected, so you release only unmanaged resources. Most classes need none of this — if you merely *contain* other `IDisposable` fields, implement `Dispose` to dispose them and skip the finalizer. Chapter 2 walks through the full pattern, the finalization queue, and its runtime cost in depth.
 
 **`IAsyncDisposable`** exists for resources whose cleanup involves I/O (flushing a buffer, closing a network stream) that shouldn't block a thread:
 
 ```csharp
 await using var conn = new AsyncDbConnection();   // DisposeAsync() awaited at scope end
 ```
-
-> **Best practice:** Most classes don't need a finalizer. Only write one if you directly hold unmanaged resources. If you merely *contain* other `IDisposable` fields, implement `Dispose` to dispose them and skip the finalizer entirely (it has real overhead — finalizable objects survive an extra GC generation).
 
 ## Iterators and yield return
 
@@ -668,6 +631,8 @@ string json = """
 ```
 
 The triple-quote (or more) delimiters mean embedded `"` need no escaping, and the closing quotes' indentation sets the baseline that's stripped from every line — so your literal stays visually aligned with your code.
+
+> **Where the language is heading.** C# 13 added **params collections** — `params` now accepts `Span<T>`, `ReadOnlySpan<T>`, and other collection types, not just arrays — and the dedicated `System.Threading.Lock` type. C# 14, shipping with .NET 10, brings the `field` keyword (auto-property accessors can reference their own backing field, so a property can add validation without hand-declaring one) and **extension members**, which generalize extension methods to extension properties and static extension members. Appendix B has the full version timeline.
 
 ## Bringing It Together
 

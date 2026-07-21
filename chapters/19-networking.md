@@ -102,7 +102,7 @@ The methods carry semantic meaning that the whole ecosystem (caches, proxies, re
 - **PATCH** — partial update.
 - **DELETE** — remove; idempotent.
 
-> **Best practice:** *Idempotency* means calling N times has the same effect as calling once. It is not academic — it decides whether it is safe to auto-retry. A proxy or your Polly retry policy can safely retry a GET or PUT after a timeout; retrying a POST might charge a credit card twice. Design your APIs so that anything retriable is idempotent, and use idempotency keys for POSTs that must not double-execute.
+> **Best practice:** *Idempotency* means calling N times has the same effect as calling once. It is not academic — it decides whether it is safe to auto-retry. A proxy or your Polly retry policy can safely retry a GET or PUT after a timeout; retrying a POST might charge a credit card twice. Design your APIs so that anything retriable is idempotent, and use idempotency keys for POSTs that must not double-execute (Chapter 20 covers the mechanics).
 
 ## HTTP/1.1 vs HTTP/2 vs HTTP/3: A History of Fixing Head-of-Line Blocking
 
@@ -386,19 +386,11 @@ using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
 var response = await client.GetAsync(url, cts.Token);
 ```
 
-> **Best practice:** Combine timeouts, retries (with **exponential backoff and jitter** so retries don't stampede in lockstep), and **circuit breakers** (stop hammering a failing dependency) — the resilience trio. In .NET, `Microsoft.Extensions.Http.Resilience` (built on Polly) wires all three into `IHttpClientFactory` declaratively.
+> **Best practice:** Combine timeouts, retries (with **exponential backoff and jitter** so retries don't stampede in lockstep), and **circuit breakers** (stop hammering a failing dependency) — the resilience trio. In .NET, `Microsoft.Extensions.Http.Resilience` (built on Polly) wires all three into `IHttpClientFactory` declaratively; Chapter 20 builds the full pipeline and explains how the strategies layer.
 
 ## The Fallacies of Distributed Computing
 
-We close with the mental model that should underpin every networked design decision. In the 1990s, engineers at Sun Microsystems catalogued the **Fallacies of Distributed Computing** — false assumptions that developers repeatedly make. Three deserve special emphasis:
-
-**1. "The network is reliable."** It is not. Packets drop, connections reset, cables get cut, servers reboot mid-request. A remote call can fail *after* the server processed it but *before* you got the response — you genuinely cannot tell whether it succeeded. This is why idempotency, retries, and timeouts are not optional extras; they are load-bearing. Design for failure as the normal case.
-
-**2. "Latency is zero."** It is not. Light itself takes ~70ms to cross the Atlantic and back; add TCP/TLS handshakes, DNS, and queuing, and a "quick call" is tens to hundreds of milliseconds. Making 50 sequential network calls to render one page — the **N+1 network problem** — is why some apps feel slow no matter how fast the code is. Batch, parallelize, and cache. A remote call is *not* a method call, no matter how much the syntax pretends otherwise.
-
-**3. "Bandwidth is infinite" and "the network is free."** They are not. Data has cost — in transfer time, in cloud egress bills (often the biggest surprise line item), and in serialization overhead. Sending a 5 MB JSON blob to render a 20-row table is a real cost, not an abstraction.
-
-The other fallacies — the network is secure, topology doesn't change, there is one administrator, transport cost is zero — round out the list. Internalize all of them, and you will design systems that degrade gracefully instead of collapsing the first time reality asserts itself.
+We close with the mental model that should underpin every networked design decision: the **Fallacies of Distributed Computing**, the catalogue of false assumptions — the network is reliable, latency is zero, bandwidth is infinite, and five more — that Sun Microsystems engineers compiled in the 1990s. Chapter 20 works through all eight; for now, internalize the three this chapter has been circling all along. The network is *not* reliable — a call can fail *after* the server processed it but *before* you got the response, which is why idempotency, retries, and timeouts are load-bearing, not optional. Latency is *not* zero — 50 sequential calls to render one page (the **N+1 network problem**) is why some apps feel slow no matter how fast the code is; batch, parallelize, and cache. And bandwidth is neither infinite nor free — cloud egress bills (often the biggest surprise line item) make that painfully concrete.
 
 > **The senior mindset in one sentence:** Treat every network call as an *unreliable, slow, expensive, insecure* operation that will eventually fail — then be pleasantly surprised when it works.
 

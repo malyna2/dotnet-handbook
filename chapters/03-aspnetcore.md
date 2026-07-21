@@ -1,6 +1,6 @@
 # Chapter 3: ASP.NET Core & Web APIs
 
-_⏱️ Estimated read time: ~26 min ·     3469 words (study pace)_
+_⏱️ Estimated read time: ~31 min ·     4125 words (study pace)_
 
 ASP.NET Core is the beating heart of most .NET server-side work. If you've been building APIs for a couple of years, you already know how to make an endpoint return JSON. This chapter is about the *why* underneath: how a request actually travels through your application, where the extension points live, and how the senior-level decisions (versioning, resilience, auth, real-time) fit together. By the end you should be able to reason about the framework rather than just use it.
 
@@ -200,6 +200,30 @@ public class CreateProductValidator : AbstractValidator<CreateProductRequest>
 
 > **Best practice.** Keep validators free of infrastructure. If a rule needs a database check (e.g. "SKU must be unique"), that's arguably a domain/business concern better handled in your service layer, not in a validator that runs on every bind. Validators are for *shape and format*; business invariants belong deeper.
 
+## CancellationToken Propagation
+
+Every request carries an implicit expiry: the moment the client disconnects, times out, or navigates away, any work you're still doing on its behalf is wasted. The framework tells you when that happens — `HttpContext.RequestAborted` is a `CancellationToken` that trips when the connection drops — and both Minimal APIs and MVC will bind it for you: declare a `CancellationToken` parameter on your endpoint or action and the framework wires it to `RequestAborted` automatically.
+
+The token only helps if you *pass it through*. EF Core queries, `HttpClient` calls, stream reads — essentially every awaited I/O API — accept one:
+
+```csharp
+app.MapGet("/reports/{id:int}", async (int id, AppDbContext db,
+    ReportRenderer renderer, CancellationToken ct) =>
+{
+    var data = await db.ReportRows
+        .Where(r => r.ReportId == id)
+        .ToListAsync(ct);                    // Stops the query if the client is gone.
+
+    return Results.Ok(await renderer.RenderAsync(data, ct));
+});
+```
+
+When the client disconnects mid-query, EF Core cancels the database command; the connection returns to the pool and the request's threads free up. Without the token, the query runs to completion for a caller that will never read the response.
+
+Why this matters operationally: picture your API slowing down under load. Clients hit their own timeouts, abandon their requests, and *retry*. If your server doesn't observe cancellation, every abandoned request keeps executing — the original query is still hammering the database while the retry starts a duplicate. Load effectively doubles at precisely the moment the system is already struggling, and a slowdown snowballs into an outage. Propagating the token is what lets abandoned work actually stop, turning a retry storm into a manageable blip instead of a self-inflicted amplification attack.
+
+> **Gotcha:** Not everything should be cancellable. If you've charged a payment and are about to write the outbox record, cancelling *mid-write* because the client hung up is far worse than finishing wasted work — you'd take the money and lose the event. For operations that must run to completion once started, deliberately pass `CancellationToken.None` (or a token decoupled from the request) past that point of no return. The skill isn't "always pass the token"; it's knowing which operations are safe to abandon and which have already committed you.
+
 ## Filters
 
 Filters run *inside* the MVC/endpoint execution, giving you hooks that are aware of model binding and action results — something raw middleware can't see. They form their own mini-pipeline with a defined order: **Authorization → Resource → Action → (endpoint) → Result**, plus **Exception** filters that catch throws.
@@ -354,6 +378,8 @@ app.UseCors("spa");
 
 > **Pitfall.** `AllowAnyOrigin()` combined with `AllowCredentials()` is forbidden by the spec and won't work. Never reflexively allow all origins in production.
 
+> **Gotcha — CORS is not CSRF protection.** If browsers reach your endpoints with *cookie* authentication, they need **antiforgery** protection, and ASP.NET Core ships it: automatic in Razor Pages/MVC form tag helpers, and available to Minimal APIs via the antiforgery services added in .NET 8. Token-authenticated APIs — where the client sends an `Authorization` header — are not CSRF-vulnerable, because browsers never attach that header automatically to cross-site requests. Chapter 14 gives CSRF its full treatment.
+
 **Rate limiting** (built-in since .NET 7) protects you from abuse and thundering herds. Algorithms include fixed window, sliding window, token bucket, and concurrency limiters:
 
 ```csharp
@@ -474,15 +500,31 @@ app.MapHealthChecks("/health/ready",
 
 Tagging checks and filtering by tag is what keeps liveness and readiness cleanly separated.
 
+## Observability Wiring
+
+ASP.NET Core is instrumented *out of the box*. Kestrel and the hosting layer emit metrics (request rate, duration, active connections) through `System.Diagnostics.Metrics` and the older EventCounters, and every request runs inside an `Activity` — .NET's native distributed-tracing span. The instrumentation is always there; what's missing by default is something *listening*. That's what OpenTelemetry provides:
+
+```csharp
+builder.Services.AddOpenTelemetry()
+    .ConfigureResource(r => r.AddService("shop-api"))
+    .WithTracing(t => t
+        .AddAspNetCoreInstrumentation()      // Span per incoming request.
+        .AddHttpClientInstrumentation()      // Span per outbound call.
+        .AddOtlpExporter())                  // Ship to your collector.
+    .WithMetrics(m => m
+        .AddAspNetCoreInstrumentation()
+        .AddHttpClientInstrumentation()
+        .AddOtlpExporter());
+```
+
+With those few lines, every request produces a trace: a root span from the ASP.NET Core instrumentation, child spans for each `HttpClient` call, all exported over OTLP to whatever backend you run (Jaeger, Tempo, an APM vendor — the wire format is standard). Better still, propagation is automatic: `HttpClient` injects the **W3C trace-context** `traceparent` header on outbound calls and ASP.NET Core reads it on inbound ones, so when service A calls service B, both ends land in the *same* trace without either team writing propagation code. Combine that with the `IHttpClientFactory` discipline from earlier in this chapter and a slow endpoint stops being a mystery — the trace shows you exactly which downstream call ate the time budget.
+
+Chapter 13 covers observability as a discipline — custom `ActivitySource` spans, metrics design, log correlation, propagating context through message queues. The point here is narrower but important: the web framework *participates natively*. A few lines in `Program.cs` and every request carries a trace.
+
 ## A Brief Note on Blazor
 
-**Blazor** lets you build interactive web UIs in C# instead of JavaScript. Two hosting models matter:
-
-- **Blazor Server** runs your components on the server and streams UI diffs to the browser over a SignalR connection. Tiny download, full .NET on the server, but every interaction is a network round-trip and each user holds an open connection — latency-sensitive and stateful.
-- **Blazor WebAssembly (WASM)** downloads a .NET runtime and your app into the browser and runs entirely client-side. Works offline, no per-user server connection, but a larger initial download and client-grade resources.
-
-Modern .NET unifies these under **Blazor Web Apps** with per-component render modes, so you can mix static server rendering, interactive server, and WASM in one app. As an API-focused developer, the takeaway is simply that Blazor is another consumer of your APIs (WASM) or a server-side rendering host (Server) — the backend discipline in this chapter applies regardless.
+**Blazor** lets you build interactive web UIs in C# instead of JavaScript. **Blazor Server** runs your components on the server and streams UI diffs to the browser over a SignalR connection — tiny download, but every interaction is a round-trip and each user holds a stateful connection. **Blazor WebAssembly** runs the .NET runtime in the browser and calls your API like any SPA would — offline-capable, at the cost of a larger initial download. From this chapter's perspective, Blazor is just another consumer of your APIs or another host in your pipeline; Chapter 28 covers the render models, JS interop, and when to choose Blazor over a JavaScript SPA.
 
 ## Summary
 
-The through-line of this chapter is that ASP.NET Core is a **pipeline of composable components**, and nearly every feature — auth, CORS, rate limiting, error handling — is just middleware or a filter slotted into that pipeline in the right order. Master the request lifecycle and the rest becomes a matter of choosing the right tool: Minimal APIs or Controllers, JWT or cookies, policies over roles, REST at the edge and gRPC within, resilience on every outbound call, and consistent ProblemDetails when things go wrong. Those are the instincts that separate a senior engineer from someone who merely returns JSON.
+The through-line of this chapter is that ASP.NET Core is a **pipeline of composable components**, and nearly every feature — auth, CORS, rate limiting, error handling — is just middleware or a filter slotted into that pipeline in the right order. Master the request lifecycle and the rest becomes a matter of choosing the right tool: Minimal APIs or Controllers, JWT or cookies, policies over roles, REST at the edge and gRPC within, resilience on every outbound call, cancellation tokens propagated through every awaited I/O, a trace on every request, and consistent ProblemDetails when things go wrong. Those are the instincts that separate a senior engineer from someone who merely returns JSON.

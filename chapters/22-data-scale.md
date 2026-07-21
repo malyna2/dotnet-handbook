@@ -40,41 +40,35 @@ Common mitigations:
 
 ### Routing Reads and Writes in EF Core
 
-EF Core has no native primary/replica awareness, but the pattern is straightforward: give your `DbContext` two connection strings and choose one based on intent.
+EF Core has no native primary/replica awareness, but the pattern is straightforward: decide *at creation time* whether a context talks to the primary or a replica, and hand out the right one from a factory.
 
 ```csharp
-public sealed class CatalogContext : DbContext
+public sealed class CatalogContext(DbContextOptions<CatalogContext> options)
+    : DbContext(options)
 {
-    private readonly string _writeConn;
-    private readonly string _readConn;
-    private bool _readOnly;
+    public DbSet<Product> Products => Set<Product>();
+}
 
-    public CatalogContext(IConfiguration config)
+public sealed class CatalogContextFactory(IConfiguration config)
+{
+    public CatalogContext CreateWrite() => new(Build("Primary", readOnly: false));
+    public CatalogContext CreateRead()  => new(Build("Replica", readOnly: true));
+
+    private DbContextOptions<CatalogContext> Build(string name, bool readOnly)
     {
-        _writeConn = config.GetConnectionString("Primary")!;
-        _readConn  = config.GetConnectionString("Replica")!;
-    }
-
-    // Call before a read-only query to opt into the replica.
-    public CatalogContext AsReadOnly()
-    {
-        _readOnly = true;
-        return this;
-    }
-
-    protected override void OnConfiguring(DbContextOptionsBuilder options)
-    {
-        var conn = _readOnly ? _readConn : _writeConn;
-        options.UseNpgsql(conn);
-
-        // A replica connection should never accidentally issue writes.
-        if (_readOnly)
-            options.UseQueryTrackingBehavior(QueryTrackingBehavior.NoTracking);
+        var builder = new DbContextOptionsBuilder<CatalogContext>()
+            .UseNpgsql(config.GetConnectionString(name));
+        // A replica context should never accidentally issue writes.
+        if (readOnly)
+            builder.UseQueryTrackingBehavior(QueryTrackingBehavior.NoTracking);
+        return builder.Options;
     }
 }
 ```
 
-In practice you'd wrap this more cleanly — for example, a factory that returns a read-optimized context, or an interceptor that inspects whether the query tree contains writes. The key discipline is that **any `SaveChanges` must go to the primary**, and read-only queries that can tolerate lag go to a replica. Marking replica contexts `NoTracking` is doubly useful: it's faster, and it structurally prevents a replica context from ever trying to save.
+> **Pitfall:** The tempting alternative — one context with a `_readOnly` flag you flip before querying, checked in `OnConfiguring` — is subtly broken. A context's configuration is built once and then cached (per instance on first use, and across instances when the context is pooled or resolved from DI), so a flag flipped afterwards is silently ignored and your "replica" query runs against the primary. Choose the connection when the context is *constructed*, not later.
+
+The key discipline is that **any `SaveChanges` must go to the primary**, and read-only queries that can tolerate lag go to a replica. Marking replica contexts `NoTracking` is doubly useful: it's faster, and it structurally prevents a replica context from ever trying to save.
 
 ## Partitioning and Sharding
 
@@ -108,7 +102,7 @@ Once data is split, three things that used to be free become expensive or imposs
 
 **Distributed joins.** A join between two tables only works cheaply if both tables' relevant rows live on the *same* shard. This is why sharded systems try to **co-locate** related data — put a customer and all their orders on the same shard, keyed by `CustomerId` — so joins stay local. Join across the shard boundary and you're either shipping data over the network or denormalizing to avoid the join entirely.
 
-**Distributed transactions.** A single ACID transaction spanning two shards requires a protocol like two-phase commit (2PC), which is slow, locks resources across nodes, and stalls entirely if the coordinator dies mid-commit. In practice, most large systems **refuse** distributed transactions and instead embrace eventual consistency: each shard commits locally, and cross-shard consistency is reconciled asynchronously via patterns like the **Saga** (a sequence of local transactions with compensating actions on failure — see the chapter on distributed systems).
+**Distributed transactions.** A single ACID transaction spanning two shards requires a protocol like two-phase commit (2PC), which is slow, locks resources across nodes, and stalls entirely if the coordinator dies mid-commit. In practice, most large systems **refuse** distributed transactions and instead embrace eventual consistency: each shard commits locally, and cross-shard consistency is reconciled asynchronously via patterns like the **Saga** (a sequence of local transactions with compensating actions on failure — see Chapter 9).
 
 > **Pitfall:** Teams often shard to solve a performance problem and discover they've traded a *throughput* problem for a *correctness and complexity* problem. The uniform, transactional, joinable world of a single database is a luxury you don't appreciate until it's gone.
 
@@ -130,15 +124,7 @@ Sharded or not, large systems rarely keep all their data in one place. The catal
 
 A common goal is: *"when I save an order, reliably publish an OrderCreated event."* Two patterns address this.
 
-The **transactional outbox** writes the business change and an event row to an `outbox` table **in the same local transaction.** Because both are in one ACID transaction, they commit or fail together — no dual-write problem. A separate relay process then reads the outbox and publishes the events.
-
-```sql
-BEGIN;
-INSERT INTO orders (id, customer_id, total) VALUES (...);
-INSERT INTO outbox (id, aggregate_type, event_type, payload)
-    VALUES (gen_random_uuid(), 'Order', 'OrderCreated', '{...}'::jsonb);
-COMMIT;
-```
+The **transactional outbox** (Chapter 9 covers its mechanics) writes the business change and an event row to an `outbox` table **in the same local transaction.** Because both are in one ACID transaction, they commit or fail together — no dual-write problem. A separate relay process then reads the outbox and publishes the events.
 
 The relay can poll the outbox table — or, elegantly, **CDC can read the outbox table** and stream its rows to Kafka, giving you low-latency publishing with no polling. This "outbox + Debezium" combination is a widely used, robust pattern.
 

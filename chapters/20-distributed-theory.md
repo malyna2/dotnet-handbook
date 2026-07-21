@@ -115,7 +115,7 @@ public async Task<PaymentResult> Charge(string idempotencyKey, decimal amount)
 }
 ```
 
-Stripe's API famously works exactly this way. This ties directly to the **delivery guarantees** from earlier chapters: networks and message brokers give you *at-least-once* delivery in practice (exactly-once is largely a myth end-to-end). At-least-once means *duplicates will happen*. Idempotent consumers turn the achievable "at-least-once delivery" into the effective "exactly-once *processing*" you actually want.
+Stripe's API famously works exactly this way. This ties directly to the **delivery guarantees** from Chapter 9: networks and message brokers give you *at-least-once* delivery in practice (exactly-once is largely a myth end-to-end). At-least-once means *duplicates will happen*. Idempotent consumers turn the achievable "at-least-once delivery" into the effective "exactly-once *processing*" you actually want.
 
 > **Best practice:** Make every message consumer and every mutating API endpoint idempotent. It is the single most impactful reliability pattern in a message-driven system, because it lets you retry aggressively without fear.
 
