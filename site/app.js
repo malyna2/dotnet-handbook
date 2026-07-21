@@ -455,35 +455,33 @@ function highlightFind(q){
   }
 }
 
+function doTranslate(text, rect){
+  if(!text || !rect) return;
+  lastRect=rect;
+  showPopup("…", rect, true);
+  translate(text).then(function(uk){ showPopup(uk, rect, false); })
+    .catch(function(err){ removePopup(); toast(err.message||"Translation failed. Check your connection."); });
+}
+// When Easy Translate is on: a selection or a word tap translates immediately.
 document.addEventListener("mouseup",function(e){
-  if(e.target.closest && e.target.closest(".tr-popup,.sel-translate")) return;
+  if(e.target.closest && e.target.closest(".tr-popup")) return;
   setTimeout(function(){
-    if(!settings.easy){ selBtn.hidden=true; return; }
+    if(!settings.easy) return;
     var sel=window.getSelection();
     var txt=sel&&sel.toString().trim();
-    // a real selection -> offer to translate the selected text
     if(txt && txt.length>0 && sel.anchorNode && content.contains(sel.anchorNode)){
-      pendingText=txt; lastRect=rectFromSelection();
-      if(lastRect){ positionSelBtn(lastRect.left+lastRect.width/2, lastRect.top); selBtn.hidden=false; }
-      else selBtn.hidden=true;
+      doTranslate(txt, rectFromSelection());
       return;
     }
-    // a plain tap on a word -> offer to translate just that word
-    if(content.contains(e.target) && !(e.target.closest && e.target.closest("a, button, pre, code, .codeblock, .tr-popup, .sel-translate"))){
+    if(content.contains(e.target) && !(e.target.closest && e.target.closest("a, button, pre, code, .codeblock, .tr-popup"))){
       var block=nearestBlock(e.target.nodeType===3?e.target.parentNode:e.target);
       var rng=caretAt(e.clientX, e.clientY);
       if(block && rng && rng.startContainer && block.contains(rng.startContainer)){
         var off=textOffsetInBlock(block, rng.startContainer, rng.startOffset);
         var word=wordAtOffset(block.textContent, off);
-        if(word){
-          pendingText=word;
-          lastRect={left:e.clientX, top:e.clientY, width:0, height:0, bottom:e.clientY};
-          positionSelBtn(e.clientX, e.clientY); selBtn.hidden=false;
-          return;
-        }
+        if(word) doTranslate(word, {left:e.clientX, top:e.clientY, width:0, height:0, bottom:e.clientY});
       }
     }
-    selBtn.hidden=true;
   },10);
 });
 selBtn.addEventListener("mousedown",function(e){ e.preventDefault(); }); // preserve the selection
