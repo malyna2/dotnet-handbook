@@ -197,6 +197,12 @@ var content=document.getElementById("content");
 var navEl=document.getElementById("nav");
 var outlineEl=document.getElementById("outline");
 var current=null;
+var _saveT;
+function saveLast(){ if(!current) return; try{
+  localStorage.setItem("last", current.slug);
+  localStorage.setItem("pos:"+current.slug, String(Math.round(window.pageYOffset||document.documentElement.scrollTop||0)));
+}catch(e){} }
+function scheduleSave(){ clearTimeout(_saveT); _saveT=setTimeout(saveLast,400); }
 
 function readTime(md){
   var m=md.match(/Estimated read time:\s*(~\s*\d+\s*min)/i);
@@ -215,7 +221,8 @@ function buildNav(){
   });
   navEl.innerHTML=html;
 }
-function go(slug, push){
+function go(slug, push, restore){
+  saveLast();
   var c=bySlug[slug]||BOOK[0];
   current=c;
   removePopup();
@@ -224,7 +231,9 @@ function go(slug, push){
   buildOutline(c);
   buildPager(c);
   highlightNav(c.slug);
-  window.scrollTo(0,0);
+  if(restore){ var _y=parseInt(localStorage.getItem("pos:"+c.slug)||"0",10)||0; window.scrollTo(0,_y); }
+  else window.scrollTo(0,0);
+  try{ localStorage.setItem("last", c.slug); }catch(e){}
   document.title=(c.nav?c.nav+" · ":"")+".NET Handbook";
   closeSidebar();
   if(push!==false) history.replaceState(null,"","#/"+c.slug);
@@ -427,6 +436,7 @@ window.addEventListener("scroll",function(){
   var max=h.scrollHeight-h.clientHeight;
   var p=max>0?(h.scrollTop/max*100):0;
   progress.style.setProperty("--p",p.toFixed(1)+"%");
+  scheduleSave();
   var links=outlineEl.querySelectorAll("a"); var activeId=null;
   content.querySelectorAll("h2,h3").forEach(function(hd){
     if(hd.getBoundingClientRect().top<120) activeId=hd.id;
@@ -444,6 +454,7 @@ function toast(msg,ms){
 /* ---------------- Boot ---------------- */
 function currentSlug(){var m=location.hash.match(/^#\/(.+)$/);return m?m[1]:null;}
 window.addEventListener("hashchange",function(){var s=currentSlug();if(s)go(s,false);});
+window.addEventListener("beforeunload", saveLast);
 buildNav();
-go(currentSlug()||BOOK[0].slug,false);
+go(currentSlug()||localStorage.getItem("last")||BOOK[0].slug,false,true);
 })();
