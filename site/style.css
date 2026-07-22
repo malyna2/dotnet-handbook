@@ -90,7 +90,7 @@ mark.find-hit{background:var(--accent);color:var(--accent-fg);border-radius:3px;
   background:var(--bg-alt);border-right:1px solid var(--border);padding:14px 8px 40px;z-index:30}
 #nav .part{font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--fg-muted);
   font-weight:700;margin:16px 10px 6px}
-#nav a{display:block;padding:6px 10px;margin:1px 4px;border-radius:7px;color:var(--fg);
+#nav a{position:relative;overflow:hidden;display:block;padding:6px 10px;margin:1px 4px;border-radius:7px;color:var(--fg);
   text-decoration:none;font-size:13.5px;line-height:1.4}
 #nav a:hover{background:var(--bg-elev)}
 #nav a.active{background:var(--accent);color:var(--accent-fg);font-weight:600}
@@ -98,6 +98,14 @@ mark.find-hit{background:var(--accent);color:var(--accent-fg);border-radius:3px;
 #nav a.active .num{color:var(--accent-fg);opacity:.8}
 #nav a .rt{display:block;font-size:11px;color:var(--fg-muted)}
 #nav a.active .rt{color:var(--accent-fg);opacity:.85}
+#nav a::after{content:"";position:absolute;left:0;bottom:0;height:2px;width:var(--rp,0%);
+  background:var(--accent);opacity:.55;border-radius:2px;transition:width .3s}
+#nav a.done::after{opacity:.9}
+#nav a.active::after{background:var(--accent-fg);opacity:.7}
+#nav a.done{padding-right:26px}
+#nav a.done::before{content:"✓";position:absolute;right:9px;top:50%;transform:translateY(-50%);
+  color:var(--accent);font-weight:700}
+#nav a.active.done::before{color:var(--accent-fg)}
 
 #main{margin-left:var(--sidebar-w);margin-right:var(--outline-w);padding:0 32px 80px;
   max-width:calc(var(--max) + var(--outline-w) + 64px)}
@@ -204,12 +212,14 @@ mark.find-hit{background:var(--accent);color:var(--accent-fg);border-radius:3px;
 
 /* home cards */
 .home-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px;margin:1.2em 0}
-.home-card{border:1px solid var(--border);border-radius:12px;padding:14px 16px;text-decoration:none;
+.home-card{position:relative;border:1px solid var(--border);border-radius:12px;padding:14px 16px;text-decoration:none;
   color:var(--fg);background:var(--bg-alt);transition:border-color .12s,transform .12s}
 .home-card:hover{border-color:var(--accent);transform:translateY(-2px)}
 .home-card .hc-num{font-size:12px;color:var(--fg-muted)}
 .home-card .hc-ttl{font-weight:600;margin-top:2px;line-height:1.3}
 .home-card .hc-rt{font-size:12px;color:var(--fg-muted);margin-top:6px}
+.home-card.done::after{content:"✓";position:absolute;top:10px;right:12px;
+  color:var(--accent);font-weight:700;font-size:15px}
 
 /* modal + toast */
 .modal{position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:80;display:flex;

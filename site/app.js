@@ -202,11 +202,49 @@ var outlineEl=document.getElementById("outline");
 var current=null;
 var pendingFind=null;
 var _saveT;
+// Reading position is remembered per chapter as the index of the topmost visible
+// block (paragraph/heading/code block), so it survives reflows and window resizes
+// better than a raw pixel offset. A percent is kept alongside for the sidebar bar.
+function topBlockIndex(){
+  var kids=content.children;
+  for(var i=0;i<kids.length;i++){
+    if(kids[i].getBoundingClientRect().bottom>100) return i;
+  }
+  return 0;
+}
+function readPct(){
+  var h=document.documentElement;
+  var max=h.scrollHeight-h.clientHeight;
+  return max>0?Math.min(100,Math.round(h.scrollTop/max*100)):0;
+}
 function saveLast(){ if(!current) return; try{
   localStorage.setItem("last", current.slug);
-  localStorage.setItem("pos:"+current.slug, String(Math.round(window.pageYOffset||document.documentElement.scrollTop||0)));
+  var y=window.pageYOffset||document.documentElement.scrollTop||0;
+  var p=readPct(), prev=savedPos(current.slug);
+  // "finished" is sticky: once a chapter has been read to the end, it stays ✓
+  var done=((prev&&prev.d)||p>=97)?1:0;
+  localStorage.setItem("pos:"+current.slug,
+    JSON.stringify({i:y<50?0:topBlockIndex(), p:p, d:done}));
+  updateNavProgress(current.slug);
 }catch(e){} }
+function isDone(slug){ var d=savedPos(slug); return !!(d&&(d.d||d.p>=97)); }
 function scheduleSave(){ clearTimeout(_saveT); _saveT=setTimeout(saveLast,400); }
+function savedPos(slug){
+  var raw; try{ raw=localStorage.getItem("pos:"+slug); }catch(e){ return null; }
+  if(!raw) return null;
+  var d; try{ d=JSON.parse(raw); }catch(e){ return null; }
+  if(typeof d==="number") return {y:d};            // legacy pixel-offset format
+  if(d && typeof d==="object") return d;
+  return null;
+}
+function restorePos(c){
+  if(c.part==="__home__") return;
+  var d=savedPos(c.slug); if(!d) return;
+  if(typeof d.i==="number" && d.i>0 && d.i<content.children.length){
+    var el=content.children[d.i];
+    window.scrollTo(0, el.getBoundingClientRect().top+window.pageYOffset-90);
+  } else if(d.y){ window.scrollTo(0, d.y); }
+}
 
 function readTime(md){
   var m=md.match(/Estimated read time:\s*~\s*(\d+\s*h(?:\s*\d+\s*min)?|\d+\s*min)/i);
@@ -224,8 +262,16 @@ function buildNav(){
       '</span>'+esc(c.nav)+(rt?'<span class="rt">'+rt+'</span>':'')+'</a>';
   });
   navEl.innerHTML=html;
+  BOOK.forEach(function(c){ if(c.part!=="__home__") updateNavProgress(c.slug); });
 }
-function go(slug, push, restore){
+function updateNavProgress(slug){
+  var a=navEl.querySelector('a[data-slug="'+slug+'"]'); if(!a) return;
+  var d=savedPos(slug);
+  var p=d&&typeof d.p==="number"?d.p:0;
+  a.style.setProperty("--rp", p+"%");
+  a.classList.toggle("done", isDone(slug));
+}
+function go(slug, push){
   saveLast();
   var c=bySlug[slug]||BOOK[0];
   current=c;
@@ -236,8 +282,8 @@ function go(slug, push, restore){
   buildOutline(c);
   buildPager(c);
   highlightNav(c.slug);
-  if(restore){ var _y=parseInt(localStorage.getItem("pos:"+c.slug)||"0",10)||0; window.scrollTo(0,_y); }
-  else window.scrollTo(0,0);
+  window.scrollTo(0,0);
+  if(!pendingFind) restorePos(c);   // reopen each chapter at the last-read paragraph
   try{ localStorage.setItem("last", c.slug); }catch(e){}
   document.title=(c.nav?c.nav+" · ":"")+".NET Handbook";
   closeSidebar();
@@ -262,7 +308,7 @@ function postProcess(c){
       if(ch.part==="__home__") return;
       var rt=readTime(ch.md);
       var numMatch=ch.title.match(/^(Chapter\s+\d+|Appendix\s+[A-Z])/);
-      var a=document.createElement("a"); a.className="home-card"; a.href="#/"+ch.slug;
+      var a=document.createElement("a"); a.className="home-card"+(isDone(ch.slug)?" done":""); a.href="#/"+ch.slug;
       a.innerHTML='<div class="hc-num">'+esc(numMatch?numMatch[1]:"")+'</div>'+
         '<div class="hc-ttl">'+esc(ch.nav)+'</div>'+(rt?'<div class="hc-rt">⏱️ '+rt+'</div>':'');
       grid.appendChild(a);
@@ -599,5 +645,5 @@ function currentSlug(){var m=location.hash.match(/^#\/(.+)$/);return m?m[1]:null
 window.addEventListener("hashchange",function(){var s=currentSlug();if(s)go(s,false);});
 window.addEventListener("beforeunload", saveLast);
 buildNav();
-go(currentSlug()||localStorage.getItem("last")||BOOK[0].slug,false,true);
+go(currentSlug()||localStorage.getItem("last")||BOOK[0].slug,false);
 })();
