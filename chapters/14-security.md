@@ -513,6 +513,8 @@ Wire this into CI so a build *fails* when a vulnerable package appears, rather t
 
 > **Best practice:** Also enable NuGet package **source mapping** and consider **signed packages** to defend against dependency-confusion and typosquatting attacks, where an attacker publishes a malicious package with a name similar to (or matching an internal) package you depend on.
 
+> **Capstone tie-in:** This chapter is exercised by ShopCore Step 5 (Caching, Auth, and Observability) — you'd add JWT authentication and role-based authorization so only authenticated users check out and only admins mutate the catalog. See Chapter 32.
+
 ## Summary
 
 Security is a discipline of layered, deliberate decisions. Adopt the mindset — defense in depth, least privilege, secure by default, never trust input — and it informs every line you write. Know the OWASP Top 10 as *categories* of failure and the .NET mitigation for each. Distinguish authentication (who you are) from authorization (what you may do), and implement both with the framework's tools rather than reinventing them. Delegate identity to OAuth 2.0 / OIDC with the Authorization Code + PKCE flow, validate JWTs on issuer, audience, expiry, and signature — every time. Keep secrets out of source and in a managed vault, enforce TLS with HSTS, hash passwords with a slow salted algorithm, reach for `IDataProtector` instead of raw crypto, and defend the browser boundary with validation, encoding, anti-forgery tokens, tight CORS, and a strong CSP. Finally, scan your dependencies continuously — because the vulnerability you didn't write is still yours to fix.

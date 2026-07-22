@@ -444,6 +444,8 @@ A consolidated field guide to the recurring offenders, most of which we have met
 - **Excessive logging in hot paths.** String formatting and I/O per request adds up; use structured logging with level checks and interpolated string handlers.
 - **Not disposing / leaking IDisposables.** Undisposed `HttpClient` per request exhausts sockets; unclosed DB connections exhaust the pool. Use `IHttpClientFactory` and `using`.
 
+> **Capstone tie-in:** This chapter is exercised by ShopCore Step 5 (Caching, Auth, and Observability) — you'd add Redis as a distributed cache for the hot product-catalog read path, with sensible invalidation on writes. See Chapter 32.
+
 ## Putting It All Together
 
 Performance engineering is not a bag of tricks to sprinkle everywhere — it is a discipline of *evidence*. The senior engineer's edge is not knowing more optimizations than the mid-level one; it is the restraint to not apply them until measurement demands it, and the tooling fluency to measure quickly and correctly when it does.

@@ -619,6 +619,8 @@ Common causes and fixes:
 
 > **Best practice:** treat a flaky test as a **P1 defect in the suite**, not an annoyance to retry past. Quarantine it (mark it, get it out of the blocking path) *and* file a ticket to fix or delete it — but never leave it silently retrying, because a suite you don't trust is a suite you don't have.
 
+> **Capstone tie-in:** This chapter is exercised by ShopCore Step 2 (Prove It Works: Tests) — you'd unit-test the domain rules with xUnit and place an order through the HTTP surface against a Testcontainers PostgreSQL via `WebApplicationFactory`. See Chapter 32.
+
 ## Bringing It Together
 
 Testing maturity is not measured in a coverage percentage or a count of tests. It's measured in a single capability: **can your team change the code with confidence and speed?** Everything in this chapter serves that. The pyramid tells you where to invest. Unit tests with clean AAA structure and honest names give fast, precise feedback. Test doubles — used with the judgment to know when *not* to mock — isolate units without ossifying them. Integration tests with Testcontainers verify the seams against real infrastructure. TDD applies design pressure; BDD aligns with stakeholders when there's an audience for it. Mutation testing audits whether your tests actually verify, and coverage maps what's untouched. And relentless hygiene around flakiness protects the trust that makes the whole edifice worthwhile.

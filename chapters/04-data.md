@@ -446,6 +446,8 @@ The strategic question is *when* migrations run in your pipeline. Options:
 
 > **Best practice:** Make schema changes **backward compatible** so the old and new app versions can run against the new schema at once during a rolling deploy. Add a nullable column now; make it required in a *later* migration after all code writes to it. This "expand then contract" approach lets you deploy schema and code independently with zero downtime.
 
+> **Capstone tie-in:** This chapter is exercised by ShopCore Steps 1 (The Honest Monolith) and 7 (Split Into Microservices) — you'd model products, carts, and orders with EF Core and PostgreSQL, creating the schema from migrations, and later add a transactional outbox table. See Chapter 32.
+
 ## Summary
 
 The through-line of this chapter is that the database is not a black box. EF Core is a productivity multiplier, but only if you know what SQL it generates — when it tracks, when it round-trips, when `Include` explodes into a cartesian product. Underneath, indexes, execution plans, transactions, and isolation levels determine whether your system is fast and correct or slow and subtly broken. Around it, caching removes load, NoSQL stores handle shapes relational tables handle poorly, concurrency tokens protect you from lost updates, and disciplined migrations let your schema evolve safely. A senior developer moves fluidly between these layers, always asking the same question: *what is actually happening at the database, and is it the least work required to be correct?*

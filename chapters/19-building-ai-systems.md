@@ -340,6 +340,8 @@ Minimally, the loop is just tool-calling run until completion — which is exact
 
 ## The .NET AI stack
 
+> **Dated snapshot (mid-2026):** the package names, model names, and vendor landscape in this chapter are the fastest-rotting facts in this book. The architecture — a provider-agnostic abstraction layer, orchestration on top, RAG plumbing, evals as the regression suite — is durable; re-verify the specific packages, models, and provider capabilities against the current ecosystem before building.
+
 The .NET ecosystem matured fast. The pieces you should know:
 
 - **Microsoft.Extensions.AI** — the unifying abstraction layer (the `IChatClient` and `IEmbeddingGenerator` interfaces used throughout this chapter). It plays the role for AI that `ILogger`/`HttpClientFactory` play elsewhere: one provider-agnostic interface, pluggable implementations (OpenAI, Azure OpenAI, Anthropic, Ollama, local ONNX), and a **middleware pipeline** for cross-cutting concerns — function invocation, caching, telemetry, retries — composed via `AsBuilder()`. Program against these interfaces and your provider becomes a swap, not a rewrite. This is the recommended foundation for new .NET AI code.
@@ -371,7 +373,7 @@ var result = await kernel.InvokePromptAsync(
 Console.WriteLine(result);
 ```
 
-**Cross-ecosystem awareness.** The Python world moves fast and its ideas cross over, so know the names: **LangChain** (the broad building-block framework for chains, tools, and RAG), **LlamaIndex** (RAG- and data-framework-focused), **LangGraph** (graph-based orchestration for stateful, cyclic agent workflows), **DSPy** (programmatic prompt *optimization* — you declare the task and it tunes the prompts against a metric, rather than you hand-crafting them), and **Haystack** (a production-oriented RAG/search framework). You rarely need these in a .NET shop, but their patterns — and their vocabulary — shape the field.
+**Cross-ecosystem awareness.** The Python world has a rich, fast-moving family of orchestration frameworks (LangChain, LlamaIndex, LangGraph, DSPy, Haystack at the time of writing), and their concepts — chains, retrieval pipelines, graph-based agent orchestration, programmatic prompt optimization — cross over and shape the whole field's vocabulary. Learn the concepts, not the frameworks; in a .NET shop you'll almost always build on the Microsoft.Extensions.AI and Semantic Kernel abstractions instead.
 
 ## Integrating AI into existing applications
 

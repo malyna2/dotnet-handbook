@@ -543,6 +543,8 @@ Chapter 13 covers observability as a discipline — custom `ActivitySource` span
 
 **Blazor** lets you build interactive web UIs in C# instead of JavaScript. **Blazor Server** runs your components on the server and streams UI diffs to the browser over a SignalR connection — tiny download, but every interaction is a round-trip and each user holds a stateful connection. **Blazor WebAssembly** runs the .NET runtime in the browser and calls your API like any SPA would — offline-capable, at the cost of a larger initial download. From this chapter's perspective, Blazor is just another consumer of your APIs or another host in your pipeline; Chapter 29 covers the render models, JS interop, and when to choose Blazor over a JavaScript SPA.
 
+> **Capstone tie-in:** This chapter is exercised by ShopCore Step 1 (The Honest Monolith) — you'd build a single ASP.NET Core Web API exposing CRUD-plus-checkout endpoints for products, carts, and orders. See Chapter 32.
+
 ## Summary
 
 The through-line of this chapter is that ASP.NET Core is a **pipeline of composable components**, and nearly every feature — auth, CORS, rate limiting, error handling — is just middleware or a filter slotted into that pipeline in the right order. Master the request lifecycle and the rest becomes a matter of choosing the right tool: Minimal APIs or Controllers, JWT or cookies, policies over roles, REST at the edge and gRPC within, resilience on every outbound call, cancellation tokens propagated through every awaited I/O, a trace on every request, and consistent ProblemDetails when things go wrong. Those are the instincts that separate a senior engineer from someone who merely returns JSON.

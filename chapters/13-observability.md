@@ -448,6 +448,8 @@ But a span only shows *that* the call took 3.8 seconds, not *why*. So you copy t
 
 Walk the chain again: the metric said *something is wrong and where*, the trace said *which hop*, the logs said *why*. Three tools, one investigation — and the only thing that connected them was the trace ID, propagated in every hop's `traceparent` header, recorded on every span, and stamped onto every log line. That correlation is not luck. It exists because the propagation, the enricher, and the sampler were wired up on a quiet afternoon, exactly as this chapter prescribed. At 3 a.m. you can only harvest what you instrumented at 3 p.m.
 
+> **Capstone tie-in:** This chapter is exercised by ShopCore Steps 5 (Caching, Auth, and Observability) and 8 (Deploy with Infrastructure as Code) — you'd add Serilog structured logging and OpenTelemetry so a single checkout produces one connected trace, then watch it cross service boundaries in a hosted backend. See Chapter 32.
+
 ## Bringing It Together
 
 Observability is not a library you install; it is a design property you cultivate. The senior mindset treats telemetry as a first-class feature, budgeted for and reviewed like any other. Emit **structured logs** with correlation IDs and zero secrets. Record **metrics** chosen by RED and USE, guarding against cardinality explosions. Trace requests end to end with **OpenTelemetry**, propagating context across HTTP and messaging so a single trace ID unlocks the whole story. Feed **SLIs** into **SLOs** with **error budgets** that turn reliability into a shared, quantitative decision, and alert on symptoms, not noise.

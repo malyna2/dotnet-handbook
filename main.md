@@ -1243,7 +1243,7 @@ Internalize these and you can reason from symptoms (a latency spike, a memory le
 
 # Chapter 3: ASP.NET Core & Web APIs
 
-_⏱️ Estimated read time: ~30 min · 4154 words (study pace)_
+_⏱️ Estimated read time: ~30 min · 4188 words (study pace)_
 
 ASP.NET Core is the beating heart of most .NET server-side work. If you've been building APIs for a couple of years, you already know how to make an endpoint return JSON. This chapter is about the *why* underneath: how a request actually travels through your application, where the extension points live, and how the senior-level decisions (versioning, resilience, auth, real-time) fit together. By the end you should be able to reason about the framework rather than just use it.
 
@@ -1786,6 +1786,8 @@ Chapter 13 covers observability as a discipline — custom `ActivitySource` span
 
 **Blazor** lets you build interactive web UIs in C# instead of JavaScript. **Blazor Server** runs your components on the server and streams UI diffs to the browser over a SignalR connection — tiny download, but every interaction is a round-trip and each user holds a stateful connection. **Blazor WebAssembly** runs the .NET runtime in the browser and calls your API like any SPA would — offline-capable, at the cost of a larger initial download. From this chapter's perspective, Blazor is just another consumer of your APIs or another host in your pipeline; Chapter 29 covers the render models, JS interop, and when to choose Blazor over a JavaScript SPA.
 
+> **Capstone tie-in:** This chapter is exercised by ShopCore Step 1 (The Honest Monolith) — you'd build a single ASP.NET Core Web API exposing CRUD-plus-checkout endpoints for products, carts, and orders. See Chapter 32.
+
 ## Summary
 
 The through-line of this chapter is that ASP.NET Core is a **pipeline of composable components**, and nearly every feature — auth, CORS, rate limiting, error handling — is just middleware or a filter slotted into that pipeline in the right order. Master the request lifecycle and the rest becomes a matter of choosing the right tool: Minimal APIs or Controllers, JWT or cookies, policies over roles, REST at the edge and gRPC within, resilience on every outbound call, cancellation tokens propagated through every awaited I/O, a trace on every request, and consistent ProblemDetails when things go wrong. Those are the instincts that separate a senior engineer from someone who merely returns JSON.
@@ -1795,7 +1797,7 @@ The through-line of this chapter is that ASP.NET Core is a **pipeline of composa
 
 # Chapter 4: Data Access & Databases
 
-_⏱️ Estimated read time: ~30 min · 4411 words (study pace)_
+_⏱️ Estimated read time: ~30 min · 4457 words (study pace)_
 
 Almost every non-trivial application is, underneath all its features, a machine for moving data in and out of a database safely and quickly. You can write flawless business logic and beautiful APIs, but if your data access layer holds locks too long, fires a thousand queries where one would do, or corrupts a balance under concurrent writes, the whole system fails in ways that are hard to reproduce and harder to fix. This chapter takes you from the mechanics of Entity Framework Core down to the SQL and storage engine underneath it, then back up through caching, NoSQL, and deployment. The goal is that you stop treating the database as a black box and start reasoning about what it actually does.
 
@@ -2240,6 +2242,8 @@ The strategic question is *when* migrations run in your pipeline. Options:
 - **Standalone migration tools — DbUp or Flyway** — apply plain, hand-written, ordered SQL scripts. Teams that want full control over the exact SQL (and want DBAs to review it) often prefer these over EF's generated migrations. **DbUp** is a .NET library; **Flyway** is a language-agnostic tool. Both track applied scripts in a metadata table, just like EF.
 
 > **Best practice:** Make schema changes **backward compatible** so the old and new app versions can run against the new schema at once during a rolling deploy. Add a nullable column now; make it required in a *later* migration after all code writes to it. This "expand then contract" approach lets you deploy schema and code independently with zero downtime.
+
+> **Capstone tie-in:** This chapter is exercised by ShopCore Steps 1 (The Honest Monolith) and 7 (Split Into Microservices) — you'd model products, carts, and orders with EF Core and PostgreSQL, creating the schema from migrations, and later add a transactional outbox table. See Chapter 32.
 
 ## Summary
 
@@ -3651,7 +3655,7 @@ The senior move is restraint. Reach for the simplest structure that fits the for
 
 # Chapter 7: Testing
 
-_⏱️ Estimated read time: ~35 min · 5358 words (study pace)_
+_⏱️ Estimated read time: ~35 min · 5398 words (study pace)_
 
 Most developers arrive at their first senior interview able to write a test. Far fewer can explain *why* one test is worth writing and another is worth deleting, why a green test suite can still be worthless, or why the team that mocks everything ends up trusting nothing. This chapter is about that second, harder layer of understanding. We will write plenty of code, but the code is in service of judgment. By the end you should be able to look at a pull request and say, with reasons, "this test earns its keep" or "this test is a liability."
 
@@ -4270,6 +4274,8 @@ Common causes and fixes:
 
 > **Best practice:** treat a flaky test as a **P1 defect in the suite**, not an annoyance to retry past. Quarantine it (mark it, get it out of the blocking path) *and* file a ticket to fix or delete it — but never leave it silently retrying, because a suite you don't trust is a suite you don't have.
 
+> **Capstone tie-in:** This chapter is exercised by ShopCore Step 2 (Prove It Works: Tests) — you'd unit-test the domain rules with xUnit and place an order through the HTTP surface against a Testcontainers PostgreSQL via `WebApplicationFactory`. See Chapter 32.
+
 ## Bringing It Together
 
 Testing maturity is not measured in a coverage percentage or a count of tests. It's measured in a single capability: **can your team change the code with confidence and speed?** Everything in this chapter serves that. The pyramid tells you where to invest. Unit tests with clean AAA structure and honest names give fast, precise feedback. Test doubles — used with the judgment to know when *not* to mock — isolate units without ossifying them. Integration tests with Testcontainers verify the seams against real infrastructure. TDD applies design pressure; BDD aligns with stakeholders when there's an audience for it. Mutation testing audits whether your tests actually verify, and coverage maps what's untouched. And relentless hygiene around flakiness protects the trust that makes the whole edifice worthwhile.
@@ -4856,7 +4862,7 @@ Master these, and asynchronous code stops being a source of mysterious hangs and
 
 # Chapter 9: Messaging & Distributed Systems
 
-_⏱️ Estimated read time: ~35 min · 5067 words (study pace)_
+_⏱️ Estimated read time: ~35 min · 5105 words (study pace)_
 
 Somewhere along the road from junior to senior, you stop asking "how do I call this API?" and start asking "what happens when this API is down, slow, or lying to me?" That shift in mindset is the heart of distributed systems. This chapter is about the tools and patterns we use to build systems out of many independent parts that keep working even when some of those parts fail.
 
@@ -5395,6 +5401,8 @@ This is the **cache-aside** pattern: check the cache, on a miss load from the so
 
 For **session state**, the same idea: configure ASP.NET Core sessions to use the distributed cache so any instance can serve any user. This keeps your app tier **stateless** — the property that makes horizontal scaling trivial. Stateless app servers plus externalized state plus asynchronous messaging is, in a sentence, the architecture of nearly every scalable modern system.
 
+> **Capstone tie-in:** This chapter is exercised by ShopCore Step 7 (Split Into Microservices) — you'd carve out Catalog, Ordering, and Payments services communicating over RabbitMQ with MassTransit, with the Outbox pattern and idempotent consumers. See Chapter 32.
+
 ## Wrapping Up
 
 Zoom out and a coherent philosophy emerges. Distributed systems fail in parts, so we design for *partial failure*: decouple with messaging so a downstream outage doesn't cascade; accept *at-least-once* delivery and make consumers *idempotent* rather than chasing the mirage of exactly-once; use the *outbox* to bridge database and broker atomically; coordinate multi-step work with *sagas* and compensations instead of impossible distributed transactions; protect ourselves with *retries, circuit breakers, and bulkheads*; and embrace *eventual consistency* as the natural, affordable state of a decoupled system — reserving stronger guarantees for the rare places that truly need them.
@@ -5804,7 +5812,7 @@ Two habits underpin real seniority in the cloud: define everything as code (Terr
 
 # Chapter 11: Containers & Orchestration
 
-_⏱️ Estimated read time: ~35 min · 5281 words (study pace)_
+_⏱️ Estimated read time: ~35 min · 5327 words (study pace)_
 
 For most of computing history, "it works on my machine" was a punchline and a genuine source of pain. You'd build software against a particular version of the .NET runtime, a specific OpenSSL, a certain timezone database, and a filesystem laid out just so — and then ship it to a server that differed in a dozen invisible ways. Containers are the industry's collective answer to that problem: package the application *together with* everything it needs to run, then run that package identically everywhere.
 
@@ -6361,6 +6369,8 @@ Two clarifications that matter:
 
 > **Best practice:** Use Aspire to make local multi-service development pleasant and observable, and to standardize resilient, instrumented client configuration across services. Still learn Kubernetes and its manifests — that's where your app ultimately runs, and Aspire complements that knowledge rather than replacing it.
 
+> **Capstone tie-in:** This chapter is exercised by ShopCore Steps 3 (Dockerize) and 8 (Deploy with Infrastructure as Code) — you'd package the API with a multi-stage Dockerfile and Compose, then run the services on a managed Kubernetes cluster or cloud container service. See Chapter 32.
+
 ## Summary
 
 Containers are ordinary processes wrapped in kernel **namespaces** (isolation) and **cgroups** (limits) — not miniature VMs — which is why they're fast and cheap. **Docker** builds them from layered, cache-friendly Dockerfiles; **multi-stage builds** and **chiseled, non-root** images give you small, secure .NET containers. **Docker Compose** orchestrates a local multi-service stack, while **registries** distribute your images.
@@ -6372,7 +6382,7 @@ At scale, **Kubernetes** takes over: you *declare* desired state — Deployments
 
 # Chapter 12: DevOps & CI/CD
 
-_⏱️ Estimated read time: ~30 min · 4665 words (study pace)_
+_⏱️ Estimated read time: ~30 min · 4711 words (study pace)_
 
 DevOps is not a job title, a tool, or a team you can buy. It is a way of working in which the people who write software and the people who run it in production share responsibility for the whole lifecycle. The practical machinery that makes this possible is automation: version control that lets many people change the same codebase safely, pipelines that build and test every change, and deployment mechanisms that push validated code to users without drama. This chapter takes you from the internals of Git all the way to canary deployments, with .NET as the running example throughout. By the end you should be able to design a pipeline, reason about a branching strategy, and explain to a junior why rebasing a shared branch is a bad idea.
 
@@ -6900,6 +6910,8 @@ A typical quality-gate stage in the pipeline runs the Sonar scanner around the b
 
 > **Best practice:** Set quality gates on *new* code rather than demanding a huge legacy codebase suddenly hit 90% coverage. A ratcheting gate—"don't make it worse"—is achievable and steadily improves the codebase, whereas an unrealistic absolute gate just gets disabled the first time it blocks a hotfix.
 
+> **Capstone tie-in:** This chapter is exercised by ShopCore Steps 4 (CI/CD with GitHub Actions) and 8 (Deploy with Infrastructure as Code) — you'd build a workflow that tests every PR and publishes tagged images, then promote those images into a Terraform-provisioned environment. See Chapter 32.
+
 ## Bringing It Together
 
 A senior-level command of DevOps is really a chain of small, well-understood decisions. You keep branches short-lived and integrate constantly, because you understand that a branch is just a pointer and that deferred integration is where pain accumulates. You curate history with interactive rebase before review and treat shared history as immutable, trusting the reflog to catch your mistakes. You express your build as `dotnet` commands that run identically on your laptop and in CI, centralize configuration with `Directory.Build.props` and Central Package Management, and version artifacts deterministically with SemVer and GitVersion. Your pipeline restores with caching, tests across a matrix, gates on coverage and static analysis, and promotes a single immutable artifact through environments. You deploy with a strategy that makes rollback trivial, hide incomplete work behind feature flags, and keep every secret out of source control and inside a managed store.
@@ -6911,7 +6923,7 @@ None of these practices is exotic. Their power is cumulative: together they turn
 
 # Chapter 13: Observability
 
-_⏱️ Estimated read time: ~30 min · 4855 words (study pace)_
+_⏱️ Estimated read time: ~30 min · 4906 words (study pace)_
 
 Imagine you are the pilot of a modern aircraft. You cannot see the engines, you cannot feel the air pressure at 35,000 feet with your bare skin, and you certainly cannot inspect every one of the thousands of moving parts in real time. Yet you fly with confidence. Why? Because in front of you sits a cockpit full of instruments: altimeters, fuel gauges, temperature readouts, and warning lights that scream at you the moment something drifts out of tolerance. The aircraft is a black box, but the instruments make it *observable*.
 
@@ -7359,6 +7371,8 @@ But a span only shows *that* the call took 3.8 seconds, not *why*. So you copy t
 
 Walk the chain again: the metric said *something is wrong and where*, the trace said *which hop*, the logs said *why*. Three tools, one investigation — and the only thing that connected them was the trace ID, propagated in every hop's `traceparent` header, recorded on every span, and stamped onto every log line. That correlation is not luck. It exists because the propagation, the enricher, and the sampler were wired up on a quiet afternoon, exactly as this chapter prescribed. At 3 a.m. you can only harvest what you instrumented at 3 p.m.
 
+> **Capstone tie-in:** This chapter is exercised by ShopCore Steps 5 (Caching, Auth, and Observability) and 8 (Deploy with Infrastructure as Code) — you'd add Serilog structured logging and OpenTelemetry so a single checkout produces one connected trace, then watch it cross service boundaries in a hosted backend. See Chapter 32.
+
 ## Bringing It Together
 
 Observability is not a library you install; it is a design property you cultivate. The senior mindset treats telemetry as a first-class feature, budgeted for and reviewed like any other. Emit **structured logs** with correlation IDs and zero secrets. Record **metrics** chosen by RED and USE, guarding against cardinality explosions. Trace requests end to end with **OpenTelemetry**, propagating context across HTTP and messaging so a single trace ID unlocks the whole story. Feed **SLIs** into **SLOs** with **error budgets** that turn reliability into a shared, quantitative decision, and alert on symptoms, not noise.
@@ -7370,7 +7384,7 @@ Build the cockpit before you need it. When the 3 a.m. page arrives — and it wi
 
 # Chapter 14: Security
 
-_⏱️ Estimated read time: ~35 min · 5304 words (study pace)_
+_⏱️ Estimated read time: ~35 min · 5342 words (study pace)_
 
 Security is not a feature you bolt on at the end of a sprint. It is a property of a system that emerges from thousands of small decisions: how you parse input, where you store a connection string, which overload of a crypto API you call, and whether you trusted a value that came from the network. A senior .NET developer is expected to make those decisions correctly by reflex, and to recognize when a colleague has not.
 
@@ -7883,6 +7897,8 @@ Wire this into CI so a build *fails* when a vulnerable package appears, rather t
 
 > **Best practice:** Also enable NuGet package **source mapping** and consider **signed packages** to defend against dependency-confusion and typosquatting attacks, where an attacker publishes a malicious package with a name similar to (or matching an internal) package you depend on.
 
+> **Capstone tie-in:** This chapter is exercised by ShopCore Step 5 (Caching, Auth, and Observability) — you'd add JWT authentication and role-based authorization so only authenticated users check out and only admins mutate the catalog. See Chapter 32.
+
 ## Summary
 
 Security is a discipline of layered, deliberate decisions. Adopt the mindset — defense in depth, least privilege, secure by default, never trust input — and it informs every line you write. Know the OWASP Top 10 as *categories* of failure and the .NET mitigation for each. Distinguish authentication (who you are) from authorization (what you may do), and implement both with the framework's tools rather than reinventing them. Delegate identity to OAuth 2.0 / OIDC with the Authorization Code + PKCE flow, validate JWTs on issuer, audience, expiry, and signature — every time. Keep secrets out of source and in a managed vault, enforce TLS with HSTS, hash passwords with a slow salted algorithm, reach for `IDataProtector` instead of raw crypto, and defend the browser boundary with validation, encoding, anti-forgery tokens, tight CORS, and a strong CSP. Finally, scan your dependencies continuously — because the vulnerability you didn't write is still yours to fix.
@@ -7892,7 +7908,7 @@ Security is a discipline of layered, deliberate decisions. Adopt the mindset —
 
 # Chapter 15: Performance & Optimization
 
-_⏱️ Estimated read time: ~35 min · 5446 words (study pace)_
+_⏱️ Estimated read time: ~35 min · 5483 words (study pace)_
 
 Performance engineering is the discipline where good intentions go to die. Every experienced developer has, at some point, spent an afternoon lovingly hand-optimizing a loop that ran once at startup, only to discover the real bottleneck was a database query fired sixty times per request. This chapter is about not being that developer. It is about building the instincts, the tooling literacy, and the mechanical knowledge of the .NET runtime that separate a mid-level engineer who *thinks* their code is fast from a senior engineer who *knows*.
 
@@ -8335,6 +8351,8 @@ A consolidated field guide to the recurring offenders, most of which we have met
 - **LINQ and closures in genuinely hot loops.** Fine everywhere else; a real cost in the flagged 10%.
 - **Excessive logging in hot paths.** String formatting and I/O per request adds up; use structured logging with level checks and interpolated string handlers.
 - **Not disposing / leaking IDisposables.** Undisposed `HttpClient` per request exhausts sockets; unclosed DB connections exhaust the pool. Use `IHttpClientFactory` and `using`.
+
+> **Capstone tie-in:** This chapter is exercised by ShopCore Step 5 (Caching, Auth, and Observability) — you'd add Redis as a distributed cache for the hot product-catalog read path, with sensible invalidation on writes. See Chapter 32.
 
 ## Putting It All Together
 
@@ -8816,7 +8834,7 @@ You already have the technical foundation. The path from middle to senior runs s
 
 # Chapter 18: The AI-Native Developer — Thriving in the AI Era
 
-_⏱️ Estimated read time: ~40 min · 8222 words (study pace)_
+_⏱️ Estimated read time: ~40 min · 8072 words (study pace)_
 
 For most of your career the deal has been simple: you learn to write code, and in exchange the industry pays you well to write it. That deal is being renegotiated in real time. By 2025 and into 2026, a competent AI coding assistant can produce a working REST endpoint, a unit test suite, an EF Core migration, or a plausible refactor faster than you can open the file. The raw act of turning a clear specification into syntactically correct C# — the thing you spent years getting good at — has largely been commoditized. That is not a threat to be defended against. It is a promotion, if you understand what you are being promoted into.
 
@@ -8846,21 +8864,13 @@ But there is something genuinely different this time, and pretending otherwise i
 
 The single most reliable way to be valuable in the AI era is embarrassingly old-fashioned: **understand the business and the customer better than anyone else on the engineering team.** AI can write a caching layer. AI cannot tell you that your caching layer is optimizing a screen that three customers use while the checkout flow — where the revenue actually lives — quietly times out under load. That is a judgment call rooted in context, and context is where your value now concentrates.
 
-The mental shift is from *output-thinking* to *outcome-thinking*. Output is "I shipped the feature." Outcome is "churn on the enterprise tier dropped because the feature removed the reason they were leaving." An output-focused developer measures their week in story points and merged PRs. An outcome-focused developer measures it in moved business metrics — revenue protected or gained, cost removed, risk reduced. When AI can generate output on demand, output is no longer scarce and therefore no longer impressive. Outcomes are still scarce, because producing them requires knowing which output actually matters.
-
-Practically, tie your work to one of three levers whenever you can articulate it:
-
-- **Revenue** — does this help acquire customers, keep them, or get them to pay more? A faster onboarding flow, a feature that unblocks a big deal, reduced friction at the point of purchase.
-- **Cost** — does this reduce spend? Cloud bill, support tickets, manual operations toil, engineering time on the next feature.
-- **Risk** — does this reduce the chance or blast radius of something bad? A data breach, a compliance failure, an outage, a wrong number in a report the CFO trusts.
-
-If you cannot connect a task to at least one of these, that is worth noticing — it may be low-value work dressed up as engineering.
+Chapter 17 already made the case for *outcome-thinking* over *output-thinking* — measuring your week in moved business levers (revenue gained, cost removed, risk reduced) rather than story points and merged PRs. The AI-era twist is that the case just got an order of magnitude stronger: when AI can generate output on demand, output is no longer scarce and therefore no longer impressive. Outcomes are still scarce, because producing them requires knowing which output actually matters — and that knowledge lives in context the model doesn't have.
 
 Which leads to a skill most developers are actively bad at: **saying no and killing low-value work.** In a world where building anything used to be expensive, the constraint was capacity, so prioritization happened naturally — you couldn't build everything, so you built the loudest thing. AI collapses the cost of building, which sounds great but is a trap: now you *can* build the low-value thing, quickly, and feel productive doing it. The developer who ships ten AI-generated features nobody needed has produced negative value — every one of those features is now code someone has to maintain, secure, and understand. The developer who talked the team out of eight of them and shipped the two that mattered created enormous value and has almost nothing to show for it in a commit graph. Learn to be the second developer, and learn to make that value legible to the people who evaluate you.
 
 > Your job is not to maximize the code you produce. It's to maximize the value the system delivers per unit of complexity it carries. Often the highest-value move is deletion, a well-placed "we shouldn't build this," or a smaller solution than the one requested.
 
-Finally, **measure impact and say it out loud.** Get comfortable with the sentence "this work resulted in X." Instrument your features. Know the before-and-after number. This is not self-promotion for its own sake; it is training yourself to think in outcomes, and it is the raw material for every promotion conversation you will ever have.
+Finally, **measure impact and say it out loud** — instrument your features, know the before-and-after number, and get comfortable with "this work resulted in X." Chapter 17 covered why this matters for your career; here it doubles as training yourself to think in outcomes.
 
 ### Bringing expertise AI doesn't have: the context moat
 
@@ -8873,7 +8883,7 @@ Call it a **context moat**: the accumulated, mostly-tacit knowledge of a specifi
 - **Cross-team context.** You know that the platform team is mid-migration, that the mobile team can't take a breaking change until Q3, that the DBA will veto anything that adds a synchronous cross-shard query. AI optimizes locally; you know the global constraints.
 - **Organizational reality.** Who actually decides. What has been tried and failed. Where the political landmines are. Which "temporary" system is load-bearing.
 
-To turn this into a durable moat, do two things. First, *go toward* the messy, human, contextual parts of the work that AI can't touch — sit in the domain conversations, read the old incident reviews, talk to the customer-facing teams. Second, become the person who *captures and transmits* context: write the design docs, the "why" comments, the architecture decision records. Counterintuitively, writing down your context does not make you replaceable — it makes you the author and steward of the map everyone (including the AI) now navigates by. In the AI era, well-structured context is a primary work product, not a chore you do afterward.
+To turn this into a durable moat, do two things. First, *go toward* the messy, human, contextual parts of the work that AI can't touch — sit in the domain conversations, read the old incident reviews, talk to the customer-facing teams. Second, become the person who *captures and transmits* context — the design docs, "why" comments, and ADRs whose mechanics Chapter 17 covered. Counterintuitively, writing down your context does not make you replaceable — it makes you the author and steward of the map everyone (including the AI) now navigates by. In the AI era, well-structured context is a primary work product, not a chore you do afterward.
 
 ### Seeing potential problems: risk sensing and failure-mode thinking
 
@@ -8884,9 +8894,9 @@ The core mental move is **failure-mode thinking**: for any proposed change, ask 
 - **Edge cases and boundaries.** Empty collection, null, one item, a million items, duplicate items, Unicode, negative numbers, the leap-second, the timezone, the concurrent writer. AI-generated code handles the central case beautifully and the boundaries carelessly.
 - **Scale.** Fine at 100 rows, quadratic at 100,000. That LINQ query that does an N+1 against the database. The in-memory list that assumes the result set is small.
 - **Security.** Is this input trusted? Is that string going into a SQL query, a shell command, a file path, an HTML page? Does this endpoint check authorization or just authentication? AI will cheerfully write injectable code because injectable code is well-represented in its training data.
-- **Cost and operability.** What does this cost to run at production volume? Can you observe it when it breaks — is there a log, a metric, a trace? Can you turn it off? Can you roll it back? A feature you can't operate is a liability wearing a feature's clothes.
+- **Cost and operability.** What does this cost to run at production volume? Chapter 17's reliability questions — how will this fail, and how will we know? — apply doubly here, because generated code never volunteers the log, the metric, or the rollback plan on its own.
 
-A concrete practice worth adopting from senior engineering culture is the **pre-mortem**: before building, sit down and imagine it is six months from now and the project has failed catastrophically. Now write the story of *why*. This inverts your brain from "how do I make this work" to "what would kill this," and it surfaces risks while they are still cheap to address.
+A concrete practice worth adopting is the **pre-mortem** — the forward-looking sibling of Chapter 17's post-mortem: before building, imagine the project has failed catastrophically six months from now and write the story of *why*. It inverts your brain from "how do I make this work" to "what would kill this," while the risks are still cheap to address.
 
 > AI is confidently wrong more often than it is uncertainly wrong. Its failure mode is fluent plausibility. The scarce, valuable skill is *calibrated suspicion* — knowing which parts of a confident answer to trust and which to interrogate.
 
@@ -8896,11 +8906,11 @@ This is really the meta-skill of the era: **asking the right questions.** When t
 
 If AI is the world's fastest implementer, then the highest-leverage thing you can be is the world's best *decider of what to implement*. This is design work, and it starts well before any code — AI's or yours — gets written.
 
-**Frame the problem before you solve it.** The most expensive mistakes in software are not bugs; they are elegantly-built solutions to the wrong problem. When someone hands you a request, resist the urge to immediately prompt the AI for a solution. First understand what they are actually trying to achieve underneath the request. The classic example: a stakeholder asks for a faster horse, and the job is to notice they want to get somewhere quickly. AI is a faster-horse machine — ask it for a horse and it will give you a magnificent one at high speed. Problem framing is the human's job, and it is where enormous value is created or destroyed.
+**Frame the problem before you solve it.** The most expensive mistakes in software are not bugs; they are elegantly-built solutions to the wrong problem. When someone hands you a request, resist the urge to immediately prompt the AI for a solution — first understand what they are actually trying to achieve underneath it. The classic example: a stakeholder asks for a faster horse, and the job is to notice they want to get somewhere quickly. AI is a faster-horse machine — ask it for a horse and it will give you a magnificent one at high speed. Problem framing is the human's job, and it is where enormous value is created or destroyed.
 
-**Choose what not to build.** Every line of code is a liability — it must be understood, tested, secured, and maintained forever. The cheapness of AI-generated code makes this *more* important, because it removes the natural friction that used to stop us from adding complexity. Prefer the solution that solves the problem with the least new complexity. Sometimes that's a config change, a manual process, or reusing what exists. The best architects are known as much for what they talked the team out of as for what they built.
+**Choose what not to build.** Chapter 17 taught the YAGNI discipline — every line of code is a liability, so add complexity only when a real, present need proves it. The AI-era twist: cheap generated code removes the natural friction that used to enforce that discipline, so it now has to be deliberate. Prefer the solution with the least new complexity — sometimes a config change, a manual process, or reusing what exists.
 
-**Think in total cost of ownership, and design for change.** The cost of a system is dominated not by writing it but by living with it. A design that is a little harder to build but far easier to change, operate, and reason about will win over years. Since the code is now cheap to produce, optimize the design for the things that stay expensive: comprehensibility, changeability, operability. Ask of any design, "what is likely to change, and does this make that change easy or agonizing?"
+**Think in total cost of ownership, and design for change.** The cost of a system is dominated not by writing it but by living with it. Since the code is now cheap to produce, optimize the design for the things that stay expensive: comprehensibility, changeability, operability. Ask of any design, "what is likely to change, and does this make that change easy or agonizing?"
 
 This is where **taste** — a word engineers are often uncomfortable with — becomes a hard economic asset. Taste is the accumulated judgment that lets you look at two solutions that both "work" and know which one you'll regret. It's knowing when to abstract and when abstraction is premature. It's the sense of proportion that keeps a solution matched to the size of its problem. AI can generate a dozen designs; it cannot reliably tell you which one is *right for your situation*, because "right" depends on all the context and values it doesn't have. Your role shifts toward being an **editor and architect of AI output**: you set the direction, you generate options fast, and then you apply taste to select, shape, and reject. The generation is cheap; the editorial judgment is the value.
 
@@ -8915,7 +8925,7 @@ Put it together and a new senior skill stack comes into focus. The old stack was
 
 Notice these are the classic markers of *seniority*, just intensified. That is the reframe: **the AI era doesn't change what senior means — it makes everyone need to be senior sooner.** The juniors' traditional job (produce lots of straightforward code under supervision) is the part most automated. The path forward is to climb the judgment ladder faster.
 
-For career strategy, a few deliberate bets. Aim to be a **force multiplier** — someone whose context, judgment, and design sense make an AI-augmented team of five as effective as a team of twenty. That is where the outsized value and compensation will sit. Cultivate a **T-shape**: deep enough in something real (your domain, a system, a technical area) to have genuine expertise AI can't fake, and broad enough to connect the dots across business, product, and operations. Pursue **ownership**: be the person accountable for outcomes of a system or domain end to end, not just the person who closes tickets, because accountability is precisely the thing you cannot delegate to a model. And invest in **trust** — the willingness of others to rely on your judgment — because in a world drowning in cheap plausible output, a person whose "this is good, ship it" or "no, this is wrong" is reliable becomes disproportionately valuable.
+For career strategy, a few deliberate bets. Aim to be a **force multiplier** — someone whose context, judgment, and design sense make an AI-augmented team of five as effective as a team of twenty. That is where the outsized value and compensation will sit. Cultivate a **T-shape**: deep enough in something real (your domain, a system, a technical area) to have genuine expertise AI can't fake, and broad enough to connect the dots across business, product, and operations. And double down on the **ownership** and **trust** Chapter 17 already made central — the AI-era twist is that accountability is precisely the thing you cannot delegate to a model, and in a world drowning in cheap plausible output, a person whose "this is good, ship it" or "no, this is wrong" is reliable becomes disproportionately valuable.
 
 What should you deliberately practice? Reviewing code critically. Writing clear specs and design docs. Learning your business domain like it's a technology. Doing pre-mortems. Framing problems before solving them. Saying "we shouldn't build this." Measuring the impact of your work in business terms. None of these require the AI's permission, and every one of them appreciates as the code gets cheaper.
 
@@ -8949,6 +8959,8 @@ The jump from 3 to 4 is qualitative, not incremental. Modes 1-3 make *you* faste
 That reframing drives everything else in this part.
 
 ### The tools of the era
+
+> **Dated snapshot (mid-2026):** the product names in this section — and throughout this chapter — are the fastest-rotting facts in this book. The categories and the discipline of driving these tools are durable; the specific assistants, agents, and market leaders rotate every few months. Re-verify the names against the current ecosystem before making tooling decisions.
 
 You don't need to master all of these, but you should know the categories so you can choose deliberately and switch without friction.
 
@@ -9145,7 +9157,7 @@ So far the AI has been your collaborator. The next chapter flips the relationshi
 
 # Chapter 19: Building AI-Powered Systems
 
-_⏱️ Estimated read time: ~35 min · 6127 words (study pace)_
+_⏱️ Estimated read time: ~35 min · 6165 words (study pace)_
 
 Chapter 18 was about *using* AI to write software. This chapter flips the relationship: now the AI model is a *component inside* the software you ship. This is a different discipline. When you use an assistant to write a function, you review the output once and move on. When you embed a model in a running system, that model produces fresh, non-deterministic output on every request, for every user, forever — and you own the consequences. That single fact reshapes how you design, test, and operate the application.
 
@@ -9487,6 +9499,8 @@ Minimally, the loop is just tool-calling run until completion — which is exact
 
 ## The .NET AI stack
 
+> **Dated snapshot (mid-2026):** the package names, model names, and vendor landscape in this chapter are the fastest-rotting facts in this book. The architecture — a provider-agnostic abstraction layer, orchestration on top, RAG plumbing, evals as the regression suite — is durable; re-verify the specific packages, models, and provider capabilities against the current ecosystem before building.
+
 The .NET ecosystem matured fast. The pieces you should know:
 
 - **Microsoft.Extensions.AI** — the unifying abstraction layer (the `IChatClient` and `IEmbeddingGenerator` interfaces used throughout this chapter). It plays the role for AI that `ILogger`/`HttpClientFactory` play elsewhere: one provider-agnostic interface, pluggable implementations (OpenAI, Azure OpenAI, Anthropic, Ollama, local ONNX), and a **middleware pipeline** for cross-cutting concerns — function invocation, caching, telemetry, retries — composed via `AsBuilder()`. Program against these interfaces and your provider becomes a swap, not a rewrite. This is the recommended foundation for new .NET AI code.
@@ -9518,7 +9532,7 @@ var result = await kernel.InvokePromptAsync(
 Console.WriteLine(result);
 ```
 
-**Cross-ecosystem awareness.** The Python world moves fast and its ideas cross over, so know the names: **LangChain** (the broad building-block framework for chains, tools, and RAG), **LlamaIndex** (RAG- and data-framework-focused), **LangGraph** (graph-based orchestration for stateful, cyclic agent workflows), **DSPy** (programmatic prompt *optimization* — you declare the task and it tunes the prompts against a metric, rather than you hand-crafting them), and **Haystack** (a production-oriented RAG/search framework). You rarely need these in a .NET shop, but their patterns — and their vocabulary — shape the field.
+**Cross-ecosystem awareness.** The Python world has a rich, fast-moving family of orchestration frameworks (LangChain, LlamaIndex, LangGraph, DSPy, Haystack at the time of writing), and their concepts — chains, retrieval pipelines, graph-based agent orchestration, programmatic prompt optimization — cross over and shape the whole field's vocabulary. Learn the concepts, not the frameworks; in a .NET shop you'll almost always build on the Microsoft.Extensions.AI and Semantic Kernel abstractions instead.
 
 ## Integrating AI into existing applications
 
@@ -16069,9 +16083,11 @@ The differentiator between middle and senior is rarely just technical.
 
 # Appendix B: .NET Version Comparison Cheat-Sheet
 
-_⏱️ Estimated read time: ~5 min · 1453 words (study pace)_
+_⏱️ Estimated read time: ~5 min · 1493 words (study pace)_
 
 This appendix is a fast, interview-oriented reference for the modern .NET release line (.NET 5 and later — the unified, cross-platform successor to both .NET Core and .NET Framework). It is deliberately shallow: enough to answer "what changed between versions" crisply in an interview, not a migration guide. Every date and support designation below was verified against Microsoft's official support policy and release documentation (see **Sources**).
+
+> **Last verified: July 2026.** This is the fastest-rotting page in the book — a new .NET version ships every November and support windows close on schedule. Before relying on a date here, cross-check the official support policy at `dotnet.microsoft.com/platform/support/policy`.
 
 ## Release cadence: how the versioning actually works
 

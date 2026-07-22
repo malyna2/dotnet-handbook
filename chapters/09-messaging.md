@@ -539,6 +539,8 @@ This is the **cache-aside** pattern: check the cache, on a miss load from the so
 
 For **session state**, the same idea: configure ASP.NET Core sessions to use the distributed cache so any instance can serve any user. This keeps your app tier **stateless** — the property that makes horizontal scaling trivial. Stateless app servers plus externalized state plus asynchronous messaging is, in a sentence, the architecture of nearly every scalable modern system.
 
+> **Capstone tie-in:** This chapter is exercised by ShopCore Step 7 (Split Into Microservices) — you'd carve out Catalog, Ordering, and Payments services communicating over RabbitMQ with MassTransit, with the Outbox pattern and idempotent consumers. See Chapter 32.
+
 ## Wrapping Up
 
 Zoom out and a coherent philosophy emerges. Distributed systems fail in parts, so we design for *partial failure*: decouple with messaging so a downstream outage doesn't cascade; accept *at-least-once* delivery and make consumers *idempotent* rather than chasing the mirage of exactly-once; use the *outbox* to bridge database and broker atomically; coordinate multi-step work with *sagas* and compensations instead of impossible distributed transactions; protect ourselves with *retries, circuit breakers, and bulkheads*; and embrace *eventual consistency* as the natural, affordable state of a decoupled system — reserving stronger guarantees for the rare places that truly need them.

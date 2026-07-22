@@ -528,6 +528,8 @@ A typical quality-gate stage in the pipeline runs the Sonar scanner around the b
 
 > **Best practice:** Set quality gates on *new* code rather than demanding a huge legacy codebase suddenly hit 90% coverage. A ratcheting gate—"don't make it worse"—is achievable and steadily improves the codebase, whereas an unrealistic absolute gate just gets disabled the first time it blocks a hotfix.
 
+> **Capstone tie-in:** This chapter is exercised by ShopCore Steps 4 (CI/CD with GitHub Actions) and 8 (Deploy with Infrastructure as Code) — you'd build a workflow that tests every PR and publishes tagged images, then promote those images into a Terraform-provisioned environment. See Chapter 32.
+
 ## Bringing It Together
 
 A senior-level command of DevOps is really a chain of small, well-understood decisions. You keep branches short-lived and integrate constantly, because you understand that a branch is just a pointer and that deferred integration is where pain accumulates. You curate history with interactive rebase before review and treat shared history as immutable, trusting the reflog to catch your mistakes. You express your build as `dotnet` commands that run identically on your laptop and in CI, centralize configuration with `Directory.Build.props` and Central Package Management, and version artifacts deterministically with SemVer and GitVersion. Your pipeline restores with caching, tests across a matrix, gates on coverage and static analysis, and promotes a single immutable artifact through environments. You deploy with a strategy that makes rollback trivial, hide incomplete work behind feature flags, and keep every secret out of source control and inside a managed store.

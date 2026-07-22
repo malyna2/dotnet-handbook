@@ -557,6 +557,8 @@ Two clarifications that matter:
 
 > **Best practice:** Use Aspire to make local multi-service development pleasant and observable, and to standardize resilient, instrumented client configuration across services. Still learn Kubernetes and its manifests — that's where your app ultimately runs, and Aspire complements that knowledge rather than replacing it.
 
+> **Capstone tie-in:** This chapter is exercised by ShopCore Steps 3 (Dockerize) and 8 (Deploy with Infrastructure as Code) — you'd package the API with a multi-stage Dockerfile and Compose, then run the services on a managed Kubernetes cluster or cloud container service. See Chapter 32.
+
 ## Summary
 
 Containers are ordinary processes wrapped in kernel **namespaces** (isolation) and **cgroups** (limits) — not miniature VMs — which is why they're fast and cheap. **Docker** builds them from layered, cache-friendly Dockerfiles; **multi-stage builds** and **chiseled, non-root** images give you small, secure .NET containers. **Docker Compose** orchestrates a local multi-service stack, while **registries** distribute your images.
