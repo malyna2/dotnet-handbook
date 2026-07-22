@@ -1,4 +1,4 @@
-# Chapter 30: Linux & the Command Line for .NET Developers
+# Chapter 31: Linux & the Command Line for .NET Developers
 
 _⏱️ Estimated read time: ~33 min ·     3976 words (study pace)_
 

@@ -1,4 +1,4 @@
-# Chapter 19: Networking & Web Fundamentals
+# Chapter 20: Networking & Web Fundamentals
 
 _⏱️ Estimated read time: ~26 min ·     4479 words (study pace)_
 
@@ -121,7 +121,7 @@ The methods carry semantic meaning that the whole ecosystem (caches, proxies, re
 - **PATCH** — partial update.
 - **DELETE** — remove; idempotent.
 
-> **Best practice:** *Idempotency* means calling N times has the same effect as calling once. It is not academic — it decides whether it is safe to auto-retry. A proxy or your Polly retry policy can safely retry a GET or PUT after a timeout; retrying a POST might charge a credit card twice. Design your APIs so that anything retriable is idempotent, and use idempotency keys for POSTs that must not double-execute (Chapter 20 covers the mechanics).
+> **Best practice:** *Idempotency* means calling N times has the same effect as calling once. It is not academic — it decides whether it is safe to auto-retry. A proxy or your Polly retry policy can safely retry a GET or PUT after a timeout; retrying a POST might charge a credit card twice. Design your APIs so that anything retriable is idempotent, and use idempotency keys for POSTs that must not double-execute (Chapter 21 covers the mechanics).
 
 ## HTTP/1.1 vs HTTP/2 vs HTTP/3: A History of Fixing Head-of-Line Blocking
 
@@ -405,11 +405,11 @@ using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
 var response = await client.GetAsync(url, cts.Token);
 ```
 
-> **Best practice:** Combine timeouts, retries (with **exponential backoff and jitter** so retries don't stampede in lockstep), and **circuit breakers** (stop hammering a failing dependency) — the resilience trio. In .NET, `Microsoft.Extensions.Http.Resilience` (built on Polly) wires all three into `IHttpClientFactory` declaratively; Chapter 20 builds the full pipeline and explains how the strategies layer.
+> **Best practice:** Combine timeouts, retries (with **exponential backoff and jitter** so retries don't stampede in lockstep), and **circuit breakers** (stop hammering a failing dependency) — the resilience trio. In .NET, `Microsoft.Extensions.Http.Resilience` (built on Polly) wires all three into `IHttpClientFactory` declaratively; Chapter 21 builds the full pipeline and explains how the strategies layer.
 
 ## The Fallacies of Distributed Computing
 
-We close with the mental model that should underpin every networked design decision: the **Fallacies of Distributed Computing**, the catalogue of false assumptions — the network is reliable, latency is zero, bandwidth is infinite, and five more — that Sun Microsystems engineers compiled in the 1990s. Chapter 20 works through all eight; for now, internalize the three this chapter has been circling all along. The network is *not* reliable — a call can fail *after* the server processed it but *before* you got the response, which is why idempotency, retries, and timeouts are load-bearing, not optional. Latency is *not* zero — 50 sequential calls to render one page (the **N+1 network problem**) is why some apps feel slow no matter how fast the code is; batch, parallelize, and cache. And bandwidth is neither infinite nor free — cloud egress bills (often the biggest surprise line item) make that painfully concrete.
+We close with the mental model that should underpin every networked design decision: the **Fallacies of Distributed Computing**, the catalogue of false assumptions — the network is reliable, latency is zero, bandwidth is infinite, and five more — that Sun Microsystems engineers compiled in the 1990s. Chapter 21 works through all eight; for now, internalize the three this chapter has been circling all along. The network is *not* reliable — a call can fail *after* the server processed it but *before* you got the response, which is why idempotency, retries, and timeouts are load-bearing, not optional. Latency is *not* zero — 50 sequential calls to render one page (the **N+1 network problem**) is why some apps feel slow no matter how fast the code is; batch, parallelize, and cache. And bandwidth is neither infinite nor free — cloud egress bills (often the biggest surprise line item) make that painfully concrete.
 
 > **The senior mindset in one sentence:** Treat every network call as an *unreliable, slow, expensive, insecure* operation that will eventually fail — then be pleasantly surprised when it works.
 

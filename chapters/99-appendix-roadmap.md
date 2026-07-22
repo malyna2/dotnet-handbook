@@ -346,7 +346,7 @@ The differentiator between middle and senior is rarely just technical.
 
 ## 18. Suggested Learning Path
 
-**See Chapter 31.** The capstone chapter turns this checklist into a five-phase learning path and a single evolving project (ShopCore, a monolith that grows into a distributed system) with concrete acceptance criteria per step. Working through one project that grows with you touches ~80% of this list — far more valuable than isolated tutorials.
+**See Chapter 32.** The capstone chapter turns this checklist into a five-phase learning path and a single evolving project (ShopCore, a monolith that grows into a distributed system) with concrete acceptance criteria per step. Working through one project that grows with you touches ~80% of this list — far more valuable than isolated tutorials.
 
 ---
 

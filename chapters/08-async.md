@@ -135,6 +135,8 @@ An `awaitable` is anything exposing this shape — a `GetAwaiter()` method retur
 
 > **Key takeaway:** `await` splits a method into segments joined by continuations. Between segments, the calling thread is free. There is no magic background thread pumping your async method — it is cooperative suspension and resumption driven by I/O completions.
 
+> **Pitfall — `async void`:** An `async void` method returns no `Task`, so nobody can await it or observe its failure. An exception it throws is not captured on a returned task; it is raised on the captured `SynchronizationContext` and typically crashes the process. `async void` is legal *only* for event handlers (whose signature the framework fixes); everywhere else return `Task` so callers can await and catch.
+
 ## SynchronizationContext and ConfigureAwait
 
 We said the continuation might run on a *different* thread. But sometimes it *must* run on a *specific* thread. Consider a desktop UI: only the UI thread is allowed to touch UI controls. If your continuation updates a label, it had better run on the UI thread.
@@ -165,6 +167,8 @@ When and why to use it:
 - **In ASP.NET Core:** it is largely a no-op for correctness since there is no `SynchronizationContext`. Many teams still add it out of habit or for the tiny perf win, but it is not required. Do not rely on it to "fix" anything there.
 
 > **Pitfall:** `ConfigureAwait(false)` affects only the *single* await it is attached to, not the whole method. Every await makes its own capture decision. If you need it, apply it consistently.
+
+> **.NET 8 — `ConfigureAwaitOptions`:** .NET 8 added an overload `ConfigureAwait(ConfigureAwaitOptions)` on `Task`/`Task<T>` taking a `[Flags]` enum, so you can combine behaviors: `ContinueOnCapturedContext` (the old `true`), `SuppressThrowing` (await for completion without observing the exception — handy for a fire-and-forget you'll inspect elsewhere), and `ForceYielding` (always suspend, even if the task is already complete). It is not available on `ValueTask`.
 
 ## The Sync-Over-Async Deadlock
 

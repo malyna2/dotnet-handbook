@@ -1,4 +1,4 @@
-# Chapter 29: Working with Legacy & Brownfield Code
+# Chapter 30: Working with Legacy & Brownfield Code
 
 _⏱️ Estimated read time: ~30 min ·     4293 words (study pace)_
 

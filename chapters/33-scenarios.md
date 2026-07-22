@@ -1,10 +1,10 @@
-# Chapter 32: Real-World Scenarios & Architectural Decisions
+# Chapter 33: Real-World Scenarios & Architectural Decisions
 
 _⏱️ Estimated read time: ~65 min ·    11463 words (study pace)_
 
 Every senior engineer eventually learns that the hard part of the job is not writing code — it is deciding what to do when the code you already shipped meets reality. Reality shows up as a traffic spike you did not plan for, a "successful" request that silently lost data, a p99 latency graph that looks like a seismograph, and a dependency that vanishes at the worst possible moment. This chapter is a war-room playbook. Each scenario is a story you could plausibly live through on a production on-call rotation, framed around one question: *how do you react, and what architectural decision does that push you toward?*
 
-Treat this as a reference you can open under pressure and as an interview crib sheet. The earlier chapters gave you the building blocks — scaling and cloud (Ch. 10), containers and Kubernetes (Ch. 11), data at scale (Ch. 22), messaging and distributed patterns (Ch. 9), distributed theory and SRE (Ch. 20), the runtime and GC (Ch. 2), and performance (Ch. 15). Here we do not re-teach those; we put them to work under fire and reason about the trade-offs. Each of the nine scenarios below follows the same shape: the situation, how you notice it, how to stop the bleeding, the root causes, the durable fix and its trade-offs, and how to talk about it in an interview.
+Treat this as a reference you can open under pressure and as an interview crib sheet. The earlier chapters gave you the building blocks — scaling and cloud (Ch. 10), containers and Kubernetes (Ch. 11), data at scale (Ch. 23), messaging and distributed patterns (Ch. 9), distributed theory and SRE (Ch. 21), the runtime and GC (Ch. 2), and performance (Ch. 15). Here we do not re-teach those; we put them to work under fire and reason about the trade-offs. Each of the nine scenarios below follows the same shape: the situation, how you notice it, how to stop the bleeding, the root causes, the durable fix and its trade-offs, and how to talk about it in an interview.
 
 ## The incident cheat-card
 
@@ -149,11 +149,11 @@ The other classic is **"return 200, then do the work."** Handing the caller a su
 
 ### The fix & architectural options (with trade-offs)
 
-**The Transactional Outbox.** The core trick: only write to *one* store transactionally — your database — and record the intent to publish in the *same* transaction, in an `outbox` table. A separate relay reads the outbox and publishes to the broker, marking rows sent. Now the DB write and the "I will publish" record commit atomically; the actual publish becomes a retryable, at-least-once background job. (Ch. 9 covers the table and publisher mechanics; Ch. 21 shows the background relay itself.)
+**The Transactional Outbox.** The core trick: only write to *one* store transactionally — your database — and record the intent to publish in the *same* transaction, in an `outbox` table. A separate relay reads the outbox and publishes to the broker, marking rows sent. Now the DB write and the "I will publish" record commit atomically; the actual publish becomes a retryable, at-least-once background job. (Ch. 9 covers the table and publisher mechanics; Ch. 22 shows the background relay itself.)
 
 If the relay crashes after publishing but before marking a row processed, it republishes on restart — hence **at-least-once**, and hence consumers must **deduplicate**. That is the whole game: you trade the impossible "exactly-once delivery" for "at-least-once delivery + idempotent consumers," which together give **effectively-once processing**.
 
-**Idempotency keys and dedup.** Give every message (and every externally-triggered command) a stable ID. Consumers record processed IDs (an `inbox`/processed-messages table, backed by a unique index) and skip duplicates — Ch. 20 covers the implementation. For inbound HTTP writes, accept a client-supplied `Idempotency-Key` header (Stripe's model): the first request does the work and stores the result keyed by that value; retries with the same key return the stored result instead of doing the work twice.
+**Idempotency keys and dedup.** Give every message (and every externally-triggered command) a stable ID. Consumers record processed IDs (an `inbox`/processed-messages table, backed by a unique index) and skip duplicates — Ch. 21 covers the implementation. For inbound HTTP writes, accept a client-supplied `Idempotency-Key` header (Stripe's model): the first request does the work and stores the result keyed by that value; retries with the same key return the stored result instead of doing the work twice.
 
 **Sagas for multi-service consistency.** When a business transaction spans services (reserve inventory → charge card → create shipment), you cannot hold one ACID transaction across all of them. A **saga** is a sequence of local transactions, each with a compensating action to undo it if a later step fails (release the reservation, refund the charge). This is eventual consistency by design — the system is briefly inconsistent and converges (Ch. 9).
 
@@ -309,7 +309,7 @@ Your order service publishes every order to RabbitMQ, where fulfillment, billing
 
 ### The fix & architectural options (with trade-offs)
 
-**Circuit breaker + fallback (Polly).** Wrap the dependency in a circuit breaker so that after a threshold of failures, calls short-circuit for a cool-off period and you serve a fallback instead of hanging — and give every call a timeout so nothing waits indefinitely. Ch. 20 builds the full `Microsoft.Extensions.Resilience` / Polly pipeline (retry + breaker + layered timeouts) and explains why the ordering of strategies matters. The decision that is specific to *this* incident is what the fallback should be — and for publishing, the answer is the outbox buffer below.
+**Circuit breaker + fallback (Polly).** Wrap the dependency in a circuit breaker so that after a threshold of failures, calls short-circuit for a cool-off period and you serve a fallback instead of hanging — and give every call a timeout so nothing waits indefinitely. Ch. 21 builds the full `Microsoft.Extensions.Resilience` / Polly pipeline (retry + breaker + layered timeouts) and explains why the ordering of strategies matters. The decision that is specific to *this* incident is what the fallback should be — and for publishing, the answer is the outbox buffer below.
 
 **Retry with exponential backoff *and jitter*.** Backoff alone is not enough: if every instance retries on the same schedule, they synchronize into coordinated waves. Jitter randomizes the delay so load spreads out. Also make retries **idempotent** and **bounded** — retrying a non-idempotent write is how you double-charge a customer.
 
@@ -319,7 +319,7 @@ Your order service publishes every order to RabbitMQ, where fulfillment, billing
 
 **Dead-letter queues (DLQ).** For messages that repeatedly fail to process (poison messages, or a downstream that is down), route them to a DLQ after N attempts instead of blocking the main queue or infinitely retrying. Then alert, inspect, fix, and replay. A DLQ keeps one bad message from stalling the whole pipeline.
 
-**Health checks & readiness — get this right.** Distinguish **liveness** (is the process alive? restart if not) from **readiness** (can it serve traffic right now?). A subtle but critical decision: **a non-critical dependency being down should not fail your readiness probe**, or Kubernetes will pull a perfectly serviceable pod out of rotation and make the outage worse. Readiness should reflect *your* ability to serve, degraded or not (Ch. 11, Ch. 20).
+**Health checks & readiness — get this right.** Distinguish **liveness** (is the process alive? restart if not) from **readiness** (can it serve traffic right now?). A subtle but critical decision: **a non-critical dependency being down should not fail your readiness probe**, or Kubernetes will pull a perfectly serviceable pod out of rotation and make the outage worse. Readiness should reflect *your* ability to serve, degraded or not (Ch. 11, Ch. 21).
 
 ```csharp
 builder.Services.AddHealthChecks()
@@ -480,7 +480,7 @@ Choose the integration style per boundary. The main options:
 
 **The shared-database anti-pattern** deserves a blunt statement: when two services read and write the same tables, you have not built two services — you have built one service with two deployment units and no encapsulation. A schema change to satisfy one service breaks the other. Ban it at the boundary; if two components need the same data, one owns it and exposes an API.
 
-**Contract-first and schema/versioning across languages.** The strength of gRPC/Protobuf here is that a `.proto` file *is* the contract, checked into a shared repo, generating clients for every language. Protobuf's evolution rules (never reuse field numbers, add new fields as optional, don't change types) let a Python producer and a .NET consumer evolve independently — this is the schema-evolution discipline from **Chapter 23** applied across languages. For JSON boundaries, get the same discipline from **OpenAPI** with generated clients and a schema registry; for Kafka, an **Avro/Protobuf schema registry** enforces compatibility before a bad message ever ships.
+**Contract-first and schema/versioning across languages.** The strength of gRPC/Protobuf here is that a `.proto` file *is* the contract, checked into a shared repo, generating clients for every language. Protobuf's evolution rules (never reuse field numbers, add new fields as optional, don't change types) let a Python producer and a .NET consumer evolve independently — this is the schema-evolution discipline from **Chapter 24** applied across languages. For JSON boundaries, get the same discipline from **OpenAPI** with generated clients and a schema registry; for Kafka, an **Avro/Protobuf schema registry** enforces compatibility before a bad message ever ships.
 
 **Service mesh / sidecars and Dapr.** As the number of polyglot services grows, cross-cutting concerns (mTLS, retries, service discovery) multiply across languages. A **service mesh** (Linkerd, Istio) pushes these into a sidecar so each language doesn't reimplement them. **Dapr** goes further: it exposes **building blocks** — service invocation, pub/sub, state management, secrets, bindings — over a local HTTP/gRPC API, so a Python service and a .NET service call the *same* Dapr sidecar API to publish an event or read state. That is genuinely valuable in polyglot shops: the integration primitives stop being language-specific.
 
@@ -719,11 +719,11 @@ If your service has an **AI feature** — an LLM summarizing user content, an ag
 
 Your product now stores real people's data: names, emails, addresses, maybe health or payment information. A user emails "delete all my data" and cites GDPR. Legal asks "where does EU customer data physically live?" A junior just added `_logger.LogInformation("User {@User} logged in", user)` — dumping the full user object, PII included, into your log aggregator. Suddenly "just store it in a table" is not enough. Storing personal data is a distinct engineering discipline with its own hazards.
 
-> **This is engineering guidance, not legal advice.** GDPR, CCPA, HIPAA and friends are legal frameworks; how they apply to your product is a question for your legal/privacy team. What follows is how a senior *engineer* translates those constraints into system design. (See **Chapter 27** for the PII/FinOps context.)
+> **This is engineering guidance, not legal advice.** GDPR, CCPA, HIPAA and friends are legal frameworks; how they apply to your product is a question for your legal/privacy team. What follows is how a senior *engineer* translates those constraints into system design. (See **Chapter 28** for the PII/FinOps context.)
 
 ### The core concepts
 
-**Chapter 27** covers the discipline in depth — classification (PII/PHI/special-category), data minimization, purpose limitation, consent. The triage-relevant core: you cannot protect, audit, or delete data you have not classified, and the strongest control is **not collecting the field at all**. Every PII field you hold is a liability that can be breached, subpoenaed, or mis-logged.
+**Chapter 28** covers the discipline in depth — classification (PII/PHI/special-category), data minimization, purpose limitation, consent. The triage-relevant core: you cannot protect, audit, or delete data you have not classified, and the strongest control is **not collecting the field at all**. Every PII field you hold is a liability that can be breached, subpoenaed, or mis-logged.
 
 ### Protecting the data at rest
 
@@ -731,7 +731,7 @@ Encryption in transit and at rest (TLS, TDE) is table stakes — and whole-datab
 
 ### The right-to-be-forgotten vs. backups problem
 
-A deletion request seems simple until you remember **backups**: your immutable, 35-day-retention backups contain the user's data, and you (correctly) cannot edit them. The industry's answer is **crypto-shredding** — encrypt each user's PII with a per-user key and destroy the key to "forget" them; the ciphertext left in every table and backup becomes unrecoverable noise (mechanics in **Chapter 27**). Soft delete alone does **not** satisfy erasure — combine it (for referential integrity) with crypto-shred or hard-purge for the actual PII.
+A deletion request seems simple until you remember **backups**: your immutable, 35-day-retention backups contain the user's data, and you (correctly) cannot edit them. The industry's answer is **crypto-shredding** — encrypt each user's PII with a per-user key and destroy the key to "forget" them; the ciphertext left in every table and backup becomes unrecoverable noise (mechanics in **Chapter 28**). Soft delete alone does **not** satisfy erasure — combine it (for referential integrity) with crypto-shred or hard-purge for the actual PII.
 
 | Deletion approach | Satisfies erasure? | Handles backups? | Notes |
 |---|---|---|---|
@@ -742,7 +742,7 @@ A deletion request seems simple until you remember **backups**: your immutable, 
 
 ### Retention, access, and audit
 
-**Chapter 27** covers the mechanics — retention/purge jobs, audit trails, pseudonymization vs. anonymization. What matters in the room: unbounded retention is unbounded liability, and when a breach or insider-access question lands, the audit trail of *who* read *whose* PII, *when*, and *why* is the only thing that answers it.
+**Chapter 28** covers the mechanics — retention/purge jobs, audit trails, pseudonymization vs. anonymization. What matters in the room: unbounded retention is unbounded liability, and when a breach or insider-access question lands, the audit trail of *who* read *whose* PII, *when*, and *why* is the only thing that answers it.
 
 ### Data residency and logging pitfalls
 

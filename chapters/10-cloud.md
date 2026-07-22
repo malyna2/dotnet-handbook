@@ -61,7 +61,7 @@ AWS is the largest cloud and reads like an alphabet soup. Here are the services 
 
 ### Storage and databases
 
-- **S3 (Simple Storage Service)** — object storage. Effectively infinite, cheap, durable storage for files, backups, static assets, and data lakes. Not a filesystem — it's key/value blobs accessed over HTTP.
+- **S3 (Simple Storage Service)** — object storage. Effectively infinite, cheap, durable storage for files, backups, static assets, and data lakes. Not a filesystem — it's key/value blobs accessed over HTTP. For static assets, front it with an edge CDN (**CloudFront** on AWS, **Azure Front Door** on Azure) to cache content close to users and cut both latency and egress.
 - **RDS (Relational Database Service)** — managed relational databases (SQL Server, PostgreSQL, MySQL, and Amazon's Aurora). AWS handles backups, patching, and Multi-AZ failover. Use this instead of running a database on EC2 yourself.
 - **DynamoDB** — managed NoSQL key/value and document store. Single-digit-millisecond latency at any scale, serverless billing. Great for high-throughput, simple-access-pattern workloads (session stores, shopping carts) — but you must design around its access patterns up front, because ad-hoc queries are painful.
 
@@ -356,7 +356,7 @@ Serverless (Lambda, Azure Functions, Container Apps scaling to zero) is genuinel
 
 **The costs:**
 
-- **Cold starts.** When a function hasn't run recently, the platform must spin up a fresh execution environment — allocate a container, load your runtime, initialize your code — before handling the request. For .NET this historically meant a noticeable delay (hundreds of milliseconds to a second-plus) on the first request. It's improved dramatically (AOT compilation, ReadyToRun, and features like Lambda SnapStart / Functions premium plans), but it's real. A "warm" function responds in single-digit milliseconds; a cold one makes a user wait.
+- **Cold starts.** When a function hasn't run recently, the platform must spin up a fresh execution environment — allocate a container, load your runtime, initialize your code — before handling the request. For .NET this historically meant a noticeable delay (hundreds of milliseconds to a second-plus) on the first request. It's improved dramatically (AOT compilation, ReadyToRun, and platform features like **AWS Lambda SnapStart for .NET** — which snapshots an initialized runtime and restores it — and **Azure Functions Flex Consumption** (GA December 2024), whose "always ready" instances keep a warm pool while still scaling to zero), but it's real. A "warm" function responds in single-digit milliseconds; a cold one makes a user wait.
 - **Execution limits.** Functions have maximum durations and memory ceilings. Long-running or heavyweight jobs don't fit.
 - **Statelessness.** Each invocation is independent; you can't cache in memory reliably across calls. State must live externally (a database, a cache).
 - **Local development and debugging** are more awkward than a normal app, and **vendor lock-in** is higher because your code binds to the platform's event model.

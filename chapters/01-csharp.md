@@ -516,6 +516,8 @@ bool empty = "   ".IsNullOrBlank();   // reads like an instance call; compiles t
 
 Extension methods are purely compile-time sugar — there's no runtime magic, just a static call the compiler rewrites. They can't access private members and are resolved by the `using` namespaces in scope.
 
+> **New in C# 14 (.NET 10):** *extension members* generalize this `static`-`this` form. Inside an `extension` block you can now declare extension **properties**, operators, and static extension members — not just instance methods. The classic `this`-parameter syntax still works and interoperates with the new blocks, so nothing here is obsolete (see "Modern Syntax You Should Be Using" for the timeline).
+
 We covered **static abstract interface members** under generic math; the broader point is that interfaces can now declare `static` members (operators, factory methods, constants), which combined with generics enables abstractions that were previously impossible in C#.
 
 ## Attributes and Reflection

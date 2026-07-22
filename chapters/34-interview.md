@@ -1,4 +1,4 @@
-# Chapter 33: Interview Questions & How to Answer Them
+# Chapter 34: Interview Questions & How to Answer Them
 
 _⏱️ Estimated read time: ~34 min ·     6706 words (study pace)_
 
@@ -208,7 +208,7 @@ Asynchronous streaming — `await foreach` over items produced with latency (pag
 
 ## ASP.NET Core & Web
 
-*Revise: Ch. 3 — ASP.NET Core & Web APIs · Ch. 19 — Networking & Web Fundamentals*
+*Revise: Ch. 3 — ASP.NET Core & Web APIs · Ch. 20 — Networking & Web Fundamentals*
 
 **Explain the middleware pipeline.**
 Middleware components form a chain; each gets the `HttpContext`, can act on the request, call `next()` to pass control down, and act on the response on the way back out — like nested layers. Order matters: exception handling first, then routing, auth (authentication before authorization), then endpoints. A component can short-circuit by not calling `next()`.
@@ -342,7 +342,7 @@ A pattern for a long-running business transaction spanning multiple services wit
 
 ## Distributed Systems & Scaling
 
-*Revise: Ch. 9 — Messaging & Distributed Systems · Ch. 20 — Distributed Systems Theory & Reliability Engineering*
+*Revise: Ch. 9 — Messaging & Distributed Systems · Ch. 21 — Distributed Systems Theory & Reliability Engineering*
 
 **Explain the CAP theorem.**
 Under a network **P**artition, a distributed system must choose between **C**onsistency (every read sees the latest write) and **A**vailability (every request gets a response). You can't have both during a partition. In practice systems are CP (refuse/stall to stay consistent) or AP (serve possibly-stale data to stay up); the choice is per-operation, and PACELC extends it to the latency trade-off when there's no partition.
@@ -409,7 +409,7 @@ Out of source control and out of plain config: use a secrets manager / vault (Az
 
 ## Testing
 
-*Revise: Ch. 7 — Testing · Ch. 24 — Advanced & Specialized Testing*
+*Revise: Ch. 7 — Testing · Ch. 25 — Advanced & Specialized Testing*
 
 **Unit vs integration test?**
 A **unit test** exercises one small piece (a class/method) in isolation with dependencies mocked — fast, focused, pinpoints failures. An **integration test** exercises several components together, often with a real database or HTTP host, to catch wiring and contract issues unit tests miss. You need both; the classic pyramid has many unit, fewer integration, fewest end-to-end.
@@ -432,7 +432,7 @@ Fast, isolated/independent (no order dependence, no shared state), deterministic
 
 ## System Design (mini)
 
-*Revise: Ch. 26 — Data Structures, Algorithms & System Design Fundamentals · Ch. 32 — Real-World Scenarios & Architectural Decisions*
+*Revise: Ch. 27 — Data Structures, Algorithms & System Design Fundamentals · Ch. 33 — Real-World Scenarios & Architectural Decisions*
 
 Use one structure for every design prompt: **Requirements → Scale estimate → API → Data model → Components → Bottlenecks & trade-offs.** Talk through it out loud; the interviewer wants your reasoning, not a memorized diagram.
 

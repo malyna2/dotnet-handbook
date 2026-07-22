@@ -92,6 +92,8 @@ Because of this, xUnit has no `[SetUp]`/`[TearDown]` attributes like NUnit. Inst
 - **Per-test setup** goes in the constructor.
 - **Per-test teardown** goes in `Dispose()` (implement `IDisposable`), or `DisposeAsync()` via `IAsyncLifetime` for async cleanup.
 
+> **xUnit v3 note:** xUnit v3 went GA in December 2024 as a ground-up repackaging (new package IDs, each test project now builds as an executable on Microsoft.Testing.Platform), and `IAsyncLifetime.InitializeAsync`/`DisposeAsync` now return `ValueTask` rather than `Task`. The examples here use idioms that read the same on v2 and v3; on v3 just expect `ValueTask` signatures.
+
 ```csharp
 public class OrderServiceTests : IDisposable
 {

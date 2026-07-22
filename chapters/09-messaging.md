@@ -101,6 +101,8 @@ Key ideas:
 
 > **Pick Kafka when:** you have high-throughput event streams, need replayability, want multiple independent consumers of the same firehose, or are building stream-processing pipelines. It's less a "message queue" and more a "distributed commit log you can subscribe to".
 
+> **Modern Kafka (4.0+):** ZooKeeper has been removed — clusters now run on **KRaft**, Kafka's built-in metadata quorum, so there's one system to operate instead of two. And **KIP-932 "Queues for Kafka"** (early access in 4.0) adds *share groups*, giving Kafka queue-like semantics — per-message acknowledgement, redelivery, and unordered consumption beyond the partition count — which softens the classic "Kafka is a log, not a queue" framing.
+
 The mental shift: RabbitMQ *pushes* messages and forgets them; Kafka *stores* an ordered history that consumers *pull* from at their own pace.
 
 ### Azure Service Bus — The Enterprise Managed Broker
@@ -193,7 +195,7 @@ Ordering is deceptively hard in distributed systems. The moment you have competi
 
 Writing raw broker client code (the RabbitMQ `IModel`, Kafka's consumer loop) is tedious and error-prone. **MassTransit** is the dominant .NET abstraction layer. It gives you a broker-agnostic API, built-in retry/redelivery, the outbox, sagas, and serialization — while letting you swap RabbitMQ for Azure Service Bus with a config change.
 
-> **A note on licensing:** In late 2024 the MassTransit team announced that v9 will be a commercial product; v8 remains open source (Apache 2.0) and maintained during a multi-year transition. For new projects, factor this into the decision and know the alternatives: **Wolverine**, **Rebus**, or the raw broker client libraries. The concepts in this chapter transfer to all of them.
+> **A note on licensing (2025):** In 2025 the MassTransit team announced that v9 will ship under a **commercial license** (official release expected around early 2026), with **v8 remaining the last broadly free OSS version** (Apache 2.0), maintained through the transition. That complicates the old "default free choice" framing, so give more weight to the alternatives when starting new projects: **NServiceBus** is also commercial, while **Rebus** and **Wolverine** are OSS — as are the raw broker client libraries. The concepts in this chapter transfer to all of them.
 
 Let's define a message contract. In MassTransit, an interface or record shared between publisher and consumer *is* the contract.
 
@@ -331,7 +333,7 @@ This is where distributed systems get genuinely hard — and where interviews an
 
 ### Idempotent Consumers
 
-Foundational, so we start here. In a distributed system you will receive duplicate messages (we'll see why under delivery guarantees). An **idempotent** consumer produces the same result whether it processes a message once or five times. The standard mechanism is deduplication: check whether this message's ID has already been processed, skip it if so, and record it once the work is done. Chapter 20 covers the mechanics of idempotency and idempotency keys in depth; here the point is that idempotent consumers are what make at-least-once delivery safe to live with.
+Foundational, so we start here. In a distributed system you will receive duplicate messages (we'll see why under delivery guarantees). An **idempotent** consumer produces the same result whether it processes a message once or five times. The standard mechanism is deduplication: check whether this message's ID has already been processed, skip it if so, and record it once the work is done. Chapter 21 covers the mechanics of idempotency and idempotency keys in depth; here the point is that idempotent consumers are what make at-least-once delivery safe to live with.
 
 > **Best practice:** design every consumer to be idempotent *by default*. It's cheaper than trying to guarantee exactly-once delivery (which, as we'll see, is nearly impossible). Use natural keys where you can — "does an order with this ID already exist?" is more robust than a separate processed-messages table.
 
@@ -451,7 +453,7 @@ The saga's state is *persisted*, so the process survives crashes and restarts. T
 
 ### Resilience Patterns: Retry, Circuit Breaker, Bulkhead
 
-These come from the world of resilient clients, and Chapter 20 covers the mechanics — the full Polly pipeline via `Microsoft.Extensions.Http.Resilience`, how the strategies layer, and why jitter matters. Here, the short version and the messaging angle:
+These come from the world of resilient clients, and Chapter 21 covers the mechanics — the full Polly pipeline via `Microsoft.Extensions.Http.Resilience`, how the strategies layer, and why jitter matters. Here, the short version and the messaging angle:
 
 - **Retry with exponential backoff and jitter.** When a call fails transiently, retry — but back off exponentially (1s, 2s, 4s, 8s) so the struggling service gets room to recover, and add jitter so a thousand clients that failed at the same instant don't retry in perfect unison — the "thundering herd."
 - **Circuit breaker.** When a downstream service is clearly down, retrying is pointless and harmful. A breaker watches the failure rate, "trips" once it crosses a threshold, fails fast for a cooldown period, then lets a trial request through and resumes if it succeeds. This protects both you (fail fast instead of hanging) and the struggling service (you stop piling on load).
@@ -481,7 +483,7 @@ Idempotency's practical implementation. Every message carries a unique ID. The c
 
 ## Consistency in a Distributed World
 
-Replicating data across a network forces a trade-off between consistency and availability — the territory of the CAP theorem and its PACELC refinement, which Chapter 20 covers in full. Here the point is the consequence you accept the moment you adopt messaging: **eventual consistency**. If you stop writing, all parts of the system *eventually* converge on the same state; in the meantime, reads might be stale. Your account balance updated on your phone might take a moment to appear on the website.
+Replicating data across a network forces a trade-off between consistency and availability — the territory of the CAP theorem and its PACELC refinement, which Chapter 21 covers in full. Here the point is the consequence you accept the moment you adopt messaging: **eventual consistency**. If you stop writing, all parts of the system *eventually* converge on the same state; in the meantime, reads might be stale. Your account balance updated on your phone might take a moment to appear on the website.
 
 This is exactly the model that messaging gives you. When the checkout publishes `OrderPlaced` and the analytics service processes it 200ms later, the system is *temporarily inconsistent* — the order exists but analytics doesn't know yet — and then converges. Accepting this is the price of decoupling, and for most business domains it's a fine price. The senior skill is identifying the few places where it *isn't* acceptable and applying stronger consistency there.
 

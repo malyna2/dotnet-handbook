@@ -1,4 +1,4 @@
-# Chapter 24: Advanced & Specialized Testing
+# Chapter 25: Advanced & Specialized Testing
 
 _⏱️ Estimated read time: ~25 min ·     3819 words (study pace)_
 
@@ -7,6 +7,8 @@ Chapter 7 gave you the foundations: unit tests with xUnit, mocking with Moq or N
 This chapter is about those problems and the specialized tools built for them. Contract testing tames the combinatorial explosion of cross-service integration tests. Property-based testing finds the inputs you never thought to write an assertion for. End-to-end and UI testing verify the whole stack through a real browser. Load testing tells you whether the system survives Black Friday. And a cluster of supporting disciplines — deterministic time, test data management, and mutation testing — keep the whole test suite honest.
 
 The through-line is a single senior-level habit of mind: **treat your tests as a system to be engineered, with their own costs, failure modes, and return on investment**, not as a checkbox you tick after the "real" code is done.
+
+> **A shifting runner underneath it all:** the *engine* that runs your tests is changing. **Microsoft.Testing.Platform (MTP)** is the new, lightweight test runner that replaces the older VSTest host — each test project builds into a self-contained executable, and xUnit, NUnit, and MSTest now support running on it. Built exclusively on MTP is **TUnit**, a newer framework whose tests are *source-generated* at compile time (rather than reflected at runtime), run in parallel by default, and support Native AOT; it is still young (pre-1.0) but gaining real attention in 2025–2026 for its speed. None of the techniques below depend on your choice of runner, but it is worth knowing the ground is moving.
 
 ## Contract Testing: Killing the Integration Test Explosion
 
@@ -117,7 +119,7 @@ The broker checks the recorded verification matrix and answers yes or no. This i
 
 Contract testing does **not** verify business logic — it verifies that two services agree on their interface. But a huge fraction of cross-service E2E tests exist *only* to catch interface drift. Those you can and should delete, replacing them with fast, independent contract tests. Keep a thin layer of true end-to-end tests for a handful of critical user journeys where the *behaviour* of the assembled system, not just its wiring, is what you need to prove.
 
-This ties directly to **schema evolution** (Chapter 23). A pact is a living, executable record of exactly which fields and message shapes each consumer actually depends on. When you want to remove a field, the broker tells you whether any consumer's contract still references it. Contract testing and backward-compatible schema evolution are two views of the same discipline: **never break a consumer you can't see**. For asynchronous systems, Pact supports **message pacts** too — the consumer asserts on the shape of a Kafka or Service Bus message it can handle, and the provider verifies its published messages conform.
+This ties directly to **schema evolution** (Chapter 24). A pact is a living, executable record of exactly which fields and message shapes each consumer actually depends on. When you want to remove a field, the broker tells you whether any consumer's contract still references it. Contract testing and backward-compatible schema evolution are two views of the same discipline: **never break a consumer you can't see**. For asynchronous systems, Pact supports **message pacts** too — the consumer asserts on the shape of a Kafka or Service Bus message it can handle, and the provider verifies its published messages conform.
 
 ## Property-Based Testing: Asserting the Rules, Not the Examples
 

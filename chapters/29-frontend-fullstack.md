@@ -1,4 +1,4 @@
-# Chapter 28: Frontend & Full-Stack for .NET Developers
+# Chapter 29: Frontend & Full-Stack for .NET Developers
 
 _⏱️ Estimated read time: ~20 min · 3201 words (study pace)_
 

@@ -445,7 +445,7 @@ public async Task Handle(ChargePayment cmd)
 
 ## .NET Aspire
 
-Building distributed .NET systems means juggling many moving parts — several services, a database, Redis, a message broker, and the glue to wire them together locally and in the cloud. **.NET Aspire** is Microsoft's opinionated stack for exactly this: a cloud-ready framework for building observable, production-grade distributed applications.
+Building distributed .NET systems means juggling many moving parts — several services, a database, Redis, a message broker, and the glue to wire them together locally and in the cloud. **.NET Aspire** is Microsoft's opinionated stack for exactly this: a cloud-ready framework for building observable, production-grade distributed applications. It is now GA and versioned independently of the annual .NET release (Aspire 9.x), so it ships on its own cadence rather than being pinned to a single .NET version.
 
 Aspire's pieces:
 

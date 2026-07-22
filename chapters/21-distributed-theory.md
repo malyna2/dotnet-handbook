@@ -1,4 +1,4 @@
-# Chapter 20: Distributed Systems Theory & Reliability Engineering
+# Chapter 21: Distributed Systems Theory & Reliability Engineering
 
 _⏱️ Estimated read time: ~21 min ·     3838 words (study pace)_
 

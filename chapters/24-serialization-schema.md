@@ -1,4 +1,4 @@
-# Chapter 23: Serialization & Schema Evolution
+# Chapter 24: Serialization & Schema Evolution
 
 _⏱️ Estimated read time: ~29 min ·     4534 words (study pace)_
 
@@ -132,6 +132,8 @@ In proto3, all fields are effectively optional and have **default values** (0, e
 
 In .NET you'd add the `Grpc.Tools` package, drop the `.proto` into your project, and MSBuild generates the classes. The generated code is fast and allocation-light, and it round-trips through `Google.Protobuf`'s `IMessage` interface.
 
+> **Worth knowing:** the long-running proto2/proto3 split is being retired by **Protobuf Editions** (Edition 2023 was the first, released in the second half of 2023). Instead of picking a syntax with fixed semantics, an edition lets you tune individual behaviours via feature flags while keeping the wire format unchanged — it's the forward path the two syntaxes are converging on, so a modern reader should recognize the term even if most existing `.proto` files still say `syntax = "proto3"`.
+
 ## MessagePack: Binary JSON, No Schema File
 
 MessagePack is best described as "JSON's data model, binary encoding." It has the same shape — maps, arrays, strings, numbers, booleans, null — but encoded compactly with length prefixes and type tags instead of text. Unlike protobuf, it doesn't require a separate schema file; in .NET the excellent **MessagePack-CSharp** library serializes your annotated C# types directly, much like a serializer rather than a code generator.
@@ -155,6 +157,8 @@ Order back = MessagePackSerializer.Deserialize<Order>(bytes);
 Those `[Key(0)]` integers play the same role as protobuf field numbers: they're the compact wire identity, and **the same "never reuse a key" discipline applies.** MessagePack-CSharp also supports string keys (`[Key("customer")]`), which are more self-describing but larger — a JSON-like trade-off within the format.
 
 MessagePack-CSharp is famous for raw speed; it uses a source-generator/IL-emit path and is one of the fastest serializers available on .NET. It's a great choice for caching (compact Redis payloads), internal RPC (it's the default for SignalR's binary protocol and for the MagicOnion framework), and anywhere you want binary compactness without maintaining separate `.proto` files. The trade-off versus protobuf is that the schema lives in your C# attributes rather than a language-neutral IDL, so cross-language contracts are slightly less formal.
+
+> **Faster still, for .NET-to-.NET:** **MemoryPack** (from neuecc, the author of MessagePack-CSharp) is a "zero-encoding" binary serializer that leans on modern C# and a pure source-generator path — no runtime IL emit — which makes it **Native AOT-friendly** and, on many payloads, several times faster than MessagePack. It's the sharper tool when both ends are .NET and you don't need cross-language interop; the format is .NET-specific by design.
 
 ## Apache Avro: Built for Evolution
 

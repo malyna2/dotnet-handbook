@@ -530,7 +530,7 @@ The trade-off is real complexity and per-pod resource overhead from all those pr
 
 ## .NET Aspire: Orchestration for Local Development
 
-Docker Compose is language-agnostic, which means it doesn't know anything about your .NET projects. **.NET Aspire** is Microsoft's opinionated stack for building and running cloud-native, multi-service .NET apps — and it dramatically improves the *inner-loop* (local development) experience.
+Docker Compose is language-agnostic, which means it doesn't know anything about your .NET projects. **.NET Aspire** is Microsoft's opinionated stack for building and running cloud-native, multi-service .NET apps — and it dramatically improves the *inner-loop* (local development) experience. It is GA and versioned independently of the .NET release (Aspire 9.x), on its own cadence rather than tied to a specific .NET version.
 
 You describe your application's topology in C#, in an **AppHost** project, rather than in YAML:
 

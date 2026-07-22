@@ -1,4 +1,4 @@
-# Chapter 21: Background Processing, Scheduling & the Actor Model
+# Chapter 22: Background Processing, Scheduling & the Actor Model
 
 _⏱️ Estimated read time: ~28 min ·     3883 words (study pace)_
 
@@ -152,7 +152,7 @@ builder.Services.Configure<HostOptions>(o =>
 
 The moment you run more than one instance of your service - and in any serious deployment you will, for availability alone - two copies of that outbox worker are polling the same table. Both may grab the same row. Your message gets published twice.
 
-You cannot engineer this possibility away entirely. Distributed systems give you **at-least-once** delivery as the practical default; exactly-once is a comforting fiction that, when you look closely, is always at-least-once plus idempotent processing (Chapter 9 explains why). So the senior move is to stop fighting duplicates and instead make processing **idempotent** - safe to run more than once with the same net effect. The implementation - dedupe on a natural or supplied idempotency key, with a unique index as your backstop - is covered in Chapter 20; apply it to every handler a worker runs.
+You cannot engineer this possibility away entirely. Distributed systems give you **at-least-once** delivery as the practical default; exactly-once is a comforting fiction that, when you look closely, is always at-least-once plus idempotent processing (Chapter 9 explains why). So the senior move is to stop fighting duplicates and instead make processing **idempotent** - safe to run more than once with the same net effect. The implementation - dedupe on a natural or supplied idempotency key, with a unique index as your backstop - is covered in Chapter 21; apply it to every handler a worker runs.
 
 For the polling contention itself, options range from a `SELECT ... FOR UPDATE SKIP LOCKED` (PostgreSQL) to claiming rows with an atomic `UPDATE ... SET LockedBy = @me WHERE ...`, to simply electing a single leader (covered in Part B) so only one instance polls at all. The right answer depends on throughput, but the principle is constant: **assume duplicates and design so they don't hurt.**
 
@@ -391,7 +391,7 @@ public sealed class AccountState
 
 Notice there is not a single `lock`, `Interlocked`, or transaction in that `Withdraw` - yet two concurrent transfers against `acct-42` cannot corrupt the balance, because Orleans runs them one after another inside the one activation. That is the whole payoff of the model made concrete.
 
-Hosting a silo is a few lines on the Generic Host (Orleans 7+ integrates directly):
+Hosting a silo is a few lines on the Generic Host (Orleans is now versioned alongside the .NET release — v8 with .NET 8, v9 with .NET 9 (2024-2025) — and integrates directly with the modern host builder):
 
 ```csharp
 var builder = Host.CreateApplicationBuilder(args);
@@ -405,6 +405,8 @@ await host.RunAsync();
 ```
 
 Swap `UseLocalhostClustering` for a clustering provider (Azure Table Storage, ADO.NET, Redis) and `AddMemoryGrainStorage` for a durable store, and the *same grain code* now runs across a multi-silo cluster with failover. That continuity from laptop to production cluster is Orleans' signature strength.
+
+> **Scheduling inside a grain:** Orleans' idiomatic in-grain scheduling is **grain timers** (non-persistent, for periodic work while an activation is alive) and **reminders** (persistent, durable across deactivation and full cluster restarts). They are the actor-model counterpart to the job frameworks in Part B — the way a grain schedules its own future work without an external scheduler.
 
 ### When Orleans fits - and when it doesn't
 

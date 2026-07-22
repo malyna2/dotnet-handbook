@@ -156,6 +156,8 @@ Concrete defenses:
 
 NLog is the other mature structured logging library for .NET. It is configuration-file-driven (XML `nlog.config`) by tradition, with "targets" (equivalent to Serilog sinks) and "rules" that route loggers to targets by name and level. It also supports structured properties via the same `{Name}` template syntax through the `Microsoft.Extensions.Logging` bridge. Functionally the two are close; Serilog's fluent C# configuration and richer ecosystem of sinks have made it the more common choice in greenfield .NET projects, but NLog remains excellent and slightly faster in some file-logging benchmarks. Pick one and standardize.
 
+> **Modern note:** The **OpenTelemetry Logs signal is now stable in .NET**. An `ILogger` → OpenTelemetry bridge — wired via `AddOpenTelemetry().WithLogging(...)`, sitting right alongside `.WithTracing()` and `.WithMetrics()` — lets your existing `ILogger` calls flow straight out over OTLP, completing the "one SDK for logs, metrics, and traces" story you meet later in this chapter.
+
 ## Metrics
 
 If logs are the narrative, metrics are the numbers you graph. They are aggregated, low-cost, and ideal for answering "how much" and "how fast" over time.
@@ -343,6 +345,8 @@ The instrumentation packages are what make this genuinely powerful. `AddAspNetCo
 An **exporter** ships your telemetry out of the process. **OTLP** (OpenTelemetry Protocol) is the native, preferred choice — a gRPC/HTTP protocol understood by the OpenTelemetry Collector and virtually every backend. The recommended architecture is: your apps export OTLP to a **Collector**, and the Collector fans the data out to your chosen backends. This decouples your applications entirely from backend choice and lets you add processing (batching, filtering, tail sampling) in one central place.
 
 **Jaeger** and **Zipkin** are popular open-source trace visualization backends that render the span waterfall. Both now ingest OTLP natively, so in modern setups you typically export OTLP everywhere and let the Collector route it.
+
+> **Local dev tip:** **.NET Aspire** ships a built-in dashboard that is itself an OTLP receiver, giving you zero-config local traces, metrics, and logs — point your app's OTLP exporter at it and read a full cross-service waterfall without standing up Jaeger, Prometheus, or a Collector on your laptop.
 
 ## APM Tools
 

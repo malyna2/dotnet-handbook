@@ -168,6 +168,8 @@ await ctx.Products
 
 > **Gotcha:** These bypass the change tracker entirely. Entities the context already tracks are *not* updated and silently go stale, and `SaveChanges` interceptors — and anything hooked to them, like auditing or domain-event dispatch — never fire. Use them for bulk maintenance and cleanup, not for writes your interceptors must see.
 
+Modern EF mapping also reduces how often you drop to raw SQL for shape: EF Core 7 added **JSON columns** (map an owned aggregate to a single JSON column, still queryable through LINQ), and EF Core 8 added **complex types** (keyless value objects) and **primitive collections** (a `List<int>`/`string[]` stored inline as JSON instead of a side table).
+
 ## SQL Fundamentals
 
 EF is a convenience over SQL, and to use it well you must understand the SQL it hides. A senior developer reads the generated SQL and the execution plan, not just the C#.
@@ -391,6 +393,8 @@ catch (DbUpdateConcurrencyException)
 A **view** is a saved query you can select from like a table — useful for encapsulating a complex join or presenting a simplified shape. A **stored procedure** is precompiled SQL logic living in the database, callable by name.
 
 Raw SQL — via stored procs, `FromSqlRaw`, or Dapper — is justified when: the query is too complex or too performance-critical for LINQ to express well; you need database-specific features EF does not surface; or you are doing bulk set-based operations (updating a million rows in one statement rather than loading and tracking them).
+
+> **Note:** For the *bulk write* case specifically, you usually no longer need raw SQL — EF Core 7+ `ExecuteUpdate`/`ExecuteDelete` (covered above) issue a single set-based `UPDATE`/`DELETE` without loading or tracking, e.g. `ctx.Orders.Where(o => o.Status == OrderStatus.Abandoned).ExecuteDeleteAsync();`. Reserve raw SQL for genuinely complex queries or provider-specific features.
 
 ```csharp
 // EF calling raw SQL while staying in the entity model

@@ -1,4 +1,4 @@
-# Chapter 26: Data Structures, Algorithms & System Design Fundamentals
+# Chapter 27: Data Structures, Algorithms & System Design Fundamentals
 
 _⏱️ Estimated read time: ~31 min ·     4630 words (study pace)_
 

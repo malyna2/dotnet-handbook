@@ -150,7 +150,7 @@ In managed .NET, you do not manually free memory — the garbage collector does.
 
 ### Why Allocations Cost
 
-Allocating a small object on the managed heap is itself cheap — it is basically a pointer bump. The cost comes *later*, when the GC has to reclaim it. The .NET GC is generational: new objects live in **Gen0**, and survivors get promoted to **Gen1** then **Gen2**. Gen0 collections are frequent and fast; Gen2 collections are rare and expensive because they may scan the entire heap. Critically, a garbage collection can pause your application threads.
+Allocating a small object on the managed heap is itself cheap — it is basically a pointer bump. The cost comes *later*, when the GC has to reclaim it. The .NET GC is generational: new objects live in **Gen0**, and survivors get promoted to **Gen1** then **Gen2**. Gen0 collections are frequent and fast; Gen2 collections are rare and expensive because they may scan the entire heap. Critically, a garbage collection can pause your application threads. (For the generational model in depth, plus Server-vs-Workstation GC and the newer DATAS mode, see Chapter 2 rather than re-deriving it here.)
 
 So the real cost of allocations is **GC pressure**: the more garbage you produce, the more often the GC runs, the more CPU it burns, and the more latency spikes ("pauses") your users feel. A hot path that allocates a temporary object per iteration can trigger thousands of Gen0 collections per second. The allocation was cheap; the aggregate collection cost is not.
 
@@ -391,6 +391,8 @@ Understanding the *internals* explains the table. A `Dictionary<K,V>` is a hash 
 > **Best practice:** When you find yourself calling `.Contains()`, `.Any()`, or `.FirstOrDefault(match)` on a `List<T>` inside a loop, stop. You almost certainly want a `Dictionary` or `HashSet`. Converting the inner list to a `HashSet` once, before the loop, can turn an O(n²) operation into O(n) — often the biggest single win available in real code.
 
 > **Best practice:** Pre-size collections when you know roughly how many elements they will hold: `new List<T>(expectedCount)`, `new Dictionary<K,V>(expectedCount)`. This skips the sequence of internal reallocations as the collection grows.
+
+> **Modern note (.NET 8):** For a lookup table built **once and then read many times** — reference data loaded at startup — `FrozenDictionary<TKey,TValue>` and `FrozenSet<T>` (in `System.Collections.Frozen`) trade slower construction for measurably faster reads than `Dictionary`/`HashSet`; a `FrozenDictionary` row would slot naturally into the table above. For scanning a string or buffer for any of a fixed set of values, `SearchValues<T>` gives a vectorized, hardware-accelerated `IndexOfAny` that far outpaces a naive multi-value search.
 
 ## Load Testing: Proving It Under Pressure
 

@@ -37,11 +37,11 @@ PART_RANGES = [
     (5,   8,   "Part II — Designing Software That Lasts"),
     (9,   12,  "Part III — Distributed Systems & the Cloud"),
     (13,  15,  "Part IV — Running Software in Production"),
-    (16,  18,  "Part V — The Craft & the AI Era"),
-    (19,  24,  "Part VI — Deepening the Backend"),
-    (25,  30,  "Part VII — Foundations, Governance & Specializations"),
-    (31,  31,  "Part VIII — Capstone"),
-    (32,  33,  "Part IX — The War Room: Scenarios & Interviews"),
+    (16,  19,  "Part V — The Craft & the AI Era"),
+    (20,  25,  "Part VI — Deepening the Backend"),
+    (26,  31,  "Part VII — Foundations, Governance & Specializations"),
+    (32,  32,  "Part VIII — Capstone"),
+    (33,  34,  "Part IX — The War Room: Scenarios & Interviews"),
     (99,  10**9, "Appendices"),
 ]
 DEFAULT_PART = "Additional Chapters"

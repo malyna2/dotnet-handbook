@@ -71,4 +71,4 @@ The senior mindset: **the AI drafts, you own.** Treat generated code exactly lik
 
 > **Tip:** If you can't explain why the AI's code works, you're not ready to merge it. Your name is on the commit, not the model's.
 
-> **This chapter is about using tools to code faster. Chapter 18 goes much deeper on the *AI-native* workflow — agentic coding, parallel sub-agents, AFK flows — and on building AI *into* your products.**
+> **This chapter is about using tools to code faster. Chapter 18 goes much deeper on the *AI-native* workflow — agentic coding, parallel sub-agents, AFK flows — and Chapter 19 covers building AI *into* your products.**

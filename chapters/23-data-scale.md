@@ -1,4 +1,4 @@
-# Chapter 22: Data at Scale & Multi-Tenancy
+# Chapter 23: Data at Scale & Multi-Tenancy
 
 _⏱️ Estimated read time: ~24 min ·     4325 words (study pace)_
 

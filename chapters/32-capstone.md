@@ -1,4 +1,4 @@
-# Chapter 31: Putting It All Together — A Capstone Learning Path
+# Chapter 32: Putting It All Together — A Capstone Learning Path
 
 _⏱️ Estimated read time: ~12 min ·     2407 words (study pace)_
 

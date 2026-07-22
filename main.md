@@ -35,7 +35,7 @@ Use the **sidebar** on the left (or the **Browse chapters** cards below) to jump
 
 # Chapter 1: C# Language Mastery
 
-_⏱️ Estimated read time: ~45 min · 5451 words (study pace)_
+_⏱️ Estimated read time: ~45 min · 5511 words (study pace)_
 
 A senior .NET developer is not someone who knows more keywords than a mid-level developer. The difference is that a senior understands what the language does *underneath* the syntax: where the bytes live, when work actually happens, why a seemingly innocent line allocates on the heap, and what the compiler is really generating on your behalf. This chapter walks through the C# language from that vantage point. We assume you can already write loops, classes, and `async` methods. Our job is to explain the "why" so deeply that the "what" becomes obvious.
 
@@ -550,6 +550,8 @@ bool empty = "   ".IsNullOrBlank();   // reads like an instance call; compiles t
 ```
 
 Extension methods are purely compile-time sugar — there's no runtime magic, just a static call the compiler rewrites. They can't access private members and are resolved by the `using` namespaces in scope.
+
+> **New in C# 14 (.NET 10):** *extension members* generalize this `static`-`this` form. Inside an `extension` block you can now declare extension **properties**, operators, and static extension members — not just instance methods. The classic `this`-parameter syntax still works and interoperates with the new blocks, so nothing here is obsolete (see "Modern Syntax You Should Be Using" for the timeline).
 
 We covered **static abstract interface members** under generic math; the broader point is that interfaces can now declare `static` members (operators, factory methods, constants), which combined with generics enables abstractions that were previously impossible in C#.
 
@@ -1782,7 +1784,7 @@ Chapter 13 covers observability as a discipline — custom `ActivitySource` span
 
 ## A Brief Note on Blazor
 
-**Blazor** lets you build interactive web UIs in C# instead of JavaScript. **Blazor Server** runs your components on the server and streams UI diffs to the browser over a SignalR connection — tiny download, but every interaction is a round-trip and each user holds a stateful connection. **Blazor WebAssembly** runs the .NET runtime in the browser and calls your API like any SPA would — offline-capable, at the cost of a larger initial download. From this chapter's perspective, Blazor is just another consumer of your APIs or another host in your pipeline; Chapter 28 covers the render models, JS interop, and when to choose Blazor over a JavaScript SPA.
+**Blazor** lets you build interactive web UIs in C# instead of JavaScript. **Blazor Server** runs your components on the server and streams UI diffs to the browser over a SignalR connection — tiny download, but every interaction is a round-trip and each user holds a stateful connection. **Blazor WebAssembly** runs the .NET runtime in the browser and calls your API like any SPA would — offline-capable, at the cost of a larger initial download. From this chapter's perspective, Blazor is just another consumer of your APIs or another host in your pipeline; Chapter 29 covers the render models, JS interop, and when to choose Blazor over a JavaScript SPA.
 
 ## Summary
 
@@ -1793,7 +1795,7 @@ The through-line of this chapter is that ASP.NET Core is a **pipeline of composa
 
 # Chapter 4: Data Access & Databases
 
-_⏱️ Estimated read time: ~30 min · 4307 words (study pace)_
+_⏱️ Estimated read time: ~30 min · 4411 words (study pace)_
 
 Almost every non-trivial application is, underneath all its features, a machine for moving data in and out of a database safely and quickly. You can write flawless business logic and beautiful APIs, but if your data access layer holds locks too long, fires a thousand queries where one would do, or corrupts a balance under concurrent writes, the whole system fails in ways that are hard to reproduce and harder to fix. This chapter takes you from the mechanics of Entity Framework Core down to the SQL and storage engine underneath it, then back up through caching, NoSQL, and deployment. The goal is that you stop treating the database as a black box and start reasoning about what it actually does.
 
@@ -1960,6 +1962,8 @@ await ctx.Products
 ```
 
 > **Gotcha:** These bypass the change tracker entirely. Entities the context already tracks are *not* updated and silently go stale, and `SaveChanges` interceptors — and anything hooked to them, like auditing or domain-event dispatch — never fire. Use them for bulk maintenance and cleanup, not for writes your interceptors must see.
+
+Modern EF mapping also reduces how often you drop to raw SQL for shape: EF Core 7 added **JSON columns** (map an owned aggregate to a single JSON column, still queryable through LINQ), and EF Core 8 added **complex types** (keyless value objects) and **primitive collections** (a `List<int>`/`string[]` stored inline as JSON instead of a side table).
 
 ## SQL Fundamentals
 
@@ -2185,6 +2189,8 @@ A **view** is a saved query you can select from like a table — useful for enca
 
 Raw SQL — via stored procs, `FromSqlRaw`, or Dapper — is justified when: the query is too complex or too performance-critical for LINQ to express well; you need database-specific features EF does not surface; or you are doing bulk set-based operations (updating a million rows in one statement rather than loading and tracking them).
 
+> **Note:** For the *bulk write* case specifically, you usually no longer need raw SQL — EF Core 7+ `ExecuteUpdate`/`ExecuteDelete` (covered above) issue a single set-based `UPDATE`/`DELETE` without loading or tracking, e.g. `ctx.Orders.Where(o => o.Status == OrderStatus.Abandoned).ExecuteDeleteAsync();`. Reserve raw SQL for genuinely complex queries or provider-specific features.
+
 ```csharp
 // EF calling raw SQL while staying in the entity model
 var open = ctx.Orders
@@ -2244,7 +2250,7 @@ The through-line of this chapter is that the database is not a black box. EF Cor
 
 # Chapter 5: Design Patterns, Principles & Clean Code
 
-_⏱️ Estimated read time: ~1 h 10 min · 8952 words (study pace)_
+_⏱️ Estimated read time: ~1 h 10 min · 8992 words (study pace)_
 
 A senior developer is not someone who has memorized twenty-three patterns from a book. A senior developer is someone who can look at a tangle of code and *feel* where the seams should be, who reaches for a pattern the way a carpenter reaches for the right chisel, and who — crucially — knows when to leave the chisel in the box and just drive the nail.
 
@@ -2638,7 +2644,7 @@ The controller and handler are fully decoupled — neither references the other'
 
 > **Overuse warning:** MediatR is popular to the point of cargo-culting. For a CRUD app with thin controllers, routing everything through an in-memory mediator can add ceremony — an extra request class and handler class per operation — without buying decoupling you actually need. Use it when the indirection pays for itself: many handlers, cross-cutting pipeline behaviors, or a genuine desire to keep the transport (controllers) ignorant of the application layer. A three-endpoint service does not need it.
 
-> **A note on licensing:** In April 2025, MediatR's maintainer (Jimmy Bogard) announced that MediatR and AutoMapper are moving to commercial licensing to fund their maintenance — existing versions remain under their open-source licenses, but new major versions are commercial. The practical consequence: the default of "just add MediatR" now deserves a license check, which only strengthens the advice above to ask whether you need the library at all. Hand-rolled handler interfaces plus DI cover most MediatR use; for mapping, manual code or the MIT-licensed, source-generated **Mapperly** are solid alternatives.
+> **A note on licensing:** In April 2025, MediatR's maintainer (Jimmy Bogard) announced that MediatR and AutoMapper are moving to commercial licensing to fund their maintenance — existing versions remain under their open-source licenses, but new major versions are commercial. The practical consequence: the default of "just add MediatR" now deserves a license check, which only strengthens the advice above to ask whether you need the library at all. Hand-rolled handler interfaces plus DI cover most MediatR use, and a still-free library like **Wolverine** (MIT-licensed as of v4) is a fuller alternative; for mapping, manual code or the MIT-licensed, source-generated **Mapperly** are solid alternatives.
 
 ### The Rest, Briefly
 
@@ -2809,7 +2815,7 @@ return result.IsSuccess
 ### Null Object & Guard Clauses (brief)
 
 - **Null Object:** Instead of returning `null` and forcing callers to null-check, return a benign object that implements the interface and does nothing. A `NullLogger` that silently discards messages lets callers log unconditionally without `if (logger is not null)`. It replaces scattered null checks with polymorphism — but use it only where "do nothing" is genuinely correct behavior, not to paper over a missing value that callers *should* handle.
-- **Guard Clauses:** Validate preconditions at the top of a method and exit early, keeping the happy path unindented. `if (order is null) throw new ArgumentNullException(nameof(order));` up front beats wrapping the whole method body in an `if`. Modern C# and libraries like **Ardalis.GuardClauses** streamline this: `Guard.Against.Null(order);` or `ArgumentNullException.ThrowIfNull(order);`. Guard clauses are a small habit with an outsized effect on readability.
+- **Guard Clauses:** Validate preconditions at the top of a method and exit early, keeping the happy path unindented. `if (order is null) throw new ArgumentNullException(nameof(order));` up front beats wrapping the whole method body in an `if`. Modern C# and libraries like **Ardalis.GuardClauses** streamline this: `Guard.Against.Null(order);` or `ArgumentNullException.ThrowIfNull(order);`. .NET 8 rounds out the built-in helpers with the range-checking family — `ArgumentOutOfRangeException.ThrowIfNegative(count)`, `ThrowIfZero(...)`, and `ThrowIfGreaterThan(...)` — so most preconditions need no hand-written `if`/`throw` at all. Guard clauses are a small habit with an outsized effect on readability.
 
 ## Principles: The Foundation Under the Patterns
 
@@ -3147,7 +3153,7 @@ So hold the patterns lightly and the principles tightly. When you feel real pain
 
 # Chapter 6: Architecture & Application Design
 
-_⏱️ Estimated read time: ~35 min · 5066 words (study pace)_
+_⏱️ Estimated read time: ~35 min · 5096 words (study pace)_
 
 You can write correct code and still build a system that becomes miserable to change. Correctness is about whether a single function returns the right answer; architecture is about whether, six months from now, a new feature takes an afternoon or a fortnight. This chapter is about the second question — the shape of the whole, the boundaries between the parts, and the trade-offs that senior engineers weigh almost unconsciously.
 
@@ -3592,7 +3598,7 @@ public async Task Handle(ChargePayment cmd)
 
 ## .NET Aspire
 
-Building distributed .NET systems means juggling many moving parts — several services, a database, Redis, a message broker, and the glue to wire them together locally and in the cloud. **.NET Aspire** is Microsoft's opinionated stack for exactly this: a cloud-ready framework for building observable, production-grade distributed applications.
+Building distributed .NET systems means juggling many moving parts — several services, a database, Redis, a message broker, and the glue to wire them together locally and in the cloud. **.NET Aspire** is Microsoft's opinionated stack for exactly this: a cloud-ready framework for building observable, production-grade distributed applications. It is now GA and versioned independently of the annual .NET release (Aspire 9.x), so it ships on its own cadence rather than being pinned to a single .NET version.
 
 Aspire's pieces:
 
@@ -3645,7 +3651,7 @@ The senior move is restraint. Reach for the simplest structure that fits the for
 
 # Chapter 7: Testing
 
-_⏱️ Estimated read time: ~35 min · 5303 words (study pace)_
+_⏱️ Estimated read time: ~35 min · 5358 words (study pace)_
 
 Most developers arrive at their first senior interview able to write a test. Far fewer can explain *why* one test is worth writing and another is worth deleting, why a green test suite can still be worthless, or why the team that mocks everything ends up trusting nothing. This chapter is about that second, harder layer of understanding. We will write plenty of code, but the code is in service of judgment. By the end you should be able to look at a pull request and say, with reasons, "this test earns its keep" or "this test is a liability."
 
@@ -3736,6 +3742,8 @@ Because of this, xUnit has no `[SetUp]`/`[TearDown]` attributes like NUnit. Inst
 
 - **Per-test setup** goes in the constructor.
 - **Per-test teardown** goes in `Dispose()` (implement `IDisposable`), or `DisposeAsync()` via `IAsyncLifetime` for async cleanup.
+
+> **xUnit v3 note:** xUnit v3 went GA in December 2024 as a ground-up repackaging (new package IDs, each test project now builds as an executable on Microsoft.Testing.Platform), and `IAsyncLifetime.InitializeAsync`/`DisposeAsync` now return `ValueTask` rather than `Task`. The examples here use idioms that read the same on v2 and v3; on v3 just expect `ValueTask` signatures.
 
 ```csharp
 public class OrderServiceTests : IDisposable
@@ -4273,7 +4281,7 @@ Write tests that would fail if the behaviour broke, that read clearly when they 
 
 # Chapter 8: Asynchronous & Concurrent Programming
 
-_⏱️ Estimated read time: ~35 min · 4916 words (study pace)_
+_⏱️ Estimated read time: ~35 min · 5042 words (study pace)_
 
 Few topics separate a mid-level .NET developer from a senior one as sharply as a genuine understanding of asynchrony. Almost everyone can sprinkle `async` and `await` on a method until the compiler stops complaining. Far fewer can explain what those keywords actually *do*, why a stray `.Result` can freeze a web server solid, or when reaching for a thread actively makes things slower.
 
@@ -4408,6 +4416,8 @@ An `awaitable` is anything exposing this shape — a `GetAwaiter()` method retur
 
 > **Key takeaway:** `await` splits a method into segments joined by continuations. Between segments, the calling thread is free. There is no magic background thread pumping your async method — it is cooperative suspension and resumption driven by I/O completions.
 
+> **Pitfall — `async void`:** An `async void` method returns no `Task`, so nobody can await it or observe its failure. An exception it throws is not captured on a returned task; it is raised on the captured `SynchronizationContext` and typically crashes the process. `async void` is legal *only* for event handlers (whose signature the framework fixes); everywhere else return `Task` so callers can await and catch.
+
 ## SynchronizationContext and ConfigureAwait
 
 We said the continuation might run on a *different* thread. But sometimes it *must* run on a *specific* thread. Consider a desktop UI: only the UI thread is allowed to touch UI controls. If your continuation updates a label, it had better run on the UI thread.
@@ -4438,6 +4448,8 @@ When and why to use it:
 - **In ASP.NET Core:** it is largely a no-op for correctness since there is no `SynchronizationContext`. Many teams still add it out of habit or for the tiny perf win, but it is not required. Do not rely on it to "fix" anything there.
 
 > **Pitfall:** `ConfigureAwait(false)` affects only the *single* await it is attached to, not the whole method. Every await makes its own capture decision. If you need it, apply it consistently.
+
+> **.NET 8 — `ConfigureAwaitOptions`:** .NET 8 added an overload `ConfigureAwait(ConfigureAwaitOptions)` on `Task`/`Task<T>` taking a `[Flags]` enum, so you can combine behaviors: `ContinueOnCapturedContext` (the old `true`), `SuppressThrowing` (await for completion without observing the exception — handy for a fire-and-forget you'll inspect elsewhere), and `ForceYielding` (always suspend, even if the task is already complete). It is not available on `ValueTask`.
 
 ## The Sync-Over-Async Deadlock
 
@@ -4844,7 +4856,7 @@ Master these, and asynchronous code stops being a source of mysterious hangs and
 
 # Chapter 9: Messaging & Distributed Systems
 
-_⏱️ Estimated read time: ~35 min · 4973 words (study pace)_
+_⏱️ Estimated read time: ~35 min · 5067 words (study pace)_
 
 Somewhere along the road from junior to senior, you stop asking "how do I call this API?" and start asking "what happens when this API is down, slow, or lying to me?" That shift in mindset is the heart of distributed systems. This chapter is about the tools and patterns we use to build systems out of many independent parts that keep working even when some of those parts fail.
 
@@ -4945,6 +4957,8 @@ Key ideas:
 
 > **Pick Kafka when:** you have high-throughput event streams, need replayability, want multiple independent consumers of the same firehose, or are building stream-processing pipelines. It's less a "message queue" and more a "distributed commit log you can subscribe to".
 
+> **Modern Kafka (4.0+):** ZooKeeper has been removed — clusters now run on **KRaft**, Kafka's built-in metadata quorum, so there's one system to operate instead of two. And **KIP-932 "Queues for Kafka"** (early access in 4.0) adds *share groups*, giving Kafka queue-like semantics — per-message acknowledgement, redelivery, and unordered consumption beyond the partition count — which softens the classic "Kafka is a log, not a queue" framing.
+
 The mental shift: RabbitMQ *pushes* messages and forgets them; Kafka *stores* an ordered history that consumers *pull* from at their own pace.
 
 ### Azure Service Bus — The Enterprise Managed Broker
@@ -5037,7 +5051,7 @@ Ordering is deceptively hard in distributed systems. The moment you have competi
 
 Writing raw broker client code (the RabbitMQ `IModel`, Kafka's consumer loop) is tedious and error-prone. **MassTransit** is the dominant .NET abstraction layer. It gives you a broker-agnostic API, built-in retry/redelivery, the outbox, sagas, and serialization — while letting you swap RabbitMQ for Azure Service Bus with a config change.
 
-> **A note on licensing:** In late 2024 the MassTransit team announced that v9 will be a commercial product; v8 remains open source (Apache 2.0) and maintained during a multi-year transition. For new projects, factor this into the decision and know the alternatives: **Wolverine**, **Rebus**, or the raw broker client libraries. The concepts in this chapter transfer to all of them.
+> **A note on licensing (2025):** In 2025 the MassTransit team announced that v9 will ship under a **commercial license** (official release expected around early 2026), with **v8 remaining the last broadly free OSS version** (Apache 2.0), maintained through the transition. That complicates the old "default free choice" framing, so give more weight to the alternatives when starting new projects: **NServiceBus** is also commercial, while **Rebus** and **Wolverine** are OSS — as are the raw broker client libraries. The concepts in this chapter transfer to all of them.
 
 Let's define a message contract. In MassTransit, an interface or record shared between publisher and consumer *is* the contract.
 
@@ -5175,7 +5189,7 @@ This is where distributed systems get genuinely hard — and where interviews an
 
 ### Idempotent Consumers
 
-Foundational, so we start here. In a distributed system you will receive duplicate messages (we'll see why under delivery guarantees). An **idempotent** consumer produces the same result whether it processes a message once or five times. The standard mechanism is deduplication: check whether this message's ID has already been processed, skip it if so, and record it once the work is done. Chapter 20 covers the mechanics of idempotency and idempotency keys in depth; here the point is that idempotent consumers are what make at-least-once delivery safe to live with.
+Foundational, so we start here. In a distributed system you will receive duplicate messages (we'll see why under delivery guarantees). An **idempotent** consumer produces the same result whether it processes a message once or five times. The standard mechanism is deduplication: check whether this message's ID has already been processed, skip it if so, and record it once the work is done. Chapter 21 covers the mechanics of idempotency and idempotency keys in depth; here the point is that idempotent consumers are what make at-least-once delivery safe to live with.
 
 > **Best practice:** design every consumer to be idempotent *by default*. It's cheaper than trying to guarantee exactly-once delivery (which, as we'll see, is nearly impossible). Use natural keys where you can — "does an order with this ID already exist?" is more robust than a separate processed-messages table.
 
@@ -5295,7 +5309,7 @@ The saga's state is *persisted*, so the process survives crashes and restarts. T
 
 ### Resilience Patterns: Retry, Circuit Breaker, Bulkhead
 
-These come from the world of resilient clients, and Chapter 20 covers the mechanics — the full Polly pipeline via `Microsoft.Extensions.Http.Resilience`, how the strategies layer, and why jitter matters. Here, the short version and the messaging angle:
+These come from the world of resilient clients, and Chapter 21 covers the mechanics — the full Polly pipeline via `Microsoft.Extensions.Http.Resilience`, how the strategies layer, and why jitter matters. Here, the short version and the messaging angle:
 
 - **Retry with exponential backoff and jitter.** When a call fails transiently, retry — but back off exponentially (1s, 2s, 4s, 8s) so the struggling service gets room to recover, and add jitter so a thousand clients that failed at the same instant don't retry in perfect unison — the "thundering herd."
 - **Circuit breaker.** When a downstream service is clearly down, retrying is pointless and harmful. A breaker watches the failure rate, "trips" once it crosses a threshold, fails fast for a cooldown period, then lets a trial request through and resumes if it succeeds. This protects both you (fail fast instead of hanging) and the struggling service (you stop piling on load).
@@ -5325,7 +5339,7 @@ Idempotency's practical implementation. Every message carries a unique ID. The c
 
 ## Consistency in a Distributed World
 
-Replicating data across a network forces a trade-off between consistency and availability — the territory of the CAP theorem and its PACELC refinement, which Chapter 20 covers in full. Here the point is the consequence you accept the moment you adopt messaging: **eventual consistency**. If you stop writing, all parts of the system *eventually* converge on the same state; in the meantime, reads might be stale. Your account balance updated on your phone might take a moment to appear on the website.
+Replicating data across a network forces a trade-off between consistency and availability — the territory of the CAP theorem and its PACELC refinement, which Chapter 21 covers in full. Here the point is the consequence you accept the moment you adopt messaging: **eventual consistency**. If you stop writing, all parts of the system *eventually* converge on the same state; in the meantime, reads might be stale. Your account balance updated on your phone might take a moment to appear on the website.
 
 This is exactly the model that messaging gives you. When the checkout publishes `OrderPlaced` and the analytics service processes it 200ms later, the system is *temporarily inconsistent* — the order exists but analytics doesn't know yet — and then converges. Accepting this is the price of decoupling, and for most business domains it's a fine price. The senior skill is identifying the few places where it *isn't* acceptable and applying stronger consistency there.
 
@@ -5392,7 +5406,7 @@ None of these patterns is exotic once you've internalized the core insight: **th
 
 # Chapter 10: Cloud — AWS & Azure
 
-_⏱️ Estimated read time: ~25 min · 4202 words (study pace)_
+_⏱️ Estimated read time: ~25 min · 4262 words (study pace)_
 
 For most of computing history, running software meant owning hardware. You bought servers, racked them in a room with expensive cooling, hired people to replace failed disks at 3 a.m., and paid for enough capacity to survive your busiest day of the year — capacity that sat idle the other 364 days. The cloud rewired this economic model. Instead of buying a power station, you plug into the grid and pay for the kilowatt-hours you actually use. That single shift in mindset — from *owning capacity* to *renting capability* — is the thread that runs through everything in this chapter.
 
@@ -5453,7 +5467,7 @@ AWS is the largest cloud and reads like an alphabet soup. Here are the services 
 
 ### Storage and databases
 
-- **S3 (Simple Storage Service)** — object storage. Effectively infinite, cheap, durable storage for files, backups, static assets, and data lakes. Not a filesystem — it's key/value blobs accessed over HTTP.
+- **S3 (Simple Storage Service)** — object storage. Effectively infinite, cheap, durable storage for files, backups, static assets, and data lakes. Not a filesystem — it's key/value blobs accessed over HTTP. For static assets, front it with an edge CDN (**CloudFront** on AWS, **Azure Front Door** on Azure) to cache content close to users and cut both latency and egress.
 - **RDS (Relational Database Service)** — managed relational databases (SQL Server, PostgreSQL, MySQL, and Amazon's Aurora). AWS handles backups, patching, and Multi-AZ failover. Use this instead of running a database on EC2 yourself.
 - **DynamoDB** — managed NoSQL key/value and document store. Single-digit-millisecond latency at any scale, serverless billing. Great for high-throughput, simple-access-pattern workloads (session stores, shopping carts) — but you must design around its access patterns up front, because ad-hoc queries are painful.
 
@@ -5748,7 +5762,7 @@ Serverless (Lambda, Azure Functions, Container Apps scaling to zero) is genuinel
 
 **The costs:**
 
-- **Cold starts.** When a function hasn't run recently, the platform must spin up a fresh execution environment — allocate a container, load your runtime, initialize your code — before handling the request. For .NET this historically meant a noticeable delay (hundreds of milliseconds to a second-plus) on the first request. It's improved dramatically (AOT compilation, ReadyToRun, and features like Lambda SnapStart / Functions premium plans), but it's real. A "warm" function responds in single-digit milliseconds; a cold one makes a user wait.
+- **Cold starts.** When a function hasn't run recently, the platform must spin up a fresh execution environment — allocate a container, load your runtime, initialize your code — before handling the request. For .NET this historically meant a noticeable delay (hundreds of milliseconds to a second-plus) on the first request. It's improved dramatically (AOT compilation, ReadyToRun, and platform features like **AWS Lambda SnapStart for .NET** — which snapshots an initialized runtime and restores it — and **Azure Functions Flex Consumption** (GA December 2024), whose "always ready" instances keep a warm pool while still scaling to zero), but it's real. A "warm" function responds in single-digit milliseconds; a cold one makes a user wait.
 - **Execution limits.** Functions have maximum durations and memory ceilings. Long-running or heavyweight jobs don't fit.
 - **Statelessness.** Each invocation is independent; you can't cache in memory reliably across calls. State must live externally (a database, a cache).
 - **Local development and debugging** are more awkward than a normal app, and **vendor lock-in** is higher because your code binds to the platform's event model.
@@ -5790,7 +5804,7 @@ Two habits underpin real seniority in the cloud: define everything as code (Terr
 
 # Chapter 11: Containers & Orchestration
 
-_⏱️ Estimated read time: ~35 min · 5257 words (study pace)_
+_⏱️ Estimated read time: ~35 min · 5281 words (study pace)_
 
 For most of computing history, "it works on my machine" was a punchline and a genuine source of pain. You'd build software against a particular version of the .NET runtime, a specific OpenSSL, a certain timezone database, and a filesystem laid out just so — and then ship it to a server that differed in a dozen invisible ways. Containers are the industry's collective answer to that problem: package the application *together with* everything it needs to run, then run that package identically everywhere.
 
@@ -6320,7 +6334,7 @@ The trade-off is real complexity and per-pod resource overhead from all those pr
 
 ## .NET Aspire: Orchestration for Local Development
 
-Docker Compose is language-agnostic, which means it doesn't know anything about your .NET projects. **.NET Aspire** is Microsoft's opinionated stack for building and running cloud-native, multi-service .NET apps — and it dramatically improves the *inner-loop* (local development) experience.
+Docker Compose is language-agnostic, which means it doesn't know anything about your .NET projects. **.NET Aspire** is Microsoft's opinionated stack for building and running cloud-native, multi-service .NET apps — and it dramatically improves the *inner-loop* (local development) experience. It is GA and versioned independently of the .NET release (Aspire 9.x), on its own cadence rather than tied to a specific .NET version.
 
 You describe your application's topology in C#, in an **AppHost** project, rather than in YAML:
 
@@ -6897,7 +6911,7 @@ None of these practices is exotic. Their power is cumulative: together they turn
 
 # Chapter 13: Observability
 
-_⏱️ Estimated read time: ~30 min · 4752 words (study pace)_
+_⏱️ Estimated read time: ~30 min · 4855 words (study pace)_
 
 Imagine you are the pilot of a modern aircraft. You cannot see the engines, you cannot feel the air pressure at 35,000 feet with your bare skin, and you certainly cannot inspect every one of the thousands of moving parts in real time. Yet you fly with confidence. Why? Because in front of you sits a cockpit full of instruments: altimeters, fuel gauges, temperature readouts, and warning lights that scream at you the moment something drifts out of tolerance. The aircraft is a black box, but the instruments make it *observable*.
 
@@ -7052,6 +7066,8 @@ Concrete defenses:
 ### NLog, Briefly
 
 NLog is the other mature structured logging library for .NET. It is configuration-file-driven (XML `nlog.config`) by tradition, with "targets" (equivalent to Serilog sinks) and "rules" that route loggers to targets by name and level. It also supports structured properties via the same `{Name}` template syntax through the `Microsoft.Extensions.Logging` bridge. Functionally the two are close; Serilog's fluent C# configuration and richer ecosystem of sinks have made it the more common choice in greenfield .NET projects, but NLog remains excellent and slightly faster in some file-logging benchmarks. Pick one and standardize.
+
+> **Modern note:** The **OpenTelemetry Logs signal is now stable in .NET**. An `ILogger` → OpenTelemetry bridge — wired via `AddOpenTelemetry().WithLogging(...)`, sitting right alongside `.WithTracing()` and `.WithMetrics()` — lets your existing `ILogger` calls flow straight out over OTLP, completing the "one SDK for logs, metrics, and traces" story you meet later in this chapter.
 
 ## Metrics
 
@@ -7240,6 +7256,8 @@ The instrumentation packages are what make this genuinely powerful. `AddAspNetCo
 An **exporter** ships your telemetry out of the process. **OTLP** (OpenTelemetry Protocol) is the native, preferred choice — a gRPC/HTTP protocol understood by the OpenTelemetry Collector and virtually every backend. The recommended architecture is: your apps export OTLP to a **Collector**, and the Collector fans the data out to your chosen backends. This decouples your applications entirely from backend choice and lets you add processing (batching, filtering, tail sampling) in one central place.
 
 **Jaeger** and **Zipkin** are popular open-source trace visualization backends that render the span waterfall. Both now ingest OTLP natively, so in modern setups you typically export OTLP everywhere and let the Collector route it.
+
+> **Local dev tip:** **.NET Aspire** ships a built-in dashboard that is itself an OTLP receiver, giving you zero-config local traces, metrics, and logs — point your app's OTLP exporter at it and read a full cross-service waterfall without standing up Jaeger, Prometheus, or a Collector on your laptop.
 
 ## APM Tools
 
@@ -7874,7 +7892,7 @@ Security is a discipline of layered, deliberate decisions. Adopt the mindset —
 
 # Chapter 15: Performance & Optimization
 
-_⏱️ Estimated read time: ~35 min · 5350 words (study pace)_
+_⏱️ Estimated read time: ~35 min · 5446 words (study pace)_
 
 Performance engineering is the discipline where good intentions go to die. Every experienced developer has, at some point, spent an afternoon lovingly hand-optimizing a loop that ran once at startup, only to discover the real bottleneck was a database query fired sixty times per request. This chapter is about not being that developer. It is about building the instincts, the tooling literacy, and the mechanical knowledge of the .NET runtime that separate a mid-level engineer who *thinks* their code is fast from a senior engineer who *knows*.
 
@@ -8024,7 +8042,7 @@ In managed .NET, you do not manually free memory — the garbage collector does.
 
 ### Why Allocations Cost
 
-Allocating a small object on the managed heap is itself cheap — it is basically a pointer bump. The cost comes *later*, when the GC has to reclaim it. The .NET GC is generational: new objects live in **Gen0**, and survivors get promoted to **Gen1** then **Gen2**. Gen0 collections are frequent and fast; Gen2 collections are rare and expensive because they may scan the entire heap. Critically, a garbage collection can pause your application threads.
+Allocating a small object on the managed heap is itself cheap — it is basically a pointer bump. The cost comes *later*, when the GC has to reclaim it. The .NET GC is generational: new objects live in **Gen0**, and survivors get promoted to **Gen1** then **Gen2**. Gen0 collections are frequent and fast; Gen2 collections are rare and expensive because they may scan the entire heap. Critically, a garbage collection can pause your application threads. (For the generational model in depth, plus Server-vs-Workstation GC and the newer DATAS mode, see Chapter 2 rather than re-deriving it here.)
 
 So the real cost of allocations is **GC pressure**: the more garbage you produce, the more often the GC runs, the more CPU it burns, and the more latency spikes ("pauses") your users feel. A hot path that allocates a temporary object per iteration can trigger thousands of Gen0 collections per second. The allocation was cheap; the aggregate collection cost is not.
 
@@ -8266,6 +8284,8 @@ Understanding the *internals* explains the table. A `Dictionary<K,V>` is a hash 
 
 > **Best practice:** Pre-size collections when you know roughly how many elements they will hold: `new List<T>(expectedCount)`, `new Dictionary<K,V>(expectedCount)`. This skips the sequence of internal reallocations as the collection grows.
 
+> **Modern note (.NET 8):** For a lookup table built **once and then read many times** — reference data loaded at startup — `FrozenDictionary<TKey,TValue>` and `FrozenSet<T>` (in `System.Collections.Frozen`) trade slower construction for measurably faster reads than `Dictionary`/`HashSet`; a `FrozenDictionary` row would slot naturally into the table above. For scanning a string or buffer for any of a fixed set of values, `SearchValues<T>` gives a vectorized, hardware-accelerated `IndexOfAny` that far outpaces a naive multi-value search.
+
 ## Load Testing: Proving It Under Pressure
 
 Benchmarks and profilers examine one operation or one process. **Load testing** answers the system-level question: how does the whole service behave under many concurrent users? It reveals behaviors invisible in single-request testing — thread-pool starvation, connection-pool exhaustion, lock contention, and the difference between average and tail (p99) latency.
@@ -8329,7 +8349,7 @@ Above all, remember the golden rule that opened this chapter, because it is the 
 
 # Chapter 16: Tooling & Productivity
 
-_⏱️ Estimated read time: ~5 min · 1065 words (study pace)_
+_⏱️ Estimated read time: ~5 min · 1067 words (study pace)_
 
 A senior developer is not just someone who writes good code. It is someone whose *environment* multiplies their output. The tools below are the ones you will actually reach for on a modern .NET team. You don't need all of them, but you should know what each solves so you can pick deliberately rather than by habit.
 
@@ -8400,7 +8420,7 @@ The senior mindset: **the AI drafts, you own.** Treat generated code exactly lik
 
 > **Tip:** If you can't explain why the AI's code works, you're not ready to merge it. Your name is on the commit, not the model's.
 
-> **This chapter is about using tools to code faster. Chapter 18 goes much deeper on the *AI-native* workflow — agentic coding, parallel sub-agents, AFK flows — and on building AI *into* your products.**
+> **This chapter is about using tools to code faster. Chapter 18 goes much deeper on the *AI-native* workflow — agentic coding, parallel sub-agents, AFK flows — and Chapter 19 covers building AI *into* your products.**
 
 
 ---
@@ -8794,15 +8814,15 @@ You already have the technical foundation. The path from middle to senior runs s
 
 ---
 
-# Chapter 18: The AI-Native Developer — Thriving and Building in the AI Era
+# Chapter 18: The AI-Native Developer — Thriving in the AI Era
 
-_⏱️ Estimated read time: ~1 h 15 min · 14332 words (study pace)_
+_⏱️ Estimated read time: ~40 min · 8222 words (study pace)_
 
 For most of your career the deal has been simple: you learn to write code, and in exchange the industry pays you well to write it. That deal is being renegotiated in real time. By 2025 and into 2026, a competent AI coding assistant can produce a working REST endpoint, a unit test suite, an EF Core migration, or a plausible refactor faster than you can open the file. The raw act of turning a clear specification into syntactically correct C# — the thing you spent years getting good at — has largely been commoditized. That is not a threat to be defended against. It is a promotion, if you understand what you are being promoted into.
 
-This chapter is about that promotion. It is organized into three parts. **Part I** is about *value*: where your worth as a developer now comes from when the machine can type, and how to deliberately build the kinds of judgment, context, and design sense that appreciate rather than depreciate. **Part II** (which follows) is about *working productively with AI day to day* — the practical craft of driving these tools well, reviewing their output at scale, and not letting them make you slower or dumber. **Part III** (also following) is about *building AI systems yourself* — moving from consumer to author, integrating models into .NET applications, and the engineering discipline that separates a demo from a production system.
+This chapter is about that promotion, in two parts. **Part I** is about *value*: where your worth as a developer now comes from when the machine can type, and how to deliberately build the kinds of judgment, context, and design sense that appreciate rather than depreciate. **Part II** is about *working productively with AI day to day* — the practical craft of driving these tools well, reviewing their output at scale, and not letting them make you slower or dumber. The third act — *building AI systems yourself*, moving from consumer to author — is a different discipline entirely, and it gets its own chapter next (Chapter 19).
 
-We start with Part I because it is the foundation. If you get the value question wrong — if you keep competing on the axis the machine now dominates — nothing in Parts II and III will save you. If you get it right, the rest is leverage. Let's talk about what makes a developer valuable when the code writes itself.
+We start with Part I because it is the foundation. If you get the value question wrong — if you keep competing on the axis the machine now dominates — nothing that follows will save you. If you get it right, the rest is leverage. Let's talk about what makes a developer valuable when the code writes itself.
 
 ## Part I — Becoming Valuable When AI Can Write the Code
 
@@ -9044,7 +9064,7 @@ Set up this way, overnight runs become genuinely useful: you queue three well-sc
 
 ### MCP for development
 
-The **Model Context Protocol (MCP)** is an open standard for connecting agents to external tools and data through a uniform interface. Instead of every tool inventing its own integration, an agent speaks MCP to any compliant *server*, and each server exposes a set of tools the agent can call. Think of it as a universal adapter between your agent and the rest of your stack. (Building MCP servers into your *own products* is a Part III topic; here we care about consuming them to code better.)
+The **Model Context Protocol (MCP)** is an open standard for connecting agents to external tools and data through a uniform interface. Instead of every tool inventing its own integration, an agent speaks MCP to any compliant *server*, and each server exposes a set of tools the agent can call. Think of it as a universal adapter between your agent and the rest of your stack. (Building MCP servers into your *own products* is a Chapter 19 topic; here we care about consuming them to code better.)
 
 For a working .NET developer, the useful development-time MCP servers include:
 
@@ -9118,14 +9138,20 @@ Here's how the pieces fit together for a senior .NET developer on a normal Tuesd
 
 That's the shape of it. The AI wrote much of the code; you did the engineering — specifying, contextualizing, verifying, deciding. The tools will keep changing. The discipline underneath — clear specs, curated context, small reversible steps, relentless verification, a human accountable at the merge — is what makes an AI-native developer productive *and* trustworthy. Master that, and the next tool is just a faster way to do what you already know how to do well.
 
+So far the AI has been your collaborator. The next chapter flips the relationship: the model becomes a *component inside* the software you ship — and that changes how you design, test, and operate everything around it.
 
-## Part III — Building AI-Powered Systems
 
-Parts I and II were about *using* AI to write software. Part III flips the relationship: now the AI model is a *component inside* the software you ship. This is a different discipline. When you use an assistant to write a function, you review the output once and move on. When you embed a model in a running system, that model produces fresh, non-deterministic output on every request, for every user, forever — and you own the consequences. That single fact reshapes how you design, test, and operate the application.
+---
 
-This part is a practical field guide to the popular AI system archetypes of 2025–2026 — retrieval-augmented generation (RAG), chatbots, and agents — with a .NET focus. We will build up from fundamentals (how to reason about an LLM as a component) through the modern .NET AI stack, and finish with the unglamorous production concerns that separate a demo from a product: evaluation, observability, cost, and safety.
+# Chapter 19: Building AI-Powered Systems
 
-### Thinking about an LLM as a component
+_⏱️ Estimated read time: ~35 min · 6127 words (study pace)_
+
+Chapter 18 was about *using* AI to write software. This chapter flips the relationship: now the AI model is a *component inside* the software you ship. This is a different discipline. When you use an assistant to write a function, you review the output once and move on. When you embed a model in a running system, that model produces fresh, non-deterministic output on every request, for every user, forever — and you own the consequences. That single fact reshapes how you design, test, and operate the application.
+
+This chapter is a practical field guide to the popular AI system archetypes of 2025–2026 — retrieval-augmented generation (RAG), chatbots, and agents — with a .NET focus. We will build up from fundamentals (how to reason about an LLM as a component) through the modern .NET AI stack, and finish with the unglamorous production concerns that separate a demo from a product: evaluation, observability, cost, and safety.
+
+## Thinking about an LLM as a component
 
 A traditional library function is a contract: same input, same output, deterministic, fast, cheap, and knowable. An LLM breaks nearly every one of those assumptions. To integrate one well, internalize its actual properties:
 
@@ -9136,7 +9162,7 @@ A traditional library function is a contract: same input, same output, determini
 
 > **Mental model:** treat the LLM like a very capable but unreliable remote contractor who is brilliant at language, has no access to your systems, forgets everything between tasks, occasionally makes things up with total confidence, charges by the word, and works at network latency. Your job as the engineer is to *constrain, ground, verify, and budget* that contractor.
 
-#### Tokens, context windows, temperature
+### Tokens, context windows, temperature
 
 Models don't see characters; they see **tokens** — sub-word chunks. A rough rule of thumb for English is ~4 characters or ~0.75 words per token, but never hard-code this; use the provider's tokenizer when precision matters (billing, truncation). Both your input (the prompt) and the model's output are billed in tokens, and output tokens are usually several times more expensive than input tokens.
 
@@ -9144,7 +9170,7 @@ The **context window** is the maximum number of tokens the model can consider in
 
 **Temperature** (and its cousin `top_p`) controls sampling randomness. Low temperature (0–0.3) makes output focused and repetitive — right for extraction, classification, structured output, and tool calling. Higher temperature (0.7–1.0) increases diversity — right for brainstorming or creative copy. For most application backends you want *low* temperature: you are trying to build a reliable feature, not a poetry generator.
 
-#### The message roles
+### The message roles
 
 Chat-style models take a list of messages, each with a role:
 
@@ -9157,11 +9183,11 @@ The whole conversation is re-sent on every turn. The model is stateless; *you* a
 
 > **Cost/latency note:** because you resend the full history each turn, a long chat gets progressively more expensive and slower. Managing conversation length is not optional polish — it is core engineering, covered below.
 
-#### Why determinism and evaluation matter
+### Why determinism and evaluation matter
 
 You cannot unit-test an LLM feature the way you test a parser. "Assert output equals expected string" is meaningless when the output legitimately varies. This is the central cultural shift for a senior engineer moving into AI: **you move from deterministic assertions to statistical evaluation.** You build a test set of representative inputs, define what "good" means (often with a rubric or a second model as judge), and track pass rates over time. We cover this properly in the evaluation section — but flag it now, because it should shape your architecture from day one. If you can't measure quality, you can't safely change your prompt, swap your model, or ship with confidence.
 
-### Prompt engineering for applications
+## Prompt engineering for applications
 
 Prompt engineering in an app is not the clever one-off phrasing you use in a chat window. It is *durable, versioned, tested* instruction design. A few essentials:
 
@@ -9177,7 +9203,7 @@ Prompt engineering in an app is not the clever one-off phrasing you use in a cha
 
 > **Pitfall:** prompts silently rot. A prompt tuned for one model version can degrade when the provider updates the model underneath you. Version both the prompt *and* the target model, and re-run evals on model updates.
 
-### Tool (function) calling
+## Tool (function) calling
 
 Left alone, an LLM can only produce text. **Tool calling** (a.k.a. function calling) is the mechanism that lets it *act* — the foundation of everything agentic.
 
@@ -9229,7 +9255,7 @@ The value of the abstraction is that the tedious detect-call-execute-resubmit lo
 
 > **Safety note:** a tool call is the model reaching into your systems. Never wire a model directly to a destructive or high-privilege operation without a confirmation step or authorization check. The model can be manipulated (see prompt injection); treat every tool argument as untrusted input.
 
-### Model Context Protocol (MCP) for products
+## Model Context Protocol (MCP) for products
 
 Function calling is per-application: you write the tools into *your* app. The **Model Context Protocol (MCP)** standardizes this at the ecosystem level. MCP is an open protocol (introduced by Anthropic in late 2024 and broadly adopted since) that defines how an AI application — the **host/client** — connects to external **servers** that expose *tools*, *resources* (readable data), and *prompts*. Think of it as a universal adapter between models and capabilities: write one MCP server and any MCP-aware client can use it.
 
@@ -9273,15 +9299,15 @@ await builder.Build().RunAsync();
 
 > **When *not* to build one:** if the tools are only ever used by a single application you control, plain function calling is simpler and has fewer moving parts. MCP earns its keep at integration boundaries — across teams, products, or organizations — not inside one service. Also: exposing tools via MCP is exposing an API surface. Apply the same authentication, authorization, and rate limiting you would to any public endpoint.
 
-### Retrieval-Augmented Generation (RAG)
+## Retrieval-Augmented Generation (RAG)
 
 RAG is the most important application pattern to understand, because it directly attacks the LLM's two biggest weaknesses: its knowledge is frozen at training cutoff, and it knows nothing private. **RAG grounds the model in *your* data by retrieving relevant content at query time and injecting it into the prompt.** The model then answers *from* that content rather than from its parametric memory, which reduces hallucination and — crucially — lets you cite sources.
 
-#### The problem RAG solves
+### The problem RAG solves
 
 Ask a raw model "What is our refund policy for enterprise customers?" and it will invent something plausible. It has never seen your policy. RAG changes the request from "answer this" to "here are three relevant passages from our policy documents; answer *using only* these, and cite them." Now the answer is grounded, current (you re-index when the docs change), private (the data never entered training), and *verifiable* (the citations let a human check).
 
-#### The architecture end to end
+### The architecture end to end
 
 RAG has two phases. An offline **ingestion** pipeline and an online **query** pipeline.
 
@@ -9299,11 +9325,11 @@ RAG has two phases. An offline **ingestion** pipeline and an online **query** pi
 7. **Augment** — build a prompt that includes the top chunks as grounding context.
 8. **Generate** — the LLM answers from that context, with citations.
 
-#### Embeddings and vector similarity
+### Embeddings and vector similarity
 
 An **embedding** is a fixed-length vector of floats that captures the *meaning* of a piece of text, produced by an embedding model. Texts with similar meaning land near each other in vector space. "How do I get my money back?" and "refund process" have very different keywords but nearby embeddings — which is exactly why vector search beats keyword search for meaning-based recall. Similarity is usually **cosine similarity** (the angle between vectors). You embed all chunks once at ingest, embed the query at request time, and retrieve the nearest neighbors.
 
-#### Chunking strategies
+### Chunking strategies
 
 Chunking quality quietly determines RAG quality. Chunks that are too large dilute relevance and waste context; too small and they lose the surrounding meaning. Common strategies:
 
@@ -9316,7 +9342,7 @@ Always store **metadata** with each chunk (source id, title, URL, section, times
 
 > **Pitfall:** the single most common RAG bug is bad chunking, not a bad model. If answers are vague or miss obvious content, inspect what's actually being retrieved *before* touching the prompt or model.
 
-#### Vector databases and hybrid search
+### Vector databases and hybrid search
 
 The store holds vectors and supports fast approximate-nearest-neighbor (ANN) search. Options span a spectrum:
 
@@ -9328,18 +9354,18 @@ The store holds vectors and supports fast approximate-nearest-neighbor (ANN) sea
 
 **Hybrid search** combines vector similarity with classic keyword search (BM25/full-text). Vectors capture meaning but can miss exact matches — product codes, error IDs, names, acronyms — where keywords excel. Running both and fusing the results (commonly Reciprocal Rank Fusion) reliably beats either alone. Most serious RAG systems in 2025–2026 are hybrid.
 
-#### Reranking and query rewriting
+### Reranking and query rewriting
 
 Two techniques that punch above their weight:
 
 - **Reranking** — retrieval favors recall (get all plausibly relevant chunks); a **reranker** (a cross-encoder model that scores query–chunk pairs jointly) then favors precision, re-ordering the top ~50 candidates down to the best ~5 you actually put in the prompt. This markedly improves grounding quality.
 - **Query rewriting / expansion** — user queries are often terse, ambiguous, or context-dependent ("what about the second one?"). Rewrite the query first — resolve pronouns from conversation history, expand acronyms, generate a few paraphrases — then retrieve. This closes the gap between how users phrase things and how documents are written.
 
-#### Citations and sources
+### Citations and sources
 
 Because each chunk carries metadata, you can cite. The standard approach: give each retrieved chunk an id in the prompt, instruct the model to reference the id it drew from, and then map ids back to real source links in your UI. Citations do double duty — they build user trust *and* give you a cheap groundedness check: if a claim has no citation, be suspicious.
 
-#### A concrete .NET RAG example
+### A concrete .NET RAG example
 
 Here is the query path assembled with `Microsoft.Extensions.AI` abstractions. The embedding generator and chat client are provider-agnostic; the vector store here is illustrative:
 
@@ -9386,7 +9412,7 @@ public sealed class RagService(
 
 The whole art is upstream of the generation call: retrieve the *right* chunks and the model does the easy part well; retrieve the wrong ones and no prompt can save you. (In practice you'd reach for **Kernel Memory** or Semantic Kernel's memory connectors rather than hand-rolling the store — see the stack section.)
 
-#### Evaluating RAG
+### Evaluating RAG
 
 RAG has two failure surfaces — retrieval and generation — so evaluate both:
 
@@ -9396,14 +9422,14 @@ RAG has two failure surfaces — retrieval and generation — so evaluate both:
 
 Toolkits like RAGAS (Python) codify these metrics; in .NET you can implement equivalents with an LLM-as-judge over a curated eval set.
 
-#### Common RAG failure modes and fixes
+### Common RAG failure modes and fixes
 
 - **The answer is in the docs but wasn't retrieved** → chunking or embedding problem, or missing hybrid search. Inspect retrieved chunks; add keyword search; tune chunk size; add query rewriting.
 - **Right chunks retrieved, wrong answer generated** → prompt/grounding problem. Tighten the "answer only from context" instruction; add reranking; reduce context noise.
 - **Confidently wrong when data is absent** → the model won't admit ignorance. Explicitly instruct it to say "I don't know" and, in evals, reward abstention over fabrication.
 - **Stale answers** → ingestion pipeline isn't re-running. Re-index on source change; store timestamps; expire old content.
 
-#### When *not* to use RAG
+### When *not* to use RAG
 
 RAG is not the answer to everything. Reach for alternatives when:
 
@@ -9413,7 +9439,7 @@ RAG is not the answer to everything. Reach for alternatives when:
 
 > **Rule of thumb:** RAG for *knowledge that changes and must be cited*; long context for *small stable knowledge*; fine-tuning for *behavior and format*; tools for *actions and live data*. Most real systems blend several.
 
-### Chatbots and conversational systems
+## Chatbots and conversational systems
 
 A chatbot layers multi-turn conversation on top of these primitives. The distinctive engineering challenges:
 
@@ -9438,7 +9464,7 @@ await foreach (var update in chat.GetStreamingResponseAsync(messages, options))
 
 **Human handoff.** Know your limits. Detect when the bot is stuck, when the user is frustrated, or when the request is high-stakes (legal, safety, money) and route to a human — with the conversation transcript attached. A graceful handoff beats a confident wrong answer every time.
 
-### Agents
+## Agents
 
 An **agent** is the natural extension of tool calling into autonomy. Where a chatbot responds turn by turn, an agent is given a *goal* and runs a **loop**: it reasons about what to do, takes an action (a tool call), observes the result, and repeats until the goal is met or it gives up. The canonical formulation is **ReAct** (Reason + Act): the model alternates between a reasoning step ("I need the order status, then the shipping ETA") and an acting step (call `GetOrderStatus`), feeding each observation back into its reasoning.
 
@@ -9459,11 +9485,11 @@ Minimally, the loop is just tool-calling run until completion — which is exact
 
 > **Safety note:** the more autonomy and the more powerful the tools, the higher the blast radius. An agent that can execute code or make purchases and is exposed to untrusted input (a web page, a user message) is a prompt-injection target. Scope permissions to the minimum, and never let a single model turn both read untrusted content *and* invoke a high-privilege tool without a checkpoint.
 
-### The .NET AI stack
+## The .NET AI stack
 
 The .NET ecosystem matured fast. The pieces you should know:
 
-- **Microsoft.Extensions.AI** — the unifying abstraction layer (the `IChatClient` and `IEmbeddingGenerator` interfaces used throughout this part). It plays the role for AI that `ILogger`/`HttpClientFactory` play elsewhere: one provider-agnostic interface, pluggable implementations (OpenAI, Azure OpenAI, Anthropic, Ollama, local ONNX), and a **middleware pipeline** for cross-cutting concerns — function invocation, caching, telemetry, retries — composed via `AsBuilder()`. Program against these interfaces and your provider becomes a swap, not a rewrite. This is the recommended foundation for new .NET AI code.
+- **Microsoft.Extensions.AI** — the unifying abstraction layer (the `IChatClient` and `IEmbeddingGenerator` interfaces used throughout this chapter). It plays the role for AI that `ILogger`/`HttpClientFactory` play elsewhere: one provider-agnostic interface, pluggable implementations (OpenAI, Azure OpenAI, Anthropic, Ollama, local ONNX), and a **middleware pipeline** for cross-cutting concerns — function invocation, caching, telemetry, retries — composed via `AsBuilder()`. Program against these interfaces and your provider becomes a swap, not a rewrite. This is the recommended foundation for new .NET AI code.
 - **Semantic Kernel** — a higher-level orchestration SDK. It introduces **plugins** (collections of functions/tools the kernel can call), **memory** connectors (embeddings + vector stores for RAG), and orchestration for multi-step and agent workflows. Use it when you want batteries-included orchestration rather than assembling primitives yourself. (Its older explicit "planner" components have largely given way to function-calling-driven planning, mirroring the wider industry shift.)
 - **Kernel Memory** — a service/library dedicated to RAG ingestion and retrieval: it handles loading, chunking, embedding, storage, and query as a pipeline you can run in-process or as a standalone service. Reach for it instead of hand-rolling the RAG plumbing shown earlier.
 - **Provider SDKs** — the official `OpenAI`, `Azure.AI.OpenAI`, and Anthropic .NET SDKs for when you need provider-specific features beneath the abstraction.
@@ -9494,7 +9520,7 @@ Console.WriteLine(result);
 
 **Cross-ecosystem awareness.** The Python world moves fast and its ideas cross over, so know the names: **LangChain** (the broad building-block framework for chains, tools, and RAG), **LlamaIndex** (RAG- and data-framework-focused), **LangGraph** (graph-based orchestration for stateful, cyclic agent workflows), **DSPy** (programmatic prompt *optimization* — you declare the task and it tunes the prompts against a metric, rather than you hand-crafting them), and **Haystack** (a production-oriented RAG/search framework). You rarely need these in a .NET shop, but their patterns — and their vocabulary — shape the field.
 
-### Integrating AI into existing applications
+## Integrating AI into existing applications
 
 Bolting a model onto a production app is where many teams stumble. The patterns that keep you sane:
 
@@ -9512,11 +9538,11 @@ Bolting a model onto a production app is where many teams stumble. The patterns 
 
 **Cost controls, rate limiting, retries.** Set per-user and per-tenant token budgets and enforce them. Rate-limit calls to stay within provider quotas and to cap spend. Use retries with **exponential backoff and jitter** for the inevitable 429s and transient 5xxs — but bound them, and make them idempotent-safe. These belong in the middleware pipeline, applied uniformly, not sprinkled per call site.
 
-### Evaluation, observability, and safety
+## Evaluation, observability, and safety
 
 This is the section that separates a demo from a product. It is also the part most teams skip and most regret.
 
-#### Evaluation
+### Evaluation
 
 You cannot improve — or safely change — what you don't measure. Build an **eval set**: a curated collection of representative inputs paired with either expected outputs or a grading rubric. Run it whenever you change a prompt, model, or retrieval setting, and track the pass rate. Techniques:
 
@@ -9528,14 +9554,14 @@ Microsoft ships **Microsoft.Extensions.AI.Evaluation**, a .NET library for build
 
 > **Takeaway:** treat evals as the regression suite for your AI features. No eval set, no confident change. A model or prompt update without a re-run is a blind deploy.
 
-#### Observability
+### Observability
 
 In production you need to *see* what the model is doing. Capture, per request: the full prompt, the response, token counts, latency, cost, model/prompt version, tool calls, and (for RAG) retrieved chunks. Then:
 
 - **Tracing** — end-to-end traces of multi-step flows (which tools fired, what was retrieved, how long each step took). **LangSmith** and **Langfuse** are popular LLM-focused tracing platforms. Vendor-neutrally, the **OpenTelemetry GenAI semantic conventions** define a standard schema for LLM spans, and Microsoft.Extensions.AI emits OpenTelemetry traces out of the box — so your AI telemetry flows into the same observability stack (and dashboards) as the rest of your services.
 - **Monitoring** — dashboard quality (eval scores on sampled traffic), cost (tokens/spend per feature and per tenant), and latency (p50/p95/p99). Alert on regressions in any of the three.
 
-#### Safety
+### Safety
 
 LLM features open attack surfaces and failure modes traditional apps don't have. Minimum defenses:
 
@@ -9548,9 +9574,9 @@ LLM features open attack surfaces and failure modes traditional apps don't have.
 
 > **Pitfall:** guardrails in the prompt alone are theater. A determined input will get around "please don't do X." Real safety is *defense in depth* — least-privilege tools, code-level validation, content filters, tenant isolation, and human checkpoints — with the prompt as just one layer.
 
-### Bringing it together: production concerns
+## Bringing it together: production concerns
 
-The threads of this part converge on four production priorities:
+The threads of this chapter converge on four production priorities:
 
 **Cost optimization.** Route by difficulty — a cheap small model handles the easy 80% of requests, escalating to an expensive model only when needed (**model routing / cascades**). Cache aggressively (exact and semantic). Prefer the smallest model that passes your evals; the frontier model is rarely required. Trim prompts and context ruthlessly — you pay per token, every call.
 
@@ -9560,14 +9586,14 @@ The threads of this part converge on four production priorities:
 
 **Versioning.** Pin and version both models and prompts. When a provider updates a model or you change a prompt, re-run your eval set *before* rolling out, and keep the ability to roll back instantly. Model and prompt versions belong in your telemetry so you can attribute any quality shift to the change that caused it.
 
-The recurring theme across all of Part III: an LLM is a powerful but unreliable component, and the engineering discipline is in the *scaffolding you build around it* — grounding it with retrieval, constraining it with schemas and tools, budgeting its cost and latency, measuring it with evals, watching it with observability, and containing it with safety layers. Master that scaffolding and you can build AI-native systems that are not just impressive in a demo, but dependable in production. That is the leap from mid-level to senior in the AI-native era.
+The recurring theme across this chapter: an LLM is a powerful but unreliable component, and the engineering discipline is in the *scaffolding you build around it* — grounding it with retrieval, constraining it with schemas and tools, budgeting its cost and latency, measuring it with evals, watching it with observability, and containing it with safety layers. Master that scaffolding and you can build AI-native systems that are not just impressive in a demo, but dependable in production. That is the leap from mid-level to senior in the AI-native era.
 
 
 
 
 ---
 
-# Chapter 19: Networking & Web Fundamentals
+# Chapter 20: Networking & Web Fundamentals
 
 _⏱️ Estimated read time: ~25 min · 4437 words (study pace)_
 
@@ -9690,7 +9716,7 @@ The methods carry semantic meaning that the whole ecosystem (caches, proxies, re
 - **PATCH** — partial update.
 - **DELETE** — remove; idempotent.
 
-> **Best practice:** *Idempotency* means calling N times has the same effect as calling once. It is not academic — it decides whether it is safe to auto-retry. A proxy or your Polly retry policy can safely retry a GET or PUT after a timeout; retrying a POST might charge a credit card twice. Design your APIs so that anything retriable is idempotent, and use idempotency keys for POSTs that must not double-execute (Chapter 20 covers the mechanics).
+> **Best practice:** *Idempotency* means calling N times has the same effect as calling once. It is not academic — it decides whether it is safe to auto-retry. A proxy or your Polly retry policy can safely retry a GET or PUT after a timeout; retrying a POST might charge a credit card twice. Design your APIs so that anything retriable is idempotent, and use idempotency keys for POSTs that must not double-execute (Chapter 21 covers the mechanics).
 
 ## HTTP/1.1 vs HTTP/2 vs HTTP/3: A History of Fixing Head-of-Line Blocking
 
@@ -9974,11 +10000,11 @@ using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
 var response = await client.GetAsync(url, cts.Token);
 ```
 
-> **Best practice:** Combine timeouts, retries (with **exponential backoff and jitter** so retries don't stampede in lockstep), and **circuit breakers** (stop hammering a failing dependency) — the resilience trio. In .NET, `Microsoft.Extensions.Http.Resilience` (built on Polly) wires all three into `IHttpClientFactory` declaratively; Chapter 20 builds the full pipeline and explains how the strategies layer.
+> **Best practice:** Combine timeouts, retries (with **exponential backoff and jitter** so retries don't stampede in lockstep), and **circuit breakers** (stop hammering a failing dependency) — the resilience trio. In .NET, `Microsoft.Extensions.Http.Resilience` (built on Polly) wires all three into `IHttpClientFactory` declaratively; Chapter 21 builds the full pipeline and explains how the strategies layer.
 
 ## The Fallacies of Distributed Computing
 
-We close with the mental model that should underpin every networked design decision: the **Fallacies of Distributed Computing**, the catalogue of false assumptions — the network is reliable, latency is zero, bandwidth is infinite, and five more — that Sun Microsystems engineers compiled in the 1990s. Chapter 20 works through all eight; for now, internalize the three this chapter has been circling all along. The network is *not* reliable — a call can fail *after* the server processed it but *before* you got the response, which is why idempotency, retries, and timeouts are load-bearing, not optional. Latency is *not* zero — 50 sequential calls to render one page (the **N+1 network problem**) is why some apps feel slow no matter how fast the code is; batch, parallelize, and cache. And bandwidth is neither infinite nor free — cloud egress bills (often the biggest surprise line item) make that painfully concrete.
+We close with the mental model that should underpin every networked design decision: the **Fallacies of Distributed Computing**, the catalogue of false assumptions — the network is reliable, latency is zero, bandwidth is infinite, and five more — that Sun Microsystems engineers compiled in the 1990s. Chapter 21 works through all eight; for now, internalize the three this chapter has been circling all along. The network is *not* reliable — a call can fail *after* the server processed it but *before* you got the response, which is why idempotency, retries, and timeouts are load-bearing, not optional. Latency is *not* zero — 50 sequential calls to render one page (the **N+1 network problem**) is why some apps feel slow no matter how fast the code is; batch, parallelize, and cache. And bandwidth is neither infinite nor free — cloud egress bills (often the biggest surprise line item) make that painfully concrete.
 
 > **The senior mindset in one sentence:** Treat every network call as an *unreliable, slow, expensive, insecure* operation that will eventually fail — then be pleasantly surprised when it works.
 
@@ -9998,7 +10024,7 @@ We close with the mental model that should underpin every networked design decis
 
 ---
 
-# Chapter 20: Distributed Systems Theory & Reliability Engineering
+# Chapter 21: Distributed Systems Theory & Reliability Engineering
 
 _⏱️ Estimated read time: ~25 min · 4171 words (study pace)_
 
@@ -10248,9 +10274,9 @@ The mid-level instinct is to make the network invisible and hope. The senior ins
 
 ---
 
-# Chapter 21: Background Processing, Scheduling & the Actor Model
+# Chapter 22: Background Processing, Scheduling & the Actor Model
 
-_⏱️ Estimated read time: ~25 min · 3797 words (study pace)_
+_⏱️ Estimated read time: ~25 min · 3877 words (study pace)_
 
 Almost every non-trivial system does work that no user is waiting on: sending emails, retrying failed payments, rebuilding search indexes, aggregating metrics, cleaning up expired data. The naive approach - do it inline on the request thread - couples user-facing latency to work that has no business being on the hot path, and it silently loses that work whenever a request is cancelled or a pod restarts.
 
@@ -10402,7 +10428,7 @@ builder.Services.Configure<HostOptions>(o =>
 
 The moment you run more than one instance of your service - and in any serious deployment you will, for availability alone - two copies of that outbox worker are polling the same table. Both may grab the same row. Your message gets published twice.
 
-You cannot engineer this possibility away entirely. Distributed systems give you **at-least-once** delivery as the practical default; exactly-once is a comforting fiction that, when you look closely, is always at-least-once plus idempotent processing (Chapter 9 explains why). So the senior move is to stop fighting duplicates and instead make processing **idempotent** - safe to run more than once with the same net effect. The implementation - dedupe on a natural or supplied idempotency key, with a unique index as your backstop - is covered in Chapter 20; apply it to every handler a worker runs.
+You cannot engineer this possibility away entirely. Distributed systems give you **at-least-once** delivery as the practical default; exactly-once is a comforting fiction that, when you look closely, is always at-least-once plus idempotent processing (Chapter 9 explains why). So the senior move is to stop fighting duplicates and instead make processing **idempotent** - safe to run more than once with the same net effect. The implementation - dedupe on a natural or supplied idempotency key, with a unique index as your backstop - is covered in Chapter 21; apply it to every handler a worker runs.
 
 For the polling contention itself, options range from a `SELECT ... FOR UPDATE SKIP LOCKED` (PostgreSQL) to claiming rows with an atomic `UPDATE ... SET LockedBy = @me WHERE ...`, to simply electing a single leader (covered in Part B) so only one instance polls at all. The right answer depends on throughput, but the principle is constant: **assume duplicates and design so they don't hurt.**
 
@@ -10641,7 +10667,7 @@ public sealed class AccountState
 
 Notice there is not a single `lock`, `Interlocked`, or transaction in that `Withdraw` - yet two concurrent transfers against `acct-42` cannot corrupt the balance, because Orleans runs them one after another inside the one activation. That is the whole payoff of the model made concrete.
 
-Hosting a silo is a few lines on the Generic Host (Orleans 7+ integrates directly):
+Hosting a silo is a few lines on the Generic Host (Orleans is now versioned alongside the .NET release — v8 with .NET 8, v9 with .NET 9 (2024-2025) — and integrates directly with the modern host builder):
 
 ```csharp
 var builder = Host.CreateApplicationBuilder(args);
@@ -10655,6 +10681,8 @@ await host.RunAsync();
 ```
 
 Swap `UseLocalhostClustering` for a clustering provider (Azure Table Storage, ADO.NET, Redis) and `AddMemoryGrainStorage` for a durable store, and the *same grain code* now runs across a multi-silo cluster with failover. That continuity from laptop to production cluster is Orleans' signature strength.
+
+> **Scheduling inside a grain:** Orleans' idiomatic in-grain scheduling is **grain timers** (non-persistent, for periodic work while an activation is alive) and **reminders** (persistent, durable across deactivation and full cluster restarts). They are the actor-model counterpart to the job frameworks in Part B — the way a grain schedules its own future work without an external scheduler.
 
 ### When Orleans fits - and when it doesn't
 
@@ -10698,7 +10726,7 @@ The arc of this chapter is a maturation in how you think about "later" work. A `
 
 ---
 
-# Chapter 22: Data at Scale & Multi-Tenancy
+# Chapter 23: Data at Scale & Multi-Tenancy
 
 _⏱️ Estimated read time: ~25 min · 4341 words (study pace)_
 
@@ -10965,9 +10993,9 @@ Now `context.Invoices.ToList()` returns only the current tenant's invoices — t
 
 ---
 
-# Chapter 23: Serialization & Schema Evolution
+# Chapter 24: Serialization & Schema Evolution
 
-_⏱️ Estimated read time: ~30 min · 4680 words (study pace)_
+_⏱️ Estimated read time: ~30 min · 4827 words (study pace)_
 
 Every non-trivial system eventually stops being a single process holding objects in memory. The moment your data crosses a boundary — a socket, a message broker, a file on disk, a cache, an HTTP response — those in-memory objects have to be flattened into a sequence of bytes and reconstructed on the other side. That flattening is *serialization*, and the reconstruction is *deserialization*. It sounds mechanical, almost beneath a senior engineer's attention. It is not. The decisions you make here quietly determine how fast your service is, how much you pay for network and storage, whether two teams can deploy independently, and whether a schema change ships smoothly on a Tuesday or triggers a 2 a.m. incident.
 
@@ -11099,6 +11127,8 @@ In proto3, all fields are effectively optional and have **default values** (0, e
 
 In .NET you'd add the `Grpc.Tools` package, drop the `.proto` into your project, and MSBuild generates the classes. The generated code is fast and allocation-light, and it round-trips through `Google.Protobuf`'s `IMessage` interface.
 
+> **Worth knowing:** the long-running proto2/proto3 split is being retired by **Protobuf Editions** (Edition 2023 was the first, released in the second half of 2023). Instead of picking a syntax with fixed semantics, an edition lets you tune individual behaviours via feature flags while keeping the wire format unchanged — it's the forward path the two syntaxes are converging on, so a modern reader should recognize the term even if most existing `.proto` files still say `syntax = "proto3"`.
+
 ## MessagePack: Binary JSON, No Schema File
 
 MessagePack is best described as "JSON's data model, binary encoding." It has the same shape — maps, arrays, strings, numbers, booleans, null — but encoded compactly with length prefixes and type tags instead of text. Unlike protobuf, it doesn't require a separate schema file; in .NET the excellent **MessagePack-CSharp** library serializes your annotated C# types directly, much like a serializer rather than a code generator.
@@ -11122,6 +11152,8 @@ Order back = MessagePackSerializer.Deserialize<Order>(bytes);
 Those `[Key(0)]` integers play the same role as protobuf field numbers: they're the compact wire identity, and **the same "never reuse a key" discipline applies.** MessagePack-CSharp also supports string keys (`[Key("customer")]`), which are more self-describing but larger — a JSON-like trade-off within the format.
 
 MessagePack-CSharp is famous for raw speed; it uses a source-generator/IL-emit path and is one of the fastest serializers available on .NET. It's a great choice for caching (compact Redis payloads), internal RPC (it's the default for SignalR's binary protocol and for the MagicOnion framework), and anywhere you want binary compactness without maintaining separate `.proto` files. The trade-off versus protobuf is that the schema lives in your C# attributes rather than a language-neutral IDL, so cross-language contracts are slightly less formal.
+
+> **Faster still, for .NET-to-.NET:** **MemoryPack** (from neuecc, the author of MessagePack-CSharp) is a "zero-encoding" binary serializer that leans on modern C# and a pure source-generator path — no runtime IL emit — which makes it **Native AOT-friendly** and, on many payloads, several times faster than MessagePack. It's the sharper tool when both ends are .NET and you don't need cross-language interop; the format is .NET-specific by design.
 
 ## Apache Avro: Built for Evolution
 
@@ -11389,15 +11421,17 @@ Serialization is where your data model meets the outside world, and the format y
 
 ---
 
-# Chapter 24: Advanced & Specialized Testing
+# Chapter 25: Advanced & Specialized Testing
 
-_⏱️ Estimated read time: ~25 min · 4095 words (study pace)_
+_⏱️ Estimated read time: ~25 min · 4207 words (study pace)_
 
 Chapter 7 gave you the foundations: unit tests with xUnit, mocking with Moq or NSubstitute, integration tests, and spinning up real dependencies with Testcontainers. Those techniques carry most teams a long way. But as a system grows from a single service into a fleet of services, and as a codebase matures from "does it work?" into "can we change it safely for the next five years?", a new set of problems appears that the foundational techniques do not address well.
 
 This chapter is about those problems and the specialized tools built for them. Contract testing tames the combinatorial explosion of cross-service integration tests. Property-based testing finds the inputs you never thought to write an assertion for. End-to-end and UI testing verify the whole stack through a real browser. Load testing tells you whether the system survives Black Friday. And a cluster of supporting disciplines — deterministic time, test data management, and mutation testing — keep the whole test suite honest.
 
 The through-line is a single senior-level habit of mind: **treat your tests as a system to be engineered, with their own costs, failure modes, and return on investment**, not as a checkbox you tick after the "real" code is done.
+
+> **A shifting runner underneath it all:** the *engine* that runs your tests is changing. **Microsoft.Testing.Platform (MTP)** is the new, lightweight test runner that replaces the older VSTest host — each test project builds into a self-contained executable, and xUnit, NUnit, and MSTest now support running on it. Built exclusively on MTP is **TUnit**, a newer framework whose tests are *source-generated* at compile time (rather than reflected at runtime), run in parallel by default, and support Native AOT; it is still young (pre-1.0) but gaining real attention in 2025–2026 for its speed. None of the techniques below depend on your choice of runner, but it is worth knowing the ground is moving.
 
 ## Contract Testing: Killing the Integration Test Explosion
 
@@ -11508,7 +11542,7 @@ The broker checks the recorded verification matrix and answers yes or no. This i
 
 Contract testing does **not** verify business logic — it verifies that two services agree on their interface. But a huge fraction of cross-service E2E tests exist *only* to catch interface drift. Those you can and should delete, replacing them with fast, independent contract tests. Keep a thin layer of true end-to-end tests for a handful of critical user journeys where the *behaviour* of the assembled system, not just its wiring, is what you need to prove.
 
-This ties directly to **schema evolution** (Chapter 23). A pact is a living, executable record of exactly which fields and message shapes each consumer actually depends on. When you want to remove a field, the broker tells you whether any consumer's contract still references it. Contract testing and backward-compatible schema evolution are two views of the same discipline: **never break a consumer you can't see**. For asynchronous systems, Pact supports **message pacts** too — the consumer asserts on the shape of a Kafka or Service Bus message it can handle, and the provider verifies its published messages conform.
+This ties directly to **schema evolution** (Chapter 24). A pact is a living, executable record of exactly which fields and message shapes each consumer actually depends on. When you want to remove a field, the broker tells you whether any consumer's contract still references it. Contract testing and backward-compatible schema evolution are two views of the same discipline: **never break a consumer you can't see**. For asynchronous systems, Pact supports **message pacts** too — the consumer asserts on the shape of a Kafka or Service Bus message it can handle, and the provider verifies its published messages conform.
 
 ## Property-Based Testing: Asserting the Rules, Not the Examples
 
@@ -11763,7 +11797,7 @@ The senior mindset that unifies them: **every test is an investment with a cost 
 
 ---
 
-# Chapter 25: Real-World Engineering Essentials
+# Chapter 26: Real-World Engineering Essentials
 
 _⏱️ Estimated read time: ~25 min · 3882 words (study pace)_
 
@@ -12132,7 +12166,7 @@ Document.Create(doc =>
 
 Notice the through-line: sending email, resizing/processing uploads, generating PDFs, delivering push notifications, and calling flaky third-party APIs are all **slow, failure-prone, and retry-worthy.** Doing them synchronously inside an HTTP request couples the user's response time to a system you don't control and turns a transient provider outage into a user-facing 500.
 
-The senior instinct is to **offload them to background processing** (Chapter 21): accept the request, persist the intent, enqueue a job (via a hosted service, `Channel`, or a durable queue like Azure Service Bus / RabbitMQ backed by a worker), and return immediately. The background worker owns the retries, the idempotency, and the dead-letter handling.
+The senior instinct is to **offload them to background processing** (Chapter 22): accept the request, persist the intent, enqueue a job (via a hosted service, `Channel`, or a durable queue like Azure Service Bus / RabbitMQ backed by a worker), and return immediately. The background worker owns the retries, the idempotency, and the dead-letter handling.
 
 ```csharp
 // The controller does the minimum and returns fast.
@@ -12158,7 +12192,7 @@ This is the pattern behind every resilient real-world app: **the request path st
 
 ---
 
-# Chapter 26: Data Structures, Algorithms & System Design Fundamentals
+# Chapter 27: Data Structures, Algorithms & System Design Fundamentals
 
 _⏱️ Estimated read time: ~30 min · 4635 words (study pace)_
 
@@ -12611,7 +12645,7 @@ Senior engineers aren't the ones who memorized the most algorithms. They're the 
 
 ---
 
-# Chapter 27: Compliance, Data Privacy & Cloud Cost (FinOps)
+# Chapter 28: Compliance, Data Privacy & Cloud Cost (FinOps)
 
 _⏱️ Estimated read time: ~25 min · 4184 words (study pace)_
 
@@ -12949,7 +12983,7 @@ Compliance and cost look like opposite ends of the engineering world — one abo
 
 ---
 
-# Chapter 28: Frontend & Full-Stack for .NET Developers
+# Chapter 29: Frontend & Full-Stack for .NET Developers
 
 _⏱️ Estimated read time: ~20 min · 3201 words (study pace)_
 
@@ -13239,7 +13273,7 @@ There is no universally correct answer — there is the answer that fits *this* 
 
 ---
 
-# Chapter 29: Working with Legacy & Brownfield Code
+# Chapter 30: Working with Legacy & Brownfield Code
 
 _⏱️ Estimated read time: ~30 min · 4261 words (study pace)_
 
@@ -13686,7 +13720,7 @@ public decimal Price(Cart cart)
 
 ---
 
-# Chapter 30: Linux & the Command Line for .NET Developers
+# Chapter 31: Linux & the Command Line for .NET Developers
 
 _⏱️ Estimated read time: ~35 min · 4303 words (study pace)_
 
@@ -14184,7 +14218,7 @@ Practice by doing: spin up an Ubuntu container (`docker run -it ubuntu bash`), p
 
 ---
 
-# Chapter 31: Putting It All Together — A Capstone Learning Path
+# Chapter 32: Putting It All Together — A Capstone Learning Path
 
 _⏱️ Estimated read time: ~10 min · 2461 words (study pace)_
 
@@ -14351,13 +14385,13 @@ You have the map, you have the capstone, and you have the habits. The only thing
 
 ---
 
-# Chapter 32: Real-World Scenarios & Architectural Decisions
+# Chapter 33: Real-World Scenarios & Architectural Decisions
 
 _⏱️ Estimated read time: ~1 h · 11293 words (study pace)_
 
 Every senior engineer eventually learns that the hard part of the job is not writing code — it is deciding what to do when the code you already shipped meets reality. Reality shows up as a traffic spike you did not plan for, a "successful" request that silently lost data, a p99 latency graph that looks like a seismograph, and a dependency that vanishes at the worst possible moment. This chapter is a war-room playbook. Each scenario is a story you could plausibly live through on a production on-call rotation, framed around one question: *how do you react, and what architectural decision does that push you toward?*
 
-Treat this as a reference you can open under pressure and as an interview crib sheet. The earlier chapters gave you the building blocks — scaling and cloud (Ch. 10), containers and Kubernetes (Ch. 11), data at scale (Ch. 22), messaging and distributed patterns (Ch. 9), distributed theory and SRE (Ch. 20), the runtime and GC (Ch. 2), and performance (Ch. 15). Here we do not re-teach those; we put them to work under fire and reason about the trade-offs. Each of the nine scenarios below follows the same shape: the situation, how you notice it, how to stop the bleeding, the root causes, the durable fix and its trade-offs, and how to talk about it in an interview.
+Treat this as a reference you can open under pressure and as an interview crib sheet. The earlier chapters gave you the building blocks — scaling and cloud (Ch. 10), containers and Kubernetes (Ch. 11), data at scale (Ch. 23), messaging and distributed patterns (Ch. 9), distributed theory and SRE (Ch. 21), the runtime and GC (Ch. 2), and performance (Ch. 15). Here we do not re-teach those; we put them to work under fire and reason about the trade-offs. Each of the nine scenarios below follows the same shape: the situation, how you notice it, how to stop the bleeding, the root causes, the durable fix and its trade-offs, and how to talk about it in an interview.
 
 ## The incident cheat-card
 
@@ -14502,11 +14536,11 @@ The other classic is **"return 200, then do the work."** Handing the caller a su
 
 ### The fix & architectural options (with trade-offs)
 
-**The Transactional Outbox.** The core trick: only write to *one* store transactionally — your database — and record the intent to publish in the *same* transaction, in an `outbox` table. A separate relay reads the outbox and publishes to the broker, marking rows sent. Now the DB write and the "I will publish" record commit atomically; the actual publish becomes a retryable, at-least-once background job. (Ch. 9 covers the table and publisher mechanics; Ch. 21 shows the background relay itself.)
+**The Transactional Outbox.** The core trick: only write to *one* store transactionally — your database — and record the intent to publish in the *same* transaction, in an `outbox` table. A separate relay reads the outbox and publishes to the broker, marking rows sent. Now the DB write and the "I will publish" record commit atomically; the actual publish becomes a retryable, at-least-once background job. (Ch. 9 covers the table and publisher mechanics; Ch. 22 shows the background relay itself.)
 
 If the relay crashes after publishing but before marking a row processed, it republishes on restart — hence **at-least-once**, and hence consumers must **deduplicate**. That is the whole game: you trade the impossible "exactly-once delivery" for "at-least-once delivery + idempotent consumers," which together give **effectively-once processing**.
 
-**Idempotency keys and dedup.** Give every message (and every externally-triggered command) a stable ID. Consumers record processed IDs (an `inbox`/processed-messages table, backed by a unique index) and skip duplicates — Ch. 20 covers the implementation. For inbound HTTP writes, accept a client-supplied `Idempotency-Key` header (Stripe's model): the first request does the work and stores the result keyed by that value; retries with the same key return the stored result instead of doing the work twice.
+**Idempotency keys and dedup.** Give every message (and every externally-triggered command) a stable ID. Consumers record processed IDs (an `inbox`/processed-messages table, backed by a unique index) and skip duplicates — Ch. 21 covers the implementation. For inbound HTTP writes, accept a client-supplied `Idempotency-Key` header (Stripe's model): the first request does the work and stores the result keyed by that value; retries with the same key return the stored result instead of doing the work twice.
 
 **Sagas for multi-service consistency.** When a business transaction spans services (reserve inventory → charge card → create shipment), you cannot hold one ACID transaction across all of them. A **saga** is a sequence of local transactions, each with a compensating action to undo it if a later step fails (release the reservation, refund the charge). This is eventual consistency by design — the system is briefly inconsistent and converges (Ch. 9).
 
@@ -14662,7 +14696,7 @@ Your order service publishes every order to RabbitMQ, where fulfillment, billing
 
 ### The fix & architectural options (with trade-offs)
 
-**Circuit breaker + fallback (Polly).** Wrap the dependency in a circuit breaker so that after a threshold of failures, calls short-circuit for a cool-off period and you serve a fallback instead of hanging — and give every call a timeout so nothing waits indefinitely. Ch. 20 builds the full `Microsoft.Extensions.Resilience` / Polly pipeline (retry + breaker + layered timeouts) and explains why the ordering of strategies matters. The decision that is specific to *this* incident is what the fallback should be — and for publishing, the answer is the outbox buffer below.
+**Circuit breaker + fallback (Polly).** Wrap the dependency in a circuit breaker so that after a threshold of failures, calls short-circuit for a cool-off period and you serve a fallback instead of hanging — and give every call a timeout so nothing waits indefinitely. Ch. 21 builds the full `Microsoft.Extensions.Resilience` / Polly pipeline (retry + breaker + layered timeouts) and explains why the ordering of strategies matters. The decision that is specific to *this* incident is what the fallback should be — and for publishing, the answer is the outbox buffer below.
 
 **Retry with exponential backoff *and jitter*.** Backoff alone is not enough: if every instance retries on the same schedule, they synchronize into coordinated waves. Jitter randomizes the delay so load spreads out. Also make retries **idempotent** and **bounded** — retrying a non-idempotent write is how you double-charge a customer.
 
@@ -14672,7 +14706,7 @@ Your order service publishes every order to RabbitMQ, where fulfillment, billing
 
 **Dead-letter queues (DLQ).** For messages that repeatedly fail to process (poison messages, or a downstream that is down), route them to a DLQ after N attempts instead of blocking the main queue or infinitely retrying. Then alert, inspect, fix, and replay. A DLQ keeps one bad message from stalling the whole pipeline.
 
-**Health checks & readiness — get this right.** Distinguish **liveness** (is the process alive? restart if not) from **readiness** (can it serve traffic right now?). A subtle but critical decision: **a non-critical dependency being down should not fail your readiness probe**, or Kubernetes will pull a perfectly serviceable pod out of rotation and make the outage worse. Readiness should reflect *your* ability to serve, degraded or not (Ch. 11, Ch. 20).
+**Health checks & readiness — get this right.** Distinguish **liveness** (is the process alive? restart if not) from **readiness** (can it serve traffic right now?). A subtle but critical decision: **a non-critical dependency being down should not fail your readiness probe**, or Kubernetes will pull a perfectly serviceable pod out of rotation and make the outage worse. Readiness should reflect *your* ability to serve, degraded or not (Ch. 11, Ch. 21).
 
 ```csharp
 builder.Services.AddHealthChecks()
@@ -14833,7 +14867,7 @@ Choose the integration style per boundary. The main options:
 
 **The shared-database anti-pattern** deserves a blunt statement: when two services read and write the same tables, you have not built two services — you have built one service with two deployment units and no encapsulation. A schema change to satisfy one service breaks the other. Ban it at the boundary; if two components need the same data, one owns it and exposes an API.
 
-**Contract-first and schema/versioning across languages.** The strength of gRPC/Protobuf here is that a `.proto` file *is* the contract, checked into a shared repo, generating clients for every language. Protobuf's evolution rules (never reuse field numbers, add new fields as optional, don't change types) let a Python producer and a .NET consumer evolve independently — this is the schema-evolution discipline from **Chapter 23** applied across languages. For JSON boundaries, get the same discipline from **OpenAPI** with generated clients and a schema registry; for Kafka, an **Avro/Protobuf schema registry** enforces compatibility before a bad message ever ships.
+**Contract-first and schema/versioning across languages.** The strength of gRPC/Protobuf here is that a `.proto` file *is* the contract, checked into a shared repo, generating clients for every language. Protobuf's evolution rules (never reuse field numbers, add new fields as optional, don't change types) let a Python producer and a .NET consumer evolve independently — this is the schema-evolution discipline from **Chapter 24** applied across languages. For JSON boundaries, get the same discipline from **OpenAPI** with generated clients and a schema registry; for Kafka, an **Avro/Protobuf schema registry** enforces compatibility before a bad message ever ships.
 
 **Service mesh / sidecars and Dapr.** As the number of polyglot services grows, cross-cutting concerns (mTLS, retries, service discovery) multiply across languages. A **service mesh** (Linkerd, Istio) pushes these into a sidecar so each language doesn't reimplement them. **Dapr** goes further: it exposes **building blocks** — service invocation, pub/sub, state management, secrets, bindings — over a local HTTP/gRPC API, so a Python service and a .NET service call the *same* Dapr sidecar API to publish an event or read state. That is genuinely valuable in polyglot shops: the integration primitives stop being language-specific.
 
@@ -15072,11 +15106,11 @@ If your service has an **AI feature** — an LLM summarizing user content, an ag
 
 Your product now stores real people's data: names, emails, addresses, maybe health or payment information. A user emails "delete all my data" and cites GDPR. Legal asks "where does EU customer data physically live?" A junior just added `_logger.LogInformation("User {@User} logged in", user)` — dumping the full user object, PII included, into your log aggregator. Suddenly "just store it in a table" is not enough. Storing personal data is a distinct engineering discipline with its own hazards.
 
-> **This is engineering guidance, not legal advice.** GDPR, CCPA, HIPAA and friends are legal frameworks; how they apply to your product is a question for your legal/privacy team. What follows is how a senior *engineer* translates those constraints into system design. (See **Chapter 27** for the PII/FinOps context.)
+> **This is engineering guidance, not legal advice.** GDPR, CCPA, HIPAA and friends are legal frameworks; how they apply to your product is a question for your legal/privacy team. What follows is how a senior *engineer* translates those constraints into system design. (See **Chapter 28** for the PII/FinOps context.)
 
 ### The core concepts
 
-**Chapter 27** covers the discipline in depth — classification (PII/PHI/special-category), data minimization, purpose limitation, consent. The triage-relevant core: you cannot protect, audit, or delete data you have not classified, and the strongest control is **not collecting the field at all**. Every PII field you hold is a liability that can be breached, subpoenaed, or mis-logged.
+**Chapter 28** covers the discipline in depth — classification (PII/PHI/special-category), data minimization, purpose limitation, consent. The triage-relevant core: you cannot protect, audit, or delete data you have not classified, and the strongest control is **not collecting the field at all**. Every PII field you hold is a liability that can be breached, subpoenaed, or mis-logged.
 
 ### Protecting the data at rest
 
@@ -15084,7 +15118,7 @@ Encryption in transit and at rest (TLS, TDE) is table stakes — and whole-datab
 
 ### The right-to-be-forgotten vs. backups problem
 
-A deletion request seems simple until you remember **backups**: your immutable, 35-day-retention backups contain the user's data, and you (correctly) cannot edit them. The industry's answer is **crypto-shredding** — encrypt each user's PII with a per-user key and destroy the key to "forget" them; the ciphertext left in every table and backup becomes unrecoverable noise (mechanics in **Chapter 27**). Soft delete alone does **not** satisfy erasure — combine it (for referential integrity) with crypto-shred or hard-purge for the actual PII.
+A deletion request seems simple until you remember **backups**: your immutable, 35-day-retention backups contain the user's data, and you (correctly) cannot edit them. The industry's answer is **crypto-shredding** — encrypt each user's PII with a per-user key and destroy the key to "forget" them; the ciphertext left in every table and backup becomes unrecoverable noise (mechanics in **Chapter 28**). Soft delete alone does **not** satisfy erasure — combine it (for referential integrity) with crypto-shred or hard-purge for the actual PII.
 
 | Deletion approach | Satisfies erasure? | Handles backups? | Notes |
 |---|---|---|---|
@@ -15095,7 +15129,7 @@ A deletion request seems simple until you remember **backups**: your immutable, 
 
 ### Retention, access, and audit
 
-**Chapter 27** covers the mechanics — retention/purge jobs, audit trails, pseudonymization vs. anonymization. What matters in the room: unbounded retention is unbounded liability, and when a breach or insider-access question lands, the audit trail of *who* read *whose* PII, *when*, and *why* is the only thing that answers it.
+**Chapter 28** covers the mechanics — retention/purge jobs, audit trails, pseudonymization vs. anonymization. What matters in the room: unbounded retention is unbounded liability, and when a breach or insider-access question lands, the audit trail of *who* read *whose* PII, *when*, and *why* is the only thing that answers it.
 
 ### Data residency and logging pitfalls
 
@@ -15160,7 +15194,7 @@ Have a plan *before* the breach: detect, contain, assess scope (which data, whos
 
 ---
 
-# Chapter 33: Interview Questions & How to Answer Them
+# Chapter 34: Interview Questions & How to Answer Them
 
 _⏱️ Estimated read time: ~40 min · 7458 words (study pace)_
 
@@ -15370,7 +15404,7 @@ Asynchronous streaming — `await foreach` over items produced with latency (pag
 
 ## ASP.NET Core & Web
 
-*Revise: Ch. 3 — ASP.NET Core & Web APIs · Ch. 19 — Networking & Web Fundamentals*
+*Revise: Ch. 3 — ASP.NET Core & Web APIs · Ch. 20 — Networking & Web Fundamentals*
 
 **Explain the middleware pipeline.**
 Middleware components form a chain; each gets the `HttpContext`, can act on the request, call `next()` to pass control down, and act on the response on the way back out — like nested layers. Order matters: exception handling first, then routing, auth (authentication before authorization), then endpoints. A component can short-circuit by not calling `next()`.
@@ -15504,7 +15538,7 @@ A pattern for a long-running business transaction spanning multiple services wit
 
 ## Distributed Systems & Scaling
 
-*Revise: Ch. 9 — Messaging & Distributed Systems · Ch. 20 — Distributed Systems Theory & Reliability Engineering*
+*Revise: Ch. 9 — Messaging & Distributed Systems · Ch. 21 — Distributed Systems Theory & Reliability Engineering*
 
 **Explain the CAP theorem.**
 Under a network **P**artition, a distributed system must choose between **C**onsistency (every read sees the latest write) and **A**vailability (every request gets a response). You can't have both during a partition. In practice systems are CP (refuse/stall to stay consistent) or AP (serve possibly-stale data to stay up); the choice is per-operation, and PACELC extends it to the latency trade-off when there's no partition.
@@ -15571,7 +15605,7 @@ Out of source control and out of plain config: use a secrets manager / vault (Az
 
 ## Testing
 
-*Revise: Ch. 7 — Testing · Ch. 24 — Advanced & Specialized Testing*
+*Revise: Ch. 7 — Testing · Ch. 25 — Advanced & Specialized Testing*
 
 **Unit vs integration test?**
 A **unit test** exercises one small piece (a class/method) in isolation with dependencies mocked — fast, focused, pinpoints failures. An **integration test** exercises several components together, often with a real database or HTTP host, to catch wiring and contract issues unit tests miss. You need both; the classic pyramid has many unit, fewer integration, fewest end-to-end.
@@ -15594,7 +15628,7 @@ Fast, isolated/independent (no order dependence, no shared state), deterministic
 
 ## System Design (mini)
 
-*Revise: Ch. 26 — Data Structures, Algorithms & System Design Fundamentals · Ch. 32 — Real-World Scenarios & Architectural Decisions*
+*Revise: Ch. 27 — Data Structures, Algorithms & System Design Fundamentals · Ch. 33 — Real-World Scenarios & Architectural Decisions*
 
 Use one structure for every design prompt: **Requirements → Scale estimate → API → Data model → Components → Bottlenecks & trade-offs.** Talk through it out loud; the interviewer wants your reasoning, not a memorized diagram.
 
@@ -16015,7 +16049,7 @@ The differentiator between middle and senior is rarely just technical.
 
 ## 18. Suggested Learning Path
 
-**See Chapter 31.** The capstone chapter turns this checklist into a five-phase learning path and a single evolving project (ShopCore, a monolith that grows into a distributed system) with concrete acceptance criteria per step. Working through one project that grows with you touches ~80% of this list — far more valuable than isolated tutorials.
+**See Chapter 32.** The capstone chapter turns this checklist into a five-phase learning path and a single evolving project (ShopCore, a monolith that grows into a distributed system) with concrete acceptance criteria per step. Working through one project that grows with you touches ~80% of this list — far more valuable than isolated tutorials.
 
 ---
 

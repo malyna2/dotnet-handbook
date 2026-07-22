@@ -1,4 +1,4 @@
-# Chapter 25: Real-World Engineering Essentials
+# Chapter 26: Real-World Engineering Essentials
 
 _⏱️ Estimated read time: ~26 min ·     3844 words (study pace)_
 
@@ -367,7 +367,7 @@ Document.Create(doc =>
 
 Notice the through-line: sending email, resizing/processing uploads, generating PDFs, delivering push notifications, and calling flaky third-party APIs are all **slow, failure-prone, and retry-worthy.** Doing them synchronously inside an HTTP request couples the user's response time to a system you don't control and turns a transient provider outage into a user-facing 500.
 
-The senior instinct is to **offload them to background processing** (Chapter 21): accept the request, persist the intent, enqueue a job (via a hosted service, `Channel`, or a durable queue like Azure Service Bus / RabbitMQ backed by a worker), and return immediately. The background worker owns the retries, the idempotency, and the dead-letter handling.
+The senior instinct is to **offload them to background processing** (Chapter 22): accept the request, persist the intent, enqueue a job (via a hosted service, `Channel`, or a durable queue like Azure Service Bus / RabbitMQ backed by a worker), and return immediately. The background worker owns the retries, the idempotency, and the dead-letter handling.
 
 ```csharp
 // The controller does the minimum and returns fast.

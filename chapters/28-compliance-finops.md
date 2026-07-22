@@ -1,4 +1,4 @@
-# Chapter 27: Compliance, Data Privacy & Cloud Cost (FinOps)
+# Chapter 28: Compliance, Data Privacy & Cloud Cost (FinOps)
 
 _⏱️ Estimated read time: ~25 min ·     4117 words (study pace)_
 
