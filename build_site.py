@@ -42,7 +42,8 @@ PART_RANGES = [
     (26,  31,  "Part VII — Foundations, Governance & Specializations"),
     (32,  32,  "Part VIII — Capstone"),
     (33,  34,  "Part IX — The War Room: Scenarios & Interviews"),
-    (99,  10**9, "Appendices"),
+    (99,  100, "Appendices"),
+    (101, 10**9, "What's New"),
 ]
 DEFAULT_PART = "Additional Chapters"
 
@@ -113,7 +114,8 @@ for num, stem, path in entries:
     with open(path, encoding="utf-8") as f:
         raw = f.read()
     is_home = (stem == "00-frontmatter" or num == 0)
-    md = with_readtime(raw, is_home)
+    # The What's New changelog gets no read-time line — it's not study material.
+    md = with_readtime(raw, is_home or "whats-new" in stem)
 
     m = re.search(r"^#\s+(.+)$", md, re.MULTILINE)
     title = m.group(1).strip() if m else stem

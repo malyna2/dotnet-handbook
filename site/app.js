@@ -325,6 +325,7 @@ function postProcess(c){
       else{ var target=document.getElementById(slug); if(target){ ev.preventDefault(); target.scrollIntoView(); } }
     });
   });
+  if(WN && c.id===WN.id){ wnDecorate(content); wnMarkSeen(); }
 }
 function buildOutline(c){
   var hs=content.querySelectorAll("h2, h3");
@@ -640,10 +641,74 @@ function toast(msg,ms){
   clearTimeout(toastT); toastT=setTimeout(function(){toastEl.hidden=true;},ms||2600);
 }
 
+/* ---------------- What's New: release popup + read-tracked chapter links ----------------
+   The 101-whats-new chapter is the changelog. Its latest "## Release — <date>" section is
+   shown in a popup once per release (localStorage "wn_seen"). Chapter links inside release
+   sections get a per-user read mark (localStorage "wn_read") once clicked. */
+var WN=null;
+BOOK.forEach(function(c){ if((c.id||"").indexOf("whats-new")>=0) WN=c; });
+
+function wnLatest(){
+  if(!WN) return null;
+  var m=WN.md.match(/^##\s+Release[^\n]*$/m);
+  if(!m) return null;
+  var rest=WN.md.slice(WN.md.indexOf(m[0])+m[0].length);
+  var next=rest.search(/^##\s+/m);
+  return { id:m[0].replace(/^##\s+/,"").trim(),
+           date:m[0].replace(/^##\s+Release\s*[—–-]*\s*/,"").trim(),
+           md:rest.slice(0,next<0?rest.length:next).trim() };
+}
+function wnRead(){ try{ return JSON.parse(localStorage.getItem("wn_read")||"{}"); }catch(e){ return {}; } }
+function wnMarkSeen(){ var l=wnLatest(); if(l){ try{ localStorage.setItem("wn_seen",l.id); }catch(e){} } }
+// Decorate chapter links inside release sections: unread = accent dot, read = ✓.
+// releaseId is passed for popup content; in the full chapter it is tracked per H2.
+function wnDecorate(root, releaseId){
+  var read=wnRead(), rel=releaseId||null;
+  root.querySelectorAll("h2, a[href^='#']").forEach(function(el){
+    if(el.tagName==="H2"){ rel=/^Release/.test(el.textContent)?el.textContent.trim():null; return; }
+    if(!rel) return;
+    var slug=el.getAttribute("href").slice(1);
+    if(!bySlug[slug]) return;
+    var key=rel+"|"+slug;
+    el.classList.add("wn-link");
+    if(read[key]) el.classList.add("wn-read");
+    el.addEventListener("click",function(ev){
+      ev.preventDefault();
+      var r=wnRead(); r[key]=1;
+      try{ localStorage.setItem("wn_read",JSON.stringify(r)); }catch(e){}
+      el.classList.add("wn-read");
+      wnHide();
+      location.hash="#/"+slug;
+    });
+  });
+}
+var wnModal=document.getElementById("wnModal");
+function wnHide(){ wnModal.hidden=true; }
+function wnShow(){
+  var latest=wnLatest(); if(!latest||!latest.md) return;
+  document.getElementById("wnDate").textContent=latest.date;
+  var saved=usedIds; usedIds={};
+  document.getElementById("wnBody").innerHTML=render(latest.md);
+  usedIds=saved;
+  wnDecorate(document.getElementById("wnBody"), latest.id);
+  wnModal.hidden=false;
+  wnMarkSeen();
+}
+function wnMaybeShow(){
+  var latest=wnLatest(); if(!latest) return;
+  if(localStorage.getItem("wn_seen")===latest.id) return;
+  if(current&&WN&&current.id===WN.id){ wnMarkSeen(); return; } // already on the page
+  wnShow();
+}
+document.getElementById("wnClose").addEventListener("click",wnHide);
+document.getElementById("wnOpen").addEventListener("click",function(){ wnHide(); if(WN) location.hash="#/"+WN.slug; });
+wnModal.addEventListener("click",function(e){ if(e.target===wnModal) wnHide(); });
+
 /* ---------------- Boot ---------------- */
 function currentSlug(){var m=location.hash.match(/^#\/(.+)$/);return m?m[1]:null;}
 window.addEventListener("hashchange",function(){var s=currentSlug();if(s)go(s,false);});
 window.addEventListener("beforeunload", saveLast);
 buildNav();
 go(currentSlug()||localStorage.getItem("last")||BOOK[0].slug,false);
+wnMaybeShow();
 })();

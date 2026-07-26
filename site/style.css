@@ -257,3 +257,13 @@ mark.find-hit{background:var(--accent);color:var(--accent-fg);border-radius:3px;
   .search-wrap{max-width:none}
   .pager{flex-direction:column}
 }
+
+/* ---------- What's New popup + read-tracked update links ---------- */
+.wn-card{max-width:620px}
+.wn-body{max-height:55vh;overflow:auto;margin:6px 0 2px;font-size:14.5px}
+.wn-body p{margin:.55em 0}
+.wn-body ul{padding-left:20px;margin:.4em 0}
+a.wn-link{font-weight:600}
+a.wn-link::before{content:"● ";color:var(--accent)}
+a.wn-link.wn-read{color:var(--fg-muted);font-weight:400}
+a.wn-link.wn-read::before{content:"✓ ";color:#3fb950}

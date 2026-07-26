@@ -76,6 +76,18 @@
   </div>
 </div>
 
+<!-- "What's New" release popup — shown once per release (tracked in localStorage) -->
+<div id="wnModal" class="modal" hidden>
+  <div class="modal-card wn-card">
+    <h3>🆕 What's new — <span id="wnDate"></span></h3>
+    <div id="wnBody" class="wn-body"></div>
+    <div class="modal-actions">
+      <button id="wnOpen" class="btn ghost">Open the What's New page</button>
+      <button id="wnClose" class="btn">Got it</button>
+    </div>
+  </div>
+</div>
+
 <div id="toast" class="toast" hidden></div>
 
 <script src="content.js"></script>
