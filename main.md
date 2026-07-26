@@ -1243,7 +1243,7 @@ Internalize these and you can reason from symptoms (a latency spike, a memory le
 
 # Chapter 3: ASP.NET Core & Web APIs
 
-_⏱️ Estimated read time: ~35 min · 4639 words (study pace)_
+_⏱️ Estimated read time: ~35 min · 4987 words (study pace)_
 
 ASP.NET Core is the beating heart of most .NET server-side work. If you've been building APIs for a couple of years, you already know how to make an endpoint return JSON. This chapter is about the *why* underneath: how a request actually travels through your application, where the extension points live, and how the senior-level decisions (versioning, resilience, auth, real-time) fit together. By the end you should be able to reason about the framework rather than just use it.
 
@@ -1706,7 +1706,45 @@ service PriceService {
 }
 ```
 
-Use gRPC for **internal service-to-service** communication where you control both ends and want performance and a strict contract, or for streaming workloads. It's a poor fit for browser clients (limited without gRPC-Web) and public APIs where human-readable JSON and broad tooling matter more. The rule of thumb: **gRPC inside the datacenter, REST at the edge.**
+"Contract-first" becomes concrete when you see both halves. From that `.proto`, the build generates a base class; your implementation is just another endpoint on the pipeline you already know:
+
+```csharp
+public class PriceGrpcService : PriceService.PriceServiceBase   // Generated base class.
+{
+    public override Task<PriceReply> GetPrice(PriceRequest req, ServerCallContext ctx) =>
+        Task.FromResult(new PriceReply { Symbol = req.Symbol, Price = 42.17 });
+
+    public override async Task StreamPrices(PriceRequest req,
+        IServerStreamWriter<PriceReply> stream, ServerCallContext ctx)
+    {
+        while (!ctx.CancellationToken.IsCancellationRequested)
+        {
+            await stream.WriteAsync(new PriceReply { Symbol = req.Symbol, Price = Next() });
+            await Task.Delay(1000, ctx.CancellationToken);
+        }
+    }
+}
+// app.MapGrpcService<PriceGrpcService>();
+```
+
+The client gets the mirror image — no URLs, no serialization, just method calls, with server streams surfacing as `await foreach`:
+
+```csharp
+using var channel = GrpcChannel.ForAddress("https://prices.internal");
+var client = new PriceService.PriceServiceClient(channel);
+
+var reply = await client.GetPriceAsync(new PriceRequest { Symbol = "MSFT" }); // Unary
+
+using var call = client.StreamPrices(new PriceRequest { Symbol = "MSFT" });
+await foreach (var price in call.ResponseStream.ReadAllAsync(ct))             // Server streaming
+    Render(price);
+```
+
+HTTP/2 is not an implementation detail — it's what makes this possible: many concurrent **multiplexed streams** over one connection are exactly the plumbing that long-lived streaming calls need (Chapter 20 dissects HTTP/2 itself). It also brings gRPC's two operational gotchas. First, you need **end-to-end HTTP/2**: a proxy that downgrades to HTTP/1.1 breaks gRPC. Second, a channel is one long-lived connection, so an L4 (connection-level) load balancer pins *all* of a client's calls to a single server; you need L7, gRPC-aware balancing (Envoy, YARP, Linkerd) to spread the *calls* rather than the *connections*.
+
+Two idioms replace their HTTP cousins. **Deadlines** are gRPC's timeouts — `client.GetPriceAsync(req, deadline: DateTime.UtcNow.AddSeconds(3))` — and, unlike `HttpClient.Timeout`, they *propagate*: the remaining budget travels with the call, and on the server it surfaces as `ServerCallContext.CancellationToken` (which is why the streaming example honors it — the CancellationToken discipline from earlier in this chapter carries straight over). Errors travel as `RpcException` with a `StatusCode` (`NotFound`, `Unavailable`, `DeadlineExceeded`, …) rather than HTTP status codes.
+
+Use gRPC for **internal service-to-service** communication where you control both ends and want performance and a strict contract, or for streaming workloads. It's a poor fit for browser clients (gRPC-Web and JSON transcoding exist, but they cost you much of the elegance) and public APIs where human-readable JSON and broad tooling matter more. The rule of thumb: **gRPC inside the datacenter, REST at the edge.** Protobuf's schema-evolution rules — how to add fields without breaking already-deployed clients — get their full treatment in Chapter 24.
 
 ## SignalR
 
