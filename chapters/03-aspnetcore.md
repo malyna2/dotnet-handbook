@@ -399,14 +399,18 @@ The three core patterns, and their intent:
 
 ## Cross-Cutting HTTP Concerns
 
-**CORS** (Cross-Origin Resource Sharing) controls which browser origins may call your API. It's a *browser* enforcement mechanism — it doesn't secure anything server-side, it just tells the browser what's allowed.
+**CORS** (Cross-Origin Resource Sharing) controls which browser origins may call your API. An **origin** is the scheme + host + port triple (`https://app.example.com`), and the browser's **Same-Origin Policy** forbids JavaScript on one origin from reading responses from another. CORS is how your server *opts in* to specific cross-origin callers: for anything beyond a "simple" request, the browser first sends a **preflight** `OPTIONS` request — "may `https://app.example.com` send a `POST` here with an `Authorization` header?" — the server answers with `Access-Control-Allow-*` headers, and only then does the real request go out. That preflight is why `UseCors` must run before endpoint execution (recall the ordering section): the `OPTIONS` probe has no endpoint of its own — the CORS middleware must answer it.
 
 ```csharp
-builder.Services.AddCors(o => o.AddPolicy("spa", p =>
-    p.WithOrigins("https://app.example.com").AllowAnyHeader().AllowAnyMethod()));
+builder.Services.AddCors(o => o.AddPolicy("spa", p => p
+    .WithOrigins("https://app.example.com")        // Explicit — never "*" on a real API.
+    .WithMethods("GET", "POST")
+    .WithHeaders("Authorization", "Content-Type")));
 // ...
 app.UseCors("spa");
 ```
+
+CORS is a *browser* enforcement mechanism — it doesn't secure anything server-side, it just tells the browser what's allowed. That cuts both ways. When the console shows *"blocked by CORS policy,"* it means the **browser refused to hand the response to your JavaScript** — the request itself usually still reached your server and executed; check the server logs before assuming nothing happened. And conversely, CORS does nothing against `curl` or another backend — it is not authorization. Chapter 14 covers the security-hardening angle.
 
 > **Pitfall.** `AllowAnyOrigin()` combined with `AllowCredentials()` is forbidden by the spec and won't work. Never reflexively allow all origins in production.
 
