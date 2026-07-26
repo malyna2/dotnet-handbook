@@ -597,6 +597,8 @@ public class ValidationExceptionHandler : IExceptionHandler
 // builder.Services.AddExceptionHandler<ValidationExceptionHandler>();
 ```
 
+> **Tip — `AddExceptionHandler` vs writing your own exception middleware.** These aren't two independent mechanisms: `UseExceptionHandler()` *is* the middleware, and `AddExceptionHandler<T>()` registers handlers that plug into it — called in registration order until one returns `true`, with anything unhandled falling through to the default ProblemDetails response. A hand-rolled `try/catch` middleware can do the same job, but then you own everything the built-in one already does: safe defaults (status 500, cache headers cleared), the awkward edge case where the response has already started streaming, content negotiation via `IProblemDetailsService`, and the diagnostics logs and metrics observability tooling expects. `IExceptionHandler` classes are also plain DI services — unit-testable with no `RequestDelegate` plumbing, one focused class per exception family instead of a growing `switch`. Reserve custom middleware for concerns that aren't "map this exception to an HTTP response" — releasing a resource or enriching telemetry on every failure, say — or for pre-.NET 8 targets, where the `UseExceptionHandler(errorApp => ...)` lambda overload fills the same role.
+
 > **Best practice.** Never leak stack traces or internal messages to callers in production. `detail` should be safe to show a client; log the gory details server-side with a correlation ID that the client can quote to support.
 
 ## Health Checks
