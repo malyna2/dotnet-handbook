@@ -1243,7 +1243,7 @@ Internalize these and you can reason from symptoms (a latency spike, a memory le
 
 # Chapter 3: ASP.NET Core & Web APIs
 
-_⏱️ Estimated read time: ~30 min · 4188 words (study pace)_
+_⏱️ Estimated read time: ~30 min · 4452 words (study pace)_
 
 ASP.NET Core is the beating heart of most .NET server-side work. If you've been building APIs for a couple of years, you already know how to make an endpoint return JSON. This chapter is about the *why* underneath: how a request actually travels through your application, where the extension points live, and how the senior-level decisions (versioning, resilience, auth, real-time) fit together. By the end you should be able to reason about the framework rather than just use it.
 
@@ -1576,6 +1576,16 @@ For complex rules, implement `IAuthorizationRequirement` plus an `AuthorizationH
 
 Calling other services over HTTP is where many production incidents are born. The naïve `new HttpClient()` per call **exhausts sockets** (each instance holds a connection pool and sockets linger in `TIME_WAIT`); a single static instance **doesn't respect DNS changes**. `IHttpClientFactory` solves both by pooling and rotating the underlying handlers.
 
+To see *why* that works, you need one fact: `HttpClient` itself is a cheap, disposable wrapper. The real resources — the connection pool, the open sockets — live in the `HttpMessageHandler` underneath it. The factory hands you a fresh `HttpClient` every time, but behind it shares a pool of handlers, so sockets are reused instead of exhausted; and it retires each handler after two minutes (tunable via `SetHandlerLifetime`), so new connections re-resolve DNS and a failed-over dependency doesn't leave you talking to a dead IP.
+
+```
+CatalogClient ──> HttpClient          (new each time — cheap wrapper)
+                      │
+                      ▼
+              HttpMessageHandler      (pooled & shared — owns the sockets;
+                                       recycled every ~2 min → fresh DNS)
+```
+
 **Named clients** let you configure a client by string key. **Typed clients** wrap an `HttpClient` in a strongly-typed service — cleaner and my default recommendation:
 
 ```csharp
@@ -1594,6 +1604,8 @@ builder.Services.AddHttpClient<CatalogClient>(c =>
     c.Timeout = TimeSpan.FromSeconds(10);
 });
 ```
+
+> **Pitfall — typed clients are transient.** Don't inject a typed client into a singleton. The singleton captures one `HttpClient` — and the handler behind it — forever, which quietly reintroduces the stale-DNS problem the factory exists to solve. Keep the consuming service scoped or transient, or inject `IHttpClientFactory` itself and create clients per use.
 
 ### Resilience with Polly
 
@@ -1620,11 +1632,13 @@ builder.Services.AddHttpClient<CatalogClient>(...)
 ```
 
 The three core patterns, and their intent:
-- **Retry** with exponential backoff and jitter handles brief blips. Only retry *idempotent* operations, or you may duplicate side effects.
+- **Retry** with exponential backoff and jitter handles brief blips. The default `HttpRetryStrategyOptions` retries the transient failures — 5xx, 408, 429, and `HttpRequestException` — not 4xx client errors. Only retry *idempotent* operations, or you may duplicate side effects.
 - **Circuit breaker** stops hammering a service that's clearly down. After a failure threshold it "opens" and fails fast for a cooldown, giving the downstream time to recover. Without it, retries amplify an outage into a cascade.
 - **Timeout** bounds how long any single attempt may take, so one slow dependency can't tie up your threads.
 
-> **Order matters here too.** A per-attempt timeout must sit *inside* the retry (each attempt gets its own budget), while a total timeout sits outside. Polly's resilience pipeline applies strategies outermost-first.
+> **Order matters here too.** Strategies added *earlier* sit *outside* those added later. In the example above, retry is outermost, so the 3-second timeout is a *per-attempt* budget — each retry gets a fresh 3 seconds — while the client's `Timeout` of 10 seconds from the previous section caps the whole operation, retries included. A per-attempt timeout belongs inside the retry; a total timeout belongs outside.
+
+> **Best practice.** Unless you have specific numbers in mind, start with `.AddStandardResilienceHandler()` — one line that applies Microsoft's recommended pipeline (rate limiter, total timeout, retry, circuit breaker, per-attempt timeout) with sensible defaults — and tune only when you have evidence the defaults don't fit.
 
 ## Cross-Cutting HTTP Concerns
 
