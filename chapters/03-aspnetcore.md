@@ -1,6 +1,6 @@
 # Chapter 3: ASP.NET Core & Web APIs
 
-_⏱️ Estimated read time: ~40 min · 5482 words (study pace)_
+_⏱️ Estimated read time: ~45 min · 5829 words (study pace)_
 
 ASP.NET Core is the beating heart of most .NET server-side work. If you've been building APIs for a couple of years, you already know how to make an endpoint return JSON. This chapter is about the *why* underneath: how a request actually travels through your application, where the extension points live, and how the senior-level decisions (versioning, resilience, auth, real-time) fit together. By the end you should be able to reason about the framework rather than just use it.
 
@@ -620,6 +620,33 @@ app.MapHealthChecks("/health/ready",
 ```
 
 Tagging checks and filtering by tag is what keeps liveness and readiness cleanly separated.
+
+Under the hood there are three moving parts, and no magic. Every check is an **`IHealthCheck`** — a single method returning a result — and `AddCheck`/`AddNpgSql` merely register implementations in DI (the community `AspNetCore.HealthChecks.*` packages ship prebuilt checks for nearly every dependency you can name). When a probe hits the endpoint, **`HealthCheckService`** runs every registered check whose tags pass the `Predicate` — *concurrently*, each receiving a `CancellationToken`. The endpoint then aggregates: **the worst individual status wins**, and maps to HTTP — `Healthy` and `Degraded` return `200`, `Unhealthy` returns `503`.
+
+That third status is the one people forget. **`Degraded`** means "working, but not well" — replica lag, a slow dependency, a queue backing up. Because it still returns `200`, the orchestrator won't kill or drain the instance; it exists as a signal for dashboards and alerting, a yellow light between green and red. Writing a custom check is just implementing the interface:
+
+```csharp
+public class QueueBacklogHealthCheck(IQueueClient queue) : IHealthCheck
+{
+    public async Task<HealthCheckResult> CheckHealthAsync(
+        HealthCheckContext ctx, CancellationToken ct)
+    {
+        var depth = await queue.GetDepthAsync(ct);
+        return depth switch
+        {
+            < 1_000  => HealthCheckResult.Healthy(),
+            < 10_000 => HealthCheckResult.Degraded($"Backlog: {depth}"),
+            _        => HealthCheckResult.Unhealthy($"Backlog: {depth}")
+        };
+    }
+}
+// builder.Services.AddHealthChecks()
+//     .AddCheck<QueueBacklogHealthCheck>("queue-backlog", tags: ["ready"]);
+```
+
+By default the endpoint's body is the bare aggregate as plain text (`Healthy`). For a per-check JSON breakdown — which check failed, why, and how long it took — plug in a `ResponseWriter` (the `HealthChecks.UI.Client` package ships a ready-made one). For *push*-based monitoring, `IHealthCheckPublisher` inverts the flow: the app runs its checks on a timer and publishes results to your telemetry instead of waiting to be probed.
+
+> **Pitfall.** Probes hit these endpoints every few seconds, on every instance. An expensive readiness check — a full table scan, an uncached remote call — now runs at probe frequency × server count, and can itself become the load that takes a wobbly dependency down. Keep checks cheap, bound them with timeouts, and cache the verdict of any costly one. And keep dependencies *out of liveness*: Chapter 11's probe section shows how a database blip otherwise becomes a cluster-wide restart storm.
 
 ## Observability Wiring
 
