@@ -1,6 +1,6 @@
 # Chapter 3: ASP.NET Core & Web APIs
 
-_⏱️ Estimated read time: ~31 min ·     4125 words (study pace)_
+_⏱️ Estimated read time: ~40 min · 5482 words (study pace)_
 
 ASP.NET Core is the beating heart of most .NET server-side work. If you've been building APIs for a couple of years, you already know how to make an endpoint return JSON. This chapter is about the *why* underneath: how a request actually travels through your application, where the extension points live, and how the senior-level decisions (versioning, resilience, auth, real-time) fit together. By the end you should be able to reason about the framework rather than just use it.
 
