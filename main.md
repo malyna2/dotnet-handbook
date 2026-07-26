@@ -1243,7 +1243,7 @@ Internalize these and you can reason from symptoms (a latency spike, a memory le
 
 # Chapter 3: ASP.NET Core & Web APIs
 
-_⏱️ Estimated read time: ~35 min · 4987 words (study pace)_
+_⏱️ Estimated read time: ~40 min · 5320 words (study pace)_
 
 ASP.NET Core is the beating heart of most .NET server-side work. If you've been building APIs for a couple of years, you already know how to make an endpoint return JSON. This chapter is about the *why* underneath: how a request actually travels through your application, where the extension points live, and how the senior-level decisions (versioning, resilience, auth, real-time) fit together. By the end you should be able to reason about the framework rather than just use it.
 
@@ -1748,18 +1748,63 @@ Use gRPC for **internal service-to-service** communication where you control bot
 
 ## SignalR
 
-**SignalR** provides real-time, bidirectional communication — the server can push to connected clients, not just respond to requests. It abstracts over WebSockets (falling back to Server-Sent Events or long polling) so you code against a clean *hub* API.
+**SignalR** provides real-time, bidirectional communication — the server can push to connected clients, not just respond to requests. It abstracts over WebSockets (falling back to Server-Sent Events or long polling — Chapter 20 compares the transports) so you code against a clean *hub* API.
 
 ```csharp
 public class NotificationsHub : Hub
 {
-    public async Task SendToGroup(string group, string message) =>
-        await Clients.Group(group).SendAsync("notify", message);
+    public override async Task OnConnectedAsync()
+    {
+        // A "group" is just a named set of connection ids, tracked server-side.
+        await Groups.AddToGroupAsync(Context.ConnectionId, "traders");
+        await base.OnConnectedAsync();
+    }
+
+    public async Task SendToGroup(string group, string message) =>   // Client → server.
+        await Clients.Group(group).SendAsync("notify", message);     // Server → client(s).
 }
 // app.MapHub<NotificationsHub>("/hubs/notifications");
 ```
 
-Reach for SignalR for dashboards, chat, live collaboration, notifications, and progress updates. At scale, connections are stateful and pinned to a server, so you'll need a **backplane** (Redis) or Azure SignalR Service to fan messages out across a farm.
+The other half of the conversation lives in the client, which connects once and *registers handlers by event name* — `"notify"` above is not magic, it's the name the client subscribed to:
+
+```ts
+const conn = new signalR.HubConnectionBuilder()
+    .withUrl("/hubs/notifications").withAutomaticReconnect().build();
+conn.on("notify", msg => showToast(msg));          // Handles SendAsync("notify", ...).
+await conn.start();
+await conn.invoke("SendToGroup", "traders", "hi"); // Calls the hub method.
+```
+
+So the model is symmetric: hub methods are client→server calls, and `Clients.*.SendAsync` fires named handlers client-side. (Chapter 29 builds out a full TypeScript client.) One more piece completes the picture: most real pushes don't originate inside a hub at all — a background job finishes, an order ships. For that, inject `IHubContext<NotificationsHub>` anywhere and use the same `Clients` API:
+
+```csharp
+public class OrderShippedHandler(IHubContext<NotificationsHub> hub)
+{
+    public Task Handle(OrderShipped e) =>
+        hub.Clients.Group("traders").SendAsync("notify", $"Order {e.Id} shipped");
+}
+```
+
+Reach for SignalR for dashboards, chat, live collaboration, notifications, and progress updates. The scaling caveat: connections are **stateful and pinned** to one server. Run three instances, and when server 2 wants to notify a user whose WebSocket lives on server 1, it simply can't reach them. A **backplane** (Redis pub/sub) fixes this by republishing every message to every server, each of which forwards it to its own connections — or Azure SignalR Service takes the connections off your servers entirely.
+
+```
+   client A ──ws── server 1 ──┐
+   client B ──ws── server 2 ──┼── Redis backplane (pub/sub)
+   client C ──ws── server 3 ──┘
+   server 2 publishes → all servers receive → each pushes to its own sockets
+```
+
+> **Gotcha.** Unless you restrict transports to WebSockets-only, the fallback transports involve multiple HTTP requests per connection, so the load balancer needs **sticky sessions**.
+
+### Choosing between REST, gRPC, and SignalR
+
+| You need | Reach for |
+|---|---|
+| Public API, diverse clients, human-debuggable payloads | REST + JSON |
+| Internal service-to-service calls, strict contract, performance, streaming | gRPC |
+| Server push to browsers (dashboards, chat, notifications) | SignalR |
+| Server→client streaming only, minimal moving parts | SSE — see Chapter 20 |
 
 ## Error Handling with ProblemDetails (RFC 7807)
 
