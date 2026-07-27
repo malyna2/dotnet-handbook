@@ -648,28 +648,32 @@ function toast(msg,ms){
 var WN=null;
 BOOK.forEach(function(c){ if((c.id||"").indexOf("whats-new")>=0) WN=c; });
 
+function wnHash(s){ var h=5381,i; for(i=0;i<s.length;i++){ h=((h<<5)+h+s.charCodeAt(i))|0; } return (h>>>0).toString(36); }
 function wnLatest(){
   if(!WN) return null;
   var m=WN.md.match(/^##\s+Release[^\n]*$/m);
   if(!m) return null;
   var rest=WN.md.slice(WN.md.indexOf(m[0])+m[0].length);
   var next=rest.search(/^##\s+/m);
-  return { id:m[0].replace(/^##\s+/,"").trim(),
-           date:m[0].replace(/^##\s+Release\s*[—–-]*\s*/,"").trim(),
-           md:rest.slice(0,next<0?rest.length:next).trim() };
+  var heading=m[0].replace(/^##\s+/,"").trim();
+  var md=rest.slice(0,next<0?rest.length:next).trim();
+  // seenKey includes a content hash so an amended release re-triggers the popup.
+  return { heading:heading, md:md, seenKey:heading+"|"+wnHash(md),
+           date:m[0].replace(/^##\s+Release\s*[—–-]*\s*/,"").trim() };
 }
 function wnRead(){ try{ return JSON.parse(localStorage.getItem("wn_read")||"{}"); }catch(e){ return {}; } }
-function wnMarkSeen(){ var l=wnLatest(); if(l){ try{ localStorage.setItem("wn_seen",l.id); }catch(e){} } }
+function wnMarkSeen(){ var l=wnLatest(); if(l){ try{ localStorage.setItem("wn_seen",l.seenKey); }catch(e){} } }
 // Decorate chapter links inside release sections: unread = accent dot, read = ✓.
 // releaseId is passed for popup content; in the full chapter it is tracked per H2.
+// Keys include the link's position so several links to one chapter track separately.
 function wnDecorate(root, releaseId){
-  var read=wnRead(), rel=releaseId||null;
+  var read=wnRead(), rel=releaseId||null, n=0;
   root.querySelectorAll("h2, a[href^='#']").forEach(function(el){
-    if(el.tagName==="H2"){ rel=/^Release/.test(el.textContent)?el.textContent.trim():null; return; }
+    if(el.tagName==="H2"){ rel=/^Release/.test(el.textContent)?el.textContent.trim():null; n=0; return; }
     if(!rel) return;
     var slug=el.getAttribute("href").slice(1);
     if(!bySlug[slug]) return;
-    var key=rel+"|"+slug;
+    var key=rel+"|"+slug+"|"+(n++);
     el.classList.add("wn-link");
     if(read[key]) el.classList.add("wn-read");
     el.addEventListener("click",function(ev){
@@ -690,13 +694,13 @@ function wnShow(){
   var saved=usedIds; usedIds={};
   document.getElementById("wnBody").innerHTML=render(latest.md);
   usedIds=saved;
-  wnDecorate(document.getElementById("wnBody"), latest.id);
+  wnDecorate(document.getElementById("wnBody"), latest.heading);
   wnModal.hidden=false;
   wnMarkSeen();
 }
 function wnMaybeShow(){
   var latest=wnLatest(); if(!latest) return;
-  if(localStorage.getItem("wn_seen")===latest.id) return;
+  if(localStorage.getItem("wn_seen")===latest.seenKey) return;
   if(current&&WN&&current.id===WN.id){ wnMarkSeen(); return; } // already on the page
   wnShow();
 }

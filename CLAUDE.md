@@ -19,11 +19,12 @@ When asked to push, follow this checklist:
 2. Update `chapters/101-whats-new.md` — add (or extend, if one already exists for this release) a section **at the top**, directly under the intro paragraph:
    - Heading format matters — the site parses it: `## Release — <Month D, YYYY>`.
    - First a `**🔧 Site & functionality**` bullet list for reader-app/build changes: plain static text, no links (these get no read-tracking).
-   - Then a `**📖 Content updates**` bullet list: one bullet per changed chapter, formatted as `[<full chapter title>](#<chapter-slug>) — <short description of what changed>`. These links get the popup + per-user read-tracking (✓ marks) automatically.
-   - Skip trivial commits (typo fixes, header syncs) — the changelog is for readers, not a git log mirror.
+   - Then a `**📖 Content updates**` bullet list: **one bullet per meaningful commit in the push** — every content commit gets its own line so the release mirrors the whole group of commits, not a merged summary. Format: `[<Chapter N: topic>](#<chapter-slug>) — <one short sentence>`. Several bullets may link to the same chapter (read-tracking keys are per-link-position, so they tick off independently).
+   - Descriptions must be a single compact sentence, not a paragraph.
+   - Skip only trivial commits (typo fixes, header syncs) — the changelog is for readers, not a git log mirror.
 3. Rebuild (`python3 build_site.py`), commit the What's New update, then push.
 
-How the feature works (for debugging): the site shows the **topmost** `## Release` section in a popup once per user (localStorage `wn_seen` stores the release heading; `wn_read` stores clicked chapter-link keys `"<release heading>|<slug>"`). Logic lives at the end of `site/app.js` (`wnLatest`/`wnDecorate`/`wnShow`).
+How the feature works (for debugging): the site shows the **topmost** `## Release` section in a popup once per user. localStorage `wn_seen` stores `"<heading>|<content hash>"` — so *amending* a release re-triggers the popup for everyone. `wn_read` stores clicked chapter-link keys `"<release heading>|<slug>|<position>"` — so reordering bullets in a published release resets ✓ marks (append instead when amending). Logic lives at the end of `site/app.js` (`wnLatest`/`wnDecorate`/`wnShow`).
 
 ## Conventions
 

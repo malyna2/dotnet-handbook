@@ -6,8 +6,13 @@ This page is the handbook's changelog. When a new release lands, a popup announc
 
 **🔧 Site & functionality**
 
-- New **What's New** page (you're reading it): a release popup announces each update on your first visit after it ships, this page sits at the end of the navigation menu, and chapter links below get a locally-stored ✓ once you've opened them.
+- New **What's New** page (you're reading it): a release popup on your first visit after each update, this page at the end of the navigation menu, and locally-stored ✓ marks on the chapter links below once you've opened them.
 
 **📖 Content updates**
 
-- [Chapter 3: ASP.NET Core & Web APIs](#chapter-3-aspnet-core-web-apis) — Major deepening pass on the sections readers found hardest. gRPC now shows the full round trip (generated server base class, client with `await foreach` streaming, why HTTP/2 and its load-balancing consequences, deadlines and `RpcException`). SignalR gains its missing client half (JS snippet, groups, `IHubContext<T>`, a backplane diagram) plus a REST vs gRPC vs SignalR vs SSE decision table. CORS now explains origins and the preflight handshake with a debugging tip. IHttpClientFactory explains the handler-pool mechanism behind the "rotating handlers" claim, with a typed-client-in-singleton pitfall and `AddStandardResilienceHandler()`. Health checks got the full machinery (worst-status-wins aggregation, `Degraded`, a custom `IHealthCheck`, probe-cost pitfalls), and ProblemDetails a tip on `AddExceptionHandler` vs hand-rolled middleware.
+- [Chapter 3: gRPC](#chapter-3-aspnet-core-web-apis) — Now shows the full server/client round trip with streaming code, HTTP/2 load-balancing consequences, deadlines, and the `RpcException` error model.
+- [Chapter 3: SignalR](#chapter-3-aspnet-core-web-apis) — Added the missing client half, groups, `IHubContext<T>`, a backplane diagram, and a REST vs gRPC vs SignalR vs SSE decision table.
+- [Chapter 3: CORS](#chapter-3-aspnet-core-web-apis) — Now explains origins, the preflight handshake, and how to read the "blocked by CORS policy" error.
+- [Chapter 3: IHttpClientFactory](#chapter-3-aspnet-core-web-apis) — Explained the handler-pool mechanism, the typed-client-in-a-singleton pitfall, Polly strategy ordering, and `AddStandardResilienceHandler()`.
+- [Chapter 3: Health checks](#chapter-3-aspnet-core-web-apis) — Expanded with the aggregation machinery, the `Degraded` status, a custom `IHealthCheck` example, and probe-cost pitfalls.
+- [Chapter 3: ProblemDetails](#chapter-3-aspnet-core-web-apis) — New tip: `AddExceptionHandler` vs hand-rolled exception middleware.
