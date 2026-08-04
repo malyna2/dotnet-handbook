@@ -1927,7 +1927,7 @@ The through-line of this chapter is that ASP.NET Core is a **pipeline of composa
 
 # Chapter 4: Data Access & Databases
 
-_⏱️ Estimated read time: ~30 min · 4457 words (study pace)_
+_⏱️ Estimated read time: ~35 min · 4913 words (study pace)_
 
 Almost every non-trivial application is, underneath all its features, a machine for moving data in and out of a database safely and quickly. You can write flawless business logic and beautiful APIs, but if your data access layer holds locks too long, fires a thousand queries where one would do, or corrupts a balance under concurrent writes, the whole system fails in ways that are hard to reproduce and harder to fix. This chapter takes you from the mechanics of Entity Framework Core down to the SQL and storage engine underneath it, then back up through caching, NoSQL, and deployment. The goal is that you stop treating the database as a black box and start reasoning about what it actually does.
 
@@ -2049,6 +2049,35 @@ var summaries = ctx.Orders
 ```
 
 EF translates `o.Customer.Name` into a join and `o.Lines.Sum(...)` into a SQL aggregate. You get exactly the three values you asked for, computed by the database. **Projection is often the best answer to N+1** because it sidesteps both eager loading and tracking at once.
+
+### Include + Projection: The Include Is Silently Ignored
+
+`Include` and `Select` answer the same question — "what data does this query need?" — but only one of them can win, and it is always the projection. `Include` is an instruction about *entity materialization*: "when you build these `Order` entities, also build their `Customer` entities and wire up the navigation." The moment a query ends in a `.Select(...)` to a non-entity type, EF is no longer materializing `Order` entities at all — it is materializing your DTO — so there is nothing for the `Include` to attach to. EF drops it without a warning, an exception, or any trace in the generated SQL.
+
+That does not mean the related data goes missing. In a projection, the SQL JOINs come from the *navigation accesses inside the `Select`*, not from the Includes above it:
+
+```csharp
+var rows = ctx.Orders
+    .Include(o => o.Customer)      // dead code: ignored, produces no SQL
+    .Include(o => o.Approver)      // dead code: ignored, produces no SQL
+    .Where(o => o.Status == OrderStatus.Open)
+    .Select(o => new OrderRow(
+        o.Id,
+        o.Customer.Name,           // THIS generates the JOIN to Customers
+        o.Approver.LastName))      // THIS generates the JOIN to Approvers
+    .ToList();
+```
+
+Delete both `Include` lines and the SQL is byte-for-byte identical. The query works either way, which is exactly why the pattern survives code review: the Includes *look* load-bearing, readers assume they are doing the eager loading, and nobody notices they are inert.
+
+Why this matters beyond tidiness:
+
+- **It miscommunicates.** A shared base query like `AccessibleOrders()` that stacks Includes implies "callers get orders with customers attached." If every caller finishes with a projection, that promise is never kept — and the day someone materializes the entities directly (`.ToList()` without a `Select`), the Includes suddenly *do* fire and the query's shape and cost change underneath them.
+- **It hides the real dependency.** The columns a projection needs are declared inside the `Select`. Includes floating above it are noise that must be mentally diffed against the projection to understand what the query actually fetches.
+
+The rule of thumb: a query either *materializes entities* (then `Include` is how you load relationships) or it *projects* (then the `Select` body is the single source of truth and Includes have no effect). Pick one per query, and delete Includes from any query that ends in a projection.
+
+> **Gotcha.** The one nuance: `Include` is only ignored when the projection leaves entity types behind. If your `Select` returns an entity *inside* a wrapper — `.Select(o => new { Order = o, LineCount = o.Lines.Count })` — the `Order` entity is still being materialized, so Includes on it still apply. The dividing line is not "is there a Select" but "does the result still contain the entity the Include was for."
 
 ### Split Queries
 
