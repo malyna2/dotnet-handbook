@@ -1,6 +1,6 @@
 # Chapter 3: ASP.NET Core & Web APIs
 
-_⏱️ Estimated read time: ~45 min · 5829 words (study pace)_
+_⏱️ Estimated read time: ~1 h 15 min · 10751 words (study pace)_
 
 ASP.NET Core is the beating heart of most .NET server-side work. If you've been building APIs for a couple of years, you already know how to make an endpoint return JSON. This chapter is about the *why* underneath: how a request actually travels through your application, where the extension points live, and how the senior-level decisions (versioning, resilience, auth, real-time) fit together. By the end you should be able to reason about the framework rather than just use it.
 
@@ -216,7 +216,139 @@ public class CreateProductValidator : AbstractValidator<CreateProductRequest>
 }
 ```
 
-> **Best practice.** Keep validators free of infrastructure. If a rule needs a database check (e.g. "SKU must be unique"), that's arguably a domain/business concern better handled in your service layer, not in a validator that runs on every bind. Validators are for *shape and format*; business invariants belong deeper.
+**What a validator is actually for.** Before the API surface, settle the layering question, because it is the one teams get wrong. A request validator answers *"is this request well-formed?"* — the transport-level question. Is the JSON shaped right, are the strings within length, is the date parseable, is the enum a member of the set. A domain invariant answers a different question: *"is this state legal?"* — an order cannot ship before it is paid, a balance cannot go negative, a discount cannot exceed the line total. The first is about the message; the second is about the model.
+
+The reason to keep them apart is mechanical, not aesthetic. A validator runs only on the code path where you remembered to invoke it, and your HTTP endpoint is not the only way state changes: a background job, a message consumer, an admin script, and next quarter's gRPC endpoint all mutate the same aggregate, and none of them go through `CreateProductValidator`. If the only thing standing between your system and an illegal state is a validator hanging off one controller, that illegal state is one new code path away.
+
+So validate at the edge *and* enforce in the domain. The edge validator's job is to hand the caller a good `400` with a field-level error list instead of a `500` from a constructor throw. The domain's job is to make the illegal state unrepresentable no matter who calls it — guard clauses and value objects ([Chapter 5: Design Patterns, Principles & Clean Code](#chapter-5-design-patterns-principles-clean-code)) and invariants enforced on the aggregate root ([Chapter 6: Architecture & Application Design](#chapter-6-architecture-application-design)). Checking "name is 3–120 characters" in both places is not duplication to be refactored away; they are two checks with different jobs and different failure modes. **Validation at the edge does not excuse an anaemic domain.**
+
+**Wiring it up.** Validators are registered by assembly scan:
+
+```csharp
+builder.Services.AddValidatorsFromAssemblyContaining<CreateProductValidator>();
+```
+
+That registers every `AbstractValidator<T>` in the assembly as `IValidator<T>` — scoped by default, so validators may take DI dependencies. What it deliberately does *not* do is hook into MVC's model-binding pipeline. The old `AddFluentValidationAutoValidation()` integration is deprecated, and the reason is instructive: it ran inside model binding, which is synchronous, so async rules had to be blocked on; it fired for *every* bound complex type whether you wanted it or not; and it reported failures through `ModelState`, a mechanism it had to reverse-engineer. The modern posture is explicit — resolve `IValidator<T>` and call it where you decide:
+
+```csharp
+products.MapPost("/", async (CreateProductRequest request,
+    IValidator<CreateProductRequest> validator, IProductService service, CancellationToken ct) =>
+{
+    var result = await validator.ValidateAsync(request, ct);
+    if (!result.IsValid)
+        return Results.ValidationProblem(result.ToDictionary());
+
+    return Results.Ok(await service.CreateAsync(request, ct));
+});
+```
+
+`ToDictionary()` produces the `field → messages` map that `Results.ValidationProblem` renders as `ValidationProblemDetails` — the same RFC 7807 shape `[ApiController]` emits, so a mixed app returns one error format rather than two.
+
+Writing those four lines in every endpoint gets old, so lift them into an endpoint filter (the Minimal API filter from earlier in this chapter):
+
+```csharp
+public class ValidationFilter<T> : IEndpointFilter where T : class
+{
+    public async ValueTask<object?> InvokeAsync(
+        EndpointFilterInvocationContext ctx, EndpointFilterDelegate next)
+    {
+        var model = ctx.Arguments.OfType<T>().FirstOrDefault();
+        var validator = ctx.HttpContext.RequestServices.GetService<IValidator<T>>();
+        if (model is null || validator is null) return await next(ctx);
+
+        var result = await validator.ValidateAsync(model, ctx.HttpContext.RequestAborted);
+        return result.IsValid
+            ? await next(ctx)
+            : TypedResults.ValidationProblem(result.ToDictionary());
+    }
+}
+
+products.MapPost("/", ...).AddEndpointFilter<ValidationFilter<CreateProductRequest>>();
+```
+
+The controller equivalent is an `IAsyncActionFilter` that pulls the model out of `context.ActionArguments`; or, if you prefer validators that throw, let a `ValidationException` escape and map it with the `IExceptionHandler` shown later in this chapter.
+
+> **Gotcha.** That filter *fails open* — no registered validator means the request sails through. That is the right default for a generic filter (you don't want every parameter-less endpoint to 500), but it means a mistyped validator class silently disables validation for an endpoint, and nothing fails. If you apply the filter by convention across a group, add a startup test that asserts every request DTO reachable from your endpoints has a registered `IValidator<T>`.
+
+**Composition.** The fluent API earns its keep on rules that DataAnnotations can't express at all:
+
+```csharp
+public class CreateOrderValidator : AbstractValidator<CreateOrderRequest>
+{
+    public CreateOrderValidator(IValidator<OrderLineDto> lineValidator)
+    {
+        ClassLevelCascadeMode = CascadeMode.Continue;   // report every bad property...
+        RuleLevelCascadeMode  = CascadeMode.Stop;       // ...but one message per property
+
+        RuleFor(x => x.CustomerId).NotEmpty().WithErrorCode("order.customer_required");
+        RuleFor(x => x.Lines).NotEmpty().WithErrorCode("order.lines_empty");
+
+        RuleForEach(x => x.Lines).SetValidator(lineValidator);   // one child validator per element
+
+        When(x => x.Coupon is not null, () =>
+        {
+            RuleFor(x => x.Coupon!.Code)
+                .Matches("^[A-Z0-9]{4,12}$").WithErrorCode("coupon.malformed");
+            RuleFor(x => x.Coupon!.Amount)
+                .LessThanOrEqualTo(x => x.Lines.Sum(l => l.UnitPrice * l.Quantity))
+                .WithErrorCode("coupon.exceeds_total");
+        });
+
+        RuleSet("Admin", () =>
+            RuleFor(x => x.BackdatedAt).NotNull().WithErrorCode("order.backdate_required"));
+    }
+}
+```
+
+- **`RuleForEach(...).SetValidator(...)`** delegates each collection element to its own validator and prefixes the failure's `PropertyName` with the index — `Lines[2].Quantity` — so the client can highlight the offending row instead of the whole array. `SetValidator` on a single property does the same for a nested object.
+- **`When` / `Unless`** gate rules on a predicate. Prefer the block form above over a `.When(...)` tacked onto each rule: the condition is stated once, reads as one branch, and won't drift when someone adds a rule inside it.
+- **`RuleSet`** names a group that runs only when asked: `validator.ValidateAsync(order, o => o.IncludeRuleSets("Admin"), ct)`. Handy when the same DTO arrives from two callers with different privileges — though two DTOs is often the cleaner answer.
+- **Cascade modes** decide what happens *after* a failure. `RuleLevelCascadeMode = Stop` ends a single property's chain at its first failure, so a null `Name` reports "required" rather than "required" *and* "must be 3–120 characters". `ClassLevelCascadeMode = Stop` abandons the entire validator after the first bad property — almost never what an API wants, because the caller would rather fix everything in one round trip than play whack-a-mole.
+
+> **Best practice — stable error codes.** `WithErrorCode` attaches a machine-readable identifier alongside the human message, and it is what lets a client branch on *which* rule failed instead of string-matching `"Coupon exceeds order total"`. Messages get localized, reworded by product, and tweaked by whoever last touched the file; codes are a contract. Surface them — an `errors` array of `{ code, field, message }` objects carries more than the flat field→messages dictionary — and treat renaming a code as a breaking change (see the versioning section below).
+
+**Async rules, and the trap inside them.** Validators can hit the database, because they are DI services:
+
+```csharp
+RuleFor(x => x.Sku)
+    .MustAsync(async (sku, ct) => !await db.Products.AnyAsync(p => p.Sku == sku, ct))
+    .WithErrorCode("product.sku_taken")
+    .WithMessage("SKU '{PropertyValue}' is already in use.");
+```
+
+This is worth having: it turns a constraint violation into a friendly, field-attributed `400` instead of a `500` from a `DbUpdateException`. What it is *not* is a uniqueness guarantee. Between the `AnyAsync` that answers "free" and the `SaveChangesAsync` that inserts, another request can do exactly the same thing — textbook check-then-act, with a race window as wide as the rest of your request handling. Two concurrent requests carrying the same SKU both pass validation and both insert.
+
+The only thing that actually enforces uniqueness is a **unique index in the database** ([Chapter 4: Data Access & Databases](#chapter-4-data-access-databases)), because it is the sole check that happens inside the same atomic operation as the write. So run both: the validator produces the good error message for the overwhelmingly common case, the index produces correctness for the rest, and you catch the resulting `DbUpdateException` and map it onto the same payload the validator would have returned. If you only build one of the two, build the index.
+
+> **Pitfall — one DbContext, one operation at a time.** A validator that injects `AppDbContext` shares the request's *scoped* instance with the handler and with every other validator in that request. A single `ValidateAsync` is safe because FluentValidation awaits rules sequentially — but the moment you fan out (`Task.WhenAll` over several validators, or validating a batch request's items in parallel), two `MustAsync` rules can touch the context simultaneously and you get *"A second operation was started on this context instance."* Either keep validation sequential, or inject `IDbContextFactory<AppDbContext>` and open a short-lived context per check (Chapter 4 covers context lifetime and pooling). Also note that one `MustAsync` makes the whole validator async: calling the synchronous `Validate()` on it throws.
+
+**Testing them.** Validators are plain objects with no HTTP anywhere near them, which makes them the cheapest unit tests in the codebase. `FluentValidation.TestHelper` gives you assertions expressed as expressions over the model:
+
+```csharp
+[Fact]
+public void Rejects_blank_name()
+{
+    var validator = new CreateProductValidator();
+
+    var result = validator.TestValidate(new CreateProductRequest { Name = "", Price = 10m });
+
+    result.ShouldHaveValidationErrorFor(x => x.Name)
+          .WithErrorCode("product.name_required");
+    result.ShouldNotHaveValidationErrorFor(x => x.Price);
+}
+```
+
+Because the property is named by lambda rather than by string, renaming `Name` is a compile error instead of a test that quietly passes against a stale `"Name"` literal. Assert on `WithErrorCode`, not `WithErrorMessage`, for the same reason you gave clients codes in the first place: the wording will change. And test the *negative* cases — the empty string, the boundary value, the null coupon, the conditional branch that only fires when `Coupon` is set — because those are the branches production will find for you otherwise.
+
+**Which mechanism, when.**
+
+| Approach | Good at | Where it runs out |
+|---|---|---|
+| **DataAnnotations** | Declarative shape checks sitting next to the DTO; zero wiring under `[ApiController]`; the attributes flow into the OpenAPI schema, so `[Required]`/`[StringLength]` show up in generated client SDKs | Cross-field and conditional rules (`IValidatableObject` or a custom attribute — both awkward); no DI, so no async or data-backed rules; one fixed rule set per type, so it can't vary by caller or use case |
+| **FluentValidation** | Conditional, cross-field, and per-element collection rules; DI and async; several validators for one shape; stable error codes; trivial to unit test | Invisible to OpenAPI unless you add a schema filter; must be explicitly invoked, so it guards only the paths you wired; still check-then-act against the database |
+| **Domain guard / value object** | Holds for *every* caller — HTTP, consumer, job, test; makes illegal state unrepresentable; the rule lives next to the concept it constrains | Throws on the first violation rather than accumulating them, so it yields a poor error document; fires too late to give the client a field-level list |
+
+They are layers, not alternatives. DataAnnotations (or nothing) for trivial DTOs, FluentValidation at the edge to produce a good error document, and domain guards as the thing you would actually bet correctness on.
 
 ## CancellationToken Propagation
 
@@ -439,18 +571,254 @@ app.UseRateLimiter();
 
 Use the right codes: `200 OK`, `201 Created` (with a `Location` header), `204 No Content` for a successful DELETE, `400` for malformed input, `401` unauthenticated, `403` authenticated-but-forbidden, `404` not found, `409` conflict, `422` semantic validation failure, `429` rate limited, `500` for your bugs. Returning `200` with an error body inside is a common anti-pattern that breaks clients and tooling.
 
-**API versioning** protects existing clients when you evolve. Use `Asp.Versioning.*` packages and pick a strategy — URL segment (`/v1/products`), query string, or header. URL versioning is the most discoverable:
+### Idempotency Keys: Making POST Retry-Safe
+
+GET, PUT and DELETE are idempotent *by the definition of the verb*: `PUT /orders/42` with the same body leaves the same state whether it runs once or five times, and a second `DELETE /orders/42` finds nothing left to delete. POST is the exception — it means "process this as a new subordinate resource," and the whole point is that each call creates something.
+
+That asymmetry stops being a semantic curiosity the moment a request times out. A timeout tells the client nothing useful: the request may never have arrived, may have executed with the response lost on the way back, or may still be running. The only thing the client knows is that it doesn't know. So it retries — the Polly pipeline from earlier in this chapter retries, the mobile app's network layer retries, the user hits the button again — and if that POST charged a card, the customer is charged twice. "The client retried after a timeout" is not an edge case; it is the *normal* behaviour of every HTTP client on a lossy network, which makes this a correctness problem rather than a nicety.
+
+The fix is to let the client supply the identity of the **operation**, not just of the request:
+
+```
+POST /payments
+Idempotency-Key: 5f3b8a1e-9c04-4f4a-8a0e-2b7c1d33e9a1
+Content-Type: application/json
+
+{ "orderId": 42, "amount": 19.99 }
+```
+
+The key is generated **once, before the first attempt**, and reused for every retry of that same logical operation. A key regenerated per HTTP attempt is worse than useless — it makes retries look like distinct operations, which is precisely what you were trying to prevent. Server-side you keep a record per key:
+
+```csharp
+public class IdempotencyRecord
+{
+    public string Endpoint { get; set; } = default!;    // same key on /refunds is a different op
+    public string Key { get; set; } = default!;         // client-supplied
+    public string RequestHash { get; set; } = default!; // SHA-256 of the canonical body
+    public int StatusCode { get; set; }                 // 0 while in flight
+    public string? ResponseBody { get; set; }
+    public DateTimeOffset CreatedAt { get; set; }
+}
+```
+
+Three outcomes, and the third is the one people forget to implement:
+
+| Repeat request with the same key | Response |
+|---|---|
+| Same body hash, first attempt completed | Replay the stored status and body verbatim; add `Idempotency-Replayed: true` so the caller can tell |
+| Same body hash, first attempt still in flight | `409 Conflict` with `Retry-After` — "in progress, ask again shortly" |
+| **Different** body hash | `422 Unprocessable Content` (or `409`) — the key was reused for a different operation, which is a client bug and must be surfaced loudly |
+
+Storing the request hash is what makes that last row possible. Without it, a client that recycles keys — a hard-coded constant in a test harness, a key derived from a non-unique order number — silently receives someone else's response, and you will spend a long afternoon working out why.
+
+**The concurrency detail that makes it actually work.** The naïve implementation reads the table, sees no row, does the work, then writes the row. That is the same check-then-act race as the uniqueness validator earlier in this chapter, except here the prize is a duplicate charge: two retries arriving 20 ms apart both read "no row" and both charge.
+
+What arbitrates is a **unique index on `(Endpoint, Key)`** combined with the ordering — *insert the key row first, inside the same transaction as the side effect*:
+
+```csharp
+await using var tx = await db.Database.BeginTransactionAsync(ct);
+
+var record = new IdempotencyRecord
+{
+    Endpoint = "POST /payments", Key = key, RequestHash = hash,
+    StatusCode = 0, CreatedAt = DateTimeOffset.UtcNow
+};
+db.IdempotencyRecords.Add(record);
+
+try
+{
+    await db.SaveChangesAsync(ct);        // The unique index arbitrates HERE.
+}
+catch (DbUpdateException ex) when (IsUniqueViolation(ex))  // 23505 on Npgsql, 2601/2627 on SQL Server
+{
+    await tx.RollbackAsync(ct);
+    return await ReplayOrConflictAsync(key, hash, ct);      // The loser never reaches the charge.
+}
+
+var payment = await _payments.ChargeAsync(request, ct);     // The side effect.
+
+record.StatusCode = StatusCodes.Status201Created;
+record.ResponseBody = JsonSerializer.Serialize(payment);
+await db.SaveChangesAsync(ct);
+await tx.CommitAsync(ct);
+```
+
+The ordering is the entire trick, so walk the second concurrent request through it. It attempts the same insert; the unique index rejects it, so it learns — atomically, with no read-then-write window anywhere — that it lost the race. It rolls back and reads the existing row. If that row carries a status code, the first attempt finished and the loser replays it. If the status is still `0`, the first attempt is in flight and the loser answers `409` with `Retry-After: 1`. Either way it never reaches `ChargeAsync`.
+
+Now invert the order and do the work first: both requests charge the card, and *then* one of them discovers it lost. The damage is already done and you are writing a refund. The row must go in before the effect, in the same transaction, or the pattern buys you nothing.
+
+```
+request A ──┬─ INSERT (POST /payments, key) ──► accepted ──► charge ──► store 201 ──► COMMIT
+            │
+request B ──┴─ INSERT (POST /payments, key) ──► unique violation
+                                                    │
+                                       status 0? ───┴──► 409 + Retry-After
+                                       status set? ────► replay stored response
+```
+
+Two loose ends remain.
+
+**A first attempt that never finishes.** If the process dies between the insert and the update, the row sits at status `0` forever and every retry gets a `409`. Give the record a lease — store a `LockedUntil` and treat an expired in-flight row as reclaimable — or run a sweeper that ages stale rows out. Whether reclaiming is safe depends on whether re-running the side effect is safe, which is why the strongest version of this pattern forwards the same key downstream: most payment gateways accept an idempotency key of their own, so you hand yours through and let them deduplicate the charge you may or may not have made.
+
+**Retention.** Idempotency records are a cache, not an audit log. Keep them long enough to cover any plausible retry window — Stripe uses 24 hours, and 24–72 hours suits most systems — then delete them from a background job with a batched `ExecuteDeleteAsync`, never a cascade on the request path. This table takes a write on the hot path of every mutating request, so unbounded growth is a genuine operational problem rather than a tidiness concern.
+
+> **Best practice.** Scope the key by caller as well as endpoint — `(TenantId, Endpoint, Key)`. Keys are client-generated, and one client's copy-pasted GUID must never be able to replay another client's response. Decide explicitly, too, whether a replay re-runs authorization: it should, because a stored `201` must not be handed to a caller who has since lost the entitlement.
+
+> **Gotcha.** Idempotency is not the same as "it worked." Replaying a stored `500` on retry is almost always wrong — a genuine server error is exactly the case where the client *should* get a fresh attempt. Record only deterministic outcomes: successes and client errors. Leave 5xx unstored (release the key) so the retry re-executes.
+
+This is the HTTP-facing sibling of a pattern that shows up twice more in this book — idempotent message consumers in [Chapter 9: Messaging & Distributed Systems](#chapter-9-messaging-distributed-systems), which dedupe on a message ID with the same unique-index backstop, and the general treatment in [Chapter 6: Architecture & Application Design](#chapter-6-architecture-application-design). One mechanism (record the operation's identity atomically with its effect), three transports.
+
+### Versioning and OpenAPI
+
+**API versioning** protects existing clients when you evolve. It is also a decision that is expensive to reverse and easy to get subtly wrong, so it gets the next section to itself — including the more useful question of how to avoid needing a new version at all.
+
+**OpenAPI/Swagger** documents your API in a machine-readable contract. .NET now ships built-in OpenAPI document generation (`AddOpenApi` / `MapOpenApi`); Swagger UI or Scalar renders it for humans. Rich metadata (`WithName`, `Produces`, XML comments, `TypedResults`) makes the generated spec — and any client SDKs generated from it — accurate.
+
+## API Versioning & Backward Compatibility
+
+Versioning is the mechanism teams reach for; backward compatibility is the actual goal. Get the second right and you need far less of the first, so start there.
+
+### What actually counts as a breaking change
+
+A change is breaking if a *correctly written, already deployed* client stops working. The surprise is how asymmetric that turns out to be — the same edit is harmless in one direction and fatal in the other.
+
+| Change | Verdict | Why |
+|---|---|---|
+| Add an **optional** request field | Safe | Old clients omit it; the server already has a default |
+| Add a **required** request field | **Breaking** | Every request in flight is now invalid |
+| Add a field to a response | Usually safe | Tolerant readers ignore it; strict or generated clients may not |
+| Remove or rename a response field | **Breaking** | Clients read fields by name |
+| **Tighten** validation (`maxLength` 200 → 100, add a regex) | **Breaking** | Requests that were legal yesterday now `400` |
+| Loosen validation | Safe | Strictly widens what is accepted |
+| Change a field's type or format (`int` → `string`, epoch → ISO-8601) | **Breaking** | Deserialization fails, or silently coerces |
+| Start returning `null` for a field that was always populated | **Breaking** | The client dereferences it without checking |
+| Add a new **enum value** | **Breaking for strict readers** | A generated client mapping to a closed enum throws on the unknown member |
+| Add a new endpoint or optional query parameter | Safe | Nobody calls what they don't know about |
+| Change a success status code (`200` → `202`) | **Breaking** | Clients switch on the code, and `201` vs `200` changes where they look for the resource |
+| Change the error shape (bare string → `ProblemDetails`) | **Breaking** | Error handling is contract too — and it is the part nobody thinks to version |
+| Change default page size or default ordering | **Breaking in practice** | Not in the schema, but pagination loops and tests depend on it |
+| Change a field's *meaning*, keeping its name and type | **The worst kind** | `amount` in dollars becomes `amount` in cents |
+
+Two rows deserve emphasis. **Tightening validation** is the one that slips through review, because it looks like a bug fix: someone notices `Description` accepts 10 000 characters and caps it at 500. Every client happily sending 800 now gets a `400`, and you changed the contract without touching a single type — which is also why an OpenAPI diff won't flag it unless you compare constraints, not just shapes. And **changing semantics silently** is the only entry with no failure mode at all: nothing throws, no alert fires, and finance reconciliation finds it three weeks later. If a field's meaning changes, give it a new name. Always.
+
+### The tolerant reader
+
+Postel's law — "be conservative in what you send, liberal in what you accept" — is usually quoted at servers, but the leverage sits on the client side. A **tolerant reader** deserializes only the fields it actually uses, ignores everything else, and does not fall over on an unknown enum member.
+
+`System.Text.Json` is tolerant by default: unknown JSON properties are dropped silently unless you opt into `JsonSerializerOptions.UnmappedMemberHandling = JsonUnmappedMemberHandling.Disallow`. That default is a feature. Resist the urge to "tighten" it in the name of strictness — every additive change your provider makes then becomes a non-event for you instead of a deployment.
+
+The usual failure mode is generated code. An SDK generated from an OpenAPI document models enums as a closed C# enum and, depending on the generator, throws on a value it has never heard of — which is why "just adding an enum member" sits in the breaking column. Provider-side defences: use string values rather than ints on the wire, and document that consumers must tolerate unknown members. Consumer-side: deserialize such a field as `string` and map it yourself with an explicit `_ => Unknown` arm. There is a second, quieter hazard on the consumer side too — a client that deserializes a payload into a strict model and later re-serializes it (a read-modify-write PUT, say) silently *drops* every field it didn't model, wiping data it never knew existed.
+
+> **Best practice.** Both halves being forgiving is what makes evolution cheap: the provider only ever adds, and the consumer only ever reads what it needs. Break either half of that bargain — a provider that renames, or a consumer that round-trips through a strict model — and every change turns into a coordinated deployment.
+
+### Choosing a versioning scheme
+
+| Scheme | Looks like | Pros | Cons |
+|---|---|---|---|
+| **URL path** | `/v2/products` | Visible in logs, browsers, and `curl`; part of the CDN cache key for free; routing is ordinary routing; two versions can be split at the proxy and deployed independently | Breaks the "one URI per resource" ideal — the same product has two URLs; the version leaks into every link you emit |
+| **Query string** | `/products?api-version=2.0` | Unobtrusive; naturally defaults when absent | Easy to lose — proxies and caches may normalize or ignore it; clutters every URL; awkward inside hypermedia links |
+| **Custom header** | `X-Api-Version: 2.0` | Keeps URLs clean and stable across versions | Invisible in an address bar and in most access logs; caches ignore it unless you set `Vary`; "send me the curl that fails" support requests get harder |
+| **Media type** | `Accept: application/vnd.acme.product.v2+json` | The purest model — the version belongs to the *representation*, not the resource; gives per-resource granularity | Almost nobody does it; thin tooling support; confusing to casual consumers; one more content-negotiation path to get wrong |
+
+The honest ranking: **URL path** for public APIs, because debuggability and cache behaviour beat purity, and because a version in the path is what lets a proxy route v1 and v2 to different deployments. **Media type** if you have sophisticated consumers and genuinely per-resource versioning needs — accept that you will be explaining it forever. Header and query string are defensible middle grounds. What matters far more than the choice is picking one and applying it uniformly.
+
+> **Gotcha — caching.** Any scheme that puts the version *outside* the URL needs `Vary` on the responses, or a shared cache will happily serve a v1 body to a v2 request. This is the quiet reason URL versioning keeps winning arguments it should lose on aesthetics.
+
+### Wiring it up with Asp.Versioning
 
 ```csharp
 builder.Services.AddApiVersioning(o =>
 {
     o.DefaultApiVersion = new ApiVersion(1, 0);
     o.AssumeDefaultVersionWhenUnspecified = true;
-    o.ReportApiVersions = true; // Emits api-supported-versions header.
+    o.ReportApiVersions = true;                  // api-supported-versions / api-deprecated-versions
+    o.ApiVersionReader = ApiVersionReader.Combine(
+        new UrlSegmentApiVersionReader(),                  // /v2/products
+        new HeaderApiVersionReader("X-Api-Version"),
+        new QueryStringApiVersionReader("api-version"));
+})
+.AddApiExplorer(o =>                             // Asp.Versioning.Mvc.ApiExplorer
+{
+    o.GroupNameFormat = "'v'VVV";                // v1, v1.1, v2 — becomes the OpenAPI group name
+    o.SubstituteApiVersionInUrl = true;          // resolves {version:apiVersion} in the docs
 });
 ```
 
-**OpenAPI/Swagger** documents your API in a machine-readable contract. .NET now ships built-in OpenAPI document generation (`AddOpenApi` / `MapOpenApi`); Swagger UI or Scalar renders it for humans. Rich metadata (`WithName`, `Produces`, XML comments, `TypedResults`) makes the generated spec — and any client SDKs generated from it — accurate.
+`ApiVersionReader.Combine` accepts *any* of the configured sources, which is the pragmatic default during a migration: you can move a consumer from the header to the URL without a flag day. `ReportApiVersions` makes every response advertise what exists, so a client can discover a new version without reading your changelog.
+
+For Minimal APIs, versions hang off a **version set** shared by a group:
+
+```csharp
+var versions = app.NewApiVersionSet()
+    .HasApiVersion(new ApiVersion(1, 0))
+    .HasApiVersion(new ApiVersion(2, 0))
+    .Build();
+
+var products = app.MapGroup("/api/v{version:apiVersion}/products")
+                  .WithApiVersionSet(versions);
+
+products.MapGet("/{id:int}", GetProductV1).MapToApiVersion(new ApiVersion(1, 0));
+products.MapGet("/{id:int}", GetProductV2).MapToApiVersion(new ApiVersion(2, 0));
+```
+
+Two handlers on the same route template is not a conflict — version matching resolves it. Controllers use the attribute form: `[ApiVersion("2.0")]` on the class, `[MapToApiVersion("1.0")]` on any action that stayed behind, over a `[Route("api/v{version:apiVersion}/[controller]")]` template.
+
+Per-version OpenAPI documents then fall out of the API explorer, which stamps each endpoint with the group name from `GroupNameFormat`:
+
+```csharp
+builder.Services.AddOpenApi("v1");
+builder.Services.AddOpenApi("v2");   // one document per version
+// ...
+app.MapOpenApi();                    // /openapi/v1.json, /openapi/v2.json
+```
+
+Each document picks up the endpoints whose group matches its name. The payoff is that generated client SDKs become version-specific: a consumer regenerates against `v2.json` when *it* is ready, not when you ship.
+
+### Expand and contract: how to not need a new version
+
+Most changes that feel like they demand a `v2` don't. **Expand–contract** (also called parallel change) is the same manoeuvre the zero-downtime schema migrations of [Chapter 23: Data at Scale & Multi-Tenancy](#chapter-23-data-at-scale-multi-tenancy) use, applied to a wire contract instead of a table:
+
+```
+expand    add the new field/endpoint alongside the old one; write both, read either
+migrate   move consumers to the new one, individually, at their own pace
+contract  once telemetry shows nobody reads the old one, delete it
+```
+
+Renaming `name` to `fullName` in a response is the canonical example. As a version bump it costs a parallel v2 surface, a duplicated route table, a second set of tests, and a migration deadline imposed on every consumer. As expand–contract it costs one release that emits *both* fields, a window in which you watch which one consumers actually read, and a second release that drops `name`. No version, no deadline, no coordination meeting.
+
+The same move absorbs most of the breaking table above. Tightening validation? Log the violations for one release without rejecting them, see who trips, then enforce. Changing units? New field, new name, deprecate the old. Splitting one endpoint into two? Ship the pair, leave the old endpoint delegating to them, retire it when it goes quiet.
+
+Reserve a new version for the changes expand–contract genuinely cannot absorb: a restructured resource model, a different auth scheme, a workflow whose steps changed shape. Every version you create is a code path you maintain, a test matrix you run, and a deprecation conversation you will eventually have to have. **The cheapest version is the one you didn't need.**
+
+### Retiring a version
+
+Shipping v2 is the easy half. Deleting v1 is where teams stall, sometimes for years, and the reason is almost never technical.
+
+Announce the retirement in the responses themselves, not only in a blog post. RFC 8594 defines the `Sunset` header — the date the resource stops working — usually paired with a `Deprecation` header and a `Link` to the migration guide. Note that these must be written *before* the response starts, so hook `OnStarting` rather than setting them after `await next`:
+
+```csharp
+app.Use((ctx, next) =>
+{
+    ctx.Response.OnStarting(() =>
+    {
+        if (ctx.GetRequestedApiVersion()?.MajorVersion == 1)
+        {
+            ctx.Response.Headers["Deprecation"] = "true";
+            ctx.Response.Headers["Sunset"] = "Wed, 31 Dec 2026 23:59:59 GMT";
+            ctx.Response.Headers["Link"] =
+                "<https://docs.acme.com/api/v2-migration>; rel=\"deprecation\"";
+        }
+        return Task.CompletedTask;
+    });
+    return next(ctx);
+});
+```
+
+`ReportApiVersions = true` complements this automatically with `api-supported-versions: 1.0, 2.0` and `api-deprecated-versions: 1.0` on every response, and marking a version deprecated is one attribute — `[ApiVersion("1.0", Deprecated = true)]`, or `.HasDeprecatedApiVersion(...)` on a version set. A well-behaved client can then alert on its own, before your sunset date arrives.
+
+**The part most teams miss.** None of that tells you whether it is *safe* to delete v1, and that is the actual blocker. "Is anyone still on v1?" is answerable from an aggregate counter. The question you actually need answered is "*who* is still on v1, how much, and doing what?" — and you cannot answer it retroactively. From the day v2 ships, tag your request telemetry with the resolved API version **and** a consumer identity: the client id from the token, an API key, a mandated `User-Agent`. Retirement then becomes a report rather than a debate — three consumers, two of them internal, one making forty calls a day — and you email them instead of guessing. Without per-version, per-consumer telemetry, the honest answer to "can we delete v1?" is permanently "we don't know," and "we don't know" always loses to "leave it running." [Chapter 13: Observability](#chapter-13-observability) covers the instrumentation.
+
+> **Pitfall — cardinality.** Consumer identity is exactly the kind of unbounded value that wrecks a metrics backend (Chapter 13's cardinality warning applies directly). With a handful of known partners, a metric tag is fine. With a large or open consumer base, put version and consumer on the *log or span* instead and answer the retirement question with a query over traces — high-cardinality data belongs there, not in a time series.
 
 ## gRPC
 

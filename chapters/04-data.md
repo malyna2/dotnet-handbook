@@ -1,6 +1,6 @@
 # Chapter 4: Data Access & Databases
 
-_⏱️ Estimated read time: ~35 min · 4913 words (study pace)_
+_⏱️ Estimated read time: ~1 h 5 min · 10117 words (study pace)_
 
 Almost every non-trivial application is, underneath all its features, a machine for moving data in and out of a database safely and quickly. You can write flawless business logic and beautiful APIs, but if your data access layer holds locks too long, fires a thousand queries where one would do, or corrupts a balance under concurrent writes, the whole system fails in ways that are hard to reproduce and harder to fix. This chapter takes you from the mechanics of Entity Framework Core down to the SQL and storage engine underneath it, then back up through caching, NoSQL, and deployment. The goal is that you stop treating the database as a black box and start reasoning about what it actually does.
 
@@ -199,6 +199,125 @@ await ctx.Products
 
 Modern EF mapping also reduces how often you drop to raw SQL for shape: EF Core 7 added **JSON columns** (map an owned aggregate to a single JSON column, still queryable through LINQ), and EF Core 8 added **complex types** (keyless value objects) and **primitive collections** (a `List<int>`/`string[]` stored inline as JSON instead of a side table).
 
+### Bulk Inserts and the Limits of SaveChanges
+
+`ExecuteUpdate` and `ExecuteDelete` cover the write side of "change many rows I do not need to load". Inserts have no such escape hatch, and this is where teams most often discover that `SaveChanges` has a ceiling.
+
+`SaveChanges` is not as naive as it looks. It sorts pending changes into dependency order, then **batches** statements into as few round trips as it can — the SQL Server provider packs up to 42 statements per batch by default (`MaxBatchSize` is configurable), and Npgsql batches similarly. So 1,000 inserts are not 1,000 round trips. But they are still 1,000 parameterized `INSERT` statements with 1,000 sets of parameters, preceded by change-tracker work for every entity.
+
+That change-tracker work is the part that surprises people:
+
+```csharp
+// Quadratic: DetectChanges runs on every Add, scanning everything added so far.
+foreach (var p in products)
+    ctx.Products.Add(p);           // 50k entities -> DetectChanges 50k times
+
+// Linear: one DetectChanges pass at the end.
+ctx.Products.AddRange(products);
+```
+
+`Add` triggers `DetectChanges`, which walks every tracked entity looking for modifications. Adding *n* entities one at a time is therefore O(n²) in tracker work — the classic "why does importing 50,000 rows take four minutes when the database is idle?". `AddRange` collapses that to a single pass, and for import paths you can go further and switch the detection off entirely (`ctx.ChangeTracker.AutoDetectChangesEnabled = false`) as long as you turn it back on afterwards.
+
+Even fixed, `SaveChanges` tops out well below what the database can ingest, because the protocol is the bottleneck: every row travels as a parameterized statement. Both major engines offer a bulk-load path that bypasses the statement protocol entirely — SQL Server has `SqlBulkCopy`, PostgreSQL has the binary `COPY` protocol, exposed by Npgsql:
+
+```csharp
+await using var conn = new NpgsqlConnection(connectionString);
+await conn.OpenAsync(ct);
+
+await using var writer = await conn.BeginBinaryImportAsync(
+    "COPY products (sku, name, price) FROM STDIN (FORMAT BINARY)", ct);
+
+foreach (var p in products)
+{
+    await writer.StartRowAsync(ct);
+    await writer.WriteAsync(p.Sku, NpgsqlDbType.Text, ct);
+    await writer.WriteAsync(p.Name, NpgsqlDbType.Text, ct);
+    await writer.WriteAsync(p.Price, NpgsqlDbType.Numeric, ct);
+}
+
+await writer.CompleteAsync(ct);   // nothing is written unless you call this
+```
+
+The difference is not marginal. Loading a few hundred thousand rows takes minutes through `SaveChanges` and seconds through `COPY`, because the rows stream to the server in one continuous operation with no per-row statement parsing, no parameter binding, and no tracker.
+
+> **Gotcha:** `CompleteAsync()` is what commits a binary import. Disposing the writer without calling it rolls the whole import back — silently, as far as your code can tell, because no exception is thrown. Forgetting it produces the memorable bug where the import "succeeds" every night and the table stays empty.
+
+Choosing between them is mostly a question of scale and of what else has to happen:
+
+| Rows per operation | Reach for | Why |
+|---|---|---|
+| Up to ~100 | `SaveChanges` | Batched already; tracker cost is noise. Domain events and interceptors work normally. |
+| ~100 – 10,000 | `AddRange` + `SaveChanges`, detection off | Still one transaction, still your entity model, no extra dependency. |
+| 10,000+ | `SqlBulkCopy` / `COPY`, or a bulk-extension library | The statement protocol is the bottleneck; only a bulk load path removes it. |
+| "Change rows I do not need to read" | `ExecuteUpdate` / `ExecuteDelete` | One set-based statement, nothing materialized. |
+
+Libraries such as **EFCore.BulkExtensions** and **linq2db.EntityFrameworkCore** wrap the provider-specific bulk APIs behind an EF-shaped surface (`BulkInsertAsync`, `BulkMergeAsync`) and add upsert support, which the raw APIs lack. They are worth the dependency when you need `MERGE`-style behaviour; a straight append does not need them.
+
+> **Pitfall:** Bulk paths bypass everything EF layers on top of the database — no change tracker, no interceptors, no `SaveChanges` events, no domain-event dispatch, and no validation. That is precisely why they are fast, and precisely why they belong in import and maintenance jobs rather than in the middle of your domain logic.
+
+### Cascade Behaviour: What Happens to the Children
+
+Delete a customer who has orders, and something must happen to those orders. EF Core's answer is governed by `DeleteBehavior`, and the reason it confuses people is that a single enum value configures **two different mechanisms at two different layers**: the foreign key EF writes into your migration, and what EF itself does in memory to the children it happens to be tracking.
+
+```
+      ctx.Customers.Remove(customer)
+                 │
+                 ├─── EF, in memory ────►  what happens to LOADED children
+                 │                          (the "Client..." half of the behaviour)
+                 │
+                 └─── SQL sent to DB ───►  what the FOREIGN KEY does
+                                            (ON DELETE CASCADE / SET NULL / NO ACTION)
+```
+
+| `DeleteBehavior` | Foreign key in the database | What EF does to *tracked* children |
+|---|---|---|
+| `Cascade` | `ON DELETE CASCADE` | Deletes them |
+| `ClientCascade` | `ON DELETE NO ACTION` | Deletes them |
+| `SetNull` | `ON DELETE SET NULL` | Sets the FK to null |
+| `ClientSetNull` | `ON DELETE NO ACTION` | Sets the FK to null |
+| `Restrict` | `ON DELETE RESTRICT` | Nothing |
+| `NoAction` | `ON DELETE NO ACTION` | Nothing |
+| `ClientNoAction` | `ON DELETE NO ACTION` | Nothing, and EF skips its own consistency check |
+
+The conventions EF applies when you say nothing follow from whether the relationship is required: a **required** relationship defaults to `Cascade` (an order line cannot exist without its order, so deleting the order deletes the lines), and an **optional** relationship defaults to `ClientSetNull` (the child can live on with a null FK — but only if EF has it loaded).
+
+That last clause is the whole trap. `ClientSetNull` nulls the FK on children **in the change tracker**. Children still sitting in the database untouched are not fixed up, and the FK is `NO ACTION`, so the database rejects the delete:
+
+```csharp
+// Children not loaded -> nothing for EF to fix up -> the FK stops the DELETE.
+var customer = await ctx.Customers.SingleAsync(c => c.Id == id);
+ctx.Customers.Remove(customer);
+await ctx.SaveChangesAsync();   // DbUpdateException: FK violation
+
+// Children loaded -> EF nulls their FK in the same SaveChanges.
+var customer = await ctx.Customers
+    .Include(c => c.Orders)
+    .SingleAsync(c => c.Id == id);
+ctx.Customers.Remove(customer);
+await ctx.SaveChangesAsync();   // works
+```
+
+The same delete succeeds or fails depending on whether an `Include` appears three lines earlier. That is a genuinely surprising coupling, and it is the single most common source of "it works in the test and fails in production" around deletes — tests often load the whole aggregate, production code often does not.
+
+`Restrict` and `NoAction` look interchangeable and are not. `Restrict` emits an FK that refuses the delete *immediately*, as soon as the row is touched. `NoAction` defers the check to the end of the statement, which means a statement that deletes parent and children together can succeed under `NoAction` and fail under `RESTRICT`. PostgreSQL implements this distinction faithfully; it also matters for deferrable constraints, where `NO ACTION` can be postponed to commit time and `RESTRICT` cannot.
+
+Two more behaviours worth knowing before they bite:
+
+**Severing a required relationship deletes the child.** Removing an item from `order.Lines` does not just clear the FK — for a required relationship the child is now an orphan, and EF deletes it. That is usually what you want inside an aggregate and alarming when the relationship was required by accident.
+
+**`ExecuteDelete` does not cascade in EF at all.** It emits one `DELETE` and lets the database decide, so it only works when a real `ON DELETE CASCADE` exists in the schema. If your model uses `ClientCascade` — which writes `NO ACTION` — the bulk delete you added for performance will fail with an FK violation on exactly the rows the tracked path used to handle:
+
+```csharp
+// Fine with DeleteBehavior.Cascade. FK violation with ClientCascade.
+await ctx.Customers.Where(c => c.LastSeen < cutoff).ExecuteDeleteAsync(ct);
+```
+
+> **Gotcha:** SQL Server refuses to create **multiple cascade paths** to the same table (error 1785) — if two relationships can both cascade into `OrderLines`, the migration fails. The fix is to set one path to `NoAction` and delete those rows explicitly. PostgreSQL has no such restriction, which is one of the quieter differences that surfaces when a codebase is ported between the two.
+
+Soft delete deserves a warning of its own: a global query filter that hides `IsDeleted` rows does **not** cascade. Soft-deleting a parent leaves its children visible and referencing a parent the rest of the application cannot see. If you soft-delete an aggregate root, soft-delete the aggregate — in one `ExecuteUpdate` per child table, or in a domain method that owns the whole operation.
+
+> **Best practice:** Let cascade delete operate *inside* an aggregate and never across aggregate boundaries (see Chapter 6). Deleting an order should delete its lines; it should never silently delete the customer's invoices. Configure the boundary explicitly with `Restrict` rather than relying on a convention, so that an accidental cascade becomes a loud error instead of missing data discovered a month later.
+
 ## SQL Fundamentals
 
 EF is a convenience over SQL, and to use it well you must understand the SQL it hides. A senior developer reads the generated SQL and the execution plan, not just the C#.
@@ -245,6 +364,8 @@ The query is *covered* — everything it needs lives in the index, so no key loo
 
 The execution plan is the database's step-by-step strategy for a query: which indexes it uses, in what order it joins, whether it scans or seeks. An **index seek** (jumping straight to matching rows) is good; an **index scan** or **table scan** on a large table under a selective filter usually signals a missing index. In SQL Server you view it with `SET SHOWPLAN_ALL ON` or the graphical plan in SSMS; watch for scans, expensive key lookups, and warnings about missing indexes.
 
+Reading plans is a skill worth acquiring properly rather than by pattern-matching, and it is easiest to learn on PostgreSQL, whose `EXPLAIN` output is plain text and tells you both what it *expected* and what actually *happened*. The next section does that in depth.
+
 ### Transactions and ACID
 
 A transaction groups statements so they succeed or fail as a unit. ACID names its four guarantees:
@@ -286,6 +407,168 @@ A deadlock occurs when transaction A holds a lock B needs, while B holds a lock 
 
 > **Best practice:** Always access tables and rows in a **consistent order** across your application, keep transactions short, and be ready to catch a deadlock error (SQL Server error 1205) and retry the operation.
 
+## PostgreSQL in Practice: Indexes and Query Plans
+
+Most of what you have read so far is engine-agnostic. PostgreSQL is now the default relational database for new .NET services, and it differs from SQL Server in ways that change how you index and how you diagnose a slow query. The good news is that Postgres will tell you exactly what it did, in plain text, if you know how to ask.
+
+### The Storage Model That Explains Everything Else
+
+Three facts about how Postgres stores rows explain most of its behaviour.
+
+**There is no clustered index.** Table rows live in an unordered **heap**, and every index — including the primary key — is a separate structure whose entries point at a physical row location (the `ctid`). Looking up by primary key is therefore always two steps: search the index, then fetch the row from the heap. SQL Server's "the clustered index *is* the table" intuition does not transfer, and neither does the habit of choosing a clustered key.
+
+**Every update writes a new row version.** Postgres implements MVCC by never modifying a row in place: an `UPDATE` writes a whole new version and marks the old one dead; a `DELETE` only marks it dead. Dead versions are reclaimed later by **autovacuum**. This is why an update-heavy table grows even when its row count is constant (**bloat**), and why a long-running transaction is expensive for the *whole* database — nothing newer than the oldest open transaction can be cleaned up while it sits there.
+
+There is an important optimisation hiding in that: if an update touches **no indexed column** and the page has free space, Postgres performs a **HOT update** — the new version goes on the same page and no index has to be touched at all. A table with eight indexes rarely gets HOT updates; the same table with three does. Indexes cost you on every write, not just in the obvious way.
+
+**An index alone cannot prove a row is visible to you.** Visibility lives in the heap, so a lookup that finds its answer entirely in the index still has to check whether the row is visible to your snapshot. Postgres keeps a **visibility map** marking pages where every row is visible to everyone, and skips the heap for those. That is what makes an **index-only scan** possible — and why the plan reports `Heap Fetches: N`, and why a table that was just bulk-updated loses its index-only scans until autovacuum refreshes the map.
+
+### Choosing an Index Type
+
+B-tree is the default and the right answer most of the time, but Postgres has a genuinely useful index toolbox:
+
+| Type | Good for | Notes |
+|---|---|---|
+| **B-tree** | Equality, ranges, sorting, `LIKE 'prefix%'` | The default. Handles `ORDER BY` and `MIN`/`MAX` too. |
+| **GIN** | `jsonb` containment, arrays, full-text search | Many keys per row. Slow to update; consider `fastupdate`. |
+| **GiST** | Geometry, ranges, nearest-neighbour, exclusion constraints | The extensible one; PostGIS is built on it. |
+| **BRIN** | Enormous tables whose physical order tracks a column (time-series) | Tiny — kilobytes for a table of gigabytes — but only works when data is naturally ordered. |
+| **Hash** | Equality on large values | Rarely worth it; B-tree does equality nearly as well and more besides. |
+
+The B-tree rules that matter in practice:
+
+- **Multi-column indexes obey the leftmost-prefix rule.** An index on `(customer_id, created_at)` serves `WHERE customer_id = ?`, and `WHERE customer_id = ? ORDER BY created_at`, but not `WHERE created_at > ?` alone. Put equality columns first, then the range or sort column.
+- **An index can supply the sort order.** If the index order matches the `ORDER BY`, the plan has no `Sort` node at all — the rows come out sorted. The direction and `NULLS FIRST/LAST` must match too.
+- **`INCLUDE` makes an index covering**, so the query can be answered without touching the heap.
+- **Partial indexes** index only the rows you actually query, which makes them dramatically smaller and cheaper to maintain.
+- **Expression indexes** are how you index a computed value — necessary because *any* function applied to a column defeats a plain index on it.
+
+```sql
+-- Only open orders are ever listed, and always newest first.
+CREATE INDEX idx_orders_open_recent
+    ON orders (created_at DESC)
+    WHERE status = 'open';
+
+-- "Email must be unique among users who are not soft-deleted."
+CREATE UNIQUE INDEX uq_users_email_active
+    ON users (lower(email))
+    WHERE deleted_at IS NULL;
+```
+
+That second one is worth remembering: a **partial unique index** is how you express a conditional uniqueness rule that a plain constraint cannot, and it is the database-level guarantee that makes an application-level uniqueness check safe (see the validation discussion in Chapter 3 — a check-then-insert without this index is a race, not a rule).
+
+EF Core can express all of it, so these do not have to live in hand-written migration SQL:
+
+```csharp
+modelBuilder.Entity<Order>()
+    .HasIndex(o => o.CreatedAt)
+    .IsDescending()
+    .HasFilter("status = 'open'")
+    .IncludeProperties(o => o.Total);
+```
+
+### Reading EXPLAIN
+
+`EXPLAIN` shows the plan the planner *chose*, with its estimates. `EXPLAIN (ANALYZE, BUFFERS)` actually runs the query and adds what really happened plus how much I/O it took. Always use the second form when diagnosing — estimates alone hide the interesting failure.
+
+> **Gotcha:** `EXPLAIN ANALYZE` executes the statement, including `UPDATE` and `DELETE`. Wrap it: `BEGIN; EXPLAIN (ANALYZE) ...; ROLLBACK;`.
+
+Read the plan tree **inside-out**: the most indented node runs first and feeds its parent. Three things carry nearly all the diagnostic value:
+
+1. **`rows=` estimated versus `rows=` actual.** A large divergence means the planner is working from bad information, and every decision above that node is suspect.
+2. **`actual time=` and `loops=`.** Times are *per loop*. A node showing `actual time=0.3..0.4 rows=1 loops=50000` did not take 0.4 ms; it took twenty seconds.
+3. **`Buffers: shared hit=` versus `read=`.** Hits came from cache, reads went to the operating system. A query with a good plan but tens of thousands of reads is doing too much I/O.
+
+Here is a real shape you will meet often — a listing endpoint that got slow as the table grew:
+
+```sql
+EXPLAIN (ANALYZE, BUFFERS)
+SELECT id, created_at, total
+FROM orders
+WHERE status = 'open'
+ORDER BY created_at DESC
+LIMIT 20;
+```
+
+```
+Limit  (cost=48231.19..48231.24 rows=20 width=24)
+       (actual time=812.443..812.449 rows=20 loops=1)
+  Buffers: shared hit=1204 read=23891
+  ->  Sort  (cost=48231.19..48472.65 rows=96584 width=24)
+            (actual time=812.441..812.444 rows=20 loops=1)
+        Sort Key: orders.created_at DESC
+        Sort Method: top-N heapsort  Memory: 27kB
+        ->  Seq Scan on orders  (cost=0.00..45662.00 rows=96584 width=24)
+                                (actual time=0.019..798.221 rows=96584 loops=1)
+              Filter: (status = 'open')
+              Rows Removed by Filter: 1903416
+Planning Time: 0.184 ms
+Execution Time: 812.503 ms
+```
+
+Everything you need is in there. `Rows Removed by Filter: 1903416` says the database read two million rows to keep ninety-six thousand. The `Sort` says it then ordered all of them to return twenty. `read=23891` says most of that came off disk. The estimate matches the actual, so the planner was not wrong — it simply had nothing better available. The partial index above changes the answer:
+
+```
+Limit  (cost=0.42..2.31 rows=20 width=24)
+       (actual time=0.028..0.061 rows=20 loops=1)
+  Buffers: shared hit=24
+  ->  Index Scan using idx_orders_open_recent on orders
+        (cost=0.42..9124.55 rows=96584 width=24)
+        (actual time=0.026..0.057 rows=20 loops=1)
+Execution Time: 0.089 ms
+```
+
+No `Filter`, because the index only contains open orders. No `Sort`, because the index is already in `created_at DESC` order. Twenty-four buffer hits instead of twenty-five thousand reads, and 0.09 ms instead of 812 ms. The `LIMIT` can stop as soon as it has twenty rows, which is why the actual cost is a fraction of the node's estimated total.
+
+The vocabulary you need to read any plan:
+
+| Node | What it means |
+|---|---|
+| `Seq Scan` | Read the whole table. Correct for small tables or unselective filters; a problem under a selective one. |
+| `Index Scan` | Walk the index, fetch each matching row from the heap. |
+| `Index Only Scan` | Answered from the index alone. Check `Heap Fetches` — a high number means the visibility map is stale. |
+| `Bitmap Index Scan` + `Bitmap Heap Scan` | Collect matching row locations, sort them, then read the heap in physical order. Chosen when there are too many matches for random access to pay. `Recheck Cond` with `lossy=true` means it fell back to page granularity. |
+| `Nested Loop` | For each outer row, look up the inner side. Great when the outer side is tiny, quadratic when it is not. |
+| `Hash Join` | Build a hash of one side, probe with the other. The usual choice for large unsorted joins. |
+| `Merge Join` | Both sides sorted, walked in step. Cheap when indexes already provide the order. |
+| `Sort` | Watch `Sort Method`: `quicksort`/`top-N heapsort` with `Memory:` is fine; `external merge` with `Disk:` means it spilled and `work_mem` is too low. |
+| `Memoize` | Caches inner-side lookups in a nested loop (PostgreSQL 14+). Often what rescues a repeated-lookup plan. |
+| `Gather` / `Workers Launched` | Parallel execution. Useful for big scans, pure overhead for small ones. |
+
+### When the Plan Is Wrong
+
+If estimated and actual rows diverge badly, the planner was misinformed, and the fix is upstream of the query:
+
+- **Stale statistics.** `ANALYZE orders;` refreshes them. Autovacuum does this on a threshold, so a table that just received a bulk load may be planned from statistics describing an empty table — a good reason to `ANALYZE` explicitly at the end of an import.
+- **Correlated columns.** The planner assumes predicates are independent, so `WHERE country = 'DE' AND city = 'Berlin'` multiplies two selectivities and estimates far too few rows. `CREATE STATISTICS ... (dependencies)` teaches it otherwise.
+- **A function around the column.** `WHERE lower(email) = ...` cannot use an index on `email`. Add an expression index, or make the column case-insensitive with `citext` or a non-deterministic ICU collation.
+- **`random_page_cost` left at its default of 4.0**, which models a spinning disk. On SSD-backed storage a value near 1.1 is realistic, and the wrong setting systematically biases the planner toward sequential scans.
+- **A `LIMIT` with a bad estimate.** The planner assumes it can stop early and picks a plan that walks an index until it finds enough matches. When the predicate is rarer than estimated, that walk covers the whole table. This is the classic "instant for most customers, thirty seconds for one".
+
+> **Pitfall:** `.Where(u => u.Email.ToLower() == email)` in LINQ becomes `lower(email) = $1` in SQL, and quietly stops using your index on `email`. It is the single most common accidental index-defeat in EF Core on PostgreSQL. Either index the expression or fix the column's collation.
+
+### Finding the Queries Worth Looking At
+
+You cannot `EXPLAIN` a query you have not identified. Two extensions do the finding for you:
+
+- **`pg_stat_statements`** aggregates every normalized statement with call count and total execution time. Sort by `total_exec_time`, not `mean_exec_time` — the query that costs you the most is usually a fast one running constantly, not the slow one running hourly.
+- **`auto_explain`** logs the plan of any statement exceeding a duration threshold, which is how you capture the plan for a query that is only slow in production with production data.
+
+`pg_stat_user_indexes` is worth a look too: an index with `idx_scan = 0` after a representative period is pure cost — write amplification and one more reason a HOT update cannot happen. Drop it.
+
+### The .NET Side
+
+Getting the SQL out of EF Core is the first step; `LogTo` will print it, and in development `EnableSensitiveDataLogging` includes parameter values so you can replay the statement faithfully. Do run `EXPLAIN` with the **same parameter values**, since selectivity is exactly what the planner reasons about.
+
+Two Npgsql behaviours are worth knowing:
+
+- **Automatic preparation.** Npgsql promotes a statement to a server-side prepared statement after it has been executed a few times (`Max Auto Prepare`). This saves parse and plan time, but after five executions Postgres may switch to a **generic plan** built without knowing your parameter values — which is a poor trade for a column with skewed data. `plan_cache_mode = force_custom_plan` is the escape hatch.
+- **Connection poolers change the rules.** PgBouncer in transaction-pooling mode multiplexes connections across transactions, which breaks prepared statements and any other session-level state. Chapter 23 covers pooling under load; the point here is that a plan-caching win at the driver level can disappear entirely depending on what sits between you and the server.
+
+Finally, three mapping choices that prevent whole categories of problem: store timestamps as `timestamptz` and never `timestamp` (see Chapter 26 on why "local time" is not a thing you can store); use `jsonb` rather than `json` for anything you will query, and index it with GIN; and reach for `citext` or a case-insensitive collation instead of scattering `ToLower()` through your LINQ.
+
+> **Best practice:** Index the queries you actually run, not the columns that look important. Capture `EXPLAIN (ANALYZE, BUFFERS)` before and after every index you add, keep the two outputs in the pull request, and delete indexes that no scan counter has ever touched.
+
 ## Dapper: When the ORM Is Too Much
 
 EF is productive but adds overhead: expression translation, change tracking, materialization. Sometimes you want raw SQL with a thin, fast mapping to objects. **Dapper** is a micro-ORM — really a set of extension methods on `IDbConnection` — that executes your SQL and maps the result to C# types, nothing more.
@@ -303,6 +586,82 @@ var orders = conn.Query<OrderSummary>(
 ```
 
 Dapper shines for read-heavy reporting queries, complex hand-tuned SQL, and hot paths where EF's overhead matters. Many mature systems use **both**: EF for the write-side domain model where change tracking pays off, Dapper for high-volume reads. You lose change tracking, migrations, and LINQ, and you own the SQL — which is exactly the point when you want that control.
+
+### The Parts of Dapper Worth Knowing
+
+Dapper's surface is small, but four features cover most of what people otherwise write by hand.
+
+**Multi-mapping** splits one row into several objects, which is how you materialize a join without a flat DTO:
+
+```csharp
+var sql = @"SELECT o.id, o.total, c.id, c.name
+            FROM orders o JOIN customers c ON c.id = o.customer_id
+            WHERE o.status = @status";
+
+var orders = await conn.QueryAsync<Order, Customer, Order>(
+    sql,
+    (order, customer) => { order.Customer = customer; return order; },
+    new { status = "open" },
+    splitOn: "id");   // where one object ends and the next begins
+```
+
+`splitOn` is the part that trips people up: it names the column at which Dapper starts filling the *next* type, and it defaults to `Id`. Get the column order wrong and you get nulls rather than an error.
+
+**`QueryMultiple`** returns several result sets from one round trip — the cheap way to build a dashboard payload without N queries:
+
+```csharp
+using var multi = await conn.QueryMultipleAsync(
+    "SELECT * FROM orders WHERE id = @id; SELECT * FROM order_lines WHERE order_id = @id;",
+    new { id });
+
+var order = await multi.ReadSingleAsync<Order>();
+var lines = (await multi.ReadAsync<OrderLine>()).ToList();
+```
+
+**`DynamicParameters`** handles output parameters and stored procedures, and **list parameters just work** — Dapper expands `WHERE id = ANY(@ids)` (or `IN @ids` on SQL Server) from an array without you building placeholders.
+
+**Unbuffered queries** stream instead of materializing. `QueryAsync` buffers the whole result into a list by default; passing `buffered: false` yields rows as they arrive, which is what you want for an export of a million rows and what you must *not* use if you plan to close the connection mid-iteration.
+
+Cancellation needs `CommandDefinition` — the convenience overloads have no `CancellationToken` parameter, which is a common way for a token to get silently dropped on the way to the database:
+
+```csharp
+var orders = await conn.QueryAsync<Order>(
+    new CommandDefinition(sql, new { status }, cancellationToken: ct));
+```
+
+### Mixing Dapper and EF Core in One Transaction
+
+The two coexist better than people expect, because EF will hand you its connection and its ambient transaction. That means a Dapper query can participate in the same unit of work as your tracked changes:
+
+```csharp
+await using var tx = await ctx.Database.BeginTransactionAsync(ct);
+
+// Dapper, on EF's connection and inside EF's transaction
+var affected = await ctx.Database.GetDbConnection().ExecuteAsync(
+    new CommandDefinition(
+        "UPDATE inventory SET reserved = reserved + @qty WHERE sku = @sku",
+        new { qty, sku },
+        transaction: ctx.Database.GetDbTransaction(),
+        cancellationToken: ct));
+
+ctx.Orders.Add(order);
+await ctx.SaveChangesAsync(ct);
+await tx.CommitAsync(ct);
+```
+
+> **Gotcha:** Passing the transaction is not optional. A Dapper command issued on EF's connection *without* `transaction:` will fail on SQL Server (the connection has a pending local transaction) or run outside your transaction on PostgreSQL — the second failure mode being the dangerous one, because it commits independently and survives your rollback.
+
+Also remember that Dapper writes are invisible to the change tracker, exactly like `ExecuteUpdate`. Entities already loaded keep their stale values.
+
+| Situation | Reach for |
+|---|---|
+| Write-side domain logic, aggregates, invariants | EF Core — tracking and unit of work are the point |
+| A read model with a hand-tuned join or window function | Dapper |
+| Hot path where materialization cost shows up in a profile | Dapper, after measuring |
+| Set-based maintenance over many rows | `ExecuteUpdate`/`ExecuteDelete`, or raw SQL |
+| Schema evolution | EF migrations, whichever you query with |
+
+> **Best practice:** Do not let "Dapper is faster" become an architecture. The performance gap only matters once materialization is a measurable share of your request time, and by then you will know which three queries need it. Introducing Dapper for a specific read path is a good decision; rewriting a domain model around it usually is not.
 
 ## Database Design and Normalization
 
@@ -383,6 +742,53 @@ That `GetOrCreateAsync` above is cache-aside in one call. It is simple and robus
 A **cache stampede** (or "dog-pile") happens when a popular key expires and hundreds of concurrent requests all miss simultaneously, all hammering the database at once to rebuild it — potentially overwhelming it exactly when traffic is highest. Defences include a **lock** so only one request rebuilds while others wait, **early/probabilistic refresh** (rebuild slightly before expiry), and serving slightly stale data during a refresh.
 
 .NET 9's **HybridCache** (`Microsoft.Extensions.Caching.Hybrid`) packages these ideas for you: it unifies an in-process L1 with a distributed L2 behind a single `GetOrCreateAsync` API, and it ships cache-stampede protection out of the box — concurrent misses for the same key collapse into one rebuild. If you find yourself hand-rolling a two-level cache plus a rebuild lock, reach for it instead.
+
+### Redis in Practice: Key Design, Data Types, and Eviction
+
+`IDistributedCache` presents Redis as a dictionary of byte arrays, which is enough to get started and hides most of what makes Redis good. A few decisions repay knowing the real thing.
+
+**Key design is schema design.** Redis has no tables, so the key is the only structure you get. The conventional shape is colon-separated and hierarchical, from most general to most specific, with a version segment:
+
+```
+shop:v3:product:1234
+shop:v3:product:1234:reviews
+shop:v3:tenant:acme:cart:9f2c
+```
+
+The version segment is the part people leave out and regret. When the shape of a cached object changes in a deploy, old entries deserialize into the new type as garbage or throw. Bumping `v3` to `v4` makes the entire previous generation unreachable and lets it expire naturally — a rename instead of a mass deletion, and no cold-start thundering herd against the database at the moment of deploy.
+
+**Always set a TTL, and jitter it.** A cache without expiry is a memory leak with good manners. And if a deploy or a batch job populates ten thousand keys at once with the same TTL, they expire at the same instant and all miss together — a stampede you created on a schedule. Adding a random spread of a few percent to each TTL breaks the synchronisation.
+
+**Use the data types.** Storing a serialized object in a plain string means every field update rewrites the whole value, and every read transfers all of it:
+
+| Type | Use it for |
+|---|---|
+| String | A serialized object, a counter (`INCR` is atomic), a flag |
+| Hash | An object whose fields are read or updated independently — `HSET user:1 last_seen ...` touches one field |
+| Sorted set | Leaderboards, rate limiters, and time-ordered indexes; range queries by score |
+| Set | Membership and tag indexes — "which keys belong to product 1234" |
+| List | Simple queues; `BLPOP` gives you a blocking pop |
+| Stream | An append-only log with consumer groups — a real message primitive (see Chapter 9) |
+
+**Invalidation by tag** is where sets earn their place. You cannot glob for keys to delete — `KEYS pattern` walks the entire keyspace and, because Redis executes commands on a single thread, it blocks *every other client* while it does. (`SCAN` is the cursor-based alternative that does not, and is what any maintenance script should use.) Instead, maintain the index yourself: when caching a derived value that depends on product 1234, also add its key to the set `tag:product:1234`. On a write, read the set, delete those keys, delete the set. HybridCache exposes this idea directly with tags on `GetOrCreateAsync` and `RemoveByTagAsync`.
+
+**Round trips dominate.** A Redis operation takes microseconds on the server and a network round trip to reach it, so ten sequential `GET`s cost ten round trips and one batch costs one. StackExchange.Redis pipelines automatically when you fire off several tasks before awaiting them:
+
+```csharp
+var db = _mux.GetDatabase();
+var batch = ids.Select(id => db.StringGetAsync($"shop:v3:product:{id}")).ToArray();
+var values = await Task.WhenAll(batch);   // one round trip, not ids.Length
+```
+
+**Eviction is a policy you must choose.** When Redis reaches `maxmemory`, the default `noeviction` policy starts *rejecting writes* — your cache stops accepting new entries and the application starts throwing on set. For a pure cache you want `allkeys-lru` (or `allkeys-lfu`), which discards the least useful key instead. Getting this wrong turns a full cache into an outage rather than a slowdown, and it is the most common Redis misconfiguration in production.
+
+> **Gotcha:** Redis executes commands on a single thread. That is what makes its operations atomic and its latency predictable, and it means one expensive command — a `KEYS` sweep, a large `LRANGE`, an unbounded Lua script, or deleting a multi-megabyte value — stalls every other client for its whole duration. Slow queries in Redis are not slow for one caller; they are slow for everyone.
+
+Two more practical notes. `ConnectionMultiplexer` is expensive, thread-safe, and designed to be shared: register exactly one as a **singleton** and never wrap it in a `using` (the classic mistake, and the reason for mysterious connection storms — see Chapter 2 on lifetimes). And in a Redis **Cluster**, keys are distributed by hash slot, so a multi-key operation only works if the keys land on the same node; wrapping the common part in braces — `cart:{acme}:9f2c` — makes Redis hash only that part, keeping a tenant's keys together.
+
+> **Pitfall:** Do not use a Redis lock as a correctness mechanism. The single-instance `SET key value NX PX` lock is fine for suppressing duplicate work — one instance rebuilds the cache, the others wait — but it cannot guarantee mutual exclusion across failover, and the distributed variant (Redlock) rests on timing assumptions that are actively disputed. If two workers doing the same thing would corrupt data, enforce it in the database with a unique constraint or a row lock, not in the cache.
+
+Finally, measure the thing that tells you whether any of this is working: the **hit rate**. A cache below roughly 80% hits is usually caching the wrong things, or expiring them faster than they are reused — and every miss now costs a network round trip *plus* the original query, which makes a badly-tuned cache slower than no cache at all.
 
 ## Concurrency: Optimistic vs Pessimistic
 

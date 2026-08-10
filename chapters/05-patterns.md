@@ -1,6 +1,6 @@
 # Chapter 5: Design Patterns, Principles & Clean Code
 
-_⏱️ Estimated read time: ~1 h 10 min · 8952 words (study pace)_
+_⏱️ Estimated read time: ~1 h 35 min · 12694 words (study pace)_
 
 A senior developer is not someone who has memorized twenty-three patterns from a book. A senior developer is someone who can look at a tangle of code and *feel* where the seams should be, who reaches for a pattern the way a carpenter reaches for the right chisel, and who — crucially — knows when to leave the chisel in the box and just drive the nail.
 
@@ -566,6 +566,286 @@ return result.IsSuccess
 
 - **Null Object:** Instead of returning `null` and forcing callers to null-check, return a benign object that implements the interface and does nothing. A `NullLogger` that silently discards messages lets callers log unconditionally without `if (logger is not null)`. It replaces scattered null checks with polymorphism — but use it only where "do nothing" is genuinely correct behavior, not to paper over a missing value that callers *should* handle.
 - **Guard Clauses:** Validate preconditions at the top of a method and exit early, keeping the happy path unindented. `if (order is null) throw new ArgumentNullException(nameof(order));` up front beats wrapping the whole method body in an `if`. Modern C# and libraries like **Ardalis.GuardClauses** streamline this: `Guard.Against.Null(order);` or `ArgumentNullException.ThrowIfNull(order);`. .NET 8 rounds out the built-in helpers with the range-checking family — `ArgumentOutOfRangeException.ThrowIfNegative(count)`, `ThrowIfZero(...)`, and `ThrowIfGreaterThan(...)` — so most preconditions need no hand-written `if`/`throw` at all. Guard clauses are a small habit with an outsized effect on readability.
+
+## Exception Handling Strategy
+
+Almost every codebase has a *style* of exception handling, and almost none have a *strategy*. The style is visible: `try`/`catch` blocks sprinkled wherever someone was once burned, a `catch (Exception ex) { _logger.LogError(ex.Message); throw; }` copied from file to file, a global handler that returns `"An error occurred"` and nothing else. The strategy is the thing that answers three questions, and this section answers them in order: **where do I catch, what do I log, and what do I surface?** Every one of those answers depends on a prior question that most code never asks.
+
+### Classify the Failure First
+
+You cannot decide how to handle a failure until you know what *kind* of failure it is. There are three, and they want three completely different mechanisms.
+
+**A bug.** The code is wrong. A `NullReferenceException`, an `InvalidCastException`, an index off the end of an array, an `InvalidOperationException` because an object was in a state its own invariants say is impossible. There is no correct handling for a bug at runtime, because the process no longer knows what is true. The right response is to *not catch it*: let it tear down the current request, let the boundary log it with full fidelity, let the alert fire, and go fix the code. A `catch` around a bug converts a loud, diagnosable failure into a quiet, undiagnosable one.
+
+**An environmental or transient failure.** A socket reset, a connection timeout, a SQL deadlock victim, a 503 from a dependency that is mid-deploy. Nothing is wrong with your code and nothing is wrong with the request — the world was briefly unavailable. These are the only failures where *retry* is a coherent response, because the same call with the same inputs may well succeed a moment later. This is Polly's territory: see the resilience pipelines in [Chapter 3: ASP.NET Core & Web APIs](#chapter-3-aspnet-core-web-apis) for the `HttpClient` wiring, and [Chapter 9: Messaging & Distributed Systems](#chapter-9-messaging-distributed-systems) for the wider retry/circuit-breaker/idempotency picture.
+
+**A domain rule violation.** The request is well-formed, the system is healthy, and the business says no: insufficient balance, coupon expired, order already shipped. Nothing here is exceptional — this is one of the outcomes the feature was designed to produce. This is exactly where the `Result<T>` from earlier in this chapter belongs, and it is the category most often mishandled, because throwing an `InsufficientFundsException` *works*, so nobody notices that it has made an ordinary business outcome invisible in the method signature.
+
+| Failure kind | Examples | Mechanism | What the caller sees |
+|---|---|---|---|
+| **Bug** | Null deref, bad cast, broken invariant | Do not catch. Let it reach the outermost boundary. | 500 + a trace id; an alert pages someone |
+| **Environmental / transient** | Socket reset, timeout, SQL deadlock (1205), 503 | Retry with backoff, circuit-break, fall back | Success after retry — or 503/504 + `Retry-After` when exhausted |
+| **Domain rule violation** | Coupon expired, insufficient balance, already shipped | `Result<T>` / validation errors — *not* an exception | 409 / 422 with a stable machine-readable code |
+| **Malformed input** | Bad JSON, missing required field | Model validation at the edge, before your code runs | 400 `ValidationProblemDetails` |
+
+> **The classification is the design decision.** Everything downstream — whether to retry, whether to log at `Error` or `Warning`, whether the user sees a fixable message or an apology — is determined by which row you are in. Teams that argue about `try`/`catch` placement are usually arguing because they never agreed on the rows.
+
+### Exceptions vs Result, Settled Properly
+
+The earlier Result-pattern section made the case for `Result<T>`; here is the other half of the trade, stated honestly, because "exceptions are slow" is repeated far more often than it is understood.
+
+**Exceptions are unignorable** — their single greatest property. If a method throws and you write no handler, the failure propagates and something eventually notices. Compare a method returning `Result<T>`: a caller can write `_ = DoTheThing();` and discard the failure entirely, and the compiler will not blink. Unignorability is why exceptions are right for the *exceptional*, where continuing is worse than stopping. **Results, in exchange, are visible in the signature and force a decision.** `Result<Order> Place(...)` tells you failure is expected without reading the body; `Order Place(...)` does not. The cost is signature pollution: `Result<T>` is viral, spreading up through every caller, and code that mixes both conventions gets the worst of each.
+
+Now the performance, with the mechanism rather than folklore. A throw/catch pair costs on the order of **microseconds** — roughly 5–20 µs for a shallow stack, growing with depth, and worse under a debugger. Two things dominate. First, **the stack walk**: throwing does not simply jump, it walks frames outward looking for a handler whose filter matches, unwinding as it goes, so the same `throw` is cheap in a leaf method and expensive from twenty frames down a request pipeline. Second, **stack trace capture**: building the trace means resolving frames back to method metadata, which scales with depth again.
+
+Put that in context, because context is the whole point. Ten microseconds once per failed HTTP request, against a budget of tens of milliseconds, is *noise* — nobody has ever had an outage because a 404 threw. Ten microseconds per row across 200,000 rows is **two seconds of pure overhead**, and that is a genuine, career-defining performance bug.
+
+> **Best practice.** Use exceptions for the exceptional and for anything a caller must not be able to ignore. Use `Result<T>` for expected alternate outcomes — especially inside loops and hot paths, where the per-item cost of throwing is the thing that kills you. The tell for a misuse is a `try`/`catch` *inside* a `foreach`: that is control flow wearing an exception costume.
+
+### Where to Catch
+
+Here is the rule that replaces a thousand scattered `try` blocks: **catch only where you can add value — and there are exactly three ways to add value.**
+
+- **Translate it.** Wrap a low-level exception into one that means something in your abstraction, so callers do not end up depending on `SqlException` or `HttpRequestException` leaking out of a repository. The interface promised an `IOrderRepository`; it should not fail in ADO.NET vocabulary. Always pass the original as the inner exception — translation preserves, it does not discard.
+- **Handle it.** Actually do something: retry, fall back to a cache, compensate a half-finished workflow, degrade gracefully. If your `catch` block does not change the outcome, it is not handling anything.
+- **Report it.** At the outermost boundary — the global exception handler, a message consumer's dispatch loop, a `BackgroundService`'s work loop — someone must turn the exception into a log entry and a response. This is the *only* place a blanket `catch (Exception)` is legitimate, because it is the last frame before the exception escapes into the void.
+
+Everywhere else, do nothing — let it go up. Layers with nothing useful to add should be transparent to failure.
+
+```
+   request travels down  ▼            ▲  exception travels up
+
+   Exception middleware ─────────────────►  REPORT: log once, map to ProblemDetails
+        ▼                             ▲
+   Controller / endpoint  ────────────┤    (nothing to add — transparent)
+        ▼                             ▲
+   Application service    ────────────┤    (nothing to add — transparent)
+        ▼                             ▲
+   Domain                 ────────────┤    (nothing to add — transparent)
+        ▼                             ▲
+   OrderRepository        ────────────┤    TRANSLATE: SqlException →
+        ▼                             ▲               OrderStoreUnavailableException
+   Polly pipeline         ────────────┤    HANDLE: retry if transient,
+        ▼                             ▲            rethrow when exhausted
+   SqlConnection ── throws SqlException(40613) ─┘
+```
+
+Three catch sites in a five-layer stack, each earning its place. The middle three layers contain no `try` at all — and that absence is the design, not an oversight.
+
+```csharp
+// TRANSLATE — at the infrastructure boundary.
+public async Task<Order?> GetByIdAsync(int id, CancellationToken ct)
+{
+    try { return await _db.Orders.FirstOrDefaultAsync(o => o.Id == id, ct); }
+    catch (SqlException ex) when (ex.Number is 40613 or 4060)   // database unavailable
+    {
+        // Callers depend on our abstraction, not on ADO.NET. Inner exception preserved.
+        throw new OrderStoreUnavailableException(id, ex);
+    }
+}
+```
+
+> **Pitfall.** A `catch` whose body is `throw;` and nothing else is pure cost: it buys nothing and, before exception filters existed, it also cost you the unwound stack (see below). Delete it. Likewise, a `try`/`finally` with no `catch` is often exactly right — you want the cleanup, you do not want to intercept the failure. Better still, `using` expresses that intent in one line.
+
+### The Mechanics That Bite
+
+These details separate handling that helps diagnosis from handling that destroys it.
+
+**`throw;` versus `throw ex;`.** `throw ex;` restarts the exception's journey from the current frame: the `StackTrace` is reset, and every frame *below* your catch — the frames that contain the actual bug — is erased. Your log then says the failure originated in the catch block, which is the one place it certainly did not. `throw;` rethrows the original, preserving the trace. There is no situation in which `throw ex;` is the right rethrow.
+
+```csharp
+catch (Exception ex)
+{
+    throw ex;   // ❌ stack trace now starts HERE — the real origin is erased
+    throw;      // ✅ preserves the original trace
+}
+```
+
+**Exception filters — and why they beat catch-inspect-rethrow.** `catch (X e) when (predicate)` looks like sugar for an `if` inside the catch, but the runtime treats it very differently. The filter expression runs during the **first pass**, *before the stack unwinds*. If the filter returns `false`, the exception continues outward with the stack still intact — no frames destroyed, and if it ultimately goes unhandled, a debugger or crash dump captures the state at the original throw site rather than at your catch. Catch-inspect-rethrow, by contrast, unwinds first and asks questions later.
+
+```csharp
+// ✅ Filter: decides before unwinding. Frames below stay intact.
+catch (SqlException ex) when (IsTransient(ex)) { await RetryAsync(); }
+
+// ❌ Catch, inspect, rethrow: the stack has already unwound by the time we look.
+catch (SqlException ex) { if (!IsTransient(ex)) throw; await RetryAsync(); }
+```
+
+Filters are also the idiomatic way to branch on an error code (`when (ex.Number == 1205)`) or to add a side effect without handling — `catch (Exception ex) when (Log(ex))`, where `Log` returns `false`, logs at the throw site and lets the exception sail past untouched.
+
+**`ExceptionDispatchInfo`.** When you must capture an exception now and rethrow it later — from a different thread, out of a stored task, after some bookkeeping — `throw capturedEx;` would reset the trace. `ExceptionDispatchInfo` exists precisely for this: it preserves the original stack and *appends* the new throw site instead of replacing it.
+
+```csharp
+ExceptionDispatchInfo? captured = null;
+try { await DoWorkAsync(); }
+catch (Exception ex) { captured = ExceptionDispatchInfo.Capture(ex); }
+await CleanupAsync();
+captured?.Throw();      // original stack trace intact, rethrow site appended
+```
+
+**`AggregateException` and `Task.WhenAll`.** When you `await Task.WhenAll(...)` and three tasks faulted, `await` unwraps and rethrows only the **first** exception — the other two are silently invisible unless you go looking. Retrieve the whole set from the task's `Exception` property. This is a common source of "we fixed the error and it still fails": you were only ever shown one of three. See [Chapter 8: Asynchronous & Concurrent Programming](#chapter-8-asynchronous-concurrent-programming) for the full behavior of aggregated faults.
+
+```csharp
+var task = Task.WhenAll(jobs);
+try { await task; }                 // rethrows only the FIRST fault
+catch (Exception)
+{
+    // task.Exception is the AggregateException carrying ALL of them.
+    foreach (var inner in task.Exception!.InnerExceptions)
+        _logger.LogError(inner, "Job failed");
+    throw;
+}
+```
+
+**`OperationCanceledException` is not a failure.** A cancelled operation is a *successful* response to a request to stop — a client closed the connection, a shutdown began, a timeout token fired. Logging it as an error trains your team to ignore errors, and in a busy API the client-disconnect case alone can drown a real incident in noise. Filter it out at the boundary and log at `Information` or `Debug`.
+
+```csharp
+catch (OperationCanceledException) when (ct.IsCancellationRequested)
+{
+    _logger.LogInformation("Request cancelled by client for order {OrderId}", id);
+    return;   // no response — the caller is already gone
+}
+```
+
+The filter matters here too: without `when (ct.IsCancellationRequested)` you also swallow the *timeout* case, which usually is a real problem worth surfacing.
+
+### Designing Your Own Exceptions
+
+**Have few of them.** A healthy bounded context has a handful of exception types, not one per error message. "One type per message" is a smell with a simple tell: every type is thrown from exactly one line and caught nowhere. Types exist so that a *caller can catch them differently*; if no caller ever will, the distinction belongs in the data, not in the class hierarchy.
+
+**Name them for the situation, not the throw site.** `OrderStoreUnavailableException` describes a condition a caller can reason about; `OrderRepositoryGetByIdFailedException` describes a line of your code, which is what the stack trace is for. And **carry structured data as properties, not baked into a string** — a message is for humans, while the properties are what your handler, your logs, and your API response actually consume. Formatting the order id into the message and then regex-ing it back out at the boundary is a real pattern in real codebases, and it is always a mistake.
+
+```csharp
+// A small, per-context base so the boundary can catch one type.
+public abstract class OrderingException : Exception
+{
+    protected OrderingException(string message, Exception? inner = null) : base(message, inner) { }
+    /// Stable, machine-readable code surfaced to API clients.
+    public abstract string ErrorCode { get; }
+}
+
+public sealed class OrderStoreUnavailableException : OrderingException
+{
+    public int OrderId { get; }                       // structured, queryable
+    public override string ErrorCode => "order_store_unavailable";
+    public OrderStoreUnavailableException(int orderId, Exception inner)
+        : base($"The order store was unavailable while loading order {orderId}.", inner)
+        => OrderId = orderId;
+}
+```
+
+The common base per bounded context earns its place when the boundary wants one `catch (OrderingException ex)` that maps `ErrorCode` and a status onto a response, instead of a growing list of `catch` clauses. Keep the base *thin* — a marker plus the shared contract — and resist the urge to make every exception in the system inherit from one god-base, which just recreates `catch (Exception)` with extra ceremony.
+
+### What to Log
+
+**Log the exception exactly once, at the boundary that handles it, with the context the stack trace does not already carry.** The trace already knows the type, the message, and every frame. What it does not know is *which order*, *which tenant*, *which correlation id* — and that is the only information worth adding.
+
+```csharp
+// ✅ The exception is the first argument — that is what preserves it as a
+// structured field with full type/message/stack/inner-exception detail.
+_logger.LogError(ex, "Failed to place order for customer {CustomerId} (cart {CartId})",
+                 customerId, cartId);
+
+// ❌ The exception becomes a flat string; inner exceptions and stack are lost.
+_logger.LogError($"Failed to place order: {ex.Message}");
+```
+
+That first argument is not a stylistic preference. Logging providers treat the exception parameter specially, serializing type, message, stack, and the full inner-exception chain as structured data; interpolating `ex.Message` into the template throws all of that away and, for good measure, destroys the message template that makes logs aggregatable. See [Chapter 13: Observability](#chapter-13-observability) for structured logging, message templates, and log scopes.
+
+**The log-and-rethrow anti-pattern.** This is the most common exception mistake in enterprise .NET:
+
+```csharp
+// In the repository, the service, the handler, AND the controller — all four:
+catch (Exception ex) { _logger.LogError(ex, "Something went wrong"); throw; }
+```
+
+One failure now produces four `Error` entries. They are not four problems and they are not even four *views* of the problem — they are the same exception, at four different stack depths, with four different timestamps, interleaved with other requests' logs. On-call now has to reconstruct that these four are one event before they can start. Your error rate metric is inflated fourfold. Your alert thresholds are meaningless. And the extra entries added no information the boundary's single entry would not have had, because the exception was already carrying its whole stack.
+
+> **Best practice.** Log where you *handle*, not where you *pass through*. If a layer genuinely knows something the boundary cannot — a retry attempt count, the exact query that failed — log that as a `Warning` with the specific fact, and still let the boundary own the single `Error` for the failure itself.
+
+### What to Surface
+
+The response to the outside world is a **product decision**, not a debugging artifact. Never surface a stack trace, a SQL statement, a connection string, an internal type name, or raw inner-exception text: at best it confuses the caller, at worst it is a reconnaissance gift to an attacker (see the error-handling notes in [Chapter 14: Security](#chapter-14-security)).
+
+What a caller does need is: **a stable machine-readable code** they can branch on, **a human-readable summary** they can act on, and **a correlation/trace id** they can quote to your support team. RFC 7807 `ProblemDetails` is the standard shape, and ASP.NET Core produces it natively — see [Chapter 3: ASP.NET Core & Web APIs](#chapter-3-aspnet-core-web-apis) for `AddProblemDetails` and `IExceptionHandler`, and [Chapter 13: Observability](#chapter-13-observability) for wiring the trace id that ties the response back to the log entry.
+
+```csharp
+public sealed class OrderingExceptionHandler(ILogger<OrderingExceptionHandler> logger)
+    : IExceptionHandler
+{
+    public async ValueTask<bool> TryHandleAsync(HttpContext ctx, Exception ex, CancellationToken ct)
+    {
+        if (ex is not OrderingException ordering) return false;  // let the generic 500 handler take it
+        logger.LogError(ex, "Ordering failure {ErrorCode} on {Path}",
+                        ordering.ErrorCode, ctx.Request.Path);
+
+        var problem = new ProblemDetails
+        {
+            Status = StatusCodes.Status503ServiceUnavailable,
+            Title  = "The order could not be processed.",
+            Type   = $"https://errors.example.com/{ordering.ErrorCode}",
+            // No stack, no SQL, no inner message. A code and an id.
+            Extensions = { ["code"] = ordering.ErrorCode,
+                           ["traceId"] = Activity.Current?.Id ?? ctx.TraceIdentifier }
+        };
+        ctx.Response.StatusCode = problem.Status!.Value;
+        await ctx.Response.WriteAsJsonAsync(problem, ct);
+        return true;
+    }
+}
+```
+
+The status code carries the most important piece of information, so choose it deliberately. The dividing line is **who can fix this**: 4xx means the caller can change something and succeed; 5xx means only you can. Getting this wrong is expensive in both directions — 500s for user mistakes wake up your on-call for nothing, and 200s or 400s for server faults hide real outages from your dashboards and stop clients from retrying.
+
+| Situation | Status | Why |
+|---|---|---|
+| Malformed or missing input | **400** | The caller can fix the request |
+| Well-formed but business-unacceptable | **422** | Syntax is fine; semantics are not |
+| Optimistic-concurrency conflict | **409** | The caller can re-read and retry — this is a real outcome, not a bug |
+| Domain rule violation on a valid request | **409 / 422** | Pick one per API and be consistent; carry the code in the body |
+| Bug in your code | **500** | Nothing the caller can do; page someone |
+| Dependency down / retries exhausted | **503** (+ `Retry-After`) | Transient; tells clients it is worth trying again |
+| Client cancelled / disconnected | **no response** | The caller is gone. Do not manufacture a 500 for a socket nobody is reading |
+
+### Process-Level Safety Nets
+
+Below the request boundary sits the process, and it has its own failure modes.
+
+**`BackgroundService`.** Since .NET 6, an unhandled exception in `ExecuteAsync` stops the **entire host** by default (`BackgroundServiceExceptionBehavior.StopHost`) — a deliberate change, because the previous behavior silently killed the service and left the process running as a hollow shell that looked healthy to every probe. Keep that default and put your `try`/`catch` *inside* the loop, so one bad message does not take down the worker while a genuinely broken worker still takes down the host and lets the orchestrator restart it. [Chapter 22: Background Processing, Scheduling & the Actor Model](#chapter-22-background-processing-scheduling-the-actor-model) covers the loop shape in detail.
+
+```csharp
+protected override async Task ExecuteAsync(CancellationToken stoppingToken)
+{
+    while (!stoppingToken.IsCancellationRequested)
+    {
+        try { await ProcessNextAsync(stoppingToken); }
+        catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested) { break; }
+        catch (Exception ex) { _logger.LogError(ex, "Work item failed; continuing."); }
+        //  ↑ per-item boundary: one poisoned item must not kill the loop.
+        //    An exception escaping ExecuteAsync itself stops the host — by design.
+    }
+}
+```
+
+**`AppDomain.CurrentDomain.UnhandledException`** fires for exceptions escaping any thread. It is a *last-chance logger*, not a handler: you cannot prevent the process from terminating, and you have limited time before it dies — use it to flush a final log entry, nothing more. **`TaskScheduler.UnobservedTaskException`** fires when a faulted `Task` is garbage-collected without anyone having observed its exception. Since .NET 4.5 that no longer crashes the process, which means these failures are entirely silent by default; subscribing to the event is one of the highest-value ten-line additions you can make to a service, because it is how you discover the fire-and-forget `_ = DoWorkAsync();` calls that have been failing in production for months.
+
+> **Pitfall.** A top-level `catch (Exception) { }` that swallows and continues is worse than a crash. A crashed process is unambiguous: the orchestrator restarts it, the health check fails, the alert fires, and someone looks. A process that keeps running while lying about its state corrupts data quietly, reports itself healthy, and produces the kind of outage that takes three days to diagnose because the logs are clean. **Fail loudly or handle genuinely — never in between.**
+
+### A Reviewer's Checklist
+
+Run down this list on any pull request that touches error handling:
+
+- [ ] Every `catch` **translates**, **handles**, or **reports**. If it does none of the three, delete it.
+- [ ] No `throw ex;` anywhere — only `throw;` or a new exception with the original as `InnerException`.
+- [ ] No empty `catch { }`, and no `catch (Exception)` outside an outermost boundary.
+- [ ] Expected business outcomes return `Result<T>` or a validation error, not an exception — and nothing throws inside a hot loop.
+- [ ] `OperationCanceledException` is filtered out of error logging and never becomes a 500.
+- [ ] The exception is passed as the **first argument** to `LogError`, never interpolated into the message.
+- [ ] The failure is logged **once**, at the boundary — no log-and-rethrow chains.
+- [ ] The response is a `ProblemDetails` with a stable code and a trace id; no stack trace, SQL, or inner-exception text escapes.
+- [ ] The status code answers "who can fix this?" — 4xx caller, 5xx you.
+- [ ] Custom exceptions carry structured properties, are named for the situation, and there are few of them.
+- [ ] `TaskScheduler.UnobservedTaskException` is subscribed somewhere in the host.
 
 ## Principles: The Foundation Under the Patterns
 

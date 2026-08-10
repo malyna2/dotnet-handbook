@@ -1243,7 +1243,7 @@ Internalize these and you can reason from symptoms (a latency spike, a memory le
 
 # Chapter 3: ASP.NET Core & Web APIs
 
-_⏱️ Estimated read time: ~45 min · 5829 words (study pace)_
+_⏱️ Estimated read time: ~1 h 15 min · 10751 words (study pace)_
 
 ASP.NET Core is the beating heart of most .NET server-side work. If you've been building APIs for a couple of years, you already know how to make an endpoint return JSON. This chapter is about the *why* underneath: how a request actually travels through your application, where the extension points live, and how the senior-level decisions (versioning, resilience, auth, real-time) fit together. By the end you should be able to reason about the framework rather than just use it.
 
@@ -1459,7 +1459,139 @@ public class CreateProductValidator : AbstractValidator<CreateProductRequest>
 }
 ```
 
-> **Best practice.** Keep validators free of infrastructure. If a rule needs a database check (e.g. "SKU must be unique"), that's arguably a domain/business concern better handled in your service layer, not in a validator that runs on every bind. Validators are for *shape and format*; business invariants belong deeper.
+**What a validator is actually for.** Before the API surface, settle the layering question, because it is the one teams get wrong. A request validator answers *"is this request well-formed?"* — the transport-level question. Is the JSON shaped right, are the strings within length, is the date parseable, is the enum a member of the set. A domain invariant answers a different question: *"is this state legal?"* — an order cannot ship before it is paid, a balance cannot go negative, a discount cannot exceed the line total. The first is about the message; the second is about the model.
+
+The reason to keep them apart is mechanical, not aesthetic. A validator runs only on the code path where you remembered to invoke it, and your HTTP endpoint is not the only way state changes: a background job, a message consumer, an admin script, and next quarter's gRPC endpoint all mutate the same aggregate, and none of them go through `CreateProductValidator`. If the only thing standing between your system and an illegal state is a validator hanging off one controller, that illegal state is one new code path away.
+
+So validate at the edge *and* enforce in the domain. The edge validator's job is to hand the caller a good `400` with a field-level error list instead of a `500` from a constructor throw. The domain's job is to make the illegal state unrepresentable no matter who calls it — guard clauses and value objects ([Chapter 5: Design Patterns, Principles & Clean Code](#chapter-5-design-patterns-principles-clean-code)) and invariants enforced on the aggregate root ([Chapter 6: Architecture & Application Design](#chapter-6-architecture-application-design)). Checking "name is 3–120 characters" in both places is not duplication to be refactored away; they are two checks with different jobs and different failure modes. **Validation at the edge does not excuse an anaemic domain.**
+
+**Wiring it up.** Validators are registered by assembly scan:
+
+```csharp
+builder.Services.AddValidatorsFromAssemblyContaining<CreateProductValidator>();
+```
+
+That registers every `AbstractValidator<T>` in the assembly as `IValidator<T>` — scoped by default, so validators may take DI dependencies. What it deliberately does *not* do is hook into MVC's model-binding pipeline. The old `AddFluentValidationAutoValidation()` integration is deprecated, and the reason is instructive: it ran inside model binding, which is synchronous, so async rules had to be blocked on; it fired for *every* bound complex type whether you wanted it or not; and it reported failures through `ModelState`, a mechanism it had to reverse-engineer. The modern posture is explicit — resolve `IValidator<T>` and call it where you decide:
+
+```csharp
+products.MapPost("/", async (CreateProductRequest request,
+    IValidator<CreateProductRequest> validator, IProductService service, CancellationToken ct) =>
+{
+    var result = await validator.ValidateAsync(request, ct);
+    if (!result.IsValid)
+        return Results.ValidationProblem(result.ToDictionary());
+
+    return Results.Ok(await service.CreateAsync(request, ct));
+});
+```
+
+`ToDictionary()` produces the `field → messages` map that `Results.ValidationProblem` renders as `ValidationProblemDetails` — the same RFC 7807 shape `[ApiController]` emits, so a mixed app returns one error format rather than two.
+
+Writing those four lines in every endpoint gets old, so lift them into an endpoint filter (the Minimal API filter from earlier in this chapter):
+
+```csharp
+public class ValidationFilter<T> : IEndpointFilter where T : class
+{
+    public async ValueTask<object?> InvokeAsync(
+        EndpointFilterInvocationContext ctx, EndpointFilterDelegate next)
+    {
+        var model = ctx.Arguments.OfType<T>().FirstOrDefault();
+        var validator = ctx.HttpContext.RequestServices.GetService<IValidator<T>>();
+        if (model is null || validator is null) return await next(ctx);
+
+        var result = await validator.ValidateAsync(model, ctx.HttpContext.RequestAborted);
+        return result.IsValid
+            ? await next(ctx)
+            : TypedResults.ValidationProblem(result.ToDictionary());
+    }
+}
+
+products.MapPost("/", ...).AddEndpointFilter<ValidationFilter<CreateProductRequest>>();
+```
+
+The controller equivalent is an `IAsyncActionFilter` that pulls the model out of `context.ActionArguments`; or, if you prefer validators that throw, let a `ValidationException` escape and map it with the `IExceptionHandler` shown later in this chapter.
+
+> **Gotcha.** That filter *fails open* — no registered validator means the request sails through. That is the right default for a generic filter (you don't want every parameter-less endpoint to 500), but it means a mistyped validator class silently disables validation for an endpoint, and nothing fails. If you apply the filter by convention across a group, add a startup test that asserts every request DTO reachable from your endpoints has a registered `IValidator<T>`.
+
+**Composition.** The fluent API earns its keep on rules that DataAnnotations can't express at all:
+
+```csharp
+public class CreateOrderValidator : AbstractValidator<CreateOrderRequest>
+{
+    public CreateOrderValidator(IValidator<OrderLineDto> lineValidator)
+    {
+        ClassLevelCascadeMode = CascadeMode.Continue;   // report every bad property...
+        RuleLevelCascadeMode  = CascadeMode.Stop;       // ...but one message per property
+
+        RuleFor(x => x.CustomerId).NotEmpty().WithErrorCode("order.customer_required");
+        RuleFor(x => x.Lines).NotEmpty().WithErrorCode("order.lines_empty");
+
+        RuleForEach(x => x.Lines).SetValidator(lineValidator);   // one child validator per element
+
+        When(x => x.Coupon is not null, () =>
+        {
+            RuleFor(x => x.Coupon!.Code)
+                .Matches("^[A-Z0-9]{4,12}$").WithErrorCode("coupon.malformed");
+            RuleFor(x => x.Coupon!.Amount)
+                .LessThanOrEqualTo(x => x.Lines.Sum(l => l.UnitPrice * l.Quantity))
+                .WithErrorCode("coupon.exceeds_total");
+        });
+
+        RuleSet("Admin", () =>
+            RuleFor(x => x.BackdatedAt).NotNull().WithErrorCode("order.backdate_required"));
+    }
+}
+```
+
+- **`RuleForEach(...).SetValidator(...)`** delegates each collection element to its own validator and prefixes the failure's `PropertyName` with the index — `Lines[2].Quantity` — so the client can highlight the offending row instead of the whole array. `SetValidator` on a single property does the same for a nested object.
+- **`When` / `Unless`** gate rules on a predicate. Prefer the block form above over a `.When(...)` tacked onto each rule: the condition is stated once, reads as one branch, and won't drift when someone adds a rule inside it.
+- **`RuleSet`** names a group that runs only when asked: `validator.ValidateAsync(order, o => o.IncludeRuleSets("Admin"), ct)`. Handy when the same DTO arrives from two callers with different privileges — though two DTOs is often the cleaner answer.
+- **Cascade modes** decide what happens *after* a failure. `RuleLevelCascadeMode = Stop` ends a single property's chain at its first failure, so a null `Name` reports "required" rather than "required" *and* "must be 3–120 characters". `ClassLevelCascadeMode = Stop` abandons the entire validator after the first bad property — almost never what an API wants, because the caller would rather fix everything in one round trip than play whack-a-mole.
+
+> **Best practice — stable error codes.** `WithErrorCode` attaches a machine-readable identifier alongside the human message, and it is what lets a client branch on *which* rule failed instead of string-matching `"Coupon exceeds order total"`. Messages get localized, reworded by product, and tweaked by whoever last touched the file; codes are a contract. Surface them — an `errors` array of `{ code, field, message }` objects carries more than the flat field→messages dictionary — and treat renaming a code as a breaking change (see the versioning section below).
+
+**Async rules, and the trap inside them.** Validators can hit the database, because they are DI services:
+
+```csharp
+RuleFor(x => x.Sku)
+    .MustAsync(async (sku, ct) => !await db.Products.AnyAsync(p => p.Sku == sku, ct))
+    .WithErrorCode("product.sku_taken")
+    .WithMessage("SKU '{PropertyValue}' is already in use.");
+```
+
+This is worth having: it turns a constraint violation into a friendly, field-attributed `400` instead of a `500` from a `DbUpdateException`. What it is *not* is a uniqueness guarantee. Between the `AnyAsync` that answers "free" and the `SaveChangesAsync` that inserts, another request can do exactly the same thing — textbook check-then-act, with a race window as wide as the rest of your request handling. Two concurrent requests carrying the same SKU both pass validation and both insert.
+
+The only thing that actually enforces uniqueness is a **unique index in the database** ([Chapter 4: Data Access & Databases](#chapter-4-data-access-databases)), because it is the sole check that happens inside the same atomic operation as the write. So run both: the validator produces the good error message for the overwhelmingly common case, the index produces correctness for the rest, and you catch the resulting `DbUpdateException` and map it onto the same payload the validator would have returned. If you only build one of the two, build the index.
+
+> **Pitfall — one DbContext, one operation at a time.** A validator that injects `AppDbContext` shares the request's *scoped* instance with the handler and with every other validator in that request. A single `ValidateAsync` is safe because FluentValidation awaits rules sequentially — but the moment you fan out (`Task.WhenAll` over several validators, or validating a batch request's items in parallel), two `MustAsync` rules can touch the context simultaneously and you get *"A second operation was started on this context instance."* Either keep validation sequential, or inject `IDbContextFactory<AppDbContext>` and open a short-lived context per check (Chapter 4 covers context lifetime and pooling). Also note that one `MustAsync` makes the whole validator async: calling the synchronous `Validate()` on it throws.
+
+**Testing them.** Validators are plain objects with no HTTP anywhere near them, which makes them the cheapest unit tests in the codebase. `FluentValidation.TestHelper` gives you assertions expressed as expressions over the model:
+
+```csharp
+[Fact]
+public void Rejects_blank_name()
+{
+    var validator = new CreateProductValidator();
+
+    var result = validator.TestValidate(new CreateProductRequest { Name = "", Price = 10m });
+
+    result.ShouldHaveValidationErrorFor(x => x.Name)
+          .WithErrorCode("product.name_required");
+    result.ShouldNotHaveValidationErrorFor(x => x.Price);
+}
+```
+
+Because the property is named by lambda rather than by string, renaming `Name` is a compile error instead of a test that quietly passes against a stale `"Name"` literal. Assert on `WithErrorCode`, not `WithErrorMessage`, for the same reason you gave clients codes in the first place: the wording will change. And test the *negative* cases — the empty string, the boundary value, the null coupon, the conditional branch that only fires when `Coupon` is set — because those are the branches production will find for you otherwise.
+
+**Which mechanism, when.**
+
+| Approach | Good at | Where it runs out |
+|---|---|---|
+| **DataAnnotations** | Declarative shape checks sitting next to the DTO; zero wiring under `[ApiController]`; the attributes flow into the OpenAPI schema, so `[Required]`/`[StringLength]` show up in generated client SDKs | Cross-field and conditional rules (`IValidatableObject` or a custom attribute — both awkward); no DI, so no async or data-backed rules; one fixed rule set per type, so it can't vary by caller or use case |
+| **FluentValidation** | Conditional, cross-field, and per-element collection rules; DI and async; several validators for one shape; stable error codes; trivial to unit test | Invisible to OpenAPI unless you add a schema filter; must be explicitly invoked, so it guards only the paths you wired; still check-then-act against the database |
+| **Domain guard / value object** | Holds for *every* caller — HTTP, consumer, job, test; makes illegal state unrepresentable; the rule lives next to the concept it constrains | Throws on the first violation rather than accumulating them, so it yields a poor error document; fires too late to give the client a field-level list |
+
+They are layers, not alternatives. DataAnnotations (or nothing) for trivial DTOs, FluentValidation at the edge to produce a good error document, and domain guards as the thing you would actually bet correctness on.
 
 ## CancellationToken Propagation
 
@@ -1682,18 +1814,254 @@ app.UseRateLimiter();
 
 Use the right codes: `200 OK`, `201 Created` (with a `Location` header), `204 No Content` for a successful DELETE, `400` for malformed input, `401` unauthenticated, `403` authenticated-but-forbidden, `404` not found, `409` conflict, `422` semantic validation failure, `429` rate limited, `500` for your bugs. Returning `200` with an error body inside is a common anti-pattern that breaks clients and tooling.
 
-**API versioning** protects existing clients when you evolve. Use `Asp.Versioning.*` packages and pick a strategy — URL segment (`/v1/products`), query string, or header. URL versioning is the most discoverable:
+### Idempotency Keys: Making POST Retry-Safe
+
+GET, PUT and DELETE are idempotent *by the definition of the verb*: `PUT /orders/42` with the same body leaves the same state whether it runs once or five times, and a second `DELETE /orders/42` finds nothing left to delete. POST is the exception — it means "process this as a new subordinate resource," and the whole point is that each call creates something.
+
+That asymmetry stops being a semantic curiosity the moment a request times out. A timeout tells the client nothing useful: the request may never have arrived, may have executed with the response lost on the way back, or may still be running. The only thing the client knows is that it doesn't know. So it retries — the Polly pipeline from earlier in this chapter retries, the mobile app's network layer retries, the user hits the button again — and if that POST charged a card, the customer is charged twice. "The client retried after a timeout" is not an edge case; it is the *normal* behaviour of every HTTP client on a lossy network, which makes this a correctness problem rather than a nicety.
+
+The fix is to let the client supply the identity of the **operation**, not just of the request:
+
+```
+POST /payments
+Idempotency-Key: 5f3b8a1e-9c04-4f4a-8a0e-2b7c1d33e9a1
+Content-Type: application/json
+
+{ "orderId": 42, "amount": 19.99 }
+```
+
+The key is generated **once, before the first attempt**, and reused for every retry of that same logical operation. A key regenerated per HTTP attempt is worse than useless — it makes retries look like distinct operations, which is precisely what you were trying to prevent. Server-side you keep a record per key:
+
+```csharp
+public class IdempotencyRecord
+{
+    public string Endpoint { get; set; } = default!;    // same key on /refunds is a different op
+    public string Key { get; set; } = default!;         // client-supplied
+    public string RequestHash { get; set; } = default!; // SHA-256 of the canonical body
+    public int StatusCode { get; set; }                 // 0 while in flight
+    public string? ResponseBody { get; set; }
+    public DateTimeOffset CreatedAt { get; set; }
+}
+```
+
+Three outcomes, and the third is the one people forget to implement:
+
+| Repeat request with the same key | Response |
+|---|---|
+| Same body hash, first attempt completed | Replay the stored status and body verbatim; add `Idempotency-Replayed: true` so the caller can tell |
+| Same body hash, first attempt still in flight | `409 Conflict` with `Retry-After` — "in progress, ask again shortly" |
+| **Different** body hash | `422 Unprocessable Content` (or `409`) — the key was reused for a different operation, which is a client bug and must be surfaced loudly |
+
+Storing the request hash is what makes that last row possible. Without it, a client that recycles keys — a hard-coded constant in a test harness, a key derived from a non-unique order number — silently receives someone else's response, and you will spend a long afternoon working out why.
+
+**The concurrency detail that makes it actually work.** The naïve implementation reads the table, sees no row, does the work, then writes the row. That is the same check-then-act race as the uniqueness validator earlier in this chapter, except here the prize is a duplicate charge: two retries arriving 20 ms apart both read "no row" and both charge.
+
+What arbitrates is a **unique index on `(Endpoint, Key)`** combined with the ordering — *insert the key row first, inside the same transaction as the side effect*:
+
+```csharp
+await using var tx = await db.Database.BeginTransactionAsync(ct);
+
+var record = new IdempotencyRecord
+{
+    Endpoint = "POST /payments", Key = key, RequestHash = hash,
+    StatusCode = 0, CreatedAt = DateTimeOffset.UtcNow
+};
+db.IdempotencyRecords.Add(record);
+
+try
+{
+    await db.SaveChangesAsync(ct);        // The unique index arbitrates HERE.
+}
+catch (DbUpdateException ex) when (IsUniqueViolation(ex))  // 23505 on Npgsql, 2601/2627 on SQL Server
+{
+    await tx.RollbackAsync(ct);
+    return await ReplayOrConflictAsync(key, hash, ct);      // The loser never reaches the charge.
+}
+
+var payment = await _payments.ChargeAsync(request, ct);     // The side effect.
+
+record.StatusCode = StatusCodes.Status201Created;
+record.ResponseBody = JsonSerializer.Serialize(payment);
+await db.SaveChangesAsync(ct);
+await tx.CommitAsync(ct);
+```
+
+The ordering is the entire trick, so walk the second concurrent request through it. It attempts the same insert; the unique index rejects it, so it learns — atomically, with no read-then-write window anywhere — that it lost the race. It rolls back and reads the existing row. If that row carries a status code, the first attempt finished and the loser replays it. If the status is still `0`, the first attempt is in flight and the loser answers `409` with `Retry-After: 1`. Either way it never reaches `ChargeAsync`.
+
+Now invert the order and do the work first: both requests charge the card, and *then* one of them discovers it lost. The damage is already done and you are writing a refund. The row must go in before the effect, in the same transaction, or the pattern buys you nothing.
+
+```
+request A ──┬─ INSERT (POST /payments, key) ──► accepted ──► charge ──► store 201 ──► COMMIT
+            │
+request B ──┴─ INSERT (POST /payments, key) ──► unique violation
+                                                    │
+                                       status 0? ───┴──► 409 + Retry-After
+                                       status set? ────► replay stored response
+```
+
+Two loose ends remain.
+
+**A first attempt that never finishes.** If the process dies between the insert and the update, the row sits at status `0` forever and every retry gets a `409`. Give the record a lease — store a `LockedUntil` and treat an expired in-flight row as reclaimable — or run a sweeper that ages stale rows out. Whether reclaiming is safe depends on whether re-running the side effect is safe, which is why the strongest version of this pattern forwards the same key downstream: most payment gateways accept an idempotency key of their own, so you hand yours through and let them deduplicate the charge you may or may not have made.
+
+**Retention.** Idempotency records are a cache, not an audit log. Keep them long enough to cover any plausible retry window — Stripe uses 24 hours, and 24–72 hours suits most systems — then delete them from a background job with a batched `ExecuteDeleteAsync`, never a cascade on the request path. This table takes a write on the hot path of every mutating request, so unbounded growth is a genuine operational problem rather than a tidiness concern.
+
+> **Best practice.** Scope the key by caller as well as endpoint — `(TenantId, Endpoint, Key)`. Keys are client-generated, and one client's copy-pasted GUID must never be able to replay another client's response. Decide explicitly, too, whether a replay re-runs authorization: it should, because a stored `201` must not be handed to a caller who has since lost the entitlement.
+
+> **Gotcha.** Idempotency is not the same as "it worked." Replaying a stored `500` on retry is almost always wrong — a genuine server error is exactly the case where the client *should* get a fresh attempt. Record only deterministic outcomes: successes and client errors. Leave 5xx unstored (release the key) so the retry re-executes.
+
+This is the HTTP-facing sibling of a pattern that shows up twice more in this book — idempotent message consumers in [Chapter 9: Messaging & Distributed Systems](#chapter-9-messaging-distributed-systems), which dedupe on a message ID with the same unique-index backstop, and the general treatment in [Chapter 6: Architecture & Application Design](#chapter-6-architecture-application-design). One mechanism (record the operation's identity atomically with its effect), three transports.
+
+### Versioning and OpenAPI
+
+**API versioning** protects existing clients when you evolve. It is also a decision that is expensive to reverse and easy to get subtly wrong, so it gets the next section to itself — including the more useful question of how to avoid needing a new version at all.
+
+**OpenAPI/Swagger** documents your API in a machine-readable contract. .NET now ships built-in OpenAPI document generation (`AddOpenApi` / `MapOpenApi`); Swagger UI or Scalar renders it for humans. Rich metadata (`WithName`, `Produces`, XML comments, `TypedResults`) makes the generated spec — and any client SDKs generated from it — accurate.
+
+## API Versioning & Backward Compatibility
+
+Versioning is the mechanism teams reach for; backward compatibility is the actual goal. Get the second right and you need far less of the first, so start there.
+
+### What actually counts as a breaking change
+
+A change is breaking if a *correctly written, already deployed* client stops working. The surprise is how asymmetric that turns out to be — the same edit is harmless in one direction and fatal in the other.
+
+| Change | Verdict | Why |
+|---|---|---|
+| Add an **optional** request field | Safe | Old clients omit it; the server already has a default |
+| Add a **required** request field | **Breaking** | Every request in flight is now invalid |
+| Add a field to a response | Usually safe | Tolerant readers ignore it; strict or generated clients may not |
+| Remove or rename a response field | **Breaking** | Clients read fields by name |
+| **Tighten** validation (`maxLength` 200 → 100, add a regex) | **Breaking** | Requests that were legal yesterday now `400` |
+| Loosen validation | Safe | Strictly widens what is accepted |
+| Change a field's type or format (`int` → `string`, epoch → ISO-8601) | **Breaking** | Deserialization fails, or silently coerces |
+| Start returning `null` for a field that was always populated | **Breaking** | The client dereferences it without checking |
+| Add a new **enum value** | **Breaking for strict readers** | A generated client mapping to a closed enum throws on the unknown member |
+| Add a new endpoint or optional query parameter | Safe | Nobody calls what they don't know about |
+| Change a success status code (`200` → `202`) | **Breaking** | Clients switch on the code, and `201` vs `200` changes where they look for the resource |
+| Change the error shape (bare string → `ProblemDetails`) | **Breaking** | Error handling is contract too — and it is the part nobody thinks to version |
+| Change default page size or default ordering | **Breaking in practice** | Not in the schema, but pagination loops and tests depend on it |
+| Change a field's *meaning*, keeping its name and type | **The worst kind** | `amount` in dollars becomes `amount` in cents |
+
+Two rows deserve emphasis. **Tightening validation** is the one that slips through review, because it looks like a bug fix: someone notices `Description` accepts 10 000 characters and caps it at 500. Every client happily sending 800 now gets a `400`, and you changed the contract without touching a single type — which is also why an OpenAPI diff won't flag it unless you compare constraints, not just shapes. And **changing semantics silently** is the only entry with no failure mode at all: nothing throws, no alert fires, and finance reconciliation finds it three weeks later. If a field's meaning changes, give it a new name. Always.
+
+### The tolerant reader
+
+Postel's law — "be conservative in what you send, liberal in what you accept" — is usually quoted at servers, but the leverage sits on the client side. A **tolerant reader** deserializes only the fields it actually uses, ignores everything else, and does not fall over on an unknown enum member.
+
+`System.Text.Json` is tolerant by default: unknown JSON properties are dropped silently unless you opt into `JsonSerializerOptions.UnmappedMemberHandling = JsonUnmappedMemberHandling.Disallow`. That default is a feature. Resist the urge to "tighten" it in the name of strictness — every additive change your provider makes then becomes a non-event for you instead of a deployment.
+
+The usual failure mode is generated code. An SDK generated from an OpenAPI document models enums as a closed C# enum and, depending on the generator, throws on a value it has never heard of — which is why "just adding an enum member" sits in the breaking column. Provider-side defences: use string values rather than ints on the wire, and document that consumers must tolerate unknown members. Consumer-side: deserialize such a field as `string` and map it yourself with an explicit `_ => Unknown` arm. There is a second, quieter hazard on the consumer side too — a client that deserializes a payload into a strict model and later re-serializes it (a read-modify-write PUT, say) silently *drops* every field it didn't model, wiping data it never knew existed.
+
+> **Best practice.** Both halves being forgiving is what makes evolution cheap: the provider only ever adds, and the consumer only ever reads what it needs. Break either half of that bargain — a provider that renames, or a consumer that round-trips through a strict model — and every change turns into a coordinated deployment.
+
+### Choosing a versioning scheme
+
+| Scheme | Looks like | Pros | Cons |
+|---|---|---|---|
+| **URL path** | `/v2/products` | Visible in logs, browsers, and `curl`; part of the CDN cache key for free; routing is ordinary routing; two versions can be split at the proxy and deployed independently | Breaks the "one URI per resource" ideal — the same product has two URLs; the version leaks into every link you emit |
+| **Query string** | `/products?api-version=2.0` | Unobtrusive; naturally defaults when absent | Easy to lose — proxies and caches may normalize or ignore it; clutters every URL; awkward inside hypermedia links |
+| **Custom header** | `X-Api-Version: 2.0` | Keeps URLs clean and stable across versions | Invisible in an address bar and in most access logs; caches ignore it unless you set `Vary`; "send me the curl that fails" support requests get harder |
+| **Media type** | `Accept: application/vnd.acme.product.v2+json` | The purest model — the version belongs to the *representation*, not the resource; gives per-resource granularity | Almost nobody does it; thin tooling support; confusing to casual consumers; one more content-negotiation path to get wrong |
+
+The honest ranking: **URL path** for public APIs, because debuggability and cache behaviour beat purity, and because a version in the path is what lets a proxy route v1 and v2 to different deployments. **Media type** if you have sophisticated consumers and genuinely per-resource versioning needs — accept that you will be explaining it forever. Header and query string are defensible middle grounds. What matters far more than the choice is picking one and applying it uniformly.
+
+> **Gotcha — caching.** Any scheme that puts the version *outside* the URL needs `Vary` on the responses, or a shared cache will happily serve a v1 body to a v2 request. This is the quiet reason URL versioning keeps winning arguments it should lose on aesthetics.
+
+### Wiring it up with Asp.Versioning
 
 ```csharp
 builder.Services.AddApiVersioning(o =>
 {
     o.DefaultApiVersion = new ApiVersion(1, 0);
     o.AssumeDefaultVersionWhenUnspecified = true;
-    o.ReportApiVersions = true; // Emits api-supported-versions header.
+    o.ReportApiVersions = true;                  // api-supported-versions / api-deprecated-versions
+    o.ApiVersionReader = ApiVersionReader.Combine(
+        new UrlSegmentApiVersionReader(),                  // /v2/products
+        new HeaderApiVersionReader("X-Api-Version"),
+        new QueryStringApiVersionReader("api-version"));
+})
+.AddApiExplorer(o =>                             // Asp.Versioning.Mvc.ApiExplorer
+{
+    o.GroupNameFormat = "'v'VVV";                // v1, v1.1, v2 — becomes the OpenAPI group name
+    o.SubstituteApiVersionInUrl = true;          // resolves {version:apiVersion} in the docs
 });
 ```
 
-**OpenAPI/Swagger** documents your API in a machine-readable contract. .NET now ships built-in OpenAPI document generation (`AddOpenApi` / `MapOpenApi`); Swagger UI or Scalar renders it for humans. Rich metadata (`WithName`, `Produces`, XML comments, `TypedResults`) makes the generated spec — and any client SDKs generated from it — accurate.
+`ApiVersionReader.Combine` accepts *any* of the configured sources, which is the pragmatic default during a migration: you can move a consumer from the header to the URL without a flag day. `ReportApiVersions` makes every response advertise what exists, so a client can discover a new version without reading your changelog.
+
+For Minimal APIs, versions hang off a **version set** shared by a group:
+
+```csharp
+var versions = app.NewApiVersionSet()
+    .HasApiVersion(new ApiVersion(1, 0))
+    .HasApiVersion(new ApiVersion(2, 0))
+    .Build();
+
+var products = app.MapGroup("/api/v{version:apiVersion}/products")
+                  .WithApiVersionSet(versions);
+
+products.MapGet("/{id:int}", GetProductV1).MapToApiVersion(new ApiVersion(1, 0));
+products.MapGet("/{id:int}", GetProductV2).MapToApiVersion(new ApiVersion(2, 0));
+```
+
+Two handlers on the same route template is not a conflict — version matching resolves it. Controllers use the attribute form: `[ApiVersion("2.0")]` on the class, `[MapToApiVersion("1.0")]` on any action that stayed behind, over a `[Route("api/v{version:apiVersion}/[controller]")]` template.
+
+Per-version OpenAPI documents then fall out of the API explorer, which stamps each endpoint with the group name from `GroupNameFormat`:
+
+```csharp
+builder.Services.AddOpenApi("v1");
+builder.Services.AddOpenApi("v2");   // one document per version
+// ...
+app.MapOpenApi();                    // /openapi/v1.json, /openapi/v2.json
+```
+
+Each document picks up the endpoints whose group matches its name. The payoff is that generated client SDKs become version-specific: a consumer regenerates against `v2.json` when *it* is ready, not when you ship.
+
+### Expand and contract: how to not need a new version
+
+Most changes that feel like they demand a `v2` don't. **Expand–contract** (also called parallel change) is the same manoeuvre the zero-downtime schema migrations of [Chapter 23: Data at Scale & Multi-Tenancy](#chapter-23-data-at-scale-multi-tenancy) use, applied to a wire contract instead of a table:
+
+```
+expand    add the new field/endpoint alongside the old one; write both, read either
+migrate   move consumers to the new one, individually, at their own pace
+contract  once telemetry shows nobody reads the old one, delete it
+```
+
+Renaming `name` to `fullName` in a response is the canonical example. As a version bump it costs a parallel v2 surface, a duplicated route table, a second set of tests, and a migration deadline imposed on every consumer. As expand–contract it costs one release that emits *both* fields, a window in which you watch which one consumers actually read, and a second release that drops `name`. No version, no deadline, no coordination meeting.
+
+The same move absorbs most of the breaking table above. Tightening validation? Log the violations for one release without rejecting them, see who trips, then enforce. Changing units? New field, new name, deprecate the old. Splitting one endpoint into two? Ship the pair, leave the old endpoint delegating to them, retire it when it goes quiet.
+
+Reserve a new version for the changes expand–contract genuinely cannot absorb: a restructured resource model, a different auth scheme, a workflow whose steps changed shape. Every version you create is a code path you maintain, a test matrix you run, and a deprecation conversation you will eventually have to have. **The cheapest version is the one you didn't need.**
+
+### Retiring a version
+
+Shipping v2 is the easy half. Deleting v1 is where teams stall, sometimes for years, and the reason is almost never technical.
+
+Announce the retirement in the responses themselves, not only in a blog post. RFC 8594 defines the `Sunset` header — the date the resource stops working — usually paired with a `Deprecation` header and a `Link` to the migration guide. Note that these must be written *before* the response starts, so hook `OnStarting` rather than setting them after `await next`:
+
+```csharp
+app.Use((ctx, next) =>
+{
+    ctx.Response.OnStarting(() =>
+    {
+        if (ctx.GetRequestedApiVersion()?.MajorVersion == 1)
+        {
+            ctx.Response.Headers["Deprecation"] = "true";
+            ctx.Response.Headers["Sunset"] = "Wed, 31 Dec 2026 23:59:59 GMT";
+            ctx.Response.Headers["Link"] =
+                "<https://docs.acme.com/api/v2-migration>; rel=\"deprecation\"";
+        }
+        return Task.CompletedTask;
+    });
+    return next(ctx);
+});
+```
+
+`ReportApiVersions = true` complements this automatically with `api-supported-versions: 1.0, 2.0` and `api-deprecated-versions: 1.0` on every response, and marking a version deprecated is one attribute — `[ApiVersion("1.0", Deprecated = true)]`, or `.HasDeprecatedApiVersion(...)` on a version set. A well-behaved client can then alert on its own, before your sunset date arrives.
+
+**The part most teams miss.** None of that tells you whether it is *safe* to delete v1, and that is the actual blocker. "Is anyone still on v1?" is answerable from an aggregate counter. The question you actually need answered is "*who* is still on v1, how much, and doing what?" — and you cannot answer it retroactively. From the day v2 ships, tag your request telemetry with the resolved API version **and** a consumer identity: the client id from the token, an API key, a mandated `User-Agent`. Retirement then becomes a report rather than a debate — three consumers, two of them internal, one making forty calls a day — and you email them instead of guessing. Without per-version, per-consumer telemetry, the honest answer to "can we delete v1?" is permanently "we don't know," and "we don't know" always loses to "leave it running." [Chapter 13: Observability](#chapter-13-observability) covers the instrumentation.
+
+> **Pitfall — cardinality.** Consumer identity is exactly the kind of unbounded value that wrecks a metrics backend (Chapter 13's cardinality warning applies directly). With a handful of known partners, a metric tag is fine. With a large or open consumer base, put version and consumer on the *log or span* instead and answer the retirement question with a query over traces — high-cardinality data belongs there, not in a time series.
 
 ## gRPC
 
@@ -1927,7 +2295,7 @@ The through-line of this chapter is that ASP.NET Core is a **pipeline of composa
 
 # Chapter 4: Data Access & Databases
 
-_⏱️ Estimated read time: ~35 min · 4913 words (study pace)_
+_⏱️ Estimated read time: ~1 h 5 min · 10117 words (study pace)_
 
 Almost every non-trivial application is, underneath all its features, a machine for moving data in and out of a database safely and quickly. You can write flawless business logic and beautiful APIs, but if your data access layer holds locks too long, fires a thousand queries where one would do, or corrupts a balance under concurrent writes, the whole system fails in ways that are hard to reproduce and harder to fix. This chapter takes you from the mechanics of Entity Framework Core down to the SQL and storage engine underneath it, then back up through caching, NoSQL, and deployment. The goal is that you stop treating the database as a black box and start reasoning about what it actually does.
 
@@ -2126,6 +2494,125 @@ await ctx.Products
 
 Modern EF mapping also reduces how often you drop to raw SQL for shape: EF Core 7 added **JSON columns** (map an owned aggregate to a single JSON column, still queryable through LINQ), and EF Core 8 added **complex types** (keyless value objects) and **primitive collections** (a `List<int>`/`string[]` stored inline as JSON instead of a side table).
 
+### Bulk Inserts and the Limits of SaveChanges
+
+`ExecuteUpdate` and `ExecuteDelete` cover the write side of "change many rows I do not need to load". Inserts have no such escape hatch, and this is where teams most often discover that `SaveChanges` has a ceiling.
+
+`SaveChanges` is not as naive as it looks. It sorts pending changes into dependency order, then **batches** statements into as few round trips as it can — the SQL Server provider packs up to 42 statements per batch by default (`MaxBatchSize` is configurable), and Npgsql batches similarly. So 1,000 inserts are not 1,000 round trips. But they are still 1,000 parameterized `INSERT` statements with 1,000 sets of parameters, preceded by change-tracker work for every entity.
+
+That change-tracker work is the part that surprises people:
+
+```csharp
+// Quadratic: DetectChanges runs on every Add, scanning everything added so far.
+foreach (var p in products)
+    ctx.Products.Add(p);           // 50k entities -> DetectChanges 50k times
+
+// Linear: one DetectChanges pass at the end.
+ctx.Products.AddRange(products);
+```
+
+`Add` triggers `DetectChanges`, which walks every tracked entity looking for modifications. Adding *n* entities one at a time is therefore O(n²) in tracker work — the classic "why does importing 50,000 rows take four minutes when the database is idle?". `AddRange` collapses that to a single pass, and for import paths you can go further and switch the detection off entirely (`ctx.ChangeTracker.AutoDetectChangesEnabled = false`) as long as you turn it back on afterwards.
+
+Even fixed, `SaveChanges` tops out well below what the database can ingest, because the protocol is the bottleneck: every row travels as a parameterized statement. Both major engines offer a bulk-load path that bypasses the statement protocol entirely — SQL Server has `SqlBulkCopy`, PostgreSQL has the binary `COPY` protocol, exposed by Npgsql:
+
+```csharp
+await using var conn = new NpgsqlConnection(connectionString);
+await conn.OpenAsync(ct);
+
+await using var writer = await conn.BeginBinaryImportAsync(
+    "COPY products (sku, name, price) FROM STDIN (FORMAT BINARY)", ct);
+
+foreach (var p in products)
+{
+    await writer.StartRowAsync(ct);
+    await writer.WriteAsync(p.Sku, NpgsqlDbType.Text, ct);
+    await writer.WriteAsync(p.Name, NpgsqlDbType.Text, ct);
+    await writer.WriteAsync(p.Price, NpgsqlDbType.Numeric, ct);
+}
+
+await writer.CompleteAsync(ct);   // nothing is written unless you call this
+```
+
+The difference is not marginal. Loading a few hundred thousand rows takes minutes through `SaveChanges` and seconds through `COPY`, because the rows stream to the server in one continuous operation with no per-row statement parsing, no parameter binding, and no tracker.
+
+> **Gotcha:** `CompleteAsync()` is what commits a binary import. Disposing the writer without calling it rolls the whole import back — silently, as far as your code can tell, because no exception is thrown. Forgetting it produces the memorable bug where the import "succeeds" every night and the table stays empty.
+
+Choosing between them is mostly a question of scale and of what else has to happen:
+
+| Rows per operation | Reach for | Why |
+|---|---|---|
+| Up to ~100 | `SaveChanges` | Batched already; tracker cost is noise. Domain events and interceptors work normally. |
+| ~100 – 10,000 | `AddRange` + `SaveChanges`, detection off | Still one transaction, still your entity model, no extra dependency. |
+| 10,000+ | `SqlBulkCopy` / `COPY`, or a bulk-extension library | The statement protocol is the bottleneck; only a bulk load path removes it. |
+| "Change rows I do not need to read" | `ExecuteUpdate` / `ExecuteDelete` | One set-based statement, nothing materialized. |
+
+Libraries such as **EFCore.BulkExtensions** and **linq2db.EntityFrameworkCore** wrap the provider-specific bulk APIs behind an EF-shaped surface (`BulkInsertAsync`, `BulkMergeAsync`) and add upsert support, which the raw APIs lack. They are worth the dependency when you need `MERGE`-style behaviour; a straight append does not need them.
+
+> **Pitfall:** Bulk paths bypass everything EF layers on top of the database — no change tracker, no interceptors, no `SaveChanges` events, no domain-event dispatch, and no validation. That is precisely why they are fast, and precisely why they belong in import and maintenance jobs rather than in the middle of your domain logic.
+
+### Cascade Behaviour: What Happens to the Children
+
+Delete a customer who has orders, and something must happen to those orders. EF Core's answer is governed by `DeleteBehavior`, and the reason it confuses people is that a single enum value configures **two different mechanisms at two different layers**: the foreign key EF writes into your migration, and what EF itself does in memory to the children it happens to be tracking.
+
+```
+      ctx.Customers.Remove(customer)
+                 │
+                 ├─── EF, in memory ────►  what happens to LOADED children
+                 │                          (the "Client..." half of the behaviour)
+                 │
+                 └─── SQL sent to DB ───►  what the FOREIGN KEY does
+                                            (ON DELETE CASCADE / SET NULL / NO ACTION)
+```
+
+| `DeleteBehavior` | Foreign key in the database | What EF does to *tracked* children |
+|---|---|---|
+| `Cascade` | `ON DELETE CASCADE` | Deletes them |
+| `ClientCascade` | `ON DELETE NO ACTION` | Deletes them |
+| `SetNull` | `ON DELETE SET NULL` | Sets the FK to null |
+| `ClientSetNull` | `ON DELETE NO ACTION` | Sets the FK to null |
+| `Restrict` | `ON DELETE RESTRICT` | Nothing |
+| `NoAction` | `ON DELETE NO ACTION` | Nothing |
+| `ClientNoAction` | `ON DELETE NO ACTION` | Nothing, and EF skips its own consistency check |
+
+The conventions EF applies when you say nothing follow from whether the relationship is required: a **required** relationship defaults to `Cascade` (an order line cannot exist without its order, so deleting the order deletes the lines), and an **optional** relationship defaults to `ClientSetNull` (the child can live on with a null FK — but only if EF has it loaded).
+
+That last clause is the whole trap. `ClientSetNull` nulls the FK on children **in the change tracker**. Children still sitting in the database untouched are not fixed up, and the FK is `NO ACTION`, so the database rejects the delete:
+
+```csharp
+// Children not loaded -> nothing for EF to fix up -> the FK stops the DELETE.
+var customer = await ctx.Customers.SingleAsync(c => c.Id == id);
+ctx.Customers.Remove(customer);
+await ctx.SaveChangesAsync();   // DbUpdateException: FK violation
+
+// Children loaded -> EF nulls their FK in the same SaveChanges.
+var customer = await ctx.Customers
+    .Include(c => c.Orders)
+    .SingleAsync(c => c.Id == id);
+ctx.Customers.Remove(customer);
+await ctx.SaveChangesAsync();   // works
+```
+
+The same delete succeeds or fails depending on whether an `Include` appears three lines earlier. That is a genuinely surprising coupling, and it is the single most common source of "it works in the test and fails in production" around deletes — tests often load the whole aggregate, production code often does not.
+
+`Restrict` and `NoAction` look interchangeable and are not. `Restrict` emits an FK that refuses the delete *immediately*, as soon as the row is touched. `NoAction` defers the check to the end of the statement, which means a statement that deletes parent and children together can succeed under `NoAction` and fail under `RESTRICT`. PostgreSQL implements this distinction faithfully; it also matters for deferrable constraints, where `NO ACTION` can be postponed to commit time and `RESTRICT` cannot.
+
+Two more behaviours worth knowing before they bite:
+
+**Severing a required relationship deletes the child.** Removing an item from `order.Lines` does not just clear the FK — for a required relationship the child is now an orphan, and EF deletes it. That is usually what you want inside an aggregate and alarming when the relationship was required by accident.
+
+**`ExecuteDelete` does not cascade in EF at all.** It emits one `DELETE` and lets the database decide, so it only works when a real `ON DELETE CASCADE` exists in the schema. If your model uses `ClientCascade` — which writes `NO ACTION` — the bulk delete you added for performance will fail with an FK violation on exactly the rows the tracked path used to handle:
+
+```csharp
+// Fine with DeleteBehavior.Cascade. FK violation with ClientCascade.
+await ctx.Customers.Where(c => c.LastSeen < cutoff).ExecuteDeleteAsync(ct);
+```
+
+> **Gotcha:** SQL Server refuses to create **multiple cascade paths** to the same table (error 1785) — if two relationships can both cascade into `OrderLines`, the migration fails. The fix is to set one path to `NoAction` and delete those rows explicitly. PostgreSQL has no such restriction, which is one of the quieter differences that surfaces when a codebase is ported between the two.
+
+Soft delete deserves a warning of its own: a global query filter that hides `IsDeleted` rows does **not** cascade. Soft-deleting a parent leaves its children visible and referencing a parent the rest of the application cannot see. If you soft-delete an aggregate root, soft-delete the aggregate — in one `ExecuteUpdate` per child table, or in a domain method that owns the whole operation.
+
+> **Best practice:** Let cascade delete operate *inside* an aggregate and never across aggregate boundaries (see Chapter 6). Deleting an order should delete its lines; it should never silently delete the customer's invoices. Configure the boundary explicitly with `Restrict` rather than relying on a convention, so that an accidental cascade becomes a loud error instead of missing data discovered a month later.
+
 ## SQL Fundamentals
 
 EF is a convenience over SQL, and to use it well you must understand the SQL it hides. A senior developer reads the generated SQL and the execution plan, not just the C#.
@@ -2172,6 +2659,8 @@ The query is *covered* — everything it needs lives in the index, so no key loo
 
 The execution plan is the database's step-by-step strategy for a query: which indexes it uses, in what order it joins, whether it scans or seeks. An **index seek** (jumping straight to matching rows) is good; an **index scan** or **table scan** on a large table under a selective filter usually signals a missing index. In SQL Server you view it with `SET SHOWPLAN_ALL ON` or the graphical plan in SSMS; watch for scans, expensive key lookups, and warnings about missing indexes.
 
+Reading plans is a skill worth acquiring properly rather than by pattern-matching, and it is easiest to learn on PostgreSQL, whose `EXPLAIN` output is plain text and tells you both what it *expected* and what actually *happened*. The next section does that in depth.
+
 ### Transactions and ACID
 
 A transaction groups statements so they succeed or fail as a unit. ACID names its four guarantees:
@@ -2213,6 +2702,168 @@ A deadlock occurs when transaction A holds a lock B needs, while B holds a lock 
 
 > **Best practice:** Always access tables and rows in a **consistent order** across your application, keep transactions short, and be ready to catch a deadlock error (SQL Server error 1205) and retry the operation.
 
+## PostgreSQL in Practice: Indexes and Query Plans
+
+Most of what you have read so far is engine-agnostic. PostgreSQL is now the default relational database for new .NET services, and it differs from SQL Server in ways that change how you index and how you diagnose a slow query. The good news is that Postgres will tell you exactly what it did, in plain text, if you know how to ask.
+
+### The Storage Model That Explains Everything Else
+
+Three facts about how Postgres stores rows explain most of its behaviour.
+
+**There is no clustered index.** Table rows live in an unordered **heap**, and every index — including the primary key — is a separate structure whose entries point at a physical row location (the `ctid`). Looking up by primary key is therefore always two steps: search the index, then fetch the row from the heap. SQL Server's "the clustered index *is* the table" intuition does not transfer, and neither does the habit of choosing a clustered key.
+
+**Every update writes a new row version.** Postgres implements MVCC by never modifying a row in place: an `UPDATE` writes a whole new version and marks the old one dead; a `DELETE` only marks it dead. Dead versions are reclaimed later by **autovacuum**. This is why an update-heavy table grows even when its row count is constant (**bloat**), and why a long-running transaction is expensive for the *whole* database — nothing newer than the oldest open transaction can be cleaned up while it sits there.
+
+There is an important optimisation hiding in that: if an update touches **no indexed column** and the page has free space, Postgres performs a **HOT update** — the new version goes on the same page and no index has to be touched at all. A table with eight indexes rarely gets HOT updates; the same table with three does. Indexes cost you on every write, not just in the obvious way.
+
+**An index alone cannot prove a row is visible to you.** Visibility lives in the heap, so a lookup that finds its answer entirely in the index still has to check whether the row is visible to your snapshot. Postgres keeps a **visibility map** marking pages where every row is visible to everyone, and skips the heap for those. That is what makes an **index-only scan** possible — and why the plan reports `Heap Fetches: N`, and why a table that was just bulk-updated loses its index-only scans until autovacuum refreshes the map.
+
+### Choosing an Index Type
+
+B-tree is the default and the right answer most of the time, but Postgres has a genuinely useful index toolbox:
+
+| Type | Good for | Notes |
+|---|---|---|
+| **B-tree** | Equality, ranges, sorting, `LIKE 'prefix%'` | The default. Handles `ORDER BY` and `MIN`/`MAX` too. |
+| **GIN** | `jsonb` containment, arrays, full-text search | Many keys per row. Slow to update; consider `fastupdate`. |
+| **GiST** | Geometry, ranges, nearest-neighbour, exclusion constraints | The extensible one; PostGIS is built on it. |
+| **BRIN** | Enormous tables whose physical order tracks a column (time-series) | Tiny — kilobytes for a table of gigabytes — but only works when data is naturally ordered. |
+| **Hash** | Equality on large values | Rarely worth it; B-tree does equality nearly as well and more besides. |
+
+The B-tree rules that matter in practice:
+
+- **Multi-column indexes obey the leftmost-prefix rule.** An index on `(customer_id, created_at)` serves `WHERE customer_id = ?`, and `WHERE customer_id = ? ORDER BY created_at`, but not `WHERE created_at > ?` alone. Put equality columns first, then the range or sort column.
+- **An index can supply the sort order.** If the index order matches the `ORDER BY`, the plan has no `Sort` node at all — the rows come out sorted. The direction and `NULLS FIRST/LAST` must match too.
+- **`INCLUDE` makes an index covering**, so the query can be answered without touching the heap.
+- **Partial indexes** index only the rows you actually query, which makes them dramatically smaller and cheaper to maintain.
+- **Expression indexes** are how you index a computed value — necessary because *any* function applied to a column defeats a plain index on it.
+
+```sql
+-- Only open orders are ever listed, and always newest first.
+CREATE INDEX idx_orders_open_recent
+    ON orders (created_at DESC)
+    WHERE status = 'open';
+
+-- "Email must be unique among users who are not soft-deleted."
+CREATE UNIQUE INDEX uq_users_email_active
+    ON users (lower(email))
+    WHERE deleted_at IS NULL;
+```
+
+That second one is worth remembering: a **partial unique index** is how you express a conditional uniqueness rule that a plain constraint cannot, and it is the database-level guarantee that makes an application-level uniqueness check safe (see the validation discussion in Chapter 3 — a check-then-insert without this index is a race, not a rule).
+
+EF Core can express all of it, so these do not have to live in hand-written migration SQL:
+
+```csharp
+modelBuilder.Entity<Order>()
+    .HasIndex(o => o.CreatedAt)
+    .IsDescending()
+    .HasFilter("status = 'open'")
+    .IncludeProperties(o => o.Total);
+```
+
+### Reading EXPLAIN
+
+`EXPLAIN` shows the plan the planner *chose*, with its estimates. `EXPLAIN (ANALYZE, BUFFERS)` actually runs the query and adds what really happened plus how much I/O it took. Always use the second form when diagnosing — estimates alone hide the interesting failure.
+
+> **Gotcha:** `EXPLAIN ANALYZE` executes the statement, including `UPDATE` and `DELETE`. Wrap it: `BEGIN; EXPLAIN (ANALYZE) ...; ROLLBACK;`.
+
+Read the plan tree **inside-out**: the most indented node runs first and feeds its parent. Three things carry nearly all the diagnostic value:
+
+1. **`rows=` estimated versus `rows=` actual.** A large divergence means the planner is working from bad information, and every decision above that node is suspect.
+2. **`actual time=` and `loops=`.** Times are *per loop*. A node showing `actual time=0.3..0.4 rows=1 loops=50000` did not take 0.4 ms; it took twenty seconds.
+3. **`Buffers: shared hit=` versus `read=`.** Hits came from cache, reads went to the operating system. A query with a good plan but tens of thousands of reads is doing too much I/O.
+
+Here is a real shape you will meet often — a listing endpoint that got slow as the table grew:
+
+```sql
+EXPLAIN (ANALYZE, BUFFERS)
+SELECT id, created_at, total
+FROM orders
+WHERE status = 'open'
+ORDER BY created_at DESC
+LIMIT 20;
+```
+
+```
+Limit  (cost=48231.19..48231.24 rows=20 width=24)
+       (actual time=812.443..812.449 rows=20 loops=1)
+  Buffers: shared hit=1204 read=23891
+  ->  Sort  (cost=48231.19..48472.65 rows=96584 width=24)
+            (actual time=812.441..812.444 rows=20 loops=1)
+        Sort Key: orders.created_at DESC
+        Sort Method: top-N heapsort  Memory: 27kB
+        ->  Seq Scan on orders  (cost=0.00..45662.00 rows=96584 width=24)
+                                (actual time=0.019..798.221 rows=96584 loops=1)
+              Filter: (status = 'open')
+              Rows Removed by Filter: 1903416
+Planning Time: 0.184 ms
+Execution Time: 812.503 ms
+```
+
+Everything you need is in there. `Rows Removed by Filter: 1903416` says the database read two million rows to keep ninety-six thousand. The `Sort` says it then ordered all of them to return twenty. `read=23891` says most of that came off disk. The estimate matches the actual, so the planner was not wrong — it simply had nothing better available. The partial index above changes the answer:
+
+```
+Limit  (cost=0.42..2.31 rows=20 width=24)
+       (actual time=0.028..0.061 rows=20 loops=1)
+  Buffers: shared hit=24
+  ->  Index Scan using idx_orders_open_recent on orders
+        (cost=0.42..9124.55 rows=96584 width=24)
+        (actual time=0.026..0.057 rows=20 loops=1)
+Execution Time: 0.089 ms
+```
+
+No `Filter`, because the index only contains open orders. No `Sort`, because the index is already in `created_at DESC` order. Twenty-four buffer hits instead of twenty-five thousand reads, and 0.09 ms instead of 812 ms. The `LIMIT` can stop as soon as it has twenty rows, which is why the actual cost is a fraction of the node's estimated total.
+
+The vocabulary you need to read any plan:
+
+| Node | What it means |
+|---|---|
+| `Seq Scan` | Read the whole table. Correct for small tables or unselective filters; a problem under a selective one. |
+| `Index Scan` | Walk the index, fetch each matching row from the heap. |
+| `Index Only Scan` | Answered from the index alone. Check `Heap Fetches` — a high number means the visibility map is stale. |
+| `Bitmap Index Scan` + `Bitmap Heap Scan` | Collect matching row locations, sort them, then read the heap in physical order. Chosen when there are too many matches for random access to pay. `Recheck Cond` with `lossy=true` means it fell back to page granularity. |
+| `Nested Loop` | For each outer row, look up the inner side. Great when the outer side is tiny, quadratic when it is not. |
+| `Hash Join` | Build a hash of one side, probe with the other. The usual choice for large unsorted joins. |
+| `Merge Join` | Both sides sorted, walked in step. Cheap when indexes already provide the order. |
+| `Sort` | Watch `Sort Method`: `quicksort`/`top-N heapsort` with `Memory:` is fine; `external merge` with `Disk:` means it spilled and `work_mem` is too low. |
+| `Memoize` | Caches inner-side lookups in a nested loop (PostgreSQL 14+). Often what rescues a repeated-lookup plan. |
+| `Gather` / `Workers Launched` | Parallel execution. Useful for big scans, pure overhead for small ones. |
+
+### When the Plan Is Wrong
+
+If estimated and actual rows diverge badly, the planner was misinformed, and the fix is upstream of the query:
+
+- **Stale statistics.** `ANALYZE orders;` refreshes them. Autovacuum does this on a threshold, so a table that just received a bulk load may be planned from statistics describing an empty table — a good reason to `ANALYZE` explicitly at the end of an import.
+- **Correlated columns.** The planner assumes predicates are independent, so `WHERE country = 'DE' AND city = 'Berlin'` multiplies two selectivities and estimates far too few rows. `CREATE STATISTICS ... (dependencies)` teaches it otherwise.
+- **A function around the column.** `WHERE lower(email) = ...` cannot use an index on `email`. Add an expression index, or make the column case-insensitive with `citext` or a non-deterministic ICU collation.
+- **`random_page_cost` left at its default of 4.0**, which models a spinning disk. On SSD-backed storage a value near 1.1 is realistic, and the wrong setting systematically biases the planner toward sequential scans.
+- **A `LIMIT` with a bad estimate.** The planner assumes it can stop early and picks a plan that walks an index until it finds enough matches. When the predicate is rarer than estimated, that walk covers the whole table. This is the classic "instant for most customers, thirty seconds for one".
+
+> **Pitfall:** `.Where(u => u.Email.ToLower() == email)` in LINQ becomes `lower(email) = $1` in SQL, and quietly stops using your index on `email`. It is the single most common accidental index-defeat in EF Core on PostgreSQL. Either index the expression or fix the column's collation.
+
+### Finding the Queries Worth Looking At
+
+You cannot `EXPLAIN` a query you have not identified. Two extensions do the finding for you:
+
+- **`pg_stat_statements`** aggregates every normalized statement with call count and total execution time. Sort by `total_exec_time`, not `mean_exec_time` — the query that costs you the most is usually a fast one running constantly, not the slow one running hourly.
+- **`auto_explain`** logs the plan of any statement exceeding a duration threshold, which is how you capture the plan for a query that is only slow in production with production data.
+
+`pg_stat_user_indexes` is worth a look too: an index with `idx_scan = 0` after a representative period is pure cost — write amplification and one more reason a HOT update cannot happen. Drop it.
+
+### The .NET Side
+
+Getting the SQL out of EF Core is the first step; `LogTo` will print it, and in development `EnableSensitiveDataLogging` includes parameter values so you can replay the statement faithfully. Do run `EXPLAIN` with the **same parameter values**, since selectivity is exactly what the planner reasons about.
+
+Two Npgsql behaviours are worth knowing:
+
+- **Automatic preparation.** Npgsql promotes a statement to a server-side prepared statement after it has been executed a few times (`Max Auto Prepare`). This saves parse and plan time, but after five executions Postgres may switch to a **generic plan** built without knowing your parameter values — which is a poor trade for a column with skewed data. `plan_cache_mode = force_custom_plan` is the escape hatch.
+- **Connection poolers change the rules.** PgBouncer in transaction-pooling mode multiplexes connections across transactions, which breaks prepared statements and any other session-level state. Chapter 23 covers pooling under load; the point here is that a plan-caching win at the driver level can disappear entirely depending on what sits between you and the server.
+
+Finally, three mapping choices that prevent whole categories of problem: store timestamps as `timestamptz` and never `timestamp` (see Chapter 26 on why "local time" is not a thing you can store); use `jsonb` rather than `json` for anything you will query, and index it with GIN; and reach for `citext` or a case-insensitive collation instead of scattering `ToLower()` through your LINQ.
+
+> **Best practice:** Index the queries you actually run, not the columns that look important. Capture `EXPLAIN (ANALYZE, BUFFERS)` before and after every index you add, keep the two outputs in the pull request, and delete indexes that no scan counter has ever touched.
+
 ## Dapper: When the ORM Is Too Much
 
 EF is productive but adds overhead: expression translation, change tracking, materialization. Sometimes you want raw SQL with a thin, fast mapping to objects. **Dapper** is a micro-ORM — really a set of extension methods on `IDbConnection` — that executes your SQL and maps the result to C# types, nothing more.
@@ -2230,6 +2881,82 @@ var orders = conn.Query<OrderSummary>(
 ```
 
 Dapper shines for read-heavy reporting queries, complex hand-tuned SQL, and hot paths where EF's overhead matters. Many mature systems use **both**: EF for the write-side domain model where change tracking pays off, Dapper for high-volume reads. You lose change tracking, migrations, and LINQ, and you own the SQL — which is exactly the point when you want that control.
+
+### The Parts of Dapper Worth Knowing
+
+Dapper's surface is small, but four features cover most of what people otherwise write by hand.
+
+**Multi-mapping** splits one row into several objects, which is how you materialize a join without a flat DTO:
+
+```csharp
+var sql = @"SELECT o.id, o.total, c.id, c.name
+            FROM orders o JOIN customers c ON c.id = o.customer_id
+            WHERE o.status = @status";
+
+var orders = await conn.QueryAsync<Order, Customer, Order>(
+    sql,
+    (order, customer) => { order.Customer = customer; return order; },
+    new { status = "open" },
+    splitOn: "id");   // where one object ends and the next begins
+```
+
+`splitOn` is the part that trips people up: it names the column at which Dapper starts filling the *next* type, and it defaults to `Id`. Get the column order wrong and you get nulls rather than an error.
+
+**`QueryMultiple`** returns several result sets from one round trip — the cheap way to build a dashboard payload without N queries:
+
+```csharp
+using var multi = await conn.QueryMultipleAsync(
+    "SELECT * FROM orders WHERE id = @id; SELECT * FROM order_lines WHERE order_id = @id;",
+    new { id });
+
+var order = await multi.ReadSingleAsync<Order>();
+var lines = (await multi.ReadAsync<OrderLine>()).ToList();
+```
+
+**`DynamicParameters`** handles output parameters and stored procedures, and **list parameters just work** — Dapper expands `WHERE id = ANY(@ids)` (or `IN @ids` on SQL Server) from an array without you building placeholders.
+
+**Unbuffered queries** stream instead of materializing. `QueryAsync` buffers the whole result into a list by default; passing `buffered: false` yields rows as they arrive, which is what you want for an export of a million rows and what you must *not* use if you plan to close the connection mid-iteration.
+
+Cancellation needs `CommandDefinition` — the convenience overloads have no `CancellationToken` parameter, which is a common way for a token to get silently dropped on the way to the database:
+
+```csharp
+var orders = await conn.QueryAsync<Order>(
+    new CommandDefinition(sql, new { status }, cancellationToken: ct));
+```
+
+### Mixing Dapper and EF Core in One Transaction
+
+The two coexist better than people expect, because EF will hand you its connection and its ambient transaction. That means a Dapper query can participate in the same unit of work as your tracked changes:
+
+```csharp
+await using var tx = await ctx.Database.BeginTransactionAsync(ct);
+
+// Dapper, on EF's connection and inside EF's transaction
+var affected = await ctx.Database.GetDbConnection().ExecuteAsync(
+    new CommandDefinition(
+        "UPDATE inventory SET reserved = reserved + @qty WHERE sku = @sku",
+        new { qty, sku },
+        transaction: ctx.Database.GetDbTransaction(),
+        cancellationToken: ct));
+
+ctx.Orders.Add(order);
+await ctx.SaveChangesAsync(ct);
+await tx.CommitAsync(ct);
+```
+
+> **Gotcha:** Passing the transaction is not optional. A Dapper command issued on EF's connection *without* `transaction:` will fail on SQL Server (the connection has a pending local transaction) or run outside your transaction on PostgreSQL — the second failure mode being the dangerous one, because it commits independently and survives your rollback.
+
+Also remember that Dapper writes are invisible to the change tracker, exactly like `ExecuteUpdate`. Entities already loaded keep their stale values.
+
+| Situation | Reach for |
+|---|---|
+| Write-side domain logic, aggregates, invariants | EF Core — tracking and unit of work are the point |
+| A read model with a hand-tuned join or window function | Dapper |
+| Hot path where materialization cost shows up in a profile | Dapper, after measuring |
+| Set-based maintenance over many rows | `ExecuteUpdate`/`ExecuteDelete`, or raw SQL |
+| Schema evolution | EF migrations, whichever you query with |
+
+> **Best practice:** Do not let "Dapper is faster" become an architecture. The performance gap only matters once materialization is a measurable share of your request time, and by then you will know which three queries need it. Introducing Dapper for a specific read path is a good decision; rewriting a domain model around it usually is not.
 
 ## Database Design and Normalization
 
@@ -2310,6 +3037,53 @@ That `GetOrCreateAsync` above is cache-aside in one call. It is simple and robus
 A **cache stampede** (or "dog-pile") happens when a popular key expires and hundreds of concurrent requests all miss simultaneously, all hammering the database at once to rebuild it — potentially overwhelming it exactly when traffic is highest. Defences include a **lock** so only one request rebuilds while others wait, **early/probabilistic refresh** (rebuild slightly before expiry), and serving slightly stale data during a refresh.
 
 .NET 9's **HybridCache** (`Microsoft.Extensions.Caching.Hybrid`) packages these ideas for you: it unifies an in-process L1 with a distributed L2 behind a single `GetOrCreateAsync` API, and it ships cache-stampede protection out of the box — concurrent misses for the same key collapse into one rebuild. If you find yourself hand-rolling a two-level cache plus a rebuild lock, reach for it instead.
+
+### Redis in Practice: Key Design, Data Types, and Eviction
+
+`IDistributedCache` presents Redis as a dictionary of byte arrays, which is enough to get started and hides most of what makes Redis good. A few decisions repay knowing the real thing.
+
+**Key design is schema design.** Redis has no tables, so the key is the only structure you get. The conventional shape is colon-separated and hierarchical, from most general to most specific, with a version segment:
+
+```
+shop:v3:product:1234
+shop:v3:product:1234:reviews
+shop:v3:tenant:acme:cart:9f2c
+```
+
+The version segment is the part people leave out and regret. When the shape of a cached object changes in a deploy, old entries deserialize into the new type as garbage or throw. Bumping `v3` to `v4` makes the entire previous generation unreachable and lets it expire naturally — a rename instead of a mass deletion, and no cold-start thundering herd against the database at the moment of deploy.
+
+**Always set a TTL, and jitter it.** A cache without expiry is a memory leak with good manners. And if a deploy or a batch job populates ten thousand keys at once with the same TTL, they expire at the same instant and all miss together — a stampede you created on a schedule. Adding a random spread of a few percent to each TTL breaks the synchronisation.
+
+**Use the data types.** Storing a serialized object in a plain string means every field update rewrites the whole value, and every read transfers all of it:
+
+| Type | Use it for |
+|---|---|
+| String | A serialized object, a counter (`INCR` is atomic), a flag |
+| Hash | An object whose fields are read or updated independently — `HSET user:1 last_seen ...` touches one field |
+| Sorted set | Leaderboards, rate limiters, and time-ordered indexes; range queries by score |
+| Set | Membership and tag indexes — "which keys belong to product 1234" |
+| List | Simple queues; `BLPOP` gives you a blocking pop |
+| Stream | An append-only log with consumer groups — a real message primitive (see Chapter 9) |
+
+**Invalidation by tag** is where sets earn their place. You cannot glob for keys to delete — `KEYS pattern` walks the entire keyspace and, because Redis executes commands on a single thread, it blocks *every other client* while it does. (`SCAN` is the cursor-based alternative that does not, and is what any maintenance script should use.) Instead, maintain the index yourself: when caching a derived value that depends on product 1234, also add its key to the set `tag:product:1234`. On a write, read the set, delete those keys, delete the set. HybridCache exposes this idea directly with tags on `GetOrCreateAsync` and `RemoveByTagAsync`.
+
+**Round trips dominate.** A Redis operation takes microseconds on the server and a network round trip to reach it, so ten sequential `GET`s cost ten round trips and one batch costs one. StackExchange.Redis pipelines automatically when you fire off several tasks before awaiting them:
+
+```csharp
+var db = _mux.GetDatabase();
+var batch = ids.Select(id => db.StringGetAsync($"shop:v3:product:{id}")).ToArray();
+var values = await Task.WhenAll(batch);   // one round trip, not ids.Length
+```
+
+**Eviction is a policy you must choose.** When Redis reaches `maxmemory`, the default `noeviction` policy starts *rejecting writes* — your cache stops accepting new entries and the application starts throwing on set. For a pure cache you want `allkeys-lru` (or `allkeys-lfu`), which discards the least useful key instead. Getting this wrong turns a full cache into an outage rather than a slowdown, and it is the most common Redis misconfiguration in production.
+
+> **Gotcha:** Redis executes commands on a single thread. That is what makes its operations atomic and its latency predictable, and it means one expensive command — a `KEYS` sweep, a large `LRANGE`, an unbounded Lua script, or deleting a multi-megabyte value — stalls every other client for its whole duration. Slow queries in Redis are not slow for one caller; they are slow for everyone.
+
+Two more practical notes. `ConnectionMultiplexer` is expensive, thread-safe, and designed to be shared: register exactly one as a **singleton** and never wrap it in a `using` (the classic mistake, and the reason for mysterious connection storms — see Chapter 2 on lifetimes). And in a Redis **Cluster**, keys are distributed by hash slot, so a multi-key operation only works if the keys land on the same node; wrapping the common part in braces — `cart:{acme}:9f2c` — makes Redis hash only that part, keeping a tenant's keys together.
+
+> **Pitfall:** Do not use a Redis lock as a correctness mechanism. The single-instance `SET key value NX PX` lock is fine for suppressing duplicate work — one instance rebuilds the cache, the others wait — but it cannot guarantee mutual exclusion across failover, and the distributed variant (Redlock) rests on timing assumptions that are actively disputed. If two workers doing the same thing would corrupt data, enforce it in the database with a unique constraint or a row lock, not in the cache.
+
+Finally, measure the thing that tells you whether any of this is working: the **hit rate**. A cache below roughly 80% hits is usually caching the wrong things, or expiring them faster than they are reused — and every miss now costs a network round trip *plus* the original query, which makes a badly-tuned cache slower than no cache at all.
 
 ## Concurrency: Optimistic vs Pessimistic
 
@@ -2413,7 +3187,7 @@ The through-line of this chapter is that the database is not a black box. EF Cor
 
 # Chapter 5: Design Patterns, Principles & Clean Code
 
-_⏱️ Estimated read time: ~1 h 10 min · 8992 words (study pace)_
+_⏱️ Estimated read time: ~1 h 35 min · 12694 words (study pace)_
 
 A senior developer is not someone who has memorized twenty-three patterns from a book. A senior developer is someone who can look at a tangle of code and *feel* where the seams should be, who reaches for a pattern the way a carpenter reaches for the right chisel, and who — crucially — knows when to leave the chisel in the box and just drive the nail.
 
@@ -2979,6 +3753,286 @@ return result.IsSuccess
 
 - **Null Object:** Instead of returning `null` and forcing callers to null-check, return a benign object that implements the interface and does nothing. A `NullLogger` that silently discards messages lets callers log unconditionally without `if (logger is not null)`. It replaces scattered null checks with polymorphism — but use it only where "do nothing" is genuinely correct behavior, not to paper over a missing value that callers *should* handle.
 - **Guard Clauses:** Validate preconditions at the top of a method and exit early, keeping the happy path unindented. `if (order is null) throw new ArgumentNullException(nameof(order));` up front beats wrapping the whole method body in an `if`. Modern C# and libraries like **Ardalis.GuardClauses** streamline this: `Guard.Against.Null(order);` or `ArgumentNullException.ThrowIfNull(order);`. .NET 8 rounds out the built-in helpers with the range-checking family — `ArgumentOutOfRangeException.ThrowIfNegative(count)`, `ThrowIfZero(...)`, and `ThrowIfGreaterThan(...)` — so most preconditions need no hand-written `if`/`throw` at all. Guard clauses are a small habit with an outsized effect on readability.
+
+## Exception Handling Strategy
+
+Almost every codebase has a *style* of exception handling, and almost none have a *strategy*. The style is visible: `try`/`catch` blocks sprinkled wherever someone was once burned, a `catch (Exception ex) { _logger.LogError(ex.Message); throw; }` copied from file to file, a global handler that returns `"An error occurred"` and nothing else. The strategy is the thing that answers three questions, and this section answers them in order: **where do I catch, what do I log, and what do I surface?** Every one of those answers depends on a prior question that most code never asks.
+
+### Classify the Failure First
+
+You cannot decide how to handle a failure until you know what *kind* of failure it is. There are three, and they want three completely different mechanisms.
+
+**A bug.** The code is wrong. A `NullReferenceException`, an `InvalidCastException`, an index off the end of an array, an `InvalidOperationException` because an object was in a state its own invariants say is impossible. There is no correct handling for a bug at runtime, because the process no longer knows what is true. The right response is to *not catch it*: let it tear down the current request, let the boundary log it with full fidelity, let the alert fire, and go fix the code. A `catch` around a bug converts a loud, diagnosable failure into a quiet, undiagnosable one.
+
+**An environmental or transient failure.** A socket reset, a connection timeout, a SQL deadlock victim, a 503 from a dependency that is mid-deploy. Nothing is wrong with your code and nothing is wrong with the request — the world was briefly unavailable. These are the only failures where *retry* is a coherent response, because the same call with the same inputs may well succeed a moment later. This is Polly's territory: see the resilience pipelines in [Chapter 3: ASP.NET Core & Web APIs](#chapter-3-aspnet-core-web-apis) for the `HttpClient` wiring, and [Chapter 9: Messaging & Distributed Systems](#chapter-9-messaging-distributed-systems) for the wider retry/circuit-breaker/idempotency picture.
+
+**A domain rule violation.** The request is well-formed, the system is healthy, and the business says no: insufficient balance, coupon expired, order already shipped. Nothing here is exceptional — this is one of the outcomes the feature was designed to produce. This is exactly where the `Result<T>` from earlier in this chapter belongs, and it is the category most often mishandled, because throwing an `InsufficientFundsException` *works*, so nobody notices that it has made an ordinary business outcome invisible in the method signature.
+
+| Failure kind | Examples | Mechanism | What the caller sees |
+|---|---|---|---|
+| **Bug** | Null deref, bad cast, broken invariant | Do not catch. Let it reach the outermost boundary. | 500 + a trace id; an alert pages someone |
+| **Environmental / transient** | Socket reset, timeout, SQL deadlock (1205), 503 | Retry with backoff, circuit-break, fall back | Success after retry — or 503/504 + `Retry-After` when exhausted |
+| **Domain rule violation** | Coupon expired, insufficient balance, already shipped | `Result<T>` / validation errors — *not* an exception | 409 / 422 with a stable machine-readable code |
+| **Malformed input** | Bad JSON, missing required field | Model validation at the edge, before your code runs | 400 `ValidationProblemDetails` |
+
+> **The classification is the design decision.** Everything downstream — whether to retry, whether to log at `Error` or `Warning`, whether the user sees a fixable message or an apology — is determined by which row you are in. Teams that argue about `try`/`catch` placement are usually arguing because they never agreed on the rows.
+
+### Exceptions vs Result, Settled Properly
+
+The earlier Result-pattern section made the case for `Result<T>`; here is the other half of the trade, stated honestly, because "exceptions are slow" is repeated far more often than it is understood.
+
+**Exceptions are unignorable** — their single greatest property. If a method throws and you write no handler, the failure propagates and something eventually notices. Compare a method returning `Result<T>`: a caller can write `_ = DoTheThing();` and discard the failure entirely, and the compiler will not blink. Unignorability is why exceptions are right for the *exceptional*, where continuing is worse than stopping. **Results, in exchange, are visible in the signature and force a decision.** `Result<Order> Place(...)` tells you failure is expected without reading the body; `Order Place(...)` does not. The cost is signature pollution: `Result<T>` is viral, spreading up through every caller, and code that mixes both conventions gets the worst of each.
+
+Now the performance, with the mechanism rather than folklore. A throw/catch pair costs on the order of **microseconds** — roughly 5–20 µs for a shallow stack, growing with depth, and worse under a debugger. Two things dominate. First, **the stack walk**: throwing does not simply jump, it walks frames outward looking for a handler whose filter matches, unwinding as it goes, so the same `throw` is cheap in a leaf method and expensive from twenty frames down a request pipeline. Second, **stack trace capture**: building the trace means resolving frames back to method metadata, which scales with depth again.
+
+Put that in context, because context is the whole point. Ten microseconds once per failed HTTP request, against a budget of tens of milliseconds, is *noise* — nobody has ever had an outage because a 404 threw. Ten microseconds per row across 200,000 rows is **two seconds of pure overhead**, and that is a genuine, career-defining performance bug.
+
+> **Best practice.** Use exceptions for the exceptional and for anything a caller must not be able to ignore. Use `Result<T>` for expected alternate outcomes — especially inside loops and hot paths, where the per-item cost of throwing is the thing that kills you. The tell for a misuse is a `try`/`catch` *inside* a `foreach`: that is control flow wearing an exception costume.
+
+### Where to Catch
+
+Here is the rule that replaces a thousand scattered `try` blocks: **catch only where you can add value — and there are exactly three ways to add value.**
+
+- **Translate it.** Wrap a low-level exception into one that means something in your abstraction, so callers do not end up depending on `SqlException` or `HttpRequestException` leaking out of a repository. The interface promised an `IOrderRepository`; it should not fail in ADO.NET vocabulary. Always pass the original as the inner exception — translation preserves, it does not discard.
+- **Handle it.** Actually do something: retry, fall back to a cache, compensate a half-finished workflow, degrade gracefully. If your `catch` block does not change the outcome, it is not handling anything.
+- **Report it.** At the outermost boundary — the global exception handler, a message consumer's dispatch loop, a `BackgroundService`'s work loop — someone must turn the exception into a log entry and a response. This is the *only* place a blanket `catch (Exception)` is legitimate, because it is the last frame before the exception escapes into the void.
+
+Everywhere else, do nothing — let it go up. Layers with nothing useful to add should be transparent to failure.
+
+```
+   request travels down  ▼            ▲  exception travels up
+
+   Exception middleware ─────────────────►  REPORT: log once, map to ProblemDetails
+        ▼                             ▲
+   Controller / endpoint  ────────────┤    (nothing to add — transparent)
+        ▼                             ▲
+   Application service    ────────────┤    (nothing to add — transparent)
+        ▼                             ▲
+   Domain                 ────────────┤    (nothing to add — transparent)
+        ▼                             ▲
+   OrderRepository        ────────────┤    TRANSLATE: SqlException →
+        ▼                             ▲               OrderStoreUnavailableException
+   Polly pipeline         ────────────┤    HANDLE: retry if transient,
+        ▼                             ▲            rethrow when exhausted
+   SqlConnection ── throws SqlException(40613) ─┘
+```
+
+Three catch sites in a five-layer stack, each earning its place. The middle three layers contain no `try` at all — and that absence is the design, not an oversight.
+
+```csharp
+// TRANSLATE — at the infrastructure boundary.
+public async Task<Order?> GetByIdAsync(int id, CancellationToken ct)
+{
+    try { return await _db.Orders.FirstOrDefaultAsync(o => o.Id == id, ct); }
+    catch (SqlException ex) when (ex.Number is 40613 or 4060)   // database unavailable
+    {
+        // Callers depend on our abstraction, not on ADO.NET. Inner exception preserved.
+        throw new OrderStoreUnavailableException(id, ex);
+    }
+}
+```
+
+> **Pitfall.** A `catch` whose body is `throw;` and nothing else is pure cost: it buys nothing and, before exception filters existed, it also cost you the unwound stack (see below). Delete it. Likewise, a `try`/`finally` with no `catch` is often exactly right — you want the cleanup, you do not want to intercept the failure. Better still, `using` expresses that intent in one line.
+
+### The Mechanics That Bite
+
+These details separate handling that helps diagnosis from handling that destroys it.
+
+**`throw;` versus `throw ex;`.** `throw ex;` restarts the exception's journey from the current frame: the `StackTrace` is reset, and every frame *below* your catch — the frames that contain the actual bug — is erased. Your log then says the failure originated in the catch block, which is the one place it certainly did not. `throw;` rethrows the original, preserving the trace. There is no situation in which `throw ex;` is the right rethrow.
+
+```csharp
+catch (Exception ex)
+{
+    throw ex;   // ❌ stack trace now starts HERE — the real origin is erased
+    throw;      // ✅ preserves the original trace
+}
+```
+
+**Exception filters — and why they beat catch-inspect-rethrow.** `catch (X e) when (predicate)` looks like sugar for an `if` inside the catch, but the runtime treats it very differently. The filter expression runs during the **first pass**, *before the stack unwinds*. If the filter returns `false`, the exception continues outward with the stack still intact — no frames destroyed, and if it ultimately goes unhandled, a debugger or crash dump captures the state at the original throw site rather than at your catch. Catch-inspect-rethrow, by contrast, unwinds first and asks questions later.
+
+```csharp
+// ✅ Filter: decides before unwinding. Frames below stay intact.
+catch (SqlException ex) when (IsTransient(ex)) { await RetryAsync(); }
+
+// ❌ Catch, inspect, rethrow: the stack has already unwound by the time we look.
+catch (SqlException ex) { if (!IsTransient(ex)) throw; await RetryAsync(); }
+```
+
+Filters are also the idiomatic way to branch on an error code (`when (ex.Number == 1205)`) or to add a side effect without handling — `catch (Exception ex) when (Log(ex))`, where `Log` returns `false`, logs at the throw site and lets the exception sail past untouched.
+
+**`ExceptionDispatchInfo`.** When you must capture an exception now and rethrow it later — from a different thread, out of a stored task, after some bookkeeping — `throw capturedEx;` would reset the trace. `ExceptionDispatchInfo` exists precisely for this: it preserves the original stack and *appends* the new throw site instead of replacing it.
+
+```csharp
+ExceptionDispatchInfo? captured = null;
+try { await DoWorkAsync(); }
+catch (Exception ex) { captured = ExceptionDispatchInfo.Capture(ex); }
+await CleanupAsync();
+captured?.Throw();      // original stack trace intact, rethrow site appended
+```
+
+**`AggregateException` and `Task.WhenAll`.** When you `await Task.WhenAll(...)` and three tasks faulted, `await` unwraps and rethrows only the **first** exception — the other two are silently invisible unless you go looking. Retrieve the whole set from the task's `Exception` property. This is a common source of "we fixed the error and it still fails": you were only ever shown one of three. See [Chapter 8: Asynchronous & Concurrent Programming](#chapter-8-asynchronous-concurrent-programming) for the full behavior of aggregated faults.
+
+```csharp
+var task = Task.WhenAll(jobs);
+try { await task; }                 // rethrows only the FIRST fault
+catch (Exception)
+{
+    // task.Exception is the AggregateException carrying ALL of them.
+    foreach (var inner in task.Exception!.InnerExceptions)
+        _logger.LogError(inner, "Job failed");
+    throw;
+}
+```
+
+**`OperationCanceledException` is not a failure.** A cancelled operation is a *successful* response to a request to stop — a client closed the connection, a shutdown began, a timeout token fired. Logging it as an error trains your team to ignore errors, and in a busy API the client-disconnect case alone can drown a real incident in noise. Filter it out at the boundary and log at `Information` or `Debug`.
+
+```csharp
+catch (OperationCanceledException) when (ct.IsCancellationRequested)
+{
+    _logger.LogInformation("Request cancelled by client for order {OrderId}", id);
+    return;   // no response — the caller is already gone
+}
+```
+
+The filter matters here too: without `when (ct.IsCancellationRequested)` you also swallow the *timeout* case, which usually is a real problem worth surfacing.
+
+### Designing Your Own Exceptions
+
+**Have few of them.** A healthy bounded context has a handful of exception types, not one per error message. "One type per message" is a smell with a simple tell: every type is thrown from exactly one line and caught nowhere. Types exist so that a *caller can catch them differently*; if no caller ever will, the distinction belongs in the data, not in the class hierarchy.
+
+**Name them for the situation, not the throw site.** `OrderStoreUnavailableException` describes a condition a caller can reason about; `OrderRepositoryGetByIdFailedException` describes a line of your code, which is what the stack trace is for. And **carry structured data as properties, not baked into a string** — a message is for humans, while the properties are what your handler, your logs, and your API response actually consume. Formatting the order id into the message and then regex-ing it back out at the boundary is a real pattern in real codebases, and it is always a mistake.
+
+```csharp
+// A small, per-context base so the boundary can catch one type.
+public abstract class OrderingException : Exception
+{
+    protected OrderingException(string message, Exception? inner = null) : base(message, inner) { }
+    /// Stable, machine-readable code surfaced to API clients.
+    public abstract string ErrorCode { get; }
+}
+
+public sealed class OrderStoreUnavailableException : OrderingException
+{
+    public int OrderId { get; }                       // structured, queryable
+    public override string ErrorCode => "order_store_unavailable";
+    public OrderStoreUnavailableException(int orderId, Exception inner)
+        : base($"The order store was unavailable while loading order {orderId}.", inner)
+        => OrderId = orderId;
+}
+```
+
+The common base per bounded context earns its place when the boundary wants one `catch (OrderingException ex)` that maps `ErrorCode` and a status onto a response, instead of a growing list of `catch` clauses. Keep the base *thin* — a marker plus the shared contract — and resist the urge to make every exception in the system inherit from one god-base, which just recreates `catch (Exception)` with extra ceremony.
+
+### What to Log
+
+**Log the exception exactly once, at the boundary that handles it, with the context the stack trace does not already carry.** The trace already knows the type, the message, and every frame. What it does not know is *which order*, *which tenant*, *which correlation id* — and that is the only information worth adding.
+
+```csharp
+// ✅ The exception is the first argument — that is what preserves it as a
+// structured field with full type/message/stack/inner-exception detail.
+_logger.LogError(ex, "Failed to place order for customer {CustomerId} (cart {CartId})",
+                 customerId, cartId);
+
+// ❌ The exception becomes a flat string; inner exceptions and stack are lost.
+_logger.LogError($"Failed to place order: {ex.Message}");
+```
+
+That first argument is not a stylistic preference. Logging providers treat the exception parameter specially, serializing type, message, stack, and the full inner-exception chain as structured data; interpolating `ex.Message` into the template throws all of that away and, for good measure, destroys the message template that makes logs aggregatable. See [Chapter 13: Observability](#chapter-13-observability) for structured logging, message templates, and log scopes.
+
+**The log-and-rethrow anti-pattern.** This is the most common exception mistake in enterprise .NET:
+
+```csharp
+// In the repository, the service, the handler, AND the controller — all four:
+catch (Exception ex) { _logger.LogError(ex, "Something went wrong"); throw; }
+```
+
+One failure now produces four `Error` entries. They are not four problems and they are not even four *views* of the problem — they are the same exception, at four different stack depths, with four different timestamps, interleaved with other requests' logs. On-call now has to reconstruct that these four are one event before they can start. Your error rate metric is inflated fourfold. Your alert thresholds are meaningless. And the extra entries added no information the boundary's single entry would not have had, because the exception was already carrying its whole stack.
+
+> **Best practice.** Log where you *handle*, not where you *pass through*. If a layer genuinely knows something the boundary cannot — a retry attempt count, the exact query that failed — log that as a `Warning` with the specific fact, and still let the boundary own the single `Error` for the failure itself.
+
+### What to Surface
+
+The response to the outside world is a **product decision**, not a debugging artifact. Never surface a stack trace, a SQL statement, a connection string, an internal type name, or raw inner-exception text: at best it confuses the caller, at worst it is a reconnaissance gift to an attacker (see the error-handling notes in [Chapter 14: Security](#chapter-14-security)).
+
+What a caller does need is: **a stable machine-readable code** they can branch on, **a human-readable summary** they can act on, and **a correlation/trace id** they can quote to your support team. RFC 7807 `ProblemDetails` is the standard shape, and ASP.NET Core produces it natively — see [Chapter 3: ASP.NET Core & Web APIs](#chapter-3-aspnet-core-web-apis) for `AddProblemDetails` and `IExceptionHandler`, and [Chapter 13: Observability](#chapter-13-observability) for wiring the trace id that ties the response back to the log entry.
+
+```csharp
+public sealed class OrderingExceptionHandler(ILogger<OrderingExceptionHandler> logger)
+    : IExceptionHandler
+{
+    public async ValueTask<bool> TryHandleAsync(HttpContext ctx, Exception ex, CancellationToken ct)
+    {
+        if (ex is not OrderingException ordering) return false;  // let the generic 500 handler take it
+        logger.LogError(ex, "Ordering failure {ErrorCode} on {Path}",
+                        ordering.ErrorCode, ctx.Request.Path);
+
+        var problem = new ProblemDetails
+        {
+            Status = StatusCodes.Status503ServiceUnavailable,
+            Title  = "The order could not be processed.",
+            Type   = $"https://errors.example.com/{ordering.ErrorCode}",
+            // No stack, no SQL, no inner message. A code and an id.
+            Extensions = { ["code"] = ordering.ErrorCode,
+                           ["traceId"] = Activity.Current?.Id ?? ctx.TraceIdentifier }
+        };
+        ctx.Response.StatusCode = problem.Status!.Value;
+        await ctx.Response.WriteAsJsonAsync(problem, ct);
+        return true;
+    }
+}
+```
+
+The status code carries the most important piece of information, so choose it deliberately. The dividing line is **who can fix this**: 4xx means the caller can change something and succeed; 5xx means only you can. Getting this wrong is expensive in both directions — 500s for user mistakes wake up your on-call for nothing, and 200s or 400s for server faults hide real outages from your dashboards and stop clients from retrying.
+
+| Situation | Status | Why |
+|---|---|---|
+| Malformed or missing input | **400** | The caller can fix the request |
+| Well-formed but business-unacceptable | **422** | Syntax is fine; semantics are not |
+| Optimistic-concurrency conflict | **409** | The caller can re-read and retry — this is a real outcome, not a bug |
+| Domain rule violation on a valid request | **409 / 422** | Pick one per API and be consistent; carry the code in the body |
+| Bug in your code | **500** | Nothing the caller can do; page someone |
+| Dependency down / retries exhausted | **503** (+ `Retry-After`) | Transient; tells clients it is worth trying again |
+| Client cancelled / disconnected | **no response** | The caller is gone. Do not manufacture a 500 for a socket nobody is reading |
+
+### Process-Level Safety Nets
+
+Below the request boundary sits the process, and it has its own failure modes.
+
+**`BackgroundService`.** Since .NET 6, an unhandled exception in `ExecuteAsync` stops the **entire host** by default (`BackgroundServiceExceptionBehavior.StopHost`) — a deliberate change, because the previous behavior silently killed the service and left the process running as a hollow shell that looked healthy to every probe. Keep that default and put your `try`/`catch` *inside* the loop, so one bad message does not take down the worker while a genuinely broken worker still takes down the host and lets the orchestrator restart it. [Chapter 22: Background Processing, Scheduling & the Actor Model](#chapter-22-background-processing-scheduling-the-actor-model) covers the loop shape in detail.
+
+```csharp
+protected override async Task ExecuteAsync(CancellationToken stoppingToken)
+{
+    while (!stoppingToken.IsCancellationRequested)
+    {
+        try { await ProcessNextAsync(stoppingToken); }
+        catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested) { break; }
+        catch (Exception ex) { _logger.LogError(ex, "Work item failed; continuing."); }
+        //  ↑ per-item boundary: one poisoned item must not kill the loop.
+        //    An exception escaping ExecuteAsync itself stops the host — by design.
+    }
+}
+```
+
+**`AppDomain.CurrentDomain.UnhandledException`** fires for exceptions escaping any thread. It is a *last-chance logger*, not a handler: you cannot prevent the process from terminating, and you have limited time before it dies — use it to flush a final log entry, nothing more. **`TaskScheduler.UnobservedTaskException`** fires when a faulted `Task` is garbage-collected without anyone having observed its exception. Since .NET 4.5 that no longer crashes the process, which means these failures are entirely silent by default; subscribing to the event is one of the highest-value ten-line additions you can make to a service, because it is how you discover the fire-and-forget `_ = DoWorkAsync();` calls that have been failing in production for months.
+
+> **Pitfall.** A top-level `catch (Exception) { }` that swallows and continues is worse than a crash. A crashed process is unambiguous: the orchestrator restarts it, the health check fails, the alert fires, and someone looks. A process that keeps running while lying about its state corrupts data quietly, reports itself healthy, and produces the kind of outage that takes three days to diagnose because the logs are clean. **Fail loudly or handle genuinely — never in between.**
+
+### A Reviewer's Checklist
+
+Run down this list on any pull request that touches error handling:
+
+- [ ] Every `catch` **translates**, **handles**, or **reports**. If it does none of the three, delete it.
+- [ ] No `throw ex;` anywhere — only `throw;` or a new exception with the original as `InnerException`.
+- [ ] No empty `catch { }`, and no `catch (Exception)` outside an outermost boundary.
+- [ ] Expected business outcomes return `Result<T>` or a validation error, not an exception — and nothing throws inside a hot loop.
+- [ ] `OperationCanceledException` is filtered out of error logging and never becomes a 500.
+- [ ] The exception is passed as the **first argument** to `LogError`, never interpolated into the message.
+- [ ] The failure is logged **once**, at the boundary — no log-and-rethrow chains.
+- [ ] The response is a `ProblemDetails` with a stable code and a trace id; no stack trace, SQL, or inner-exception text escapes.
+- [ ] The status code answers "who can fix this?" — 4xx caller, 5xx you.
+- [ ] Custom exceptions carry structured properties, are named for the situation, and there are few of them.
+- [ ] `TaskScheduler.UnobservedTaskException` is subscribed somewhere in the host.
 
 ## Principles: The Foundation Under the Patterns
 
@@ -6541,7 +7595,7 @@ At scale, **Kubernetes** takes over: you *declare* desired state — Deployments
 
 # Chapter 12: DevOps & CI/CD
 
-_⏱️ Estimated read time: ~30 min · 4711 words (study pace)_
+_⏱️ Estimated read time: ~50 min · 7606 words (study pace)_
 
 DevOps is not a job title, a tool, or a team you can buy. It is a way of working in which the people who write software and the people who run it in production share responsibility for the whole lifecycle. The practical machinery that makes this possible is automation: version control that lets many people change the same codebase safely, pipelines that build and test every change, and deployment mechanisms that push validated code to users without drama. This chapter takes you from the internals of Git all the way to canary deployments, with .NET as the running example throughout. By the end you should be able to design a pipeline, reason about a branching strategy, and explain to a junior why rebasing a shared branch is a bad idea.
 
@@ -6872,6 +7926,266 @@ Now the anatomy.
 **Environments.** The `environment: production` block ties the deploy job to a named environment that can carry protection rules—required reviewer approvals, wait timers, and environment-scoped secrets. This is how you implement the human gate of continuous *delivery*: configure `production` to require a manual approval, and the job pauses until someone clicks approve.
 
 **Permissions.** The `permissions` block follows least privilege—the containerize job gets `packages: write` because it pushes an image, and nothing more.
+
+## Azure Pipelines in Practice
+
+If you work on .NET professionally there is a good chance the build you are asked to fix is an Azure Pipelines build, not a GitHub Actions one. The reasons are historical and structural: Azure DevOps predates Actions, Microsoft shipped first-class .NET tasks for it, and it grew the enterprise machinery—approvals, audited environments, Key Vault-backed variable groups, org-wide templates—that regulated shops need. The concepts you just learned all transfer. What changes is the vocabulary and, in one important place, the shape of the file.
+
+### Coming from GitHub Actions: A Translation Table
+
+| GitHub Actions | Azure Pipelines | Notes |
+|---|---|---|
+| Workflow (`.github/workflows/*.yml`) | Pipeline (`azure-pipelines.yml`) | One repo can have many pipelines; each is registered in the UI and points at a YAML file. |
+| — (no equivalent) | **Stage** | A real grouping layer above jobs, with its own `dependsOn`, `condition`, and variables. |
+| Job | Job | Same idea: a unit that gets one machine. |
+| Step / action (`uses:`) | Step / task (`- task: X@1`) | Tasks are versioned by major number (`@2`), not by tag. `- script:` is the shell escape hatch. |
+| Runner (`runs-on:`) | Agent (`pool:`) | `pool: { vmImage: ubuntu-latest }` for Microsoft-hosted, `pool: { name: my-pool }` for self-hosted. |
+| `secrets.FOO` | Variable group, ideally Key Vault-linked | Groups are defined in Library and referenced by name; secret variables are masked and *not* exposed as env vars automatically. |
+| `environment:` with protection rules | `environment:` used by a `deployment:` job | Carries approvals, business-hours gates, Azure Function/REST checks, and deployment history per resource. |
+| Reusable workflow / composite action | Template (`extends:` / `template:`) | Templates take *typed* parameters and are expanded at queue time, not called at runtime. |
+| `actions/cache` | `Cache@2` | Same restore-key semantics, different input names. |
+| `actions/upload-artifact` | `PublishPipelineArtifact@1` | Downloaded with `- download:` or `DownloadPipelineArtifact@2`. |
+
+The one structural difference worth internalizing is **stages**. GitHub Actions has jobs and nothing above them; a multi-environment release is expressed by convention, as a chain of `needs:` between jobs. Azure Pipelines makes that layer explicit:
+
+```
+pipeline
+ └── stage: Build            ── dependsOn: []
+      └── job: build          ── runs on one agent
+           └── step / task    ── runs in the job's working directory
+ └── stage: DeployStaging    ── dependsOn: Build,  environment gate
+ └── stage: DeployProd       ── dependsOn: DeployStaging,  approval required
+```
+
+Because a stage is a first-class object, it can be re-run on its own, it has its own approval gates via environments, and the UI renders the release flow as a pipeline of boxes rather than a graph of jobs. That is why enterprise release flows—build once, promote through four environments, each with a different approver—land in Azure Pipelines rather than Actions.
+
+### A Complete `azure-pipelines.yml` for a .NET Service
+
+```yaml
+trigger:
+  branches:
+    include: [ main, release/* ]
+  paths:
+    exclude: [ docs/*, README.md ]
+
+pr:
+  branches:
+    include: [ main ]
+
+variables:
+  # A variable group defined in Library. Link it to Azure Key Vault and the
+  # secret names in the vault become variables here, fetched at queue time.
+  - group: order-api-secrets
+  - name: buildConfiguration
+    value: Release
+  - name: NUGET_PACKAGES
+    value: $(Pipeline.Workspace)/.nuget/packages
+  - name: DOTNET_NOLOGO
+    value: true
+
+stages:
+- stage: Build
+  displayName: Build and test
+  jobs:
+  - job: build
+    pool:
+      vmImage: ubuntu-latest
+    timeoutInMinutes: 30
+    steps:
+    - task: UseDotNet@2
+      displayName: Install the SDK pinned in global.json
+      inputs:
+        packageType: sdk
+        useGlobalJson: true
+
+    - task: Cache@2
+      displayName: Cache NuGet packages
+      inputs:
+        key: 'nuget | "$(Agent.OS)" | **/packages.lock.json'
+        restoreKeys: |
+          nuget | "$(Agent.OS)"
+        path: $(NUGET_PACKAGES)
+
+    - task: NuGetAuthenticate@1
+      displayName: Authenticate to Azure Artifacts
+
+    - script: dotnet restore --locked-mode
+      displayName: Restore
+
+    - script: dotnet build -c $(buildConfiguration) --no-restore
+      displayName: Build
+
+    - script: >
+        dotnet test -c $(buildConfiguration) --no-build
+        --logger trx --results-directory $(Agent.TempDirectory)/TestResults
+        --collect:"XPlat Code Coverage"
+      displayName: Test
+
+    - task: PublishTestResults@2
+      displayName: Publish test results
+      condition: succeededOrFailed()      # publish even when tests failed
+      inputs:
+        testResultsFormat: VSTest
+        testResultsFiles: '$(Agent.TempDirectory)/TestResults/**/*.trx'
+        failTaskOnFailedTests: true
+
+    - task: PublishCodeCoverageResults@2
+      displayName: Publish code coverage
+      condition: succeededOrFailed()
+      inputs:
+        summaryFileLocation: '$(Agent.TempDirectory)/TestResults/**/coverage.cobertura.xml'
+
+    - script: >
+        dotnet publish src/OrderApi/OrderApi.csproj
+        -c $(buildConfiguration) --no-build
+        -o $(Build.ArtifactStagingDirectory)/app
+      displayName: Publish
+
+    - task: PublishPipelineArtifact@1
+      displayName: Publish pipeline artifact
+      inputs:
+        targetPath: $(Build.ArtifactStagingDirectory)/app
+        artifactName: order-api
+
+    # Named step + isOutput=true is what makes this readable from another stage.
+    - script: echo "##vso[task.setvariable variable=version;isOutput=true]$(Build.BuildNumber)"
+      name: meta
+      displayName: Record the version being shipped
+
+- stage: DeployStaging
+  displayName: Deploy to staging
+  dependsOn: Build
+  condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/main'))
+  variables:
+    # Runtime expression: only legal in a variables block or a condition.
+    version: $[ stageDependencies.Build.build.outputs['meta.version'] ]
+  jobs:
+  - deployment: deployStaging
+    environment: staging          # approvals and checks hang off this name
+    pool:
+      vmImage: ubuntu-latest
+    strategy:
+      runOnce:
+        deploy:
+          steps:
+          - download: current
+            artifact: order-api
+          - task: AzureWebApp@1
+            displayName: Deploy $(version) to App Service
+            inputs:
+              # Service connection using workload identity federation:
+              # no client secret is stored anywhere.
+              azureSubscription: sc-order-api-staging
+              appName: order-api-staging
+              package: $(Pipeline.Workspace)/order-api
+```
+
+A few things in there are not obvious.
+
+**`UseDotNet@2` with `useGlobalJson: true`** installs exactly the SDK your repo pins in `global.json` instead of whatever happens to be baked into the agent image. Agent images are refreshed roughly every three weeks and SDKs come and go; pinning is the difference between a build that is reproducible and a build that breaks on a Tuesday for no reason you changed.
+
+**`deployment:` instead of `job:`** is what unlocks environments. A `deployment` job records what version landed where, shows deployment history on the environment page, and honors that environment's approvals and checks—the pipeline literally pauses, mid-run, until an approver clicks. `runOnce` is the simplest strategy; `rolling` and `canary` also exist and map onto the deployment strategies discussed later in this chapter. A plain `job:` with an `environment:` key is not a thing; the gate only exists on deployment jobs.
+
+**`condition: succeededOrFailed()`** on the two publish tasks matters because the default condition is `succeeded()`. Without it, a failing test run would skip result publishing and you would be left staring at a red build with no test report—the exact moment you most need one.
+
+### Where Azure Pipelines Diverges
+
+**`dependsOn` and `condition` interact in a way that bites people.** Every stage and job has an implicit `condition: succeeded()`. The moment you write your own `condition:`, you *replace* that default—you do not add to it. So `condition: eq(variables['Build.SourceBranch'], 'refs/heads/main')` on a deploy stage will happily deploy after a failed build. You almost always want `and(succeeded(), <your check>)`. Related: `succeeded()` is scoped to the things you depend on, `succeededOrFailed()` also runs after failure but not after cancellation, and `always()` runs even when the run is cancelled—use it only for cleanup that genuinely must happen. By default each stage depends on the one above it in the file; `dependsOn: []` breaks that and starts a stage immediately, which is how you fan out.
+
+**Output variables are the classic "why is my variable empty".** Four conditions must all hold. The producing step needs a `name:`. The logging command needs `isOutput=true`. The consumer must use a *runtime* expression `$[ ... ]`, which is only evaluated in a `variables:` block or a `condition:`—dropping `$[ ... ]` inline into a script does nothing. And the consuming stage must actually depend on the producing stage, because the `stageDependencies` object only contains stages you declared a dependency on.
+
+```yaml
+# same job:        $(meta.version)
+# different job:   $[ dependencies.build.outputs['meta.version'] ]
+# different stage: $[ stageDependencies.Build.build.outputs['meta.version'] ]
+```
+
+> **Gotcha.** If the *producer* is a `deployment:` job, the key gains an extra segment for the lifecycle hook or resource: `stageDependencies.Deploy.deployStaging.outputs['deployStaging.meta.version']`. When a cross-stage variable comes back empty and everything looks right, add a temporary `- script: env` step and read the actual variable names the agent sees, rather than guessing at the nesting.
+
+**Templates are expanded, not called.** A template is a YAML fragment pulled in at queue time; `- template: steps/build.yml` splices steps in place, while `extends:` makes your whole pipeline an instantiation of someone else's skeleton. Parameters are typed, which is the real advantage over Actions' stringly-typed inputs:
+
+```yaml
+# templates/dotnet-build.yml
+parameters:
+- name: projects
+  type: string
+  default: '**/*.csproj'
+- name: configuration
+  type: string
+  default: Release
+  values: [ Debug, Release ]      # rejected at queue time if violated
+- name: runTests
+  type: boolean
+  default: true
+
+steps:
+- script: dotnet build ${{ parameters.projects }} -c ${{ parameters.configuration }}
+- ${{ if eq(parameters.runTests, true) }}:
+  - script: dotnet test -c ${{ parameters.configuration }} --no-build
+```
+
+```yaml
+# azure-pipelines.yml
+extends:
+  template: templates/dotnet-build.yml@templates   # from a repository resource
+  parameters:
+    configuration: Release
+```
+
+Note `${{ }}`—compile-time expansion—versus `$[ ]` for runtime and `$( )` for simple macro substitution. Three sigils, three evaluation phases, and mixing them up is a large share of the confusing errors in this platform. `${{ }}` values are baked into the YAML before any agent starts, so they cannot see anything produced during the run.
+
+> **Best practice.** Put the security-relevant scaffolding in a template that pipelines `extends`, and set a *required template check* on your protected environments and service connections. Because `extends` templates can constrain what steps a pipeline is allowed to run, this is the mechanism that stops a pull request from adding a step that exfiltrates a production credential.
+
+**Caching only pays off if restore is deterministic.** `Cache@2` keys on the content of `packages.lock.json`. If you have no lock files, the key is unstable or too broad and you cache the wrong thing; if you have lock files but restore without `--locked-mode`, NuGet is still free to resolve different versions than the lock file records, and the cache silently stops corresponding to what you build. Lock files plus `--locked-mode` also turn "someone published a new patch version" from a mystery build failure into an explicit, reviewable diff.
+
+**Private feeds need `NuGetAuthenticate@1`.** Azure Artifacts feeds are not anonymous. The task injects credentials for the build identity into the NuGet provider so a plain `dotnet restore` works; without it you get `NU1101` (package not found), because an unauthenticated feed returns nothing rather than a 401. If the feed lives in another organization, you also need a service connection and to name it in the task's `nuGetServiceConnections` input.
+
+**Service connections are the credential boundary.** A service connection is a stored, permissioned identity that tasks use to talk to Azure, AWS, Docker registries, or Kubernetes. The old form stored a service-principal client secret that someone had to rotate. The modern form is **workload identity federation**: the connection is configured to trust tokens issued by your Azure DevOps organization for a specific service connection, so the agent exchanges a short-lived OIDC token for an Azure access token at run time and *no secret exists to leak or rotate*. Convert your Azure connections to workload identity federation; it removes an entire category of incident. This is the same reasoning as the managed-identity advice in *Secrets in Pipelines* below, and the broader identity model is covered in [Chapter 14: Security](#chapter-14-security).
+
+### Reading and Fixing the Build
+
+Most of the time the build is not a design problem, it is a reading problem. A senior engineer diagnoses a red pipeline in two minutes; a junior scrolls for twenty.
+
+**Find the first error, not the last.** This is the single highest-leverage habit. A failed `dotnet restore` leaves the packages folder incomplete, so the compile step then emits dozens of `CS0246: The type or namespace name 'X' could not be found` errors. Every one of those is noise. The web view drops you at the *end* of the log, which is precisely the wrong end. Collapse the tasks, find the first one with a red icon, and read its first `##[error]` line.
+
+**Know the log markers.** Agents structure logs with logging commands: `##[error]` and `##[warning]` are what the UI turns red and yellow, `##[section]` starts a task, and `##[group]`/`##[endgroup]` fold a region. The task list on the left of the run view is the index—each entry is one task, with its own duration and exit code. A task that took 0 seconds and is grey was *skipped* by its condition, not run and passed; that distinction explains a lot of "but I published the artifact" confusion.
+
+**Turn on debug logging.** Queue the pipeline with the variable `system.debug` set to `true` (the "Variables" box in the Run pipeline dialog). You then get `##[debug]` lines showing every variable's resolved value, the exact command line each task executed, condition evaluation results, and file-matching decisions for glob patterns. When a `testResultsFiles` pattern matches nothing, this is how you see the directory the task actually looked in.
+
+**Download the raw logs.** The web view truncates long output and struggles past a few megabytes. "Download logs" on the run gives you a zip with one text file per task—grep-able, complete, and the only reliable way to read a 200 MB log from a chatty MSBuild run at `/v:diag`.
+
+**Re-run only what failed.** Use "Rerun failed jobs" rather than re-queueing the whole pipeline. It reuses the successful stages, which both saves minutes and preserves the evidence you were looking at. For genuinely flaky infrastructure this is the right first move; for a flaky *test* it is a way of hiding a real bug, so pair it with a note.
+
+**Reproduce locally with the same SDK.** Read `global.json`, install that exact SDK, then run the same commands the pipeline ran—copy them out of the log rather than approximating. Two differences remain: the agent starts from a clean checkout (so `git clean -xdf` locally before you claim it reproduces), and the agent is Linux while you may be on Windows or macOS, which changes path casing, file-name length limits, and line endings.
+
+### Common .NET Pipeline Failures
+
+| Symptom | Cause | Fix |
+|---|---|---|
+| `NU1101: Unable to find package X` | The feed hosting it is missing from `nuget.config`, or the agent is not authenticated so the feed returns an empty result | Add the feed; add `NuGetAuthenticate@1` before restore; check the build identity has Reader on the feed |
+| `NU1605: Detected package downgrade` | A transitive dependency demands a higher version than a direct `PackageReference` pins | Raise the direct reference to at least the transitive requirement, or centralize versions with `Directory.Packages.props` |
+| `MSB3277: conflicts between different versions of the same assembly` | Two packages bind to different major versions of one assembly | Read the `/v:detailed` output for the winning version, unify via CPM, and only reach for `binding redirects`/`AutoGenerateBindingRedirects` on .NET Framework targets |
+| `A compatible .NET SDK was not found` / `global.json` mismatch | The pinned SDK is not on the agent image | `UseDotNet@2` with `useGlobalJson: true`; or add `rollForward: latestFeature` to `global.json` |
+| `The active test run was aborted` | The test host process crashed—stack overflow from recursion, a `AccessViolation` in a native dependency, or `Environment.Exit` in a test | Re-run with `--blame-crash --blame-hang-timeout 5m`; the resulting sequence file names the test that killed the host |
+| Testcontainers tests fail with "Cannot connect to the Docker daemon" | The job is on a `windows-latest` agent, which has no Linux Docker daemon for Linux containers | Move the integration-test job to `ubuntu-latest`, or use a self-hosted agent with Docker configured—see [Chapter 7: Testing](#chapter-7-testing) |
+| `No space left on device` mid-build | Microsoft-hosted agents give you ~10 GB total; layered Docker builds, NuGet caches, and coverage output eat it fast | Prune between steps (`docker system prune -af`), avoid `--self-contained` publishes you do not need, or move to a self-hosted agent |
+| `The job running on agent ... exceeded the maximum time of 60 minutes` | The free tier caps a private-project job at 60 minutes regardless of `timeoutInMinutes` | Split the work into parallel jobs, cache aggressively, or buy a parallel job (which raises the cap to 360 minutes) |
+
+> **Pitfall.** `timeoutInMinutes: 120` on a Microsoft-hosted free-tier job does nothing. The platform limit wins, and the job dies at 60 minutes with a message that looks like a configuration error but is a billing one. Splitting a long test suite across two jobs is usually cheaper than the license.
+
+### Azure Pipelines or GitHub Actions?
+
+Both are mature and both will build .NET well; the honest answer depends on where your code and your governance live.
+
+| Choose Azure Pipelines when | Choose GitHub Actions when |
+|---|---|
+| Your source is in Azure Repos, or your work items and releases are tracked in Azure Boards | Your source is on GitHub and you want PR checks, releases, and code review in one place |
+| You need staged promotion with per-environment approvers, audit trails, and required-template checks | Your deployment flow is simple enough to express as a chain of jobs |
+| You want an org-wide template that pipelines must `extends`, enforced centrally | You want to assemble a pipeline quickly from Marketplace actions |
+| You need self-hosted agents inside a corporate network, or Windows agents with specific tooling | You are fine on hosted runners, or already run Actions runners |
+| Compliance requires a named approval record per production deployment | Environment protection rules are sufficient |
+
+The pragmatic middle ground is common and works well: keep the code and pull-request checks on GitHub Actions, where developers already live, and let Azure Pipelines own the deployment stages where the approvals and audit trail matter. Both can consume the same immutable artifact from the same registry—which is the point of building once and promoting, and the reason the choice is less consequential than it feels.
 
 ## Build Automation with the dotnet CLI
 
@@ -8993,7 +10307,7 @@ You already have the technical foundation. The path from middle to senior runs s
 
 # Chapter 18: The AI-Native Developer — Thriving in the AI Era
 
-_⏱️ Estimated read time: ~40 min · 8072 words (study pace)_
+_⏱️ Estimated read time: ~55 min · 10570 words (study pace)_
 
 For most of your career the deal has been simple: you learn to write code, and in exchange the industry pays you well to write it. That deal is being renegotiated in real time. By 2025 and into 2026, a competent AI coding assistant can produce a working REST endpoint, a unit test suite, an EF Core migration, or a plausible refactor faster than you can open the file. The raw act of turning a clear specification into syntactically correct C# — the thing you spent years getting good at — has largely been commoditized. That is not a threat to be defended against. It is a promotion, if you understand what you are being promoted into.
 
@@ -9280,13 +10594,179 @@ Your safety net is layered and mostly automated:
 - **Small diffs.** Reviewability scales inversely with diff size. Keep changes small enough to hold in your head. This is the same discipline good teams already practice; agents make it more important, not less.
 - **Human in the loop at the merge.** A person accountable for what ships, every time.
 
-**Security of AI-generated code** deserves its own beat. Agents will cheerfully write code with SQL injection, hardcoded secrets, missing authorization checks, or vulnerable dependencies if you don't guard against it — they pattern-match on training data that includes plenty of insecure examples. Run static analysis and dependency scanning on AI output *as if it were written by an unknown contractor*, because functionally it was. And stay alert to **prompt injection** for any agent with tool access, as covered above.
+**Security of AI-generated code** deserves its own beat. Run static analysis and dependency scanning on AI output *as if it were written by an unknown contractor*, because functionally it was — the specific insecure patterns to look for are catalogued in the next section. And stay alert to **prompt injection** for any agent with tool access, as covered above.
+
+### Judging AI-generated code: a reviewer's rubric
+
+The rule above — never merge what you haven't understood — is the easy part to state and the hard part to sustain, because reading every diff with uniform suspicion does not scale to the volume an agentic workflow produces. It also isn't necessary. AI-generated .NET code goes wrong in a small, enumerable set of ways, and a reviewer who knows them by name can check for them in a couple of minutes and spend real attention on the parts that are genuinely novel.
+
+**Why the failures are predictable.** A model emits the most likely continuation given its training distribution, and that distribution is the public internet's code: tutorials, blog posts, Stack Overflow answers, sample repos, and the occasional real system. So the centre of gravity of any generated snippet is *the internet's average codebase* — and the internet's average codebase is a demo. One project, one tenant, one user, a seeded database of five rows, no cancellation, no concurrency, no authorization, and an API surface as it stood a version or two ago, because written content about a release takes years to accumulate and nobody goes back to update it when the API moves on. Three consequences follow directly:
+
+- **It reaches for the most-blogged pattern**, not the one your repo uses. A generic repository wrapping `DbContext`, a mapper library, a `BaseController`, a static `Helpers` class — these dominate the corpus whether or not they're right here.
+- **It reaches for the most-downloaded package**, even when your solution already has something that does the job, or has deliberately banned it.
+- **It writes against yesterday's API** — `IHostingEnvironment`, `WebHost.CreateDefaultBuilder`, `Newtonsoft.Json` attributes in a `System.Text.Json` project, an EF Core overload that has since moved.
+
+None of that is a syntax error. It compiles, it survives a smoke test, and it is subtly wrong *for this codebase*. That's the signature of the whole class: **plausible, compiling, locally sensible, globally wrong.** The rest of this section is the checklist that catches it.
+
+**Data access (Chapter 4).** The most expensive category, because the damage shows up only at production data volumes.
+
+```csharp
+var orders = await _db.Orders.Where(o => o.TenantId == tenantId).ToListAsync(ct);
+foreach (var order in orders)
+    total += order.Lines.Sum(l => l.Amount);   // one round trip per order
+```
+
+The tell is a navigation property touched inside a loop over an already-materialized list. With lazy-loading proxies enabled that's an N+1; without them it's a silent `NullReferenceException` or an empty collection that quietly produces a wrong total. Fix: load what you need in one query, by `Include` or by projection.
+
+Closely related, and much sneakier:
+
+```csharp
+var dtos = await _db.Orders
+    .Include(o => o.Lines)                              // silently discarded
+    .Select(o => new OrderDto(o.Id, o.Lines.Count))
+    .ToListAsync(ct);
+```
+
+Once a query ends in a projection, EF builds SQL from the projection alone and the `Include` has nothing to attach to, so it's dropped (EF logs a warning almost nobody reads). The query is correct here — but it teaches the next reader that `Include` is what makes `Lines` load, so when someone later changes the `Select` to return the entity, the data quietly stops arriving.
+
+The rest of the data-access list, each with its tell:
+
+- **Missing `AsNoTracking`** on a read path — a query that materializes entities, maps them to DTOs, and never calls `SaveChanges`. The change tracker snapshots every entity for nothing, and a later stray `SaveChanges` in the same scope can write changes nobody intended.
+- **Unbounded queries** — an endpoint returning `ToListAsync()` over a whole table with no `Skip`/`Take`. Instant on the dev seed data, a table scan and an OOM on ten million rows.
+- **`ToList()` before the filter** — `(await _db.Orders.ToListAsync(ct)).Where(o => o.CreatedAt > cutoff)`. The `Where` now runs in your process against every row in the table. The tell is any LINQ operator appearing *after* an `await` on a materializing call.
+
+**Async (Chapter 8, and Chapter 3 for the request-pipeline consequences).**
+
+```csharp
+public IActionResult Get(int id) => Ok(_service.GetAsync(id).Result);  // sync-over-async
+```
+
+`.Result`, `.Wait()` and `GetAwaiter().GetResult()` block a thread-pool thread until the async operation finishes. Under load the pool starves, and because it injects new threads slowly, latency collapses long before CPU does — the classic "it was fine in testing" outage. Three more in the same family:
+
+- **`async void`** anywhere that isn't an event handler. Its exceptions don't surface to a caller; they go to the synchronization context and take the process down.
+- **`Task.Run` wrapped around I/O in ASP.NET.** It doesn't add throughput — the request is already on a pool thread. It moves the work to a *second* pool thread and loses the ambient request context. Net loss.
+- **A `CancellationToken` accepted and never passed on.** Nearly universal in generated code, because the signature came from your surrounding code while the body came from the training data:
+
+```csharp
+public async Task<Order?> GetAsync(int id, CancellationToken ct)
+{
+    var order = await _db.Orders.FirstOrDefaultAsync(o => o.Id == id);  // ct dropped
+    await _cache.SetStringAsync(Key(id), Serialize(order));             // and here
+    return order;
+}
+```
+
+Cheap check: count occurrences of the parameter name in the body. One (the signature) means nothing downstream can be cancelled, and a client disconnect keeps the whole chain running.
+
+**Dependency injection (Chapter 2).**
+
+```csharp
+builder.Services.AddSingleton<OrderCache>();
+public sealed class OrderCache(AppDbContext db) { /* ... */ }
+```
+
+A **captive dependency**: the singleton resolves the scoped `DbContext` once and holds it forever. One non-thread-safe change tracker is now shared by every concurrent request, growing until it exhausts memory and throwing concurrency exceptions in the meantime. Scope validation catches this at startup in Development — which is exactly why generated code that "worked" in a console harness can explode in the API. The tell: any singleton whose constructor graph reaches a `DbContext`, an `HttpContext`, or anything registered as scoped.
+
+The other DI smell is **service location** — `_provider.GetRequiredService<IThing>()` inside a method body instead of a constructor parameter. It compiles, it works, and it hides the dependency graph from every tool and every reader, turning a startup-time failure into a runtime one.
+
+**Error handling (Chapter 5).**
+
+```csharp
+try { await _payments.ChargeAsync(order, ct); }
+catch (Exception) { }                       // swallowed; the order looks paid
+catch (Exception ex) { throw ex; }          // stack trace reset to this line
+```
+
+`throw ex;` assigns a *new* stack trace starting at the rethrow, so the frame where the failure actually happened is gone from your logs — `throw;` preserves it. An empty catch is worse: it converts a loud failure into a silent data corruption. And watch for exceptions used as control flow — a `NotFoundException` thrown on a lookup miss that happens on every other request is both slow and a permanent source of noise in the traces you'll need during an incident.
+
+**Tests (Chapter 7).** This category matters most, because a bad test doesn't just fail to catch bugs — it actively certifies them.
+
+```csharp
+[Fact]
+public async Task PlaceOrder_SavesTheOrder()
+{
+    var repo = new Mock<IOrderRepository>();
+    var sut = new OrderService(repo.Object);
+
+    await sut.PlaceOrderAsync(Request(), CancellationToken.None);
+
+    repo.Verify(r => r.AddAsync(It.IsAny<Order>(), It.IsAny<CancellationToken>()), Times.Once);
+}
+```
+
+This asserts that the code called the mock — a restatement of the implementation, not a claim about behaviour. It passes if the total is computed wrong, the tax is zero, and the wrong customer is attached. The tell is an assertion that mentions no value the system under test actually computed. Fix: capture the argument and assert on it, or assert on observable outcome.
+
+Two siblings:
+
+- **Tests written after the code, by reading the code.** The model infers the expectation from the implementation, so every test is a photograph of current behaviour including its bugs. They're green on day one and never go red again. This is why "let the agent write tests first" (earlier in this part) is a correctness practice, not a ceremony.
+- **Over-mocking.** Every collaborator replaced by a mock couples the test to the structure rather than the behaviour, so a pure refactor breaks forty tests and a real regression breaks none.
+
+**Security and configuration (Chapter 14).** All four of these appear constantly, for the same reason: they're the versions that work on the first try without the reader configuring anything, so they're what tutorials contain.
+
+```csharp
+var conn = "Server=prod-sql;Database=Orders;User Id=sa;Password=P@ssw0rd!";
+var sql  = $"SELECT * FROM Orders WHERE CustomerName = '{name}'";
+handler.ServerCertificateCustomValidationCallback = (_, _, _, _) => true;
+app.UseCors(p => p.AllowAnyOrigin().AllowAnyMethod().AllowAnyHeader());
+```
+
+Hardcoded credentials, string-concatenated SQL, disabled certificate validation, wide-open CORS. Each has a correct form — configuration plus a secret store, a parameterized query or `FromSqlInterpolated`, real validation, a named policy with explicit origins — and each correct form is a few lines longer, which is precisely why the corpus is full of the short one.
+
+**Structure and duplication.** The subtlest category, because nothing here is *wrong* in isolation:
+
+- **Business logic in the controller**, because tutorials put it there and the model has no view of your layering.
+- **A brand-new abstraction beside the one you already have** — an `IEmailSender` introduced next to your existing `INotificationService`, because the model didn't read far enough to find it.
+- **A duplicated helper** — a fresh `StringExtensions.ToSlug` because your version lives in a project it never opened. The tell is any new file whose name sounds like something that ought to already exist. Grep before you accept it.
+
+**Signal → check.** In practice most of the above collapses into a scan of the diff for a handful of tokens:
+
+| Signal in the diff | Open and check |
+| --- | --- |
+| A new `PackageReference` | Does the solution already solve this? Who maintains it? (Chapter 16) |
+| `foreach` over a materialized query result | N+1 — read the generated SQL in the logs (Chapter 4) |
+| Any LINQ operator after `await ...ToListAsync()` | Filtering moved to the client |
+| `.Result`, `.Wait()`, `GetAwaiter().GetResult()` | Sync-over-async on a request path (Chapter 8) |
+| `CancellationToken` in a signature | Count its uses in the body; one means it's dropped |
+| `AddSingleton<` | Walk the constructor graph for scoped services (Chapter 2) |
+| `catch (Exception` | Swallowed? `throw ex;`? Control flow? (Chapter 5) |
+| `Mock<`, `.Verify(` | Does any assertion name a value the code computed? (Chapter 7) |
+| `Server=`, `AccountKey=`, `Bearer ` in a literal | Secrets in source (Chapter 14) |
+| `$"SELECT`, string concatenation into SQL | Injection (Chapter 14) |
+| `AllowAnyOrigin`, a validation callback returning `true` | Security defaults disabled (Chapter 14) |
+| A new file named `*Helper`, `*Utils`, `*Mapper`, `Base*` | Does an equivalent already exist? |
+| A new interface with exactly one implementation | Abstraction added without a second case to justify it |
+| `IHostingEnvironment`, `WebHost.`, `Newtonsoft.` | Version drift against the target framework |
+
+**Read the diff in this order.** The sequence matters, because it finds the expensive problems before you've spent your attention on cheap ones:
+
+1. **Is it bigger than the task asked for?** Compare the diffstat against the request. Files nobody asked to change are risk with no sponsor, and they're the most common reason a good change becomes an unreviewable one.
+2. **Does it add a dependency or an abstraction?** These are the decisions that outlive the code and are hardest to unwind. A wrong `if` is a one-line fix next quarter; a wrong abstraction is a refactor.
+3. **Does it match the neighbouring file?** Open the sibling that does the closest thing. Same layering, same error handling, same naming, same test style? Divergence here is the direct fingerprint of the training-data prior.
+4. **Do the tests fail when you break the code?** See below.
+5. **What is the blast radius if this is wrong at 3 a.m.?** A wrong admin screen and a wrong background job that double-charges customers deserve completely different amounts of your remaining attention.
+
+Only then read line by line — and only the parts that survived. Most weak diffs are already rejected by step 1 or step 3.
+
+> **Best practice — the falsification move.** The cheapest verification is not reading the code, it's *breaking* it. Invert the condition, delete the line, hardcode the guard to `return true;` — then run the tests. Whatever stays green was never testing that code. Thirty seconds tells you what an hour of reading the test names cannot, and it's the only reliable way to distinguish tests that pin behaviour from tests that pin structure. This is mutation testing done by hand, which is fine: you only need it on the two or three lines that carry the risk. (Chapter 7 covers automating it with tools like Stryker.NET.)
+
+**Making the model wrong less often.** The rubric is the last line of defence; the cheaper move is to shift the generated code's centre of gravity toward your repo before it's written. Context engineering earlier in this part covers the mechanics — four applications of it matter specifically here:
+
+- **A conventions file** that states the patterns this repo actually uses, in the form of corrections rather than aspirations ("we do not use a generic repository; query `DbContext` from the handler").
+- **Point at the file to imitate.** "Follow `OrdersController` and `OrderService` exactly" is the single cheapest override available, because a concrete in-repo example outweighs a paragraph of description — it puts your codebase, not the corpus, in the model's immediate context.
+- **Give it the failing test, not a description of the bug.** A test is an unambiguous specification *and* a done-condition the agent can check itself against, which removes the interpretation step where the corpus creeps back in.
+- **Constrain the blast radius.** "Change only `RateLimitMiddleware`. No new packages, no new files." A smaller permitted diff is a smaller surface for the training-data prior to express itself on.
+
+> **Best practice.** The second time you correct the model about the same thing, that correction belongs in the conventions file rather than in your next prompt. Prompts are disposable; the rules file compounds.
+
+> **Gotcha — scrutiny is usually applied backwards.** The least reliable thing a model produces is the part the compiler can't check. Code has a brutal feedback loop: it builds or it doesn't, tests pass or they don't, and every stage of training pushed it toward code that survives that loop. Prose has no such loop. So the numbers in the explanation ("this cuts allocations by about 40%", "dictionary lookup is O(1) so this scales fine"), the benchmark claims, the version facts, and the citations are exactly the outputs with no corrective pressure behind them — and they arrive in the same confident register as the code. Most reviewers do the reverse of what they should: they interrogate the code, which already has three safety nets, and nod along at the performance claim, which has none. Treat every unverified number in an AI explanation as a hypothesis, and either attach a benchmark to it (Chapter 15) or delete it.
+
+That rubric is what makes "never merge what you haven't read" survive contact with volume. It is not a substitute for understanding the diff — it's what buys you the time to understand the parts that deserve it.
 
 ### Anti-patterns and failure modes
 
 Name them so you recognize them early:
 
-- **Over-trusting output.** The code is confident, well-formatted, and wrong. Confidence of presentation is uncorrelated with correctness. *Fix:* verify against tests and your own reading, never against how plausible it looks.
+- **Over-trusting output.** The code is confident, well-formatted, and wrong. Confidence of presentation is uncorrelated with correctness. *Fix:* verify against tests and your own reading, never against how plausible it looks — the rubric above is the checklist for doing that quickly.
 - **Context rot.** In a long session the agent starts contradicting earlier decisions or re-introducing removed code. *Fix:* start fresh sessions per task; compact long threads; keep the working set clean.
 - **Giant unreviewable diffs.** The agent did "everything" in one shot and now nobody can review it, so it gets rubber-stamped. *Fix:* spec smaller increments; enforce diff-size limits; reject and re-scope.
 - **Agent thrash.** The agent loops — fixing test A breaks test B, fixing B breaks A — burning tokens and going nowhere. *Fix:* stop it, read what's actually happening, give it the missing context or the constraint it's ignoring, or take the wheel. Thrash usually means the agent lacks a key piece of context or the task is under-specified.
@@ -15886,22 +17366,22 @@ A comprehensive checklist of patterns, technologies, frameworks, and tools that 
 
 ## Table of Contents
 1. [C# Language Mastery](#1-c-language-mastery)
-2. [.NET Runtime & Internals](#2-net-runtime--internals)
-3. [ASP.NET Core & Web APIs](#3-aspnet-core--web-apis)
-4. [Data Access & Databases](#4-data-access--databases)
+2. [.NET Runtime & Internals](#2-net-runtime-internals)
+3. [ASP.NET Core & Web APIs](#3-aspnet-core-web-apis)
+4. [Data Access & Databases](#4-data-access-databases)
 5. [Design Patterns](#5-design-patterns)
-6. [Architecture & Application Design](#6-architecture--application-design)
+6. [Architecture & Application Design](#6-architecture-application-design)
 7. [Testing](#7-testing)
-8. [Asynchronous & Concurrent Programming](#8-asynchronous--concurrent-programming)
-9. [Messaging & Distributed Systems](#9-messaging--distributed-systems)
-10. [Cloud (AWS & Azure)](#10-cloud-aws--azure)
-11. [Containers & Orchestration](#11-containers--orchestration)
-12. [DevOps & CI/CD](#12-devops--cicd)
+8. [Asynchronous & Concurrent Programming](#8-asynchronous-concurrent-programming)
+9. [Messaging & Distributed Systems](#9-messaging-distributed-systems)
+10. [Cloud (AWS & Azure)](#10-cloud-aws-azure)
+11. [Containers & Orchestration](#11-containers-orchestration)
+12. [DevOps & CI/CD](#12-devops-cicd)
 13. [Observability](#13-observability)
 14. [Security](#14-security)
-15. [Performance & Optimization](#15-performance--optimization)
-16. [Tooling & Productivity](#16-tooling--productivity)
-17. [Soft Skills & Practices](#17-soft-skills--practices)
+15. [Performance & Optimization](#15-performance-optimization)
+16. [Tooling & Productivity](#16-tooling-productivity)
+17. [Soft Skills & Practices](#17-soft-skills-practices)
 18. [Suggested Learning Path](#18-suggested-learning-path)
 
 ---
@@ -16339,6 +17819,25 @@ Native AOT (Ahead-Of-Time) compiles your app directly to a self-contained native
 # What's New
 
 This page is the handbook's changelog. When a new release lands, a popup announces it on your next visit. Under each release, **Site & functionality** items are plain notes, while **Content updates** link to every chapter that changed — a link is ticked off (✓, stored locally in your browser) once you visit it, so you can work through an update at your own pace and see what's still unread.
+
+## Release — August 10, 2026
+
+**🔧 Site & functionality**
+
+- Fixed 12 dead links in Appendix A's table of contents — the anchors assumed a different slug format and silently went nowhere.
+
+**📖 Content updates**
+
+- [Chapter 4: PostgreSQL indexes and query plans](#chapter-4-data-access-databases) — New section on the heap/MVCC storage model, index types, partial and expression indexes, and reading `EXPLAIN (ANALYZE, BUFFERS)` on a worked 812 ms → 0.09 ms fix.
+- [Chapter 4: Bulk writes and cascade behaviour](#chapter-4-data-access-databases) — Why `Add` in a loop is quadratic, when to drop to `COPY`/`SqlBulkCopy`, and the full `DeleteBehavior` table including why a delete succeeds or fails depending on an `Include`.
+- [Chapter 4: Dapper in depth](#chapter-4-data-access-databases) — Multi-mapping, `QueryMultiple`, unbuffered reads, and how to run Dapper inside an EF Core transaction without silently committing outside it.
+- [Chapter 4: Redis in practice](#chapter-4-data-access-databases) — Key design as schema design, the data types worth using, TTL jitter, tag-based invalidation, and why `noeviction` turns a full cache into an outage.
+- [Chapter 3: API versioning and backward compatibility](#chapter-3-aspnet-core-web-apis) — New section on what actually breaks a client, the four versioning schemes, `Asp.Versioning` wiring, expand–contract, and retiring a version with `Sunset` headers.
+- [Chapter 3: Idempotency keys](#chapter-3-aspnet-core-web-apis) — How to make POST retry-safe: the request hash, the three outcomes, and why the key row must be inserted before the side effect.
+- [Chapter 3: FluentValidation, deepened](#chapter-3-aspnet-core-web-apis) — Edge validation versus domain invariants, endpoint filters, rule composition, async rules as a check-then-act race, and testing validators.
+- [Chapter 5: Exception handling strategy](#chapter-5-design-patterns-principles-clean-code) — New section answering where to catch, what to log, and what to surface, built on classifying the failure first.
+- [Chapter 12: Azure Pipelines in practice](#chapter-12-devops-cicd) — A complete `azure-pipelines.yml` for a .NET service, the concepts that differ from GitHub Actions, and how to read and fix a failing build.
+- [Chapter 18: Judging AI-generated code](#chapter-18-the-ai-native-developer-thriving-in-the-ai-era) — A reviewer's rubric of the failure modes AI-generated .NET code actually has, in the order worth checking them.
 
 ## Release — August 4, 2026
 

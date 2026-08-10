@@ -1,6 +1,6 @@
 # Chapter 12: DevOps & CI/CD
 
-_⏱️ Estimated read time: ~32 min ·     4709 words (study pace)_
+_⏱️ Estimated read time: ~50 min · 7606 words (study pace)_
 
 DevOps is not a job title, a tool, or a team you can buy. It is a way of working in which the people who write software and the people who run it in production share responsibility for the whole lifecycle. The practical machinery that makes this possible is automation: version control that lets many people change the same codebase safely, pipelines that build and test every change, and deployment mechanisms that push validated code to users without drama. This chapter takes you from the internals of Git all the way to canary deployments, with .NET as the running example throughout. By the end you should be able to design a pipeline, reason about a branching strategy, and explain to a junior why rebasing a shared branch is a bad idea.
 
@@ -331,6 +331,266 @@ Now the anatomy.
 **Environments.** The `environment: production` block ties the deploy job to a named environment that can carry protection rules—required reviewer approvals, wait timers, and environment-scoped secrets. This is how you implement the human gate of continuous *delivery*: configure `production` to require a manual approval, and the job pauses until someone clicks approve.
 
 **Permissions.** The `permissions` block follows least privilege—the containerize job gets `packages: write` because it pushes an image, and nothing more.
+
+## Azure Pipelines in Practice
+
+If you work on .NET professionally there is a good chance the build you are asked to fix is an Azure Pipelines build, not a GitHub Actions one. The reasons are historical and structural: Azure DevOps predates Actions, Microsoft shipped first-class .NET tasks for it, and it grew the enterprise machinery—approvals, audited environments, Key Vault-backed variable groups, org-wide templates—that regulated shops need. The concepts you just learned all transfer. What changes is the vocabulary and, in one important place, the shape of the file.
+
+### Coming from GitHub Actions: A Translation Table
+
+| GitHub Actions | Azure Pipelines | Notes |
+|---|---|---|
+| Workflow (`.github/workflows/*.yml`) | Pipeline (`azure-pipelines.yml`) | One repo can have many pipelines; each is registered in the UI and points at a YAML file. |
+| — (no equivalent) | **Stage** | A real grouping layer above jobs, with its own `dependsOn`, `condition`, and variables. |
+| Job | Job | Same idea: a unit that gets one machine. |
+| Step / action (`uses:`) | Step / task (`- task: X@1`) | Tasks are versioned by major number (`@2`), not by tag. `- script:` is the shell escape hatch. |
+| Runner (`runs-on:`) | Agent (`pool:`) | `pool: { vmImage: ubuntu-latest }` for Microsoft-hosted, `pool: { name: my-pool }` for self-hosted. |
+| `secrets.FOO` | Variable group, ideally Key Vault-linked | Groups are defined in Library and referenced by name; secret variables are masked and *not* exposed as env vars automatically. |
+| `environment:` with protection rules | `environment:` used by a `deployment:` job | Carries approvals, business-hours gates, Azure Function/REST checks, and deployment history per resource. |
+| Reusable workflow / composite action | Template (`extends:` / `template:`) | Templates take *typed* parameters and are expanded at queue time, not called at runtime. |
+| `actions/cache` | `Cache@2` | Same restore-key semantics, different input names. |
+| `actions/upload-artifact` | `PublishPipelineArtifact@1` | Downloaded with `- download:` or `DownloadPipelineArtifact@2`. |
+
+The one structural difference worth internalizing is **stages**. GitHub Actions has jobs and nothing above them; a multi-environment release is expressed by convention, as a chain of `needs:` between jobs. Azure Pipelines makes that layer explicit:
+
+```
+pipeline
+ └── stage: Build            ── dependsOn: []
+      └── job: build          ── runs on one agent
+           └── step / task    ── runs in the job's working directory
+ └── stage: DeployStaging    ── dependsOn: Build,  environment gate
+ └── stage: DeployProd       ── dependsOn: DeployStaging,  approval required
+```
+
+Because a stage is a first-class object, it can be re-run on its own, it has its own approval gates via environments, and the UI renders the release flow as a pipeline of boxes rather than a graph of jobs. That is why enterprise release flows—build once, promote through four environments, each with a different approver—land in Azure Pipelines rather than Actions.
+
+### A Complete `azure-pipelines.yml` for a .NET Service
+
+```yaml
+trigger:
+  branches:
+    include: [ main, release/* ]
+  paths:
+    exclude: [ docs/*, README.md ]
+
+pr:
+  branches:
+    include: [ main ]
+
+variables:
+  # A variable group defined in Library. Link it to Azure Key Vault and the
+  # secret names in the vault become variables here, fetched at queue time.
+  - group: order-api-secrets
+  - name: buildConfiguration
+    value: Release
+  - name: NUGET_PACKAGES
+    value: $(Pipeline.Workspace)/.nuget/packages
+  - name: DOTNET_NOLOGO
+    value: true
+
+stages:
+- stage: Build
+  displayName: Build and test
+  jobs:
+  - job: build
+    pool:
+      vmImage: ubuntu-latest
+    timeoutInMinutes: 30
+    steps:
+    - task: UseDotNet@2
+      displayName: Install the SDK pinned in global.json
+      inputs:
+        packageType: sdk
+        useGlobalJson: true
+
+    - task: Cache@2
+      displayName: Cache NuGet packages
+      inputs:
+        key: 'nuget | "$(Agent.OS)" | **/packages.lock.json'
+        restoreKeys: |
+          nuget | "$(Agent.OS)"
+        path: $(NUGET_PACKAGES)
+
+    - task: NuGetAuthenticate@1
+      displayName: Authenticate to Azure Artifacts
+
+    - script: dotnet restore --locked-mode
+      displayName: Restore
+
+    - script: dotnet build -c $(buildConfiguration) --no-restore
+      displayName: Build
+
+    - script: >
+        dotnet test -c $(buildConfiguration) --no-build
+        --logger trx --results-directory $(Agent.TempDirectory)/TestResults
+        --collect:"XPlat Code Coverage"
+      displayName: Test
+
+    - task: PublishTestResults@2
+      displayName: Publish test results
+      condition: succeededOrFailed()      # publish even when tests failed
+      inputs:
+        testResultsFormat: VSTest
+        testResultsFiles: '$(Agent.TempDirectory)/TestResults/**/*.trx'
+        failTaskOnFailedTests: true
+
+    - task: PublishCodeCoverageResults@2
+      displayName: Publish code coverage
+      condition: succeededOrFailed()
+      inputs:
+        summaryFileLocation: '$(Agent.TempDirectory)/TestResults/**/coverage.cobertura.xml'
+
+    - script: >
+        dotnet publish src/OrderApi/OrderApi.csproj
+        -c $(buildConfiguration) --no-build
+        -o $(Build.ArtifactStagingDirectory)/app
+      displayName: Publish
+
+    - task: PublishPipelineArtifact@1
+      displayName: Publish pipeline artifact
+      inputs:
+        targetPath: $(Build.ArtifactStagingDirectory)/app
+        artifactName: order-api
+
+    # Named step + isOutput=true is what makes this readable from another stage.
+    - script: echo "##vso[task.setvariable variable=version;isOutput=true]$(Build.BuildNumber)"
+      name: meta
+      displayName: Record the version being shipped
+
+- stage: DeployStaging
+  displayName: Deploy to staging
+  dependsOn: Build
+  condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/main'))
+  variables:
+    # Runtime expression: only legal in a variables block or a condition.
+    version: $[ stageDependencies.Build.build.outputs['meta.version'] ]
+  jobs:
+  - deployment: deployStaging
+    environment: staging          # approvals and checks hang off this name
+    pool:
+      vmImage: ubuntu-latest
+    strategy:
+      runOnce:
+        deploy:
+          steps:
+          - download: current
+            artifact: order-api
+          - task: AzureWebApp@1
+            displayName: Deploy $(version) to App Service
+            inputs:
+              # Service connection using workload identity federation:
+              # no client secret is stored anywhere.
+              azureSubscription: sc-order-api-staging
+              appName: order-api-staging
+              package: $(Pipeline.Workspace)/order-api
+```
+
+A few things in there are not obvious.
+
+**`UseDotNet@2` with `useGlobalJson: true`** installs exactly the SDK your repo pins in `global.json` instead of whatever happens to be baked into the agent image. Agent images are refreshed roughly every three weeks and SDKs come and go; pinning is the difference between a build that is reproducible and a build that breaks on a Tuesday for no reason you changed.
+
+**`deployment:` instead of `job:`** is what unlocks environments. A `deployment` job records what version landed where, shows deployment history on the environment page, and honors that environment's approvals and checks—the pipeline literally pauses, mid-run, until an approver clicks. `runOnce` is the simplest strategy; `rolling` and `canary` also exist and map onto the deployment strategies discussed later in this chapter. A plain `job:` with an `environment:` key is not a thing; the gate only exists on deployment jobs.
+
+**`condition: succeededOrFailed()`** on the two publish tasks matters because the default condition is `succeeded()`. Without it, a failing test run would skip result publishing and you would be left staring at a red build with no test report—the exact moment you most need one.
+
+### Where Azure Pipelines Diverges
+
+**`dependsOn` and `condition` interact in a way that bites people.** Every stage and job has an implicit `condition: succeeded()`. The moment you write your own `condition:`, you *replace* that default—you do not add to it. So `condition: eq(variables['Build.SourceBranch'], 'refs/heads/main')` on a deploy stage will happily deploy after a failed build. You almost always want `and(succeeded(), <your check>)`. Related: `succeeded()` is scoped to the things you depend on, `succeededOrFailed()` also runs after failure but not after cancellation, and `always()` runs even when the run is cancelled—use it only for cleanup that genuinely must happen. By default each stage depends on the one above it in the file; `dependsOn: []` breaks that and starts a stage immediately, which is how you fan out.
+
+**Output variables are the classic "why is my variable empty".** Four conditions must all hold. The producing step needs a `name:`. The logging command needs `isOutput=true`. The consumer must use a *runtime* expression `$[ ... ]`, which is only evaluated in a `variables:` block or a `condition:`—dropping `$[ ... ]` inline into a script does nothing. And the consuming stage must actually depend on the producing stage, because the `stageDependencies` object only contains stages you declared a dependency on.
+
+```yaml
+# same job:        $(meta.version)
+# different job:   $[ dependencies.build.outputs['meta.version'] ]
+# different stage: $[ stageDependencies.Build.build.outputs['meta.version'] ]
+```
+
+> **Gotcha.** If the *producer* is a `deployment:` job, the key gains an extra segment for the lifecycle hook or resource: `stageDependencies.Deploy.deployStaging.outputs['deployStaging.meta.version']`. When a cross-stage variable comes back empty and everything looks right, add a temporary `- script: env` step and read the actual variable names the agent sees, rather than guessing at the nesting.
+
+**Templates are expanded, not called.** A template is a YAML fragment pulled in at queue time; `- template: steps/build.yml` splices steps in place, while `extends:` makes your whole pipeline an instantiation of someone else's skeleton. Parameters are typed, which is the real advantage over Actions' stringly-typed inputs:
+
+```yaml
+# templates/dotnet-build.yml
+parameters:
+- name: projects
+  type: string
+  default: '**/*.csproj'
+- name: configuration
+  type: string
+  default: Release
+  values: [ Debug, Release ]      # rejected at queue time if violated
+- name: runTests
+  type: boolean
+  default: true
+
+steps:
+- script: dotnet build ${{ parameters.projects }} -c ${{ parameters.configuration }}
+- ${{ if eq(parameters.runTests, true) }}:
+  - script: dotnet test -c ${{ parameters.configuration }} --no-build
+```
+
+```yaml
+# azure-pipelines.yml
+extends:
+  template: templates/dotnet-build.yml@templates   # from a repository resource
+  parameters:
+    configuration: Release
+```
+
+Note `${{ }}`—compile-time expansion—versus `$[ ]` for runtime and `$( )` for simple macro substitution. Three sigils, three evaluation phases, and mixing them up is a large share of the confusing errors in this platform. `${{ }}` values are baked into the YAML before any agent starts, so they cannot see anything produced during the run.
+
+> **Best practice.** Put the security-relevant scaffolding in a template that pipelines `extends`, and set a *required template check* on your protected environments and service connections. Because `extends` templates can constrain what steps a pipeline is allowed to run, this is the mechanism that stops a pull request from adding a step that exfiltrates a production credential.
+
+**Caching only pays off if restore is deterministic.** `Cache@2` keys on the content of `packages.lock.json`. If you have no lock files, the key is unstable or too broad and you cache the wrong thing; if you have lock files but restore without `--locked-mode`, NuGet is still free to resolve different versions than the lock file records, and the cache silently stops corresponding to what you build. Lock files plus `--locked-mode` also turn "someone published a new patch version" from a mystery build failure into an explicit, reviewable diff.
+
+**Private feeds need `NuGetAuthenticate@1`.** Azure Artifacts feeds are not anonymous. The task injects credentials for the build identity into the NuGet provider so a plain `dotnet restore` works; without it you get `NU1101` (package not found), because an unauthenticated feed returns nothing rather than a 401. If the feed lives in another organization, you also need a service connection and to name it in the task's `nuGetServiceConnections` input.
+
+**Service connections are the credential boundary.** A service connection is a stored, permissioned identity that tasks use to talk to Azure, AWS, Docker registries, or Kubernetes. The old form stored a service-principal client secret that someone had to rotate. The modern form is **workload identity federation**: the connection is configured to trust tokens issued by your Azure DevOps organization for a specific service connection, so the agent exchanges a short-lived OIDC token for an Azure access token at run time and *no secret exists to leak or rotate*. Convert your Azure connections to workload identity federation; it removes an entire category of incident. This is the same reasoning as the managed-identity advice in *Secrets in Pipelines* below, and the broader identity model is covered in [Chapter 14: Security](#chapter-14-security).
+
+### Reading and Fixing the Build
+
+Most of the time the build is not a design problem, it is a reading problem. A senior engineer diagnoses a red pipeline in two minutes; a junior scrolls for twenty.
+
+**Find the first error, not the last.** This is the single highest-leverage habit. A failed `dotnet restore` leaves the packages folder incomplete, so the compile step then emits dozens of `CS0246: The type or namespace name 'X' could not be found` errors. Every one of those is noise. The web view drops you at the *end* of the log, which is precisely the wrong end. Collapse the tasks, find the first one with a red icon, and read its first `##[error]` line.
+
+**Know the log markers.** Agents structure logs with logging commands: `##[error]` and `##[warning]` are what the UI turns red and yellow, `##[section]` starts a task, and `##[group]`/`##[endgroup]` fold a region. The task list on the left of the run view is the index—each entry is one task, with its own duration and exit code. A task that took 0 seconds and is grey was *skipped* by its condition, not run and passed; that distinction explains a lot of "but I published the artifact" confusion.
+
+**Turn on debug logging.** Queue the pipeline with the variable `system.debug` set to `true` (the "Variables" box in the Run pipeline dialog). You then get `##[debug]` lines showing every variable's resolved value, the exact command line each task executed, condition evaluation results, and file-matching decisions for glob patterns. When a `testResultsFiles` pattern matches nothing, this is how you see the directory the task actually looked in.
+
+**Download the raw logs.** The web view truncates long output and struggles past a few megabytes. "Download logs" on the run gives you a zip with one text file per task—grep-able, complete, and the only reliable way to read a 200 MB log from a chatty MSBuild run at `/v:diag`.
+
+**Re-run only what failed.** Use "Rerun failed jobs" rather than re-queueing the whole pipeline. It reuses the successful stages, which both saves minutes and preserves the evidence you were looking at. For genuinely flaky infrastructure this is the right first move; for a flaky *test* it is a way of hiding a real bug, so pair it with a note.
+
+**Reproduce locally with the same SDK.** Read `global.json`, install that exact SDK, then run the same commands the pipeline ran—copy them out of the log rather than approximating. Two differences remain: the agent starts from a clean checkout (so `git clean -xdf` locally before you claim it reproduces), and the agent is Linux while you may be on Windows or macOS, which changes path casing, file-name length limits, and line endings.
+
+### Common .NET Pipeline Failures
+
+| Symptom | Cause | Fix |
+|---|---|---|
+| `NU1101: Unable to find package X` | The feed hosting it is missing from `nuget.config`, or the agent is not authenticated so the feed returns an empty result | Add the feed; add `NuGetAuthenticate@1` before restore; check the build identity has Reader on the feed |
+| `NU1605: Detected package downgrade` | A transitive dependency demands a higher version than a direct `PackageReference` pins | Raise the direct reference to at least the transitive requirement, or centralize versions with `Directory.Packages.props` |
+| `MSB3277: conflicts between different versions of the same assembly` | Two packages bind to different major versions of one assembly | Read the `/v:detailed` output for the winning version, unify via CPM, and only reach for `binding redirects`/`AutoGenerateBindingRedirects` on .NET Framework targets |
+| `A compatible .NET SDK was not found` / `global.json` mismatch | The pinned SDK is not on the agent image | `UseDotNet@2` with `useGlobalJson: true`; or add `rollForward: latestFeature` to `global.json` |
+| `The active test run was aborted` | The test host process crashed—stack overflow from recursion, a `AccessViolation` in a native dependency, or `Environment.Exit` in a test | Re-run with `--blame-crash --blame-hang-timeout 5m`; the resulting sequence file names the test that killed the host |
+| Testcontainers tests fail with "Cannot connect to the Docker daemon" | The job is on a `windows-latest` agent, which has no Linux Docker daemon for Linux containers | Move the integration-test job to `ubuntu-latest`, or use a self-hosted agent with Docker configured—see [Chapter 7: Testing](#chapter-7-testing) |
+| `No space left on device` mid-build | Microsoft-hosted agents give you ~10 GB total; layered Docker builds, NuGet caches, and coverage output eat it fast | Prune between steps (`docker system prune -af`), avoid `--self-contained` publishes you do not need, or move to a self-hosted agent |
+| `The job running on agent ... exceeded the maximum time of 60 minutes` | The free tier caps a private-project job at 60 minutes regardless of `timeoutInMinutes` | Split the work into parallel jobs, cache aggressively, or buy a parallel job (which raises the cap to 360 minutes) |
+
+> **Pitfall.** `timeoutInMinutes: 120` on a Microsoft-hosted free-tier job does nothing. The platform limit wins, and the job dies at 60 minutes with a message that looks like a configuration error but is a billing one. Splitting a long test suite across two jobs is usually cheaper than the license.
+
+### Azure Pipelines or GitHub Actions?
+
+Both are mature and both will build .NET well; the honest answer depends on where your code and your governance live.
+
+| Choose Azure Pipelines when | Choose GitHub Actions when |
+|---|---|
+| Your source is in Azure Repos, or your work items and releases are tracked in Azure Boards | Your source is on GitHub and you want PR checks, releases, and code review in one place |
+| You need staged promotion with per-environment approvers, audit trails, and required-template checks | Your deployment flow is simple enough to express as a chain of jobs |
+| You want an org-wide template that pipelines must `extends`, enforced centrally | You want to assemble a pipeline quickly from Marketplace actions |
+| You need self-hosted agents inside a corporate network, or Windows agents with specific tooling | You are fine on hosted runners, or already run Actions runners |
+| Compliance requires a named approval record per production deployment | Environment protection rules are sufficient |
+
+The pragmatic middle ground is common and works well: keep the code and pull-request checks on GitHub Actions, where developers already live, and let Azure Pipelines own the deployment stages where the approvals and audit trail matter. Both can consume the same immutable artifact from the same registry—which is the point of building once and promoting, and the reason the choice is less consequential than it feels.
 
 ## Build Automation with the dotnet CLI
 

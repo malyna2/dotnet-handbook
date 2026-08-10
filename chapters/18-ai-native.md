@@ -1,6 +1,6 @@
 # Chapter 18: The AI-Native Developer — Thriving in the AI Era
 
-_⏱️ Estimated read time: ~43 min ·     8085 words (study pace)_
+_⏱️ Estimated read time: ~55 min · 10570 words (study pace)_
 
 For most of your career the deal has been simple: you learn to write code, and in exchange the industry pays you well to write it. That deal is being renegotiated in real time. By 2025 and into 2026, a competent AI coding assistant can produce a working REST endpoint, a unit test suite, an EF Core migration, or a plausible refactor faster than you can open the file. The raw act of turning a clear specification into syntactically correct C# — the thing you spent years getting good at — has largely been commoditized. That is not a threat to be defended against. It is a promotion, if you understand what you are being promoted into.
 
@@ -287,13 +287,179 @@ Your safety net is layered and mostly automated:
 - **Small diffs.** Reviewability scales inversely with diff size. Keep changes small enough to hold in your head. This is the same discipline good teams already practice; agents make it more important, not less.
 - **Human in the loop at the merge.** A person accountable for what ships, every time.
 
-**Security of AI-generated code** deserves its own beat. Agents will cheerfully write code with SQL injection, hardcoded secrets, missing authorization checks, or vulnerable dependencies if you don't guard against it — they pattern-match on training data that includes plenty of insecure examples. Run static analysis and dependency scanning on AI output *as if it were written by an unknown contractor*, because functionally it was. And stay alert to **prompt injection** for any agent with tool access, as covered above.
+**Security of AI-generated code** deserves its own beat. Run static analysis and dependency scanning on AI output *as if it were written by an unknown contractor*, because functionally it was — the specific insecure patterns to look for are catalogued in the next section. And stay alert to **prompt injection** for any agent with tool access, as covered above.
+
+### Judging AI-generated code: a reviewer's rubric
+
+The rule above — never merge what you haven't understood — is the easy part to state and the hard part to sustain, because reading every diff with uniform suspicion does not scale to the volume an agentic workflow produces. It also isn't necessary. AI-generated .NET code goes wrong in a small, enumerable set of ways, and a reviewer who knows them by name can check for them in a couple of minutes and spend real attention on the parts that are genuinely novel.
+
+**Why the failures are predictable.** A model emits the most likely continuation given its training distribution, and that distribution is the public internet's code: tutorials, blog posts, Stack Overflow answers, sample repos, and the occasional real system. So the centre of gravity of any generated snippet is *the internet's average codebase* — and the internet's average codebase is a demo. One project, one tenant, one user, a seeded database of five rows, no cancellation, no concurrency, no authorization, and an API surface as it stood a version or two ago, because written content about a release takes years to accumulate and nobody goes back to update it when the API moves on. Three consequences follow directly:
+
+- **It reaches for the most-blogged pattern**, not the one your repo uses. A generic repository wrapping `DbContext`, a mapper library, a `BaseController`, a static `Helpers` class — these dominate the corpus whether or not they're right here.
+- **It reaches for the most-downloaded package**, even when your solution already has something that does the job, or has deliberately banned it.
+- **It writes against yesterday's API** — `IHostingEnvironment`, `WebHost.CreateDefaultBuilder`, `Newtonsoft.Json` attributes in a `System.Text.Json` project, an EF Core overload that has since moved.
+
+None of that is a syntax error. It compiles, it survives a smoke test, and it is subtly wrong *for this codebase*. That's the signature of the whole class: **plausible, compiling, locally sensible, globally wrong.** The rest of this section is the checklist that catches it.
+
+**Data access (Chapter 4).** The most expensive category, because the damage shows up only at production data volumes.
+
+```csharp
+var orders = await _db.Orders.Where(o => o.TenantId == tenantId).ToListAsync(ct);
+foreach (var order in orders)
+    total += order.Lines.Sum(l => l.Amount);   // one round trip per order
+```
+
+The tell is a navigation property touched inside a loop over an already-materialized list. With lazy-loading proxies enabled that's an N+1; without them it's a silent `NullReferenceException` or an empty collection that quietly produces a wrong total. Fix: load what you need in one query, by `Include` or by projection.
+
+Closely related, and much sneakier:
+
+```csharp
+var dtos = await _db.Orders
+    .Include(o => o.Lines)                              // silently discarded
+    .Select(o => new OrderDto(o.Id, o.Lines.Count))
+    .ToListAsync(ct);
+```
+
+Once a query ends in a projection, EF builds SQL from the projection alone and the `Include` has nothing to attach to, so it's dropped (EF logs a warning almost nobody reads). The query is correct here — but it teaches the next reader that `Include` is what makes `Lines` load, so when someone later changes the `Select` to return the entity, the data quietly stops arriving.
+
+The rest of the data-access list, each with its tell:
+
+- **Missing `AsNoTracking`** on a read path — a query that materializes entities, maps them to DTOs, and never calls `SaveChanges`. The change tracker snapshots every entity for nothing, and a later stray `SaveChanges` in the same scope can write changes nobody intended.
+- **Unbounded queries** — an endpoint returning `ToListAsync()` over a whole table with no `Skip`/`Take`. Instant on the dev seed data, a table scan and an OOM on ten million rows.
+- **`ToList()` before the filter** — `(await _db.Orders.ToListAsync(ct)).Where(o => o.CreatedAt > cutoff)`. The `Where` now runs in your process against every row in the table. The tell is any LINQ operator appearing *after* an `await` on a materializing call.
+
+**Async (Chapter 8, and Chapter 3 for the request-pipeline consequences).**
+
+```csharp
+public IActionResult Get(int id) => Ok(_service.GetAsync(id).Result);  // sync-over-async
+```
+
+`.Result`, `.Wait()` and `GetAwaiter().GetResult()` block a thread-pool thread until the async operation finishes. Under load the pool starves, and because it injects new threads slowly, latency collapses long before CPU does — the classic "it was fine in testing" outage. Three more in the same family:
+
+- **`async void`** anywhere that isn't an event handler. Its exceptions don't surface to a caller; they go to the synchronization context and take the process down.
+- **`Task.Run` wrapped around I/O in ASP.NET.** It doesn't add throughput — the request is already on a pool thread. It moves the work to a *second* pool thread and loses the ambient request context. Net loss.
+- **A `CancellationToken` accepted and never passed on.** Nearly universal in generated code, because the signature came from your surrounding code while the body came from the training data:
+
+```csharp
+public async Task<Order?> GetAsync(int id, CancellationToken ct)
+{
+    var order = await _db.Orders.FirstOrDefaultAsync(o => o.Id == id);  // ct dropped
+    await _cache.SetStringAsync(Key(id), Serialize(order));             // and here
+    return order;
+}
+```
+
+Cheap check: count occurrences of the parameter name in the body. One (the signature) means nothing downstream can be cancelled, and a client disconnect keeps the whole chain running.
+
+**Dependency injection (Chapter 2).**
+
+```csharp
+builder.Services.AddSingleton<OrderCache>();
+public sealed class OrderCache(AppDbContext db) { /* ... */ }
+```
+
+A **captive dependency**: the singleton resolves the scoped `DbContext` once and holds it forever. One non-thread-safe change tracker is now shared by every concurrent request, growing until it exhausts memory and throwing concurrency exceptions in the meantime. Scope validation catches this at startup in Development — which is exactly why generated code that "worked" in a console harness can explode in the API. The tell: any singleton whose constructor graph reaches a `DbContext`, an `HttpContext`, or anything registered as scoped.
+
+The other DI smell is **service location** — `_provider.GetRequiredService<IThing>()` inside a method body instead of a constructor parameter. It compiles, it works, and it hides the dependency graph from every tool and every reader, turning a startup-time failure into a runtime one.
+
+**Error handling (Chapter 5).**
+
+```csharp
+try { await _payments.ChargeAsync(order, ct); }
+catch (Exception) { }                       // swallowed; the order looks paid
+catch (Exception ex) { throw ex; }          // stack trace reset to this line
+```
+
+`throw ex;` assigns a *new* stack trace starting at the rethrow, so the frame where the failure actually happened is gone from your logs — `throw;` preserves it. An empty catch is worse: it converts a loud failure into a silent data corruption. And watch for exceptions used as control flow — a `NotFoundException` thrown on a lookup miss that happens on every other request is both slow and a permanent source of noise in the traces you'll need during an incident.
+
+**Tests (Chapter 7).** This category matters most, because a bad test doesn't just fail to catch bugs — it actively certifies them.
+
+```csharp
+[Fact]
+public async Task PlaceOrder_SavesTheOrder()
+{
+    var repo = new Mock<IOrderRepository>();
+    var sut = new OrderService(repo.Object);
+
+    await sut.PlaceOrderAsync(Request(), CancellationToken.None);
+
+    repo.Verify(r => r.AddAsync(It.IsAny<Order>(), It.IsAny<CancellationToken>()), Times.Once);
+}
+```
+
+This asserts that the code called the mock — a restatement of the implementation, not a claim about behaviour. It passes if the total is computed wrong, the tax is zero, and the wrong customer is attached. The tell is an assertion that mentions no value the system under test actually computed. Fix: capture the argument and assert on it, or assert on observable outcome.
+
+Two siblings:
+
+- **Tests written after the code, by reading the code.** The model infers the expectation from the implementation, so every test is a photograph of current behaviour including its bugs. They're green on day one and never go red again. This is why "let the agent write tests first" (earlier in this part) is a correctness practice, not a ceremony.
+- **Over-mocking.** Every collaborator replaced by a mock couples the test to the structure rather than the behaviour, so a pure refactor breaks forty tests and a real regression breaks none.
+
+**Security and configuration (Chapter 14).** All four of these appear constantly, for the same reason: they're the versions that work on the first try without the reader configuring anything, so they're what tutorials contain.
+
+```csharp
+var conn = "Server=prod-sql;Database=Orders;User Id=sa;Password=P@ssw0rd!";
+var sql  = $"SELECT * FROM Orders WHERE CustomerName = '{name}'";
+handler.ServerCertificateCustomValidationCallback = (_, _, _, _) => true;
+app.UseCors(p => p.AllowAnyOrigin().AllowAnyMethod().AllowAnyHeader());
+```
+
+Hardcoded credentials, string-concatenated SQL, disabled certificate validation, wide-open CORS. Each has a correct form — configuration plus a secret store, a parameterized query or `FromSqlInterpolated`, real validation, a named policy with explicit origins — and each correct form is a few lines longer, which is precisely why the corpus is full of the short one.
+
+**Structure and duplication.** The subtlest category, because nothing here is *wrong* in isolation:
+
+- **Business logic in the controller**, because tutorials put it there and the model has no view of your layering.
+- **A brand-new abstraction beside the one you already have** — an `IEmailSender` introduced next to your existing `INotificationService`, because the model didn't read far enough to find it.
+- **A duplicated helper** — a fresh `StringExtensions.ToSlug` because your version lives in a project it never opened. The tell is any new file whose name sounds like something that ought to already exist. Grep before you accept it.
+
+**Signal → check.** In practice most of the above collapses into a scan of the diff for a handful of tokens:
+
+| Signal in the diff | Open and check |
+| --- | --- |
+| A new `PackageReference` | Does the solution already solve this? Who maintains it? (Chapter 16) |
+| `foreach` over a materialized query result | N+1 — read the generated SQL in the logs (Chapter 4) |
+| Any LINQ operator after `await ...ToListAsync()` | Filtering moved to the client |
+| `.Result`, `.Wait()`, `GetAwaiter().GetResult()` | Sync-over-async on a request path (Chapter 8) |
+| `CancellationToken` in a signature | Count its uses in the body; one means it's dropped |
+| `AddSingleton<` | Walk the constructor graph for scoped services (Chapter 2) |
+| `catch (Exception` | Swallowed? `throw ex;`? Control flow? (Chapter 5) |
+| `Mock<`, `.Verify(` | Does any assertion name a value the code computed? (Chapter 7) |
+| `Server=`, `AccountKey=`, `Bearer ` in a literal | Secrets in source (Chapter 14) |
+| `$"SELECT`, string concatenation into SQL | Injection (Chapter 14) |
+| `AllowAnyOrigin`, a validation callback returning `true` | Security defaults disabled (Chapter 14) |
+| A new file named `*Helper`, `*Utils`, `*Mapper`, `Base*` | Does an equivalent already exist? |
+| A new interface with exactly one implementation | Abstraction added without a second case to justify it |
+| `IHostingEnvironment`, `WebHost.`, `Newtonsoft.` | Version drift against the target framework |
+
+**Read the diff in this order.** The sequence matters, because it finds the expensive problems before you've spent your attention on cheap ones:
+
+1. **Is it bigger than the task asked for?** Compare the diffstat against the request. Files nobody asked to change are risk with no sponsor, and they're the most common reason a good change becomes an unreviewable one.
+2. **Does it add a dependency or an abstraction?** These are the decisions that outlive the code and are hardest to unwind. A wrong `if` is a one-line fix next quarter; a wrong abstraction is a refactor.
+3. **Does it match the neighbouring file?** Open the sibling that does the closest thing. Same layering, same error handling, same naming, same test style? Divergence here is the direct fingerprint of the training-data prior.
+4. **Do the tests fail when you break the code?** See below.
+5. **What is the blast radius if this is wrong at 3 a.m.?** A wrong admin screen and a wrong background job that double-charges customers deserve completely different amounts of your remaining attention.
+
+Only then read line by line — and only the parts that survived. Most weak diffs are already rejected by step 1 or step 3.
+
+> **Best practice — the falsification move.** The cheapest verification is not reading the code, it's *breaking* it. Invert the condition, delete the line, hardcode the guard to `return true;` — then run the tests. Whatever stays green was never testing that code. Thirty seconds tells you what an hour of reading the test names cannot, and it's the only reliable way to distinguish tests that pin behaviour from tests that pin structure. This is mutation testing done by hand, which is fine: you only need it on the two or three lines that carry the risk. (Chapter 7 covers automating it with tools like Stryker.NET.)
+
+**Making the model wrong less often.** The rubric is the last line of defence; the cheaper move is to shift the generated code's centre of gravity toward your repo before it's written. Context engineering earlier in this part covers the mechanics — four applications of it matter specifically here:
+
+- **A conventions file** that states the patterns this repo actually uses, in the form of corrections rather than aspirations ("we do not use a generic repository; query `DbContext` from the handler").
+- **Point at the file to imitate.** "Follow `OrdersController` and `OrderService` exactly" is the single cheapest override available, because a concrete in-repo example outweighs a paragraph of description — it puts your codebase, not the corpus, in the model's immediate context.
+- **Give it the failing test, not a description of the bug.** A test is an unambiguous specification *and* a done-condition the agent can check itself against, which removes the interpretation step where the corpus creeps back in.
+- **Constrain the blast radius.** "Change only `RateLimitMiddleware`. No new packages, no new files." A smaller permitted diff is a smaller surface for the training-data prior to express itself on.
+
+> **Best practice.** The second time you correct the model about the same thing, that correction belongs in the conventions file rather than in your next prompt. Prompts are disposable; the rules file compounds.
+
+> **Gotcha — scrutiny is usually applied backwards.** The least reliable thing a model produces is the part the compiler can't check. Code has a brutal feedback loop: it builds or it doesn't, tests pass or they don't, and every stage of training pushed it toward code that survives that loop. Prose has no such loop. So the numbers in the explanation ("this cuts allocations by about 40%", "dictionary lookup is O(1) so this scales fine"), the benchmark claims, the version facts, and the citations are exactly the outputs with no corrective pressure behind them — and they arrive in the same confident register as the code. Most reviewers do the reverse of what they should: they interrogate the code, which already has three safety nets, and nod along at the performance claim, which has none. Treat every unverified number in an AI explanation as a hypothesis, and either attach a benchmark to it (Chapter 15) or delete it.
+
+That rubric is what makes "never merge what you haven't read" survive contact with volume. It is not a substitute for understanding the diff — it's what buys you the time to understand the parts that deserve it.
 
 ### Anti-patterns and failure modes
 
 Name them so you recognize them early:
 
-- **Over-trusting output.** The code is confident, well-formatted, and wrong. Confidence of presentation is uncorrelated with correctness. *Fix:* verify against tests and your own reading, never against how plausible it looks.
+- **Over-trusting output.** The code is confident, well-formatted, and wrong. Confidence of presentation is uncorrelated with correctness. *Fix:* verify against tests and your own reading, never against how plausible it looks — the rubric above is the checklist for doing that quickly.
 - **Context rot.** In a long session the agent starts contradicting earlier decisions or re-introducing removed code. *Fix:* start fresh sessions per task; compact long threads; keep the working set clean.
 - **Giant unreviewable diffs.** The agent did "everything" in one shot and now nobody can review it, so it gets rubber-stamped. *Fix:* spec smaller increments; enforce diff-size limits; reject and re-scope.
 - **Agent thrash.** The agent loops — fixing test A breaks test B, fixing B breaks A — burning tokens and going nowhere. *Fix:* stop it, read what's actually happening, give it the missing context or the constraint it's ignoring, or take the wheel. Thrash usually means the agent lacks a key piece of context or the task is under-specified.
