@@ -17827,21 +17827,21 @@ This page is the handbook's changelog. When a new release lands, a popup announc
 - Chapters now always open at the beginning. The reader no longer reopens the chapter you last visited, and no longer restores your scroll position within a chapter.
 - Sidebar progress bars are now one-way: they record how far through a chapter you have got, so scrolling back up — or reopening a chapter at the top — never winds them backwards.
 - Chapters you have started now show two buttons in the sidebar on hover: **Continue** (→) jumps to the point the progress bar is showing, and **Reset** (↻) clears that chapter's progress. Continue is the deliberate version of the old automatic jump: you go back to where you got to only when you ask.
-- Fixed What's New links landing in the wrong place: a link to the chapter you were already reading did nothing at all, and every other link dropped you at your last-read paragraph instead of the top of the chapter.
+- The links below now open the exact section that changed instead of the top of the chapter — and a link to the chapter you happen to be reading already no longer does nothing at all.
 - Fixed 12 dead links in Appendix A's table of contents — the anchors assumed a different slug format and silently went nowhere.
 
 **📖 Content updates**
 
-- [Chapter 4: PostgreSQL indexes and query plans](#chapter-4-data-access-databases) — New section on the heap/MVCC storage model, index types, partial and expression indexes, and reading `EXPLAIN (ANALYZE, BUFFERS)` on a worked 812 ms → 0.09 ms fix.
-- [Chapter 4: Bulk writes and cascade behaviour](#chapter-4-data-access-databases) — Why `Add` in a loop is quadratic, when to drop to `COPY`/`SqlBulkCopy`, and the full `DeleteBehavior` table including why a delete succeeds or fails depending on an `Include`.
-- [Chapter 4: Dapper in depth](#chapter-4-data-access-databases) — Multi-mapping, `QueryMultiple`, unbuffered reads, and how to run Dapper inside an EF Core transaction without silently committing outside it.
-- [Chapter 4: Redis in practice](#chapter-4-data-access-databases) — Key design as schema design, the data types worth using, TTL jitter, tag-based invalidation, and why `noeviction` turns a full cache into an outage.
-- [Chapter 3: API versioning and backward compatibility](#chapter-3-aspnet-core-web-apis) — New section on what actually breaks a client, the four versioning schemes, `Asp.Versioning` wiring, expand–contract, and retiring a version with `Sunset` headers.
-- [Chapter 3: Idempotency keys](#chapter-3-aspnet-core-web-apis) — How to make POST retry-safe: the request hash, the three outcomes, and why the key row must be inserted before the side effect.
-- [Chapter 3: FluentValidation, deepened](#chapter-3-aspnet-core-web-apis) — Edge validation versus domain invariants, endpoint filters, rule composition, async rules as a check-then-act race, and testing validators.
-- [Chapter 5: Exception handling strategy](#chapter-5-design-patterns-principles-clean-code) — New section answering where to catch, what to log, and what to surface, built on classifying the failure first.
-- [Chapter 12: Azure Pipelines in practice](#chapter-12-devops-cicd) — A complete `azure-pipelines.yml` for a .NET service, the concepts that differ from GitHub Actions, and how to read and fix a failing build.
-- [Chapter 18: Judging AI-generated code](#chapter-18-the-ai-native-developer-thriving-in-the-ai-era) — A reviewer's rubric of the failure modes AI-generated .NET code actually has, in the order worth checking them.
+- [Chapter 4: PostgreSQL indexes and query plans](#postgresql-in-practice-indexes-and-query-plans) — New section on the heap/MVCC storage model, index types, partial and expression indexes, and reading `EXPLAIN (ANALYZE, BUFFERS)` on a worked 812 ms → 0.09 ms fix.
+- [Chapter 4: Bulk writes and cascade behaviour](#bulk-inserts-and-the-limits-of-savechanges) — Why `Add` in a loop is quadratic, when to drop to `COPY`/`SqlBulkCopy`, and the full `DeleteBehavior` table including why a delete succeeds or fails depending on an `Include`.
+- [Chapter 4: Dapper in depth](#the-parts-of-dapper-worth-knowing) — Multi-mapping, `QueryMultiple`, unbuffered reads, and how to run Dapper inside an EF Core transaction without silently committing outside it.
+- [Chapter 4: Redis in practice](#redis-in-practice-key-design-data-types-and-eviction) — Key design as schema design, the data types worth using, TTL jitter, tag-based invalidation, and why `noeviction` turns a full cache into an outage.
+- [Chapter 3: API versioning and backward compatibility](#api-versioning-backward-compatibility) — New section on what actually breaks a client, the four versioning schemes, `Asp.Versioning` wiring, expand–contract, and retiring a version with `Sunset` headers.
+- [Chapter 3: Idempotency keys](#idempotency-keys-making-post-retry-safe) — How to make POST retry-safe: the request hash, the three outcomes, and why the key row must be inserted before the side effect.
+- [Chapter 3: FluentValidation, deepened](#fluentvalidation) — Edge validation versus domain invariants, endpoint filters, rule composition, async rules as a check-then-act race, and testing validators.
+- [Chapter 5: Exception handling strategy](#exception-handling-strategy) — New section answering where to catch, what to log, and what to surface, built on classifying the failure first.
+- [Chapter 12: Azure Pipelines in practice](#azure-pipelines-in-practice) — A complete `azure-pipelines.yml` for a .NET service, the concepts that differ from GitHub Actions, and how to read and fix a failing build.
+- [Chapter 18: Judging AI-generated code](#judging-ai-generated-code-a-reviewers-rubric) — A reviewer's rubric of the failure modes AI-generated .NET code actually has, in the order worth checking them.
 
 ## Release — August 4, 2026
 

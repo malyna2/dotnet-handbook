@@ -9,6 +9,30 @@ var BOOK = window.BOOK || [];
 var bySlug = {};
 BOOK.forEach(function (c, i) { c.index = i; bySlug[c.slug] = c; });
 
+// The id render() gives a heading. Kept in one place so the section index below and the
+// rendered DOM can never disagree about what "#some-heading" refers to.
+function headingSlug(txt){
+  return (txt.toLowerCase().replace(/[^\w\s-]/g,"").replace(/[\s_]+/g,"-").replace(/^-+|-+$/g,""))||"section";
+}
+// Section id -> the chapter that contains it, so a link such as "#exception-handling-strategy"
+// can open the right chapter *and* land on that section. Ids that occur in more than one
+// chapter (there are a handful, e.g. "summary") are left out rather than guessed at.
+var headingOwner=(function(){
+  var owner={}, dupe={};
+  BOOK.forEach(function(c){
+    var used={};
+    (c.md.match(/^#{1,6}[ \t]+.*$/gm)||[]).forEach(function(line){
+      var base=headingSlug(line.replace(/^#{1,6}[ \t]+/,"").trim());
+      used[base]=(used[base]||0)+1;
+      var id=used[base]===1?base:base+"-"+used[base];
+      if(owner.hasOwnProperty(id)){ if(owner[id]!==c.slug) dupe[id]=1; }
+      else owner[id]=c.slug;
+    });
+  });
+  Object.keys(dupe).forEach(function(k){ delete owner[k]; });
+  return owner;
+})();
+
 var S0 = String.fromCharCode(1), S1 = String.fromCharCode(2); // inline-code placeholders
 
 /* ---------------- Markdown → HTML ---------------- */
@@ -97,7 +121,7 @@ function render(md){
     var hm=line.match(/^(#{1,6})\s+(.*)$/);
     if(hm){
       var lvl=hm[1].length, txt=hm[2].trim();
-      var base=(txt.toLowerCase().replace(/[^\w\s-]/g,"").replace(/[\s_]+/g,"-").replace(/^-+|-+$/g,""))||"section";
+      var base=headingSlug(txt);
       usedIds[base]=(usedIds[base]||0)+1;
       var slug=usedIds[base]===1?base:base+"-"+usedIds[base];
       html.push("<h"+lvl+' id="'+slug+'">'+inline(txt)+"</h"+lvl+">");
@@ -200,7 +224,7 @@ var content=document.getElementById("content");
 var navEl=document.getElementById("nav");
 var outlineEl=document.getElementById("outline");
 var current=null;
-var pendingFind=null, pendingResume=null;
+var pendingFind=null, pendingResume=null, pendingSection=null;
 var _saveT;
 // Per-chapter reading *progress* — a percent, a sticky "finished" flag, and the index of
 // the block you had reached — drives the sidebar bars, ✓ marks, and the Continue button.
@@ -313,11 +337,18 @@ function updateNavProgress(slug){
 }
 // Assigning an unchanged location.hash fires no hashchange event, so a link to the
 // chapter you are already reading would silently do nothing. Route every in-app
-// navigation through here so that case still re-renders (and scrolls back to the top).
-function navigate(slug){
+// navigation through here so that case still re-renders. Pass a section id to land on
+// that heading instead of the top of the chapter.
+function navigate(slug, sec){
+  pendingSection=sec?{slug:slug, sec:sec}:null;
   var target="#/"+slug;
   if(location.hash===target) go(slug,false);
   else location.hash=target;
+}
+function scrollToId(id){
+  var el=document.getElementById(id); if(!el) return false;
+  window.scrollTo(0, el.getBoundingClientRect().top+window.pageYOffset-70);
+  return true;
 }
 function go(slug, push){
   saveProgress();
@@ -331,8 +362,11 @@ function go(slug, push){
   buildPager(c);
   highlightNav(c.slug);
   window.scrollTo(0,0);             // every chapter opens at the beginning
-  if(pendingResume===c.slug) resumeTo(c);   // ...unless Continue asked for the resume point
-  pendingResume=null;
+  // ...unless we were asked for somewhere specific: a Continue click, or a link that
+  // named a section rather than a whole chapter.
+  if(pendingResume===c.slug) resumeTo(c);
+  else if(pendingSection && pendingSection.slug===c.slug) scrollToId(pendingSection.sec);
+  pendingResume=null; pendingSection=null;
   document.title=(c.nav?c.nav+" · ":"")+".NET Handbook";
   closeSidebar();
   if(push!==false) history.replaceState(null,"","#/"+c.slug);
@@ -364,16 +398,22 @@ function postProcess(c){
     var h=document.createElement("h2"); h.textContent="Browse chapters";
     content.appendChild(h); content.appendChild(grid);
   }
+  // Decorate first: release links get their own handler and are skipped below, so a click
+  // never runs two navigations.
+  if(WN && c.id===WN.id){ wnDecorate(content); wnMarkSeen(); }
   content.querySelectorAll('a[href^="#"]').forEach(function(a){
     var href=a.getAttribute("href");
-    if(href.indexOf("#/")===0) return;
+    if(href.indexOf("#/")===0 || a.classList.contains("wn-link")) return;
     var slug=href.slice(1);
     a.addEventListener("click",function(ev){
-      if(bySlug[slug]){ ev.preventDefault(); navigate(slug); }
-      else{ var target=document.getElementById(slug); if(target){ ev.preventDefault(); target.scrollIntoView(); } }
+      if(bySlug[slug]){ ev.preventDefault(); navigate(slug); return; }
+      var target=document.getElementById(slug);
+      if(target){ ev.preventDefault(); target.scrollIntoView(); return; }
+      // Not on this page — but if exactly one chapter has that heading, go there.
+      var owner=headingOwner[slug];
+      if(owner){ ev.preventDefault(); navigate(owner, slug); }
     });
   });
-  if(WN && c.id===WN.id){ wnDecorate(content); wnMarkSeen(); }
 }
 function buildOutline(c){
   var hs=content.querySelectorAll("h2, h3");
@@ -719,8 +759,14 @@ function wnDecorate(root, releaseId){
   root.querySelectorAll("h2, a[href^='#']").forEach(function(el){
     if(el.tagName==="H2"){ rel=/^Release/.test(el.textContent)?el.textContent.trim():null; n=0; return; }
     if(!rel) return;
-    var slug=el.getAttribute("href").slice(1);
-    if(!bySlug[slug]) return;
+    var slug=el.getAttribute("href").slice(1), sec=null;
+    if(!bySlug[slug]){
+      // A section link: resolve it to its chapter, and remember to scroll there.
+      var owner=headingOwner[slug];
+      if(!owner) return;
+      sec=slug; slug=owner;
+    }
+    // The key stays keyed on the chapter, so ✓ marks on already-published releases survive.
     var key=rel+"|"+slug+"|"+(n++);
     el.classList.add("wn-link");
     if(read[key]) el.classList.add("wn-read");
@@ -730,7 +776,7 @@ function wnDecorate(root, releaseId){
       try{ localStorage.setItem("wn_read",JSON.stringify(r)); }catch(e){}
       el.classList.add("wn-read");
       wnHide();
-      navigate(slug);
+      navigate(slug, sec);
     });
   });
 }
