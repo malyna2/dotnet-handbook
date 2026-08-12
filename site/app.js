@@ -200,12 +200,20 @@ var content=document.getElementById("content");
 var navEl=document.getElementById("nav");
 var outlineEl=document.getElementById("outline");
 var current=null;
-var pendingFind=null;
+var pendingFind=null, pendingResume=null;
 var _saveT;
-// Per-chapter reading *progress* — a percent plus a sticky "finished" flag — drives
-// the sidebar progress bars and ✓ marks. Scroll position is deliberately NOT restored
-// and the last-open chapter is deliberately NOT remembered: every chapter opens at the
-// top, so a link always lands where it points rather than wherever you last stopped.
+// Per-chapter reading *progress* — a percent, a sticky "finished" flag, and the index of
+// the block you had reached — drives the sidebar bars, ✓ marks, and the Continue button.
+// Nothing here is restored automatically: chapters always open at the top, and you return
+// to where you got to only by asking for it. The stored block index is kept in step with
+// the high-water percent, so Continue always lands at the point the bar is showing.
+function topBlockIndex(){
+  var kids=content.children;
+  for(var i=0;i<kids.length;i++){
+    if(kids[i].getBoundingClientRect().bottom>100) return i;
+  }
+  return 0;
+}
 function readPct(){
   var h=document.documentElement;
   var max=h.scrollHeight-h.clientHeight;
@@ -213,15 +221,35 @@ function readPct(){
 }
 function saveProgress(){ if(!current) return; try{
   var prev=savedPos(current.slug), was=(prev&&typeof prev.p==="number")?prev.p:0;
+  var now=readPct();
   // Progress is one-way: it records how far you have got, not where you are now.
-  // Scrolling back up — or reopening a chapter at the top, which is now what always
+  // Scrolling back up — or reopening a chapter at the top, which is what always
   // happens — must never wind the bar backwards.
-  var p=Math.max(readPct(), was);
+  var p=Math.max(now, was);
+  // Only advance the resume point when the bar advances, so the two never disagree.
+  var i=(now>=was||!prev||typeof prev.i!=="number")?topBlockIndex():prev.i;
   // "finished" is sticky too: once a chapter has been read to the end, it stays ✓
   var done=((prev&&prev.d)||p>=97)?1:0;
-  localStorage.setItem("pos:"+current.slug, JSON.stringify({p:p, d:done}));
+  localStorage.setItem("pos:"+current.slug, JSON.stringify({p:p, d:done, i:i}));
   updateNavProgress(current.slug);
 }catch(e){} }
+function hasProgress(slug){ var d=savedPos(slug); return !!(d&&typeof d.p==="number"&&d.p>0); }
+// Scroll to the stored resume point. Only ever called for an explicit Continue.
+function resumeTo(c){
+  var d=savedPos(c.slug); if(!d) return;
+  if(typeof d.i==="number" && d.i>0 && d.i<content.children.length){
+    var el=content.children[d.i];
+    window.scrollTo(0, el.getBoundingClientRect().top+window.pageYOffset-90);
+  }
+}
+function resetProgress(slug){
+  try{ localStorage.removeItem("pos:"+slug); }catch(e){}
+  // If it is the chapter on screen, go back to the top too — otherwise the next scroll
+  // event would immediately re-record the position you just cleared.
+  if(current && current.slug===slug) window.scrollTo(0,0);
+  updateNavProgress(slug);
+  toast("Progress reset");
+}
 function isDone(slug){ var d=savedPos(slug); return !!(d&&(d.d||d.p>=97)); }
 function scheduleSave(){ clearTimeout(_saveT); _saveT=setTimeout(saveProgress,400); }
 function savedPos(slug){
@@ -245,17 +273,43 @@ function buildNav(){
     var numMatch=c.title.match(/^(Chapter\s+\d+|Appendix\s+[A-Z])/);
     var num=numMatch?numMatch[1].replace("Chapter ","").replace("Appendix ","App "):"";
     html+='<a href="#/'+c.slug+'" data-slug="'+c.slug+'"><span class="num">'+esc(num)+
-      '</span>'+esc(c.nav)+(rt?'<span class="rt">'+rt+'</span>':'')+'</a>';
+      '</span>'+esc(c.nav)+(rt?'<span class="rt">'+rt+'</span>':'')+navActs(c.slug)+'</a>';
   });
   navEl.innerHTML=html;
   BOOK.forEach(function(c){ if(c.part!=="__home__") updateNavProgress(c.slug); });
 }
+// Continue / Reset, shown only once a chapter has progress to act on. These live inside
+// the nav <a>, so their handlers must stop the click from also following the link.
+var ICON_RESUME='<svg viewBox="0 0 16 16" width="12" height="12" fill="none" stroke="currentColor" '+
+  'stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M2.5 8h9"/><path d="M8 4.5 11.5 8 8 11.5"/></svg>';
+var ICON_RESET='<svg viewBox="0 0 16 16" width="12" height="12" fill="none" stroke="currentColor" '+
+  'stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M13.5 8a5.5 5.5 0 1 1-1.6-3.9"/><path d="M13.6 2.2v3.1h-3.1"/></svg>';
+function navActs(slug){
+  return '<span class="nav-acts">'+
+    '<span class="nav-act" role="button" tabindex="0" data-act="resume" data-slug="'+slug+
+      '" title="Continue where you got to" aria-label="Continue where you got to">'+ICON_RESUME+'</span>'+
+    '<span class="nav-act" role="button" tabindex="0" data-act="reset" data-slug="'+slug+
+      '" title="Reset progress" aria-label="Reset progress">'+ICON_RESET+'</span></span>';
+}
+navEl.addEventListener("click",function(ev){
+  var btn=ev.target.closest&&ev.target.closest(".nav-act"); if(!btn) return;
+  ev.preventDefault(); ev.stopPropagation();          // do not also follow the chapter link
+  var slug=btn.getAttribute("data-slug");
+  if(btn.getAttribute("data-act")==="resume"){ pendingResume=slug; navigate(slug); }
+  else resetProgress(slug);
+});
+navEl.addEventListener("keydown",function(ev){
+  if(ev.key!=="Enter" && ev.key!==" ") return;
+  var btn=ev.target.closest&&ev.target.closest(".nav-act"); if(!btn) return;
+  ev.preventDefault(); btn.click();
+});
 function updateNavProgress(slug){
   var a=navEl.querySelector('a[data-slug="'+slug+'"]'); if(!a) return;
   var d=savedPos(slug);
   var p=d&&typeof d.p==="number"?d.p:0;
   a.style.setProperty("--rp", p+"%");
   a.classList.toggle("done", isDone(slug));
+  a.classList.toggle("has-progress", hasProgress(slug));
 }
 // Assigning an unchanged location.hash fires no hashchange event, so a link to the
 // chapter you are already reading would silently do nothing. Route every in-app
@@ -277,6 +331,8 @@ function go(slug, push){
   buildPager(c);
   highlightNav(c.slug);
   window.scrollTo(0,0);             // every chapter opens at the beginning
+  if(pendingResume===c.slug) resumeTo(c);   // ...unless Continue asked for the resume point
+  pendingResume=null;
   document.title=(c.nav?c.nav+" · ":"")+".NET Handbook";
   closeSidebar();
   if(push!==false) history.replaceState(null,"","#/"+c.slug);

@@ -107,6 +107,28 @@ mark.find-hit{background:var(--accent);color:var(--accent-fg);border-radius:3px;
   color:var(--accent);font-weight:700}
 #nav a.active.done::before{color:var(--accent-fg)}
 
+/* Continue / Reset, revealed on hover for chapters that have progress. They sit over the
+   right-hand end of the row and borrow the row's own background to mask the text beneath. */
+#nav a.has-progress{padding-right:26px}
+#nav a .nav-acts{display:none}
+#nav a.has-progress:hover .nav-acts,
+#nav a.has-progress:focus-within .nav-acts{display:flex;align-items:center;gap:1px;
+  position:absolute;right:4px;top:50%;transform:translateY(-50%);background:inherit;padding-left:6px}
+#nav a.has-progress:hover::before,
+#nav a.has-progress:focus-within::before{display:none}   /* the ✓ makes way for the buttons */
+.nav-act{display:flex;align-items:center;justify-content:center;width:20px;height:20px;
+  border-radius:5px;color:var(--fg-muted);cursor:pointer}
+.nav-act:hover{background:var(--bg);color:var(--accent)}
+#nav a.active .nav-act{color:var(--accent-fg);opacity:.85}
+#nav a.active .nav-act:hover{background:rgba(0,0,0,.18);opacity:1}
+/* No hover on touch: show them permanently and reserve room so they never cover the title. */
+@media (hover:none){
+  #nav a.has-progress{padding-right:52px}
+  #nav a.has-progress .nav-acts{display:flex;align-items:center;gap:1px;
+    position:absolute;right:4px;top:50%;transform:translateY(-50%)}
+  #nav a.has-progress.done::before{display:none}
+}
+
 #main{margin-left:var(--sidebar-w);margin-right:var(--outline-w);padding:0 32px 80px;
   max-width:calc(var(--max) + var(--outline-w) + 64px)}
 #reading-progress{position:fixed;top:56px;left:var(--sidebar-w);right:0;height:3px;
