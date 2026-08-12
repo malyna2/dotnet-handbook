@@ -6,7 +6,8 @@ This page is the handbook's changelog. When a new release lands, a popup announc
 
 **🔧 Site & functionality**
 
-- Chapters now always open at the beginning. The reader no longer reopens the chapter you last visited, and no longer restores your scroll position within a chapter. Your reading-progress bars and ✓ marks in the sidebar are unaffected.
+- Chapters now always open at the beginning. The reader no longer reopens the chapter you last visited, and no longer restores your scroll position within a chapter.
+- Sidebar progress bars are now one-way: they record how far through a chapter you have got, so scrolling back up — or reopening a chapter at the top — never winds them backwards.
 - Fixed What's New links landing in the wrong place: a link to the chapter you were already reading did nothing at all, and every other link dropped you at your last-read paragraph instead of the top of the chapter.
 - Fixed 12 dead links in Appendix A's table of contents — the anchors assumed a different slug format and silently went nowhere.
 

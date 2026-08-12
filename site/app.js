@@ -212,8 +212,12 @@ function readPct(){
   return max>0?Math.min(100,Math.round(h.scrollTop/max*100)):0;
 }
 function saveProgress(){ if(!current) return; try{
-  var p=readPct(), prev=savedPos(current.slug);
-  // "finished" is sticky: once a chapter has been read to the end, it stays ✓
+  var prev=savedPos(current.slug), was=(prev&&typeof prev.p==="number")?prev.p:0;
+  // Progress is one-way: it records how far you have got, not where you are now.
+  // Scrolling back up — or reopening a chapter at the top, which is now what always
+  // happens — must never wind the bar backwards.
+  var p=Math.max(readPct(), was);
+  // "finished" is sticky too: once a chapter has been read to the end, it stays ✓
   var done=((prev&&prev.d)||p>=97)?1:0;
   localStorage.setItem("pos:"+current.slug, JSON.stringify({p:p, d:done}));
   updateNavProgress(current.slug);
