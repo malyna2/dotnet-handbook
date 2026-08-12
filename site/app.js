@@ -202,48 +202,30 @@ var outlineEl=document.getElementById("outline");
 var current=null;
 var pendingFind=null;
 var _saveT;
-// Reading position is remembered per chapter as the index of the topmost visible
-// block (paragraph/heading/code block), so it survives reflows and window resizes
-// better than a raw pixel offset. A percent is kept alongside for the sidebar bar.
-function topBlockIndex(){
-  var kids=content.children;
-  for(var i=0;i<kids.length;i++){
-    if(kids[i].getBoundingClientRect().bottom>100) return i;
-  }
-  return 0;
-}
+// Per-chapter reading *progress* — a percent plus a sticky "finished" flag — drives
+// the sidebar progress bars and ✓ marks. Scroll position is deliberately NOT restored
+// and the last-open chapter is deliberately NOT remembered: every chapter opens at the
+// top, so a link always lands where it points rather than wherever you last stopped.
 function readPct(){
   var h=document.documentElement;
   var max=h.scrollHeight-h.clientHeight;
   return max>0?Math.min(100,Math.round(h.scrollTop/max*100)):0;
 }
-function saveLast(){ if(!current) return; try{
-  localStorage.setItem("last", current.slug);
-  var y=window.pageYOffset||document.documentElement.scrollTop||0;
+function saveProgress(){ if(!current) return; try{
   var p=readPct(), prev=savedPos(current.slug);
   // "finished" is sticky: once a chapter has been read to the end, it stays ✓
   var done=((prev&&prev.d)||p>=97)?1:0;
-  localStorage.setItem("pos:"+current.slug,
-    JSON.stringify({i:y<50?0:topBlockIndex(), p:p, d:done}));
+  localStorage.setItem("pos:"+current.slug, JSON.stringify({p:p, d:done}));
   updateNavProgress(current.slug);
 }catch(e){} }
 function isDone(slug){ var d=savedPos(slug); return !!(d&&(d.d||d.p>=97)); }
-function scheduleSave(){ clearTimeout(_saveT); _saveT=setTimeout(saveLast,400); }
+function scheduleSave(){ clearTimeout(_saveT); _saveT=setTimeout(saveProgress,400); }
 function savedPos(slug){
   var raw; try{ raw=localStorage.getItem("pos:"+slug); }catch(e){ return null; }
   if(!raw) return null;
   var d; try{ d=JSON.parse(raw); }catch(e){ return null; }
-  if(typeof d==="number") return {y:d};            // legacy pixel-offset format
   if(d && typeof d==="object") return d;
-  return null;
-}
-function restorePos(c){
-  if(c.part==="__home__") return;
-  var d=savedPos(c.slug); if(!d) return;
-  if(typeof d.i==="number" && d.i>0 && d.i<content.children.length){
-    var el=content.children[d.i];
-    window.scrollTo(0, el.getBoundingClientRect().top+window.pageYOffset-90);
-  } else if(d.y){ window.scrollTo(0, d.y); }
+  return null;                                     // legacy pixel-offset format: ignore
 }
 
 function readTime(md){
@@ -271,8 +253,16 @@ function updateNavProgress(slug){
   a.style.setProperty("--rp", p+"%");
   a.classList.toggle("done", isDone(slug));
 }
+// Assigning an unchanged location.hash fires no hashchange event, so a link to the
+// chapter you are already reading would silently do nothing. Route every in-app
+// navigation through here so that case still re-renders (and scrolls back to the top).
+function navigate(slug){
+  var target="#/"+slug;
+  if(location.hash===target) go(slug,false);
+  else location.hash=target;
+}
 function go(slug, push){
-  saveLast();
+  saveProgress();
   var c=bySlug[slug]||BOOK[0];
   current=c;
   removePopup();
@@ -282,9 +272,7 @@ function go(slug, push){
   buildOutline(c);
   buildPager(c);
   highlightNav(c.slug);
-  window.scrollTo(0,0);
-  if(!pendingFind) restorePos(c);   // reopen each chapter at the last-read paragraph
-  try{ localStorage.setItem("last", c.slug); }catch(e){}
+  window.scrollTo(0,0);             // every chapter opens at the beginning
   document.title=(c.nav?c.nav+" · ":"")+".NET Handbook";
   closeSidebar();
   if(push!==false) history.replaceState(null,"","#/"+c.slug);
@@ -321,7 +309,7 @@ function postProcess(c){
     if(href.indexOf("#/")===0) return;
     var slug=href.slice(1);
     a.addEventListener("click",function(ev){
-      if(bySlug[slug]){ ev.preventDefault(); location.hash="#/"+slug; }
+      if(bySlug[slug]){ ev.preventDefault(); navigate(slug); }
       else{ var target=document.getElementById(slug); if(target){ ev.preventDefault(); target.scrollIntoView(); } }
     });
   });
@@ -613,7 +601,7 @@ document.getElementById("menuBtn").addEventListener("click",function(){
 });
 function closeSidebar(){sidebar.classList.remove("open");scrim.classList.remove("show");}
 scrim.addEventListener("click",closeSidebar);
-document.getElementById("brandHome").addEventListener("click",function(){location.hash="#/"+BOOK[0].slug;});
+document.getElementById("brandHome").addEventListener("click",function(){navigate(BOOK[0].slug);});
 
 /* ---------------- Reading progress + scrollspy ---------------- */
 var progress=document.getElementById("reading-progress");
@@ -682,7 +670,7 @@ function wnDecorate(root, releaseId){
       try{ localStorage.setItem("wn_read",JSON.stringify(r)); }catch(e){}
       el.classList.add("wn-read");
       wnHide();
-      location.hash="#/"+slug;
+      navigate(slug);
     });
   });
 }
@@ -705,14 +693,16 @@ function wnMaybeShow(){
   wnShow();
 }
 document.getElementById("wnClose").addEventListener("click",wnHide);
-document.getElementById("wnOpen").addEventListener("click",function(){ wnHide(); if(WN) location.hash="#/"+WN.slug; });
+document.getElementById("wnOpen").addEventListener("click",function(){ wnHide(); if(WN) navigate(WN.slug); });
 wnModal.addEventListener("click",function(e){ if(e.target===wnModal) wnHide(); });
 
 /* ---------------- Boot ---------------- */
 function currentSlug(){var m=location.hash.match(/^#\/(.+)$/);return m?m[1]:null;}
 window.addEventListener("hashchange",function(){var s=currentSlug();if(s)go(s,false);});
-window.addEventListener("beforeunload", saveLast);
+window.addEventListener("beforeunload", saveProgress);
 buildNav();
-go(currentSlug()||localStorage.getItem("last")||BOOK[0].slug,false);
+// A shared link's hash still wins; otherwise always start at the front of the book.
+go(currentSlug()||BOOK[0].slug,false);
+try{ localStorage.removeItem("last"); }catch(e){}   // no longer used
 wnMaybeShow();
 })();

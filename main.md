@@ -17820,10 +17820,12 @@ Native AOT (Ahead-Of-Time) compiles your app directly to a self-contained native
 
 This page is the handbook's changelog. When a new release lands, a popup announces it on your next visit. Under each release, **Site & functionality** items are plain notes, while **Content updates** link to every chapter that changed — a link is ticked off (✓, stored locally in your browser) once you visit it, so you can work through an update at your own pace and see what's still unread.
 
-## Release — August 10, 2026
+## Release — August 12, 2026
 
 **🔧 Site & functionality**
 
+- Chapters now always open at the beginning. The reader no longer reopens the chapter you last visited, and no longer restores your scroll position within a chapter. Your reading-progress bars and ✓ marks in the sidebar are unaffected.
+- Fixed What's New links landing in the wrong place: a link to the chapter you were already reading did nothing at all, and every other link dropped you at your last-read paragraph instead of the top of the chapter.
 - Fixed 12 dead links in Appendix A's table of contents — the anchors assumed a different slug format and silently went nowhere.
 
 **📖 Content updates**
