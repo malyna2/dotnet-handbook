@@ -31,6 +31,9 @@
   <!-- Sidebar navigation -->
   <nav id="sidebar" aria-label="Table of contents">
     <div id="nav"></div>
+    <!-- In-chapter section outline. Fixed to the right rail on wide screens; below the
+         chapter list inside this drawer once the rail no longer fits. -->
+    <aside id="outline" aria-label="On this page"></aside>
   </nav>
   <div id="scrim"></div>
 
@@ -43,9 +46,6 @@
       <p>Self-contained handbook · tap a word, or select a phrase, to translate it.</p>
     </footer>
   </main>
-
-  <!-- In-chapter section outline (right rail, desktop) -->
-  <aside id="outline" aria-label="On this page"></aside>
 </div>
 
 <!-- Floating "translate selection" button -->
@@ -96,29 +96,19 @@
 <script>
 var log=[],out=document.getElementById("out");
 function say(s){log.push(s);out.textContent=log.join("\n");}
-location.hash="#/whats-new";
+location.hash="#/chapter-5-design-patterns-principles-clean-code";
 setTimeout(function(){
-  var links=document.querySelectorAll("#content a.wn-link");
-  say("release links decorated: "+links.length);
-  var first=document.querySelector('#content a[href="#postgresql-in-practice-indexes-and-query-plans"]');
-  say("section link found: "+!!first+" | wn-link class: "+(first&&first.classList.contains("wn-link")));
-  first.click();
-  setTimeout(function(){
-    say("-> hash: "+location.hash);
-    var el=document.getElementById("postgresql-in-practice-indexes-and-query-plans");
-    say("-> section present in rendered chapter: "+!!el);
-    say("-> section offset from doc top: "+(el?Math.round(el.getBoundingClientRect().top+window.pageYOffset):"n/a"));
-    say("-> heading text: "+(el?el.textContent.slice(0,44):"n/a"));
-    say("-> wn_read keys: "+Object.keys(JSON.parse(localStorage.getItem("wn_read")||"{}")).length);
-    // old-release chapter-only link must still work
-    location.hash="#/whats-new";
-    setTimeout(function(){
-      var old=document.querySelector('#content a[href="#chapter-4-data-access-databases"]');
-      say("old-style link found: "+!!old);
-      old.click();
-      setTimeout(function(){ say("-> old link hash: "+location.hash); say("DONE"); },400);
-    },400);
-  },500);
-},600);
+  var o=document.getElementById("outline"), cs=getComputedStyle(o);
+  say("viewport: "+window.innerWidth+"x"+window.innerHeight);
+  say("outline parent: #"+o.parentElement.id);
+  say("display: "+cs.display+" | position: "+cs.position);
+  say("outline links: "+o.querySelectorAll("a").length);
+  say("title text: "+(o.querySelector(".ol-title")||{}).textContent);
+  var r=o.getBoundingClientRect();
+  say("size: "+Math.round(r.width)+"x"+Math.round(r.height));
+  var nav=document.getElementById("nav").getBoundingClientRect();
+  say("below chapter list: "+(r.top>=nav.bottom-1));
+  say("DONE");
+},700);
 </script>
 </body></html>

@@ -264,7 +264,12 @@ mark.find-hit{background:var(--accent);color:var(--accent-fg);border-radius:3px;
 
 /* ---------- Responsive ---------- */
 @media (max-width:1100px){
-  #outline{display:none}
+  /* No room for the right rail, so the section list flows into the sidebar under the
+     chapter list — in-chapter navigation stays available on tablets and phones. */
+  #outline{position:static;width:auto;max-height:none;overflow:visible;
+    margin:18px 4px 0;padding:12px 10px 0;border-top:1px solid var(--border)}
+  #outline:empty{display:none}
+  #outline a{padding:7px 8px}          /* roomier tap targets */
   #main{margin-right:0}
 }
 @media (max-width:820px){

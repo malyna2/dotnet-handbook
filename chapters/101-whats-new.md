@@ -10,6 +10,7 @@ This page is the handbook's changelog. When a new release lands, a popup announc
 - Sidebar progress bars are now one-way: they record how far through a chapter you have got, so scrolling back up — or reopening a chapter at the top — never winds them backwards.
 - Chapters you have started now show two buttons in the sidebar on hover: **Continue** (→) jumps to the point the progress bar is showing, and **Reset** (↻) clears that chapter's progress. Continue is the deliberate version of the old automatic jump: you go back to where you got to only when you ask.
 - The links below now open the exact section that changed instead of the top of the chapter — and a link to the chapter you happen to be reading already no longer does nothing at all.
+- The "On this page" section list is now available on phones and tablets, where it appears under the chapter list in the menu drawer instead of being hidden. Tapping a section closes the drawer and jumps there.
 - Fixed 12 dead links in Appendix A's table of contents — the anchors assumed a different slug format and silently went nowhere.
 
 **📖 Content updates**

@@ -425,6 +425,7 @@ function buildOutline(c){
   outlineEl.innerHTML=html;
   outlineEl.querySelectorAll("a").forEach(function(a){
     a.addEventListener("click",function(ev){ev.preventDefault();
+      closeSidebar();          // on mobile the outline lives in the drawer — get out of the way
       var t=document.getElementById(a.dataset.id); if(t)t.scrollIntoView();});
   });
 }
