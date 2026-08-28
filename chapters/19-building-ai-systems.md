@@ -614,6 +614,8 @@ Microsoft ships **Microsoft.Extensions.AI.Evaluation**, a .NET library for build
 
 > **Takeaway:** treat evals as the regression suite for your AI features. No eval set, no confident change. A model or prompt update without a re-run is a blind deploy.
 
+**Evals are not the whole test suite.** The temptation is to conclude that because the output is nondeterministic, the feature can only be evaluated. That's backwards: an AI feature is mostly ordinary code — prompt assembly, retrieval, chunking, tool implementations, schema validation, budget enforcement, control flow — and that code carries most of the bugs. Program against `IChatClient` and a fake client makes all of it unit-testable in the normal way: assert the prompt you built, the branch you took, the budget you enforced, the malformed tool argument you rejected. Save the eval suite for the one thing a unit test genuinely cannot pin, which is the quality of the generated text. Chapter 25 covers the full portfolio — faking the model, gating CI on an aggregate pass rate rather than individual cases, and keeping the eval set growing from production failures.
+
 ### Observability
 
 In production you need to *see* what the model is doing. Capture, per request: the full prompt, the response, token counts, latency, cost, model/prompt version, tool calls, and (for RAG) retrieved chunks. Then:

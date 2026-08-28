@@ -10796,7 +10796,7 @@ So far the AI has been your collaborator. The next chapter flips the relationshi
 
 # Chapter 19: Building AI-Powered Systems
 
-_⏱️ Estimated read time: ~1 h · 10709 words (study pace)_
+_⏱️ Estimated read time: ~1 h · 10851 words (study pace)_
 
 Chapter 18 was about *using* AI to write software. This chapter flips the relationship: now the AI model is a *component inside* the software you ship. This is a different discipline. When you use an assistant to write a function, you review the output once and move on. When you embed a model in a running system, that model produces fresh, non-deterministic output on every request, for every user, forever — and you own the consequences. That single fact reshapes how you design, test, and operate the application.
 
@@ -11411,6 +11411,8 @@ You cannot improve — or safely change — what you don't measure. Build an **e
 Microsoft ships **Microsoft.Extensions.AI.Evaluation**, a .NET library for building exactly these eval suites in your test project — so LLM evals can live beside your unit tests and run in CI.
 
 > **Takeaway:** treat evals as the regression suite for your AI features. No eval set, no confident change. A model or prompt update without a re-run is a blind deploy.
+
+**Evals are not the whole test suite.** The temptation is to conclude that because the output is nondeterministic, the feature can only be evaluated. That's backwards: an AI feature is mostly ordinary code — prompt assembly, retrieval, chunking, tool implementations, schema validation, budget enforcement, control flow — and that code carries most of the bugs. Program against `IChatClient` and a fake client makes all of it unit-testable in the normal way: assert the prompt you built, the branch you took, the budget you enforced, the malformed tool argument you rejected. Save the eval suite for the one thing a unit test genuinely cannot pin, which is the quality of the generated text. Chapter 25 covers the full portfolio — faking the model, gating CI on an aggregate pass rate rather than individual cases, and keeping the eval set growing from production failures.
 
 ### Observability
 
@@ -13281,11 +13283,11 @@ Serialization is where your data model meets the outside world, and the format y
 
 # Chapter 25: Advanced & Specialized Testing
 
-_⏱️ Estimated read time: ~25 min · 4207 words (study pace)_
+_⏱️ Estimated read time: ~30 min · 5187 words (study pace)_
 
 Chapter 7 gave you the foundations: unit tests with xUnit, mocking with Moq or NSubstitute, integration tests, and spinning up real dependencies with Testcontainers. Those techniques carry most teams a long way. But as a system grows from a single service into a fleet of services, and as a codebase matures from "does it work?" into "can we change it safely for the next five years?", a new set of problems appears that the foundational techniques do not address well.
 
-This chapter is about those problems and the specialized tools built for them. Contract testing tames the combinatorial explosion of cross-service integration tests. Property-based testing finds the inputs you never thought to write an assertion for. End-to-end and UI testing verify the whole stack through a real browser. Load testing tells you whether the system survives Black Friday. And a cluster of supporting disciplines — deterministic time, test data management, and mutation testing — keep the whole test suite honest.
+This chapter is about those problems and the specialized tools built for them. Contract testing tames the combinatorial explosion of cross-service integration tests. Property-based testing finds the inputs you never thought to write an assertion for. End-to-end and UI testing verify the whole stack through a real browser. Load testing tells you whether the system survives Black Friday. Eval suites extend the portfolio to features whose output a model generates, where no fixed assertion applies. And a cluster of supporting disciplines — deterministic time, test data management, and mutation testing — keep the whole test suite honest.
 
 The through-line is a single senior-level habit of mind: **treat your tests as a system to be engineered, with their own costs, failure modes, and return on investment**, not as a checkbox you tick after the "real" code is done.
 
@@ -13611,6 +13613,43 @@ dotnet stryker --threshold-high 80 --threshold-low 60 --threshold-break 50
 
 > **Practical note:** mutation testing is computationally expensive — it reruns the suite once per mutant, potentially thousands of times. Don't run it on every commit over the whole solution. Run it **on the diff** in CI (Stryker supports `--since` to mutate only changed code), or on a nightly schedule for critical modules. Point it at your core domain logic, where a missed bug is most costly — not at DTOs and configuration glue.
 
+## Testing Nondeterministic Systems: Evals for AI Features
+
+Every technique so far assumes a fixed input produces a fixed output. Ship a feature backed by an LLM and that assumption is gone: the same prompt can return different text on every call, and *both* answers may be correct. `Assert.Equal(expected, actual)` has nothing to say about it. Chapter 19 covers building these systems; this section is about the testing portfolio they need, because teams reliably reach one of two wrong conclusions — "you can't test this" or "we'll just mock the model" — and both leave the actual risk uncovered.
+
+The way out is to split the system into two parts that are tested completely differently.
+
+### Most of it is ordinary code — test it ordinarily
+
+An AI feature is mostly not the model. Prompt construction, retrieval, chunking, tool implementations, schema validation, retries, budget enforcement, and the workflow's control flow are all deterministic code, and they are where most bugs actually live. Test them with everything in Chapters 7 and 25 as normal — and to do that, you need the model out of the way.
+
+Program against `IChatClient` (Chapter 19) and a fake becomes trivial: a stub returning a canned `ChatResponse` lets you assert that your code built the right prompt, parsed the response correctly, enforced the token budget, and took the right branch. This is where property-based testing earns a second look — a chunker is exactly the kind of component whose invariants ("no chunk exceeds the token limit", "concatenating chunks reproduces the source", "overlaps are within bounds") FsCheck will break far faster than your examples will.
+
+> **Best practice — test the tools as tools.** In an agentic feature, the functions the model can invoke are the code with the real blast radius: they read databases and send emails. They're plain methods. Test them directly, with the model nowhere in sight, including the argument validation that runs when the model passes something malformed — which it will, and which a test suite that only exercises well-formed calls will never catch.
+
+### The model's output needs an eval suite, not a test
+
+For the part that's genuinely nondeterministic, you build an **eval set**: representative inputs paired with a grading method, run as a suite, tracked as a **pass rate over time**. The difference from a unit test is the assertion, and there are four kinds worth knowing, in descending order of how much you should want them:
+
+- **Deterministic checks on non-deterministic output.** Often overlooked, and always the first choice. Does the JSON validate against the schema? Is the cited document id one that was actually retrieved? Is the total the sum of the line items? These are ordinary assertions that happen to run against generated text, and they are fast, free, and unambiguous.
+- **Reference-based.** Compare against a known-good answer — exact match for classification and extraction, similarity for freeform.
+- **LLM-as-judge.** A model grades the output against a rubric. Scalable and surprisingly decent, but it is *itself* a nondeterministic component: validate the judge against human labels periodically, or you are measuring with an instrument you never calibrated.
+- **Human review.** The gold standard, reserved for high-stakes features and periodic sampling of production traffic.
+
+`Microsoft.Extensions.AI.Evaluation` gives this a home in a normal .NET test project, so evals live beside your unit tests and run on the same runner.
+
+### Making it survive CI
+
+Three practical problems separate an eval suite that runs in CI from one that gets disabled in month two:
+
+**They cost money and time.** A 200-case eval set against a frontier model on every push is a bill and a slow pipeline. Split the suite: a small, cheap smoke set (20-30 cases, deterministic checks only) on every PR, and the full set nightly or on release branches. A provider's batch API halves the cost of the nightly run at the price of latency nobody is waiting on.
+
+**They're flaky by construction.** Never gate on a single case passing — gate on the *aggregate*, with a threshold: "≥ 92% of the eval set passes." A single case flipping is signal only in a trend. Do pin what you can: fix the temperature at 0, seed anything random, freeze the retrieval corpus for the eval run, and pin the model version — an unpinned model is a dependency your provider updates without telling you, and it will move your pass rate on a day you changed nothing.
+
+**Regression matters more than the absolute number.** "87% pass" means little on its own. "87%, down from 94% before this prompt change" is the finding. Store the run history and compare against the previous baseline, exactly as you'd treat a performance benchmark — and for the same reason: it is the delta that tells you whether the change you just made was an improvement.
+
+> **Pitfall — the eval set that only contains cases that pass.** Eval sets are usually seeded from examples someone tried while building the feature, which are the examples the feature already handles. The valuable cases are the opposite: real production inputs that produced bad answers, added the day you find them. An eval set that isn't growing from production failures is measuring how well the feature works on the demo.
+
 ## Choosing Your Instruments
 
 Every technique in this chapter earns its keep by catching a defect class nothing else catches — at a price. Weigh both columns before adding one to your portfolio.
@@ -13623,6 +13662,7 @@ Every technique in this chapter earns its keep by catching a defect class nothin
 | API-level E2E | Full-stack wiring against a real deployed environment (network, DB, auth) | A deployed environment to point at; slower than in-process tests | The HTTP surface *is* the product |
 | Load testing (k6/NBomber) | Latency and error regressions under concurrency that functional tests can't see | A production-like environment; noisy results on shared runners | Before traffic events; nightly with pass/fail thresholds |
 | Mutation testing (Stryker.NET) | Assertion-free "covered" code — tests that execute but verify nothing | Reruns the suite once per mutant; very CPU-expensive | Core domain logic; run on the diff or nightly |
+| Eval suites (Microsoft.Extensions.AI.Evaluation) | Quality regressions in nondeterministic output that no assertion can pin | Token spend per run; a curated, maintained case set; threshold tuning | Any shipped feature whose output comes from a model |
 | Fake time + fixed seeds (`TimeProvider`) | Expiry/scheduling bugs; irreproducible time- and randomness-based flakes | Retrofitting injection into legacy code | Anything touching clocks, delays, timers, or random data |
 
 ## Bringing It Together
@@ -13635,6 +13675,7 @@ Each technique in this chapter targets a specific weakness of the foundational t
 - **k6 and NBomber** answer the questions functional tests can't, provided you assert on thresholds and run against realistic environments.
 - **`TimeProvider`, deterministic seeding, and disciplined test data** are the unglamorous infrastructure that makes every other test trustworthy.
 - **Mutation testing** audits the auditors, exposing the tests that execute code without actually checking it.
+- **Eval suites** extend the portfolio to output no assertion can pin, trading exact expectations for a tracked pass rate — the only way to change a prompt or a model with confidence.
 
 The senior mindset that unifies them: **every test is an investment with a cost and a return.** Fast, deterministic, and targeted at where failure is likely and expensive — that is the portfolio you are building, and these are the specialized instruments for building it well.
 
@@ -13650,6 +13691,7 @@ The senior mindset that unifies them: **every test is an investment with a cost 
 - **Stryker.NET documentation** — stryker-mutator.io — mutation testing, mutation score, thresholds, and diff-based runs.
 - **Microsoft Learn: `TimeProvider` and `FakeTimeProvider`** — learn.microsoft.com — testing time-dependent code in .NET 8+.
 - **AutoFixture and Bogus** — github.com/AutoFixture/AutoFixture and github.com/bchavez/Bogus — automated and realistic test data generation.
+- **Microsoft.Extensions.AI.Evaluation** — learn.microsoft.com — building and running LLM eval suites inside a .NET test project.
 - Kent C. Dodds, *"Write Tests. Not Too Many. Mostly Integration."* — the testing trophy argument.
 
 
