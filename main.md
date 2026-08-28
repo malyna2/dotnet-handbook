@@ -2295,7 +2295,7 @@ The through-line of this chapter is that ASP.NET Core is a **pipeline of composa
 
 # Chapter 4: Data Access & Databases
 
-_⏱️ Estimated read time: ~1 h 5 min · 10117 words (study pace)_
+_⏱️ Estimated read time: ~1 h 10 min · 10876 words (study pace)_
 
 Almost every non-trivial application is, underneath all its features, a machine for moving data in and out of a database safely and quickly. You can write flawless business logic and beautiful APIs, but if your data access layer holds locks too long, fires a thousand queries where one would do, or corrupts a balance under concurrent writes, the whole system fails in ways that are hard to reproduce and harder to fix. This chapter takes you from the mechanics of Entity Framework Core down to the SQL and storage engine underneath it, then back up through caching, NoSQL, and deployment. The goal is that you stop treating the database as a black box and start reasoning about what it actually does.
 
@@ -3181,6 +3181,89 @@ The strategic question is *when* migrations run in your pipeline. Options:
 ## Summary
 
 The through-line of this chapter is that the database is not a black box. EF Core is a productivity multiplier, but only if you know what SQL it generates — when it tracks, when it round-trips, when `Include` explodes into a cartesian product. Underneath, indexes, execution plans, transactions, and isolation levels determine whether your system is fast and correct or slow and subtly broken. Around it, caching removes load, NoSQL stores handle shapes relational tables handle poorly, concurrency tokens protect you from lost updates, and disciplined migrations let your schema evolve safely. A senior developer moves fluidly between these layers, always asking the same question: *what is actually happening at the database, and is it the least work required to be correct?*
+
+## Exercises
+
+### Find the bug
+
+This endpoint is correct, passes its integration test against a seeded database of 20 orders, and brings production to its knees.
+
+```csharp
+app.MapGet("/api/customers/{id:int}/summary", async (int id, AppDbContext db) =>
+{
+    var customer = await db.Customers.FindAsync(id);
+    if (customer is null) return Results.NotFound();
+
+    var orders = await db.Orders
+        .Where(o => o.CustomerId == id)
+        .ToListAsync();
+
+    var lines = new List<OrderLineDto>();
+    foreach (var order in orders)
+    {
+        foreach (var line in order.Lines)          // navigation property
+            lines.Add(new OrderLineDto(line.Sku, line.Quantity, line.Product.Name));
+    }
+
+    return Results.Ok(new SummaryDto(customer.Name, orders.Count, lines));
+});
+```
+
+How many queries does this execute for a customer with 200 orders averaging 5 lines each?
+
+<details>
+<summary>Answer</summary>
+
+Roughly **1 + 1 + 200 + 1000 = 1,202 queries**, assuming lazy loading is enabled.
+
+- 1 for the customer, 1 for the orders.
+- `order.Lines` was never loaded, so each iteration triggers a separate query — 200 of them.
+- `line.Product.Name` triggers another per line — about 1,000 more.
+
+This is the **N+1 problem**, twice, nested. It passes the test because 20 orders means ~120 queries against a local database, which is fast enough that nobody notices.
+
+Two things make it worse than it looks. First, if lazy loading is *not* enabled, `order.Lines` is an empty collection and the endpoint silently returns wrong data instead of being slow — a worse failure. Second, each of those queries takes a connection from the pool, so this endpoint under concurrency exhausts the pool and degrades endpoints that have nothing to do with it.
+
+The fix is to project what you need in one query:
+
+```csharp
+var summary = await db.Orders
+    .Where(o => o.CustomerId == id)
+    .SelectMany(o => o.Lines)
+    .Select(l => new OrderLineDto(l.Sku, l.Quantity, l.Product.Name))
+    .AsNoTracking()
+    .ToListAsync();
+```
+
+Note `AsNoTracking()` — nothing here is being modified, so paying for change tracking on 1,000 entities is pure waste. And note that the projection means EF never materialises the `Product` entity at all; it selects the single column it needs.
+</details>
+
+### What would you do
+
+A report query takes 40 seconds. A colleague proposes adding a Redis cache in front of it with a 5-minute TTL. The execution plan shows a clustered index scan over 12 million rows and a hash match spilling to tempdb. What do you say?
+
+<details>
+<summary>How a senior engineer reasons about it</summary>
+
+The cache is not wrong, but it is being proposed as a substitute for understanding, and that has costs the proposer has not priced:
+
+- **It hides the problem without bounding it.** The scan still runs — once every five minutes, plus on every cold start, plus on every cache eviction. Under enough concurrency, several requests miss simultaneously and you get a stampede: five copies of a 40-second query running at once, which is worse than the uncached case.
+- **It adds a correctness question** nobody asked yet: is five-minute-stale data acceptable for this report? Perhaps it is. That should be a stated decision, not a side effect of a performance fix.
+- **The plan is telling you exactly what is wrong.** A scan plus a spill means either a missing index, or a predicate that isn't sargable (a function applied to the column, an implicit type conversion, a leading wildcard), or a query returning far more rows than it needs.
+
+So the answer is "probably both, in this order": read the plan, fix the scan — usually a covering index or a rewritten predicate — and *then* decide whether caching is still needed. A 40-second query that becomes 200ms may not need a cache at all, and you have removed a component, a failure mode, and a staleness question rather than adding them.
+
+The generalizable point: caching is a legitimate tool for load you understand and have chosen not to pay repeatedly. It is a poor tool for making an unexamined query disappear from a dashboard.
+</details>
+
+### Go check
+
+In your own service:
+
+- Turn on EF Core's sensitive-data query logging in development and load one busy page. Count the queries. Almost everyone is surprised at least once.
+- Find a read-only query path that does not use `AsNoTracking()`. Measure the difference on a realistic result set.
+- Take your slowest known query and look at its actual execution plan — not the estimated one. Is there a scan where you expected a seek? Which index did the optimizer pick, and why not the one you assumed?
+- Check the isolation level your transactions actually run at. Most people say "read committed" and are right; some are running under snapshot or serializable without knowing, and it explains their deadlocks.
 
 
 ---
@@ -5500,7 +5583,7 @@ Write tests that would fail if the behaviour broke, that read clearly when they 
 
 # Chapter 8: Asynchronous & Concurrent Programming
 
-_⏱️ Estimated read time: ~35 min · 5042 words (study pace)_
+_⏱️ Estimated read time: ~40 min · 5717 words (study pace)_
 
 Few topics separate a mid-level .NET developer from a senior one as sharply as a genuine understanding of asynchrony. Almost everyone can sprinkle `async` and `await` on a method until the compiler stops complaining. Far fewer can explain what those keywords actually *do*, why a stray `.Result` can freeze a web server solid, or when reaching for a thread actively makes things slower.
 
@@ -6069,6 +6152,70 @@ Rx is a specialized tool. For request/response and ordinary async I/O, stick wit
 - Protect shared state with `lock`, `Interlocked`, and concurrent collections; leave manual memory barriers to the experts.
 
 Master these, and asynchronous code stops being a source of mysterious hangs and becomes what it should be: a precise tool for building responsive, scalable systems.
+
+## Exercises
+
+Three short drills. The first two have answers you can check; the third is work in your own codebase, which is where this chapter actually pays off.
+
+### Find the bug
+
+This handler compiles, passes its unit test, and takes the service down under load.
+
+```csharp
+[HttpGet("/reports/{id:int}")]
+public IActionResult GetReport(int id)
+{
+    var report = _reportService.BuildReportAsync(id).Result;
+
+    var recipients = _db.Subscribers
+        .Where(s => s.ReportId == id)
+        .ToList();
+
+    Parallel.ForEach(recipients, r =>
+    {
+        _mailer.SendAsync(r.Email, report).Wait();
+    });
+
+    return Ok(report);
+}
+```
+
+Name every defect you can see, then say which one causes the outage.
+
+<details>
+<summary>Answer</summary>
+
+Four separate problems, in increasing order of severity:
+
+1. **`.Result` and `.Wait()` are sync-over-async.** Each one blocks a thread-pool thread while waiting for I/O to complete. The thread is doing nothing except occupying a slot.
+2. **`Parallel.ForEach` over async work does not do what it looks like.** `Parallel.ForEach` is for CPU-bound work; the lambda returns as soon as `SendAsync` returns a `Task`, so the `.Wait()` inside is the only thing serialising it — you have combined the overhead of parallelism with the blocking of synchronous code. `Parallel.ForEachAsync` (or `Task.WhenAll` over a bounded set) is the tool for this.
+3. **No `CancellationToken` anywhere.** If the client disconnects, every one of those emails still gets sent.
+4. **The outage is thread-pool starvation.** Under load, each in-flight request occupies one thread blocked in `.Result` plus several more blocked in `.Wait()`. The pool injects new threads only slowly (roughly one per 500ms once it is past its minimum), so the queue grows faster than it drains. Latency climbs on *every* endpoint, including ones that touch none of this code — which is why the cause is so often misdiagnosed as a database problem.
+
+The fix is `async Task<IActionResult>`, `await` throughout, `Parallel.ForEachAsync` with a `MaxDegreeOfParallelism`, and a `CancellationToken` threaded from the action signature down.
+</details>
+
+### What would you do
+
+A colleague's PR adds `ConfigureAwait(false)` to every `await` in a new ASP.NET Core service, citing a blog post about deadlocks. It is 300 lines of diff across 40 files. What do you say in review?
+
+<details>
+<summary>How a senior engineer reasons about it</summary>
+
+The technically correct observation is that ASP.NET Core has no `SynchronizationContext`, so `ConfigureAwait(false)` changes nothing in this codebase — the deadlock it prevents is a WinForms/WPF/legacy-ASP.NET problem. In a *library* that might be consumed by such an app it remains good practice; in an ASP.NET Core service it is noise, and 300 lines of noise makes future diffs harder to read.
+
+But the review comment that lands well does not stop there. Your colleague read something, applied it diligently, and is not wrong about the underlying phenomenon — they are wrong about whether this codebase has it. So: explain the mechanism (what a `SynchronizationContext` is, and that ASP.NET Core doesn't install one), agree explicitly about where the advice *does* apply, and let them decide whether to drop the change or keep it for a library project in the same solution.
+
+There is also a judgment call about proportion. If the team has an analyzer rule about it, this is a rule discussion, not a PR discussion. And if the diff is otherwise good, "this is unnecessary but harmless, let's not block on it" is a legitimate answer — cargo-culted `ConfigureAwait(false)` costs readability, not correctness. Chapter 17 has more on picking which hills to defend in review.
+</details>
+
+### Go check
+
+Open the service you work on and answer these from the code, not from memory:
+
+- Find every `.Result`, `.Wait()`, and `.GetAwaiter().GetResult()`. For each one, decide: is it in startup code (usually fine), or on a request path (usually a latent outage)?
+- Find the longest `await` chain from an HTTP endpoint down to the outermost I/O call. Does a `CancellationToken` reach the bottom? If it stops halfway, everything below it is work you cannot cancel.
+- Look at one hot path and ask whether `ValueTask` would help — that is, whether it completes synchronously most of the time. If it always awaits real I/O, `Task` is the right choice and switching would gain nothing.
 
 
 ---
@@ -10247,7 +10394,7 @@ The senior mindset: **the AI drafts, you own.** Treat generated code exactly lik
 
 # Chapter 17: Soft Skills & Engineering Practices
 
-_⏱️ Estimated read time: ~30 min · 5066 words (study pace)_
+_⏱️ Estimated read time: ~35 min · 5850 words (study pace)_
 
 You already know how to write good C#. You can wire up dependency injection, reason about `async`/`await`, tune an EF Core query, and design a clean bounded context. That is the price of admission to being a *middle* engineer. It is not what makes you a senior one.
 
@@ -10630,6 +10777,55 @@ You don't have to pick forever, but knowing which one energizes you tells you wh
 > **The through-line of this entire chapter: senior engineering is the multiplication of impact through other people and good judgment, not the maximization of your personal code output. Every skill here — clear writing, kind reviews, honest estimates, blameless post-mortems, deliberate mentoring, sound judgment, real ownership — is a lever. Master the levers, and your impact stops being bounded by your own two hands.**
 
 You already have the technical foundation. The path from middle to senior runs straight through this chapter. Start with one lever — pick the weakest one — and practice it deliberately this week.
+
+## Exercises
+
+The drills in the technical chapters have answers you can check against a compiler. These do not, which is the point — the skills in this chapter are judgment, and judgment is practised by reasoning through situations before you are in them.
+
+### What would you do — the estimate
+
+Your product manager asks how long a feature will take. You genuinely do not know: it depends on whether a third-party API supports bulk operations, which the documentation does not say. They need a number for a roadmap slide by end of day. Saying "I don't know" has not gone well before.
+
+<details>
+<summary>How a senior engineer reasons about it</summary>
+
+The trap is treating this as a choice between a number you don't believe and a refusal. It is neither.
+
+What the PM actually needs is not a number — it is the ability to plan. Those are different, and the second is something you can give honestly:
+
+- **Name the uncertainty and its size.** "If the API supports bulk operations, about a week. If it doesn't, we need a queue and retry handling, which is closer to three. I can find out which by tomorrow afternoon."
+- **Offer to buy the information.** A half-day spike converts an unbounded range into a real estimate. Almost every PM will take that trade, because a roadmap built on a fabricated number is their problem, not yours, and they know it.
+- **If the slide truly cannot wait**, give the range with the assumption attached in writing — "3 weeks, assuming no bulk API; I'll confirm Thursday" — and follow up when you know. The written assumption is what protects both of you later.
+
+What not to do: give the optimistic number because it is the one that ends the conversation. That is the estimate that becomes a commitment in someone else's spreadsheet, and the cost is paid in six weeks by you.
+
+The underlying principle: your job in estimation is to transfer your uncertainty accurately, not to eliminate it for the listener's comfort.
+</details>
+
+### What would you do — the review
+
+You are reviewing a PR from an engineer who joined three weeks ago. The feature works and the tests pass. The code also uses a pattern your team abandoned two years ago for good reasons, has three functions that each do two things, and names a variable `data`. It is Friday afternoon and they are clearly proud of it.
+
+<details>
+<summary>How a senior engineer reasons about it</summary>
+
+Two separate questions are hiding here, and conflating them is what makes code review go badly.
+
+**What must change before merge?** Only what is genuinely load-bearing: the abandoned pattern, if it will cause real problems or spread. Naming and function decomposition are worth mentioning but are not merge blockers on a working feature from someone still learning the codebase.
+
+**What are you actually teaching?** A new joiner is calibrating on this review — not just on what you said, but on how much of it there is. Twenty comments reads as "you did badly," regardless of what each one says. Three comments with reasoning attached reads as "here is how we think here."
+
+So: pick the one structural thing, explain *why* the team moved away from that pattern (the reason, not the rule — they cannot infer institutional history), and offer to pair on it rather than leaving them to guess at what you want. Mark the nits explicitly as nits, or leave them for a follow-up. Say what was good, specifically, because you have information they don't: which parts were hard.
+
+And the meta-point about Friday afternoon: if the change is not urgent, a review that lands as a conversation on Monday is often better than one that lands as a wall of text at 5pm. Delivery timing is part of the message.
+</details>
+
+### Go check
+
+- Find a decision your team made in the last six months that is not written down anywhere. Write the ADR for it — context, decision, consequences, alternatives — and share it. Notice how much you had to reconstruct, and how much of the reasoning nobody remembers.
+- Read the last three PRs you reviewed. Count how many of your comments explained *why* versus stated *what*. Count how many were nits with no label.
+- Look at your last estimate that was wrong. Was it wrong because the work was harder than you thought, or because you estimated a different scope than the one you were handed? These have different fixes.
+- Ask one person you work with what they wish you did differently. Then say nothing except "thank you" and think about it for a week.
 
 
 ---

@@ -886,3 +886,86 @@ The strategic question is *when* migrations run in your pipeline. Options:
 ## Summary
 
 The through-line of this chapter is that the database is not a black box. EF Core is a productivity multiplier, but only if you know what SQL it generates — when it tracks, when it round-trips, when `Include` explodes into a cartesian product. Underneath, indexes, execution plans, transactions, and isolation levels determine whether your system is fast and correct or slow and subtly broken. Around it, caching removes load, NoSQL stores handle shapes relational tables handle poorly, concurrency tokens protect you from lost updates, and disciplined migrations let your schema evolve safely. A senior developer moves fluidly between these layers, always asking the same question: *what is actually happening at the database, and is it the least work required to be correct?*
+
+## Exercises
+
+### Find the bug
+
+This endpoint is correct, passes its integration test against a seeded database of 20 orders, and brings production to its knees.
+
+```csharp
+app.MapGet("/api/customers/{id:int}/summary", async (int id, AppDbContext db) =>
+{
+    var customer = await db.Customers.FindAsync(id);
+    if (customer is null) return Results.NotFound();
+
+    var orders = await db.Orders
+        .Where(o => o.CustomerId == id)
+        .ToListAsync();
+
+    var lines = new List<OrderLineDto>();
+    foreach (var order in orders)
+    {
+        foreach (var line in order.Lines)          // navigation property
+            lines.Add(new OrderLineDto(line.Sku, line.Quantity, line.Product.Name));
+    }
+
+    return Results.Ok(new SummaryDto(customer.Name, orders.Count, lines));
+});
+```
+
+How many queries does this execute for a customer with 200 orders averaging 5 lines each?
+
+<details>
+<summary>Answer</summary>
+
+Roughly **1 + 1 + 200 + 1000 = 1,202 queries**, assuming lazy loading is enabled.
+
+- 1 for the customer, 1 for the orders.
+- `order.Lines` was never loaded, so each iteration triggers a separate query — 200 of them.
+- `line.Product.Name` triggers another per line — about 1,000 more.
+
+This is the **N+1 problem**, twice, nested. It passes the test because 20 orders means ~120 queries against a local database, which is fast enough that nobody notices.
+
+Two things make it worse than it looks. First, if lazy loading is *not* enabled, `order.Lines` is an empty collection and the endpoint silently returns wrong data instead of being slow — a worse failure. Second, each of those queries takes a connection from the pool, so this endpoint under concurrency exhausts the pool and degrades endpoints that have nothing to do with it.
+
+The fix is to project what you need in one query:
+
+```csharp
+var summary = await db.Orders
+    .Where(o => o.CustomerId == id)
+    .SelectMany(o => o.Lines)
+    .Select(l => new OrderLineDto(l.Sku, l.Quantity, l.Product.Name))
+    .AsNoTracking()
+    .ToListAsync();
+```
+
+Note `AsNoTracking()` — nothing here is being modified, so paying for change tracking on 1,000 entities is pure waste. And note that the projection means EF never materialises the `Product` entity at all; it selects the single column it needs.
+</details>
+
+### What would you do
+
+A report query takes 40 seconds. A colleague proposes adding a Redis cache in front of it with a 5-minute TTL. The execution plan shows a clustered index scan over 12 million rows and a hash match spilling to tempdb. What do you say?
+
+<details>
+<summary>How a senior engineer reasons about it</summary>
+
+The cache is not wrong, but it is being proposed as a substitute for understanding, and that has costs the proposer has not priced:
+
+- **It hides the problem without bounding it.** The scan still runs — once every five minutes, plus on every cold start, plus on every cache eviction. Under enough concurrency, several requests miss simultaneously and you get a stampede: five copies of a 40-second query running at once, which is worse than the uncached case.
+- **It adds a correctness question** nobody asked yet: is five-minute-stale data acceptable for this report? Perhaps it is. That should be a stated decision, not a side effect of a performance fix.
+- **The plan is telling you exactly what is wrong.** A scan plus a spill means either a missing index, or a predicate that isn't sargable (a function applied to the column, an implicit type conversion, a leading wildcard), or a query returning far more rows than it needs.
+
+So the answer is "probably both, in this order": read the plan, fix the scan — usually a covering index or a rewritten predicate — and *then* decide whether caching is still needed. A 40-second query that becomes 200ms may not need a cache at all, and you have removed a component, a failure mode, and a staleness question rather than adding them.
+
+The generalizable point: caching is a legitimate tool for load you understand and have chosen not to pay repeatedly. It is a poor tool for making an unexamined query disappear from a dashboard.
+</details>
+
+### Go check
+
+In your own service:
+
+- Turn on EF Core's sensitive-data query logging in development and load one busy page. Count the queries. Almost everyone is surprised at least once.
+- Find a read-only query path that does not use `AsNoTracking()`. Measure the difference on a realistic result set.
+- Take your slowest known query and look at its actual execution plan — not the estimated one. Is there a scan where you expected a seek? Which index did the optimizer pick, and why not the one you assumed?
+- Check the isolation level your transactions actually run at. Most people say "read committed" and are right; some are running under snapshot or serializable without knowing, and it explains their deadlocks.

@@ -383,3 +383,52 @@ You don't have to pick forever, but knowing which one energizes you tells you wh
 > **The through-line of this entire chapter: senior engineering is the multiplication of impact through other people and good judgment, not the maximization of your personal code output. Every skill here — clear writing, kind reviews, honest estimates, blameless post-mortems, deliberate mentoring, sound judgment, real ownership — is a lever. Master the levers, and your impact stops being bounded by your own two hands.**
 
 You already have the technical foundation. The path from middle to senior runs straight through this chapter. Start with one lever — pick the weakest one — and practice it deliberately this week.
+
+## Exercises
+
+The drills in the technical chapters have answers you can check against a compiler. These do not, which is the point — the skills in this chapter are judgment, and judgment is practised by reasoning through situations before you are in them.
+
+### What would you do — the estimate
+
+Your product manager asks how long a feature will take. You genuinely do not know: it depends on whether a third-party API supports bulk operations, which the documentation does not say. They need a number for a roadmap slide by end of day. Saying "I don't know" has not gone well before.
+
+<details>
+<summary>How a senior engineer reasons about it</summary>
+
+The trap is treating this as a choice between a number you don't believe and a refusal. It is neither.
+
+What the PM actually needs is not a number — it is the ability to plan. Those are different, and the second is something you can give honestly:
+
+- **Name the uncertainty and its size.** "If the API supports bulk operations, about a week. If it doesn't, we need a queue and retry handling, which is closer to three. I can find out which by tomorrow afternoon."
+- **Offer to buy the information.** A half-day spike converts an unbounded range into a real estimate. Almost every PM will take that trade, because a roadmap built on a fabricated number is their problem, not yours, and they know it.
+- **If the slide truly cannot wait**, give the range with the assumption attached in writing — "3 weeks, assuming no bulk API; I'll confirm Thursday" — and follow up when you know. The written assumption is what protects both of you later.
+
+What not to do: give the optimistic number because it is the one that ends the conversation. That is the estimate that becomes a commitment in someone else's spreadsheet, and the cost is paid in six weeks by you.
+
+The underlying principle: your job in estimation is to transfer your uncertainty accurately, not to eliminate it for the listener's comfort.
+</details>
+
+### What would you do — the review
+
+You are reviewing a PR from an engineer who joined three weeks ago. The feature works and the tests pass. The code also uses a pattern your team abandoned two years ago for good reasons, has three functions that each do two things, and names a variable `data`. It is Friday afternoon and they are clearly proud of it.
+
+<details>
+<summary>How a senior engineer reasons about it</summary>
+
+Two separate questions are hiding here, and conflating them is what makes code review go badly.
+
+**What must change before merge?** Only what is genuinely load-bearing: the abandoned pattern, if it will cause real problems or spread. Naming and function decomposition are worth mentioning but are not merge blockers on a working feature from someone still learning the codebase.
+
+**What are you actually teaching?** A new joiner is calibrating on this review — not just on what you said, but on how much of it there is. Twenty comments reads as "you did badly," regardless of what each one says. Three comments with reasoning attached reads as "here is how we think here."
+
+So: pick the one structural thing, explain *why* the team moved away from that pattern (the reason, not the rule — they cannot infer institutional history), and offer to pair on it rather than leaving them to guess at what you want. Mark the nits explicitly as nits, or leave them for a follow-up. Say what was good, specifically, because you have information they don't: which parts were hard.
+
+And the meta-point about Friday afternoon: if the change is not urgent, a review that lands as a conversation on Monday is often better than one that lands as a wall of text at 5pm. Delivery timing is part of the message.
+</details>
+
+### Go check
+
+- Find a decision your team made in the last six months that is not written down anywhere. Write the ADR for it — context, decision, consequences, alternatives — and share it. Notice how much you had to reconstruct, and how much of the reasoning nobody remembers.
+- Read the last three PRs you reviewed. Count how many of your comments explained *why* versus stated *what*. Count how many were nits with no label.
+- Look at your last estimate that was wrong. Was it wrong because the work was harder than you thought, or because you estimated a different scope than the one you were handed? These have different fixes.
+- Ask one person you work with what they wish you did differently. Then say nothing except "thank you" and think about it for a week.
