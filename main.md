@@ -11921,7 +11921,7 @@ The recurring theme across this chapter: an LLM is a powerful but unreliable com
 
 # Chapter 20: Networking & Web Fundamentals
 
-_⏱️ Estimated read time: ~25 min · 4437 words (study pace)_
+_⏱️ Estimated read time: ~35 min · 6551 words (study pace)_
 
 Most application bugs that keep senior engineers up at night are not really *code* bugs. They are *network* bugs wearing a code costume. A method that works flawlessly on your laptop times out in production. A service that handled a thousand requests per second suddenly throws `SocketException` under load. A cross-origin `fetch` gets blocked by the browser for reasons nobody on the team can quite articulate.
 
@@ -12327,6 +12327,109 @@ var response = await client.GetAsync(url, cts.Token);
 ```
 
 > **Best practice:** Combine timeouts, retries (with **exponential backoff and jitter** so retries don't stampede in lockstep), and **circuit breakers** (stop hammering a failing dependency) — the resilience trio. In .NET, `Microsoft.Extensions.Http.Resilience` (built on Polly) wires all three into `IHttpClientFactory` declaratively; Chapter 21 builds the full pipeline and explains how the strategies layer.
+
+## Abuse, Bots, and Traffic You Did Not Ask For
+
+The rate limiter in the previous section is configured for a *cooperative* world: a well-meaning client with a runaway retry loop, a mobile app polling too eagerly, a partner integration that misread the docs. Set a limit, return `429`, they back off, everyone is happy.
+
+This section is about the other case, where the client on the other end does not want to back off, controls more IP addresses than you do, and is reading your responses to work out what your limits are. The controls look superficially similar and the design thinking is completely different.
+
+### The traffic mix has changed
+
+If you have not looked at your logs recently, the composition may surprise you: across the public web, automated traffic is now roughly half of all requests, and a growing share of it is AI-related — crawlers building training corpora, retrieval bots fetching pages on behalf of a user's question, and agents browsing on someone's behalf. Sites hosting documentation, product catalogs, or any substantial body of text routinely see these bots requesting every page, repeatedly, ignoring the caching semantics a browser would respect.
+
+The result is a genuinely new operational problem: **a capacity and cost event that is not an attack**. Nobody is trying to hurt you. Your origin is being hammered, your egress bill is up, your database is serving cache-missing queries for pages no human has read in a year, and there is no malice to point at.
+
+**`robots.txt` is a request, not a control.** It is a convention that well-behaved crawlers honour voluntarily. Compliance among AI-related crawlers is inconsistent — some respect it, some respect it only for the crawler you have named and not for their retrieval fetcher, and some ignore it. Publishing a `robots.txt` is worth doing and settles nothing.
+
+**User-agent blocking is barely better.** The user agent is a string the client chooses. It is useful for *identifying cooperative* bots, and useless against anything that would rather not be identified.
+
+What actually works, in order of robustness:
+
+- **Verified identity for the crawlers that support it.** The major crawlers publish either IP ranges or a reverse-DNS verification procedure (resolve the client IP to a hostname, confirm it is in their domain, resolve that hostname back). This lets you *allow* the ones you want — search engines you benefit from — with confidence, and treat everything claiming to be them without proof as unidentified.
+- **Behavioural signals**, which are hard to fake because they are properties of the traffic rather than claims about it: request rate per source, breadth of URL space touched (a human reads a handful of pages; a crawler walks your sitemap), absence of asset requests (bots fetch HTML and skip the CSS, fonts and images a browser would), session shape, and cache-header indifference.
+- **Cost asymmetry.** Make the expensive things cheap for you and expensive for them: serve aggressively cached, CDN-fronted responses to unidentified clients so the origin is never touched, and reserve dynamic, database-backed rendering for authenticated sessions.
+- **Proof-of-work or challenge interstitials** for unidentified clients, which invert the economics — a challenge costs a real user a moment and costs a scraper CPU time per page across millions of pages.
+
+> **Best practice.** Decide your *policy* before you reach for tooling: which bots do you want (search engines that send you traffic), which are you indifferent to, and which are pure cost? Then implement the policy at the CDN, not in your application. An origin that never sees the request is the only origin that scales.
+
+### DDoS, by layer
+
+"We got DDoS'd" describes two quite different events, and the distinction determines who can do anything about it.
+
+**Volumetric / protocol attacks (L3–L4)** aim to saturate your bandwidth or exhaust connection state: UDP floods, SYN floods, amplification via DNS or NTP reflectors. The defining property is that the traffic never reaches your application, and often never reaches your network at all — the pipe fills first. **You cannot mitigate this in your code.** It is absorbed upstream, by your provider's scrubbing capacity (AWS Shield, Azure DDoS Protection, Cloudflare and similar). Your engineering job is done in advance: be behind such a service, know whether the tier you are on includes what you think it does, and know who to call.
+
+**Application-layer attacks (L7)** send requests that look legitimate but are chosen to be expensive: your search endpoint with pathological queries, your report generator, your login endpoint, a URL pattern that misses every cache. Volume can be modest — a few thousand requests per second of the *right* requests will fall over a service that handles a hundred thousand of the wrong ones. This one *is* yours, and it is where the rest of this section lives.
+
+> **Gotcha.** The most common self-inflicted L7 amplifier is a cache key that includes something the client controls freely — a tracking query parameter, a random cache-buster, a header you varied on. Every request becomes a miss, and your CDN faithfully forwards all of it to your origin. Normalize cache keys, and strip unknown query parameters at the edge.
+
+### Rate limiting against someone who is trying
+
+Three design decisions separate a limiter that inconveniences an attacker from one that merely inconveniences your users.
+
+**What you key on decides everything.** The choice is a trade between how easily an attacker escapes it and how much collateral damage it does:
+
+| Key | Attacker escapes by | Collateral damage |
+|---|---|---|
+| IP address | Using a botnet, a proxy pool, or IPv6 (where a single customer may hold a /64 — billions of addresses) | High: corporate NAT, university networks, and mobile carrier CGNAT put thousands of real users behind one IP |
+| API key / account | Registering more accounts | Low, but only covers authenticated traffic |
+| Tenant | — | Low; the right unit for a B2B product, and the one that protects tenants from each other |
+| Device or session fingerprint | Clearing state (cheap) | Moderate |
+
+The practical answer is layered: a generous IP-based limit as a blunt backstop, a real per-account or per-tenant limit as the meaningful control, and — critically — for unauthenticated endpoints, an IPv6 limit applied to the **/64 prefix** rather than the individual address. Limiting per IPv6 address is close to no limit at all.
+
+**Where the counter lives decides whether it works.** ASP.NET Core's built-in rate limiter holds its state **in the process**. With ten replicas behind a load balancer, a "100 requests per minute" policy is really up to 1,000 per minute, and it resets whenever a pod is recycled — which an attacker with any patience will discover. In-process limiting is a fine *self-protection* mechanism (it stops one instance from being overwhelmed) but it is not a system-wide policy. For that you need a shared counter — Redis, or the limiter your API gateway/CDN provides — and the further out you push it, the less of the attack reaches anything you pay for.
+
+```
+  attacker ──► [ CDN / WAF ]  ← cheapest place to say no; attack never costs you
+                    │
+                    ▼
+              [ API gateway ]  ← shared counters, per-key policy
+                    │
+                    ▼
+              [ your service ] ← in-process limiter as self-protection only
+```
+
+**The algorithm should match the shape of legitimate use.** Fixed windows are the simplest and have a boundary flaw an attacker will find — a client can send a full window's allowance at 11:59:59 and again at 12:00:00, doubling the intended rate at the seam. Sliding windows fix that at the cost of more state. Token buckets are usually the right default for APIs because real clients are bursty: a burst allowance that refills steadily accommodates a page load firing twelve requests at once without permitting a sustained flood. And **concurrency limits** are the underrated one — for expensive endpoints, "at most N of these running at a time" protects the resource far better than a rate does, because it bounds the actual thing that runs out.
+
+> **Pitfall.** Do not leak your limits in the failure path. A `429` is fine and correct. A `429` whose body explains the exact policy, plus headers counting down remaining quota, hands an attacker the tuning parameters for their script. Publish limits in your documentation for legitimate integrators; don't narrate them per-request to unauthenticated clients.
+
+### Credential stuffing and account takeover
+
+Someone else's breach is your incident. Attackers take a leaked email/password corpus and replay it against your login endpoint, relying on password reuse; a success rate of a fraction of a percent across millions of attempts is a profitable afternoon.
+
+What distinguishes it from a brute-force attack is the shape: **one or two attempts per account, across an enormous number of accounts**, from many source addresses. Per-account lockout — the classic defence — barely registers against it, because no account is attacked twice.
+
+Defences that match the actual shape:
+
+- **Check passwords against breach corpora** at registration and at password change (the Have I Been Pwned range API does this without you ever sending a password — you send the first five characters of the SHA-1 hash and search the returned suffixes locally). This removes the attack's entire premise for your users.
+- **Passkeys / WebAuthn**, which have no shared secret to stuff (Chapter 14). This is the real fix, and it is now practical.
+- **Rate limit on the global failure rate for the endpoint**, not just per account: a sudden jump in the ratio of failed to successful logins is the signal, and it is visible even when every individual account looks quiet.
+- **Risk-based friction** — a challenge or a second factor when the request comes from an unfamiliar device, an unusual geography, or a source already failing elsewhere — rather than uniform friction that trains users to click through.
+
+> **Gotcha — lockout is a denial-of-service vector.** "Five failed attempts locks the account" means anyone who knows a user's email can lock them out at will. If you must lock, lock the *attempt source* rather than the account, use exponential backoff rather than a hard block, and make sure your recovery flow is not itself the easier attack.
+
+### Denial of wallet
+
+Elastic infrastructure changed the objective. Against a fixed-capacity server, an attacker's win is making it fall over. Against an autoscaling one, the service stays up and *you pay for the attack*. Nothing alerts, because nothing is broken — the graph you would notice is on a finance dashboard nobody watches hourly.
+
+The endpoints that make this profitable are the ones where a small request buys a large amount of work:
+
+- **LLM endpoints**, where one crafted request can trigger a long retrieval, a large context, and a multi-step agent loop — dollars per request, and the reason Chapter 19 treats unbounded consumption as a first-class risk.
+- **Search and report generation**, where a pathological query scans everything.
+- **Export and download**, which converts directly into egress charges.
+- **Image and document processing**, where a small upload becomes minutes of CPU.
+- **Anything that fans out** to paid third-party APIs on your account.
+
+The defences are unremarkable and must exist before launch rather than after the invoice: hard per-user and per-tenant quotas on expensive operations specifically (your global API rate limit is not sized for them), a bounded cost budget per request, request-size and complexity limits (including query depth if you expose GraphQL), and **alerting on rate of spend rather than absolute spend** — a monthly budget alarm tells you about last night four weeks late. Chapter 28 covers the cost-management side.
+
+### Shed load deliberately
+
+When capacity does run out — from attack, from a launch, from a dependency slowing down — the difference between a bad hour and an outage is whether you chose what to drop.
+
+The default behaviour is the worst one: every request is accepted, every request queues, every request times out, and nobody is served while all the work is done anyway. Under overload, **rejecting early is a service, not a failure.** Return `429` or `503` with `Retry-After` promptly rather than accepting work you cannot finish.
+
+Then choose your priority order in advance, because you will not design it well at 3 a.m.: authenticated over anonymous, paying tenants over free, checkout over browsing, writes over analytics. Wire it as a queue policy or a concurrency limiter per class of traffic, and — this is the part teams miss — **load-test the degraded path**. A graceful degradation nobody has exercised is a hypothesis. Chapter 21's material on failure injection is how you turn it into a fact.
 
 ## The Fallacies of Distributed Computing
 
