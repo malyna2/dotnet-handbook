@@ -300,6 +300,140 @@ builder.Configuration.AddAzureKeyVault(
 
 > **Best practice — rotation.** Secrets should be rotated regularly and immediately upon suspected compromise. Design for rotation from day one: fetch secrets at runtime (or cache briefly) rather than baking them into a build, and support two valid keys during a rollover window so nothing breaks mid-rotation.
 
+## Zero Trust and Workload Identity
+
+Secrets management, above, is about storing credentials safely. This section is about the better move: **not having them.**
+
+### What zero trust actually claims
+
+Strip away the marketing and zero trust is one architectural assertion: **network position confers no trust.** Being inside the VPC, behind the firewall, or on the corporate LAN tells you nothing about whether a request is legitimate. Every request — including service-to-service requests that never leave your cluster — is authenticated and authorized on its own merits.
+
+The model it replaces is the *castle and moat*: a hard perimeter with a soft interior, where anything that got inside was assumed friendly. That model failed for reasons that are now obvious. Attackers get inside — through a phished laptop, a compromised dependency, an SSRF bug, a misconfigured bucket — and once inside, a flat trusted network hands them everything. Most large breaches of the last decade are lateral-movement stories, not perimeter-breach stories.
+
+Three practical consequences for a backend engineer:
+
+- **Authenticate every hop.** `OrderService` calling `PaymentService` must prove who it is, every call, even over a private subnet.
+- **Authorize every call.** Identity is not permission. `OrderService` may call `PaymentService.Charge` and nothing else.
+- **Assume breach.** Design so that a compromised service is a contained incident rather than a full one — short-lived credentials, narrow scopes, audited access.
+
+> **Pitfall.** "Zero trust" is also a product category, and vendors will sell you a gateway and call it done. The architecture is not a product. A team that buys the gateway but still runs services with a shared static API key and a flat network has bought a logo.
+
+### The problem: how does a service prove *what it is*?
+
+Human authentication is well understood — you know a password, hold a device, present a passkey. Service authentication is harder, and the traditional answer is embarrassing when written down: we give the service a long-lived secret and hope nobody else reads it.
+
+That secret has to be provisioned somehow, which creates the *secret zero* problem — the credential the service uses to fetch its other credentials from the vault. Wherever that lives (an environment variable, a file, a Kubernetes Secret, a build pipeline variable), it is a static string that grants access, never expires on its own, and is copied into every replica, every log that accidentally dumps the environment, and every core file.
+
+**Workload identity** replaces it with attestation. Instead of the workload *knowing* a secret, the platform *vouches* for the workload: the infrastructure it runs on already knows it scheduled this container, from this image, in this namespace, under this service account, and can sign a statement to that effect. The workload presents that short-lived, verifiable statement instead of a password.
+
+```
+  static secret                          workload identity
+  ─────────────                          ─────────────────
+  service holds SECRET_KEY               platform attests: "this is
+  forever, everywhere                    payments-api in ns=prod"
+        │                                        │
+        ▼                                        ▼
+  leak = compromise until                 identity document, valid
+  someone notices and rotates             for minutes, bound to the
+  (median: never)                         workload, not copyable
+```
+
+### SPIFFE and SPIRE
+
+**SPIFFE** (Secure Production Identity Framework For Everyone) is the vendor-neutral standard for this. Two concepts:
+
+- A **SPIFFE ID** is a URI naming a workload: `spiffe://prod.contoso.com/ns/payments/sa/payments-api`. It is the *name*, deliberately hierarchical and readable.
+- An **SVID** (SPIFFE Verifiable Identity Document) is the credential proving it — usually a short-lived X.509 certificate with the SPIFFE ID in the SAN, sometimes a JWT.
+
+**SPIRE** is the reference implementation. Its interesting part is the *attestation chain*, which is how it avoids simply moving the secret-zero problem:
+
+1. **Node attestation.** A SPIRE agent on each node proves the node's identity to the server using something the platform already vouches for — an AWS instance identity document, a Kubernetes node token, a TPM. No pre-shared secret.
+2. **Workload attestation.** When a process asks the local agent for its identity, the agent inspects the *calling process* — its PID, and from there its cgroup, container, image, Kubernetes service account — and matches it against registration entries. The workload proves nothing; the platform observes it.
+3. **Issuance and rotation.** The agent hands back an SVID valid for minutes to an hour, and rotates it automatically. Nothing is stored, nothing needs rotating by a human, and a stolen SVID expires before it is useful.
+
+The workload receives its credential over a local Unix socket (the SPIFFE Workload API). It never handles a long-lived key.
+
+### mTLS between services
+
+With every workload holding a short-lived certificate, mutual TLS becomes practical: both sides present certificates, both verify, and the connection carries a cryptographic identity your code can authorize against rather than an IP address it must guess about.
+
+```csharp
+// Authorize on the peer's verified identity, not on where the packet came from.
+app.Use(async (ctx, next) =>
+{
+    var cert = await ctx.Connection.GetClientCertificateAsync();
+    var spiffeId = cert?.Extensions
+        .OfType<X509SubjectAlternativeNameExtension>()
+        .SelectMany(e => e.EnumerateUriNames())
+        .FirstOrDefault(u => u.StartsWith("spiffe://"));
+
+    if (spiffeId is null || !PolicyAllows(spiffeId, ctx.Request.Path))
+    {
+        ctx.Response.StatusCode = StatusCodes.Status403Forbidden;
+        return;
+    }
+    await next();
+});
+```
+
+In practice you rarely write that yourself. A **service mesh** (Istio, Linkerd) puts a sidecar or node proxy in the path that terminates mTLS, rotates certificates, and enforces policy — so mTLS becomes a platform property rather than something each team implements. That is a genuine benefit and a real cost: the mesh hides the identity plumbing, which is fine until you are debugging a 403 that your application code never saw. Know what the mesh is doing on your behalf before you rely on it. Chapter 11 covers the operational side.
+
+> **Gotcha.** mTLS authenticates the *service*, not the *user*. A request arriving from `orders-api` over mTLS still carries an end user whose permissions must be checked separately. Conflating the two is how you build a system where any authenticated service can read any customer's data — the confused deputy, wearing a certificate.
+
+### OIDC federation: killing the last static credential in CI
+
+The most valuable place to apply this is your build pipeline, because that is where the highest-value long-lived credentials traditionally live. Chapter 12 mentions workload identity federation for Azure DevOps service connections; here is the mechanism, because the security of the whole arrangement rests on one configuration detail.
+
+1. Your CI platform runs a job and mints a **short-lived, signed JWT** describing it: issuer (`https://token.actions.githubusercontent.com`), and claims including `repository`, `ref`, `workflow`, `environment`, and a composite `sub`.
+2. The job presents that token to your cloud's STS.
+3. The cloud validates the signature against the CI platform's published JWKS, then checks the token's claims against a **trust policy** you configured.
+4. If it matches, the cloud returns credentials valid for minutes, scoped to a role you defined.
+
+No secret is stored anywhere. Nothing needs rotating. A leaked build log contains, at worst, an expired token.
+
+```yaml
+# GitHub Actions — request an OIDC token, exchange it, hold nothing.
+permissions:
+  id-token: write
+  contents: read
+
+steps:
+  - uses: aws-actions/configure-aws-credentials@v4
+    with:
+      role-to-assume: arn:aws:iam::111122223333:role/deploy-billing
+      aws-region: eu-west-1
+```
+
+```json
+// The trust policy — this condition IS the security boundary.
+{
+  "Effect": "Allow",
+  "Principal": { "Federated": "arn:aws:iam::111122223333:oidc-provider/token.actions.githubusercontent.com" },
+  "Action": "sts:AssumeRoleWithWebIdentity",
+  "Condition": {
+    "StringEquals": {
+      "token.actions.githubusercontent.com:aud": "sts.amazonaws.com",
+      "token.actions.githubusercontent.com:sub": "repo:contoso/billing:environment:production"
+    }
+  }
+}
+```
+
+> **Pitfall — the wildcard that gives away production.** Two mistakes recur, and both are catastrophic. Using `StringLike` with `repo:contoso/*` lets *any* repository in your organization — including a new one a contractor creates, or a public one anyone can fork and open a PR against — assume your production deployment role. Omitting the `sub` condition entirely lets *any GitHub repository on the internet* assume it. Pin `sub` to a specific repository *and* a specific ref or environment, use `StringEquals`, and review these policies the way you would review a firewall rule facing the internet — because that is what they are.
+
+The same pattern works for Azure (federated credentials on an app registration), GCP (Workload Identity Federation), and HashiCorp Vault (the JWT auth method). And it is not only for CI: **managed identities** on Azure, **IRSA / EKS Pod Identity** on AWS, and GKE Workload Identity apply the same idea to running workloads — the platform attests the pod, the cloud issues short-lived credentials, and your `DefaultAzureCredential` or AWS SDK picks them up with no configuration in your code.
+
+### Where it degrades
+
+Zero trust is a direction, not a binary state, and honest engineering means naming the parts that won't get there:
+
+- **Legacy services** that cannot present or validate certificates. Front them with a proxy that terminates mTLS and speaks plain HTTP over a tightly restricted path — and be explicit that the trusted segment is now the last hop.
+- **Third-party SaaS and appliances** that only accept an API key. Scope the key as tightly as the vendor allows, rotate it on a schedule you actually keep, and monitor its use.
+- **Databases**, which mostly still want a username and password. Use IAM/Entra authentication where the engine supports it (RDS IAM auth, Azure SQL with Entra tokens) — that gets you short-lived credentials for the highest-value secret you own.
+- **Break-glass access**, which must exist and must not be behind the same automation everything else is. Make it manual, heavily audited, and alarming when used.
+
+The goal is not a perfect score. It is that the number of long-lived, broadly-scoped credentials in your organization trends toward zero, and that you can name every remaining one.
+
 ## HTTPS, TLS, HSTS, and Certificates
 
 **TLS** (Transport Layer Security, the protocol behind HTTPS) provides three guarantees for data in transit: *confidentiality* (eavesdroppers see ciphertext), *integrity* (tampering is detected), and *authentication* (the certificate proves you're talking to the real server). It is non-negotiable for any application handling credentials or personal data.
@@ -559,4 +693,4 @@ Scanning tells you about *known* vulnerabilities in packages you already trust. 
 
 ## Summary
 
-Security is a discipline of layered, deliberate decisions. Adopt the mindset — defense in depth, least privilege, secure by default, never trust input — and it informs every line you write. Know the OWASP Top 10 as *categories* of failure and the .NET mitigation for each. Distinguish authentication (who you are) from authorization (what you may do), and implement both with the framework's tools rather than reinventing them. Delegate identity to OAuth 2.0 / OIDC with the Authorization Code + PKCE flow, validate JWTs on issuer, audience, expiry, and signature — every time. Keep secrets out of source and in a managed vault, enforce TLS with HSTS, hash passwords with a slow salted algorithm, reach for `IDataProtector` instead of raw crypto, keep your algorithm choices agile — you will have to change them, and the certificate-lifetime clock is already running — and defend the browser boundary with validation, encoding, anti-forgery tokens, tight CORS, and a strong CSP. Finally, scan your dependencies continuously — because the vulnerability you didn't write is still yours to fix.
+Security is a discipline of layered, deliberate decisions. Adopt the mindset — defense in depth, least privilege, secure by default, never trust input — and it informs every line you write. Know the OWASP Top 10 as *categories* of failure and the .NET mitigation for each. Distinguish authentication (who you are) from authorization (what you may do), and implement both with the framework's tools rather than reinventing them. Delegate identity to OAuth 2.0 / OIDC with the Authorization Code + PKCE flow, validate JWTs on issuer, audience, expiry, and signature — every time. Keep secrets out of source and in a managed vault — then go further and delete them, replacing static credentials with platform-attested workload identity and short-lived tokens; enforce TLS with HSTS, hash passwords with a slow salted algorithm, reach for `IDataProtector` instead of raw crypto, keep your algorithm choices agile — you will have to change them, and the certificate-lifetime clock is already running — and defend the browser boundary with validation, encoding, anti-forgery tokens, tight CORS, and a strong CSP. Finally, scan your dependencies continuously — because the vulnerability you didn't write is still yours to fix.
