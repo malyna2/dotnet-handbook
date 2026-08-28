@@ -10307,7 +10307,7 @@ You already have the technical foundation. The path from middle to senior runs s
 
 # Chapter 18: The AI-Native Developer — Thriving in the AI Era
 
-_⏱️ Estimated read time: ~55 min · 10570 words (study pace)_
+_⏱️ Estimated read time: ~1 h · 11498 words (study pace)_
 
 For most of your career the deal has been simple: you learn to write code, and in exchange the industry pays you well to write it. That deal is being renegotiated in real time. By 2025 and into 2026, a competent AI coding assistant can produce a working REST endpoint, a unit test suite, an EF Core migration, or a plausible refactor faster than you can open the file. The raw act of turning a clear specification into syntactically correct C# — the thing you spent years getting good at — has largely been commoditized. That is not a threat to be defended against. It is a promotion, if you understand what you are being promoted into.
 
@@ -10471,6 +10471,21 @@ Keep it short and true. A bloated, aspirational rules file is worse than none be
 
 > **Rule of thumb:** Before a big task, ask "does the agent have what a new senior hire would need to do this well, and *nothing that would mislead them*?" Supplying that — and only that — is context engineering.
 
+### Workflow assets: making the setup a team artifact
+
+Everything in this part so far is a technique *you* apply. The step that separates a productive individual from a productive team is turning those techniques into **artifacts that live in the repository**, reviewed and versioned like code. The test is simple: if a new hire clones the repo and starts an agent, do they get your team's workflow, or do they get the defaults?
+
+Four kinds of asset are worth maintaining:
+
+- **A conventions file** (`AGENTS.md`, `CLAUDE.md`, or whatever your tool reads) at the repo root — the standing context every session starts with. What this project is, how to build and test it, the patterns this codebase uses, and, most valuable of all, the corrections: the things a model reliably gets wrong here. This is the single highest-return file in the repository, because it applies to every session by every person forever, and because it is where the "second time you correct the model, write it down" rule accumulates.
+- **Reusable prompts and skills** — the multi-step procedures your team performs repeatedly: how to add an endpoint the house way, how to write a migration, the release checklist, the incident-triage walkthrough. A procedure written down once and invoked by name beats the same procedure retyped from memory with a different omission each time.
+- **Permission and tool configuration** — the allowlist of commands agents may run unattended, the MCP servers a session may reach, and the destructive operations that always require a human. Checking this in means the safety posture is a reviewed decision rather than each developer's individual risk appetite.
+- **Hooks and automation** — deterministic actions wired around the agent: run the formatter after every edit, block a commit that touches a protected path, run the fast test suite before the agent declares itself done. Anything you'd otherwise have to *remember to ask for* belongs here, because a hook fires every time and a reminder in a prompt does not.
+
+> **Best practice — treat them as code, because they are.** These files go through pull request review, they get updated when they're wrong, and they get deleted when they're stale. A conventions file that describes the architecture from eighteen months ago is worse than none: it actively steers every agent on the team toward a structure that no longer exists, and nobody notices because nobody reads it — the model does.
+
+> **Pitfall — the bloated conventions file.** The failure mode is a 600-line document accumulating every rule anyone ever wanted, which burns context on every single request and buries the ten rules that matter. Keep it short and specific to *this* repo. If a rule is generic good practice the model already follows, delete it; you are paying tokens to state the obvious. The right length is the set of corrections that are surprising here.
+
 ### Spec-driven, plan-first development
 
 The reliable way to get good agentic output is to stop firing off one-line requests for non-trivial work and instead **write a spec, get a plan, then implement**. This mirrors how you'd hand work to a strong junior: you wouldn't say "add billing" and walk away.
@@ -10569,7 +10584,7 @@ The most valuable practices aren't individual tricks; they're *systemic* — AI 
 
 - **AI code review bots.** A bot reviews every PR, flagging likely bugs, security issues, and convention violations before a human looks. It never replaces human review, but it catches the obvious and lets humans focus on design. Treat its comments as a strong linter with opinions.
 - **PR and change summarization.** Auto-generated PR descriptions and release notes from the diff. Small time-saver, real consistency win, and it makes review faster because the reviewer starts oriented.
-- **AI in CI.** Beyond running the agent in a pipeline: agents that triage a failing build, propose a fix, and open a follow-up PR; agents that auto-fix lint and formatting; agents that attempt a first pass at a failing test.
+- **AI in CI.** Beyond running the agent in a pipeline: agents that triage a failing build, propose a fix, and open a follow-up PR; agents that auto-fix lint and formatting; agents that attempt a first pass at a failing test. The design question is the same one that governs any pipeline stage — what credentials does it hold, and what can it do unsupervised? An agent stage should run with a scoped token, push to a branch rather than to `main`, and produce a pull request a human merges. An agent with write access to protected branches is not a CI stage; it's an unreviewed deploy path.
 - **Test generation.** Agents that fill coverage gaps — characterization tests around legacy code before a refactor, edge-case tests for a new endpoint. Always human-reviewed, because a test that asserts the current (possibly buggy) behavior is worse than none.
 - **Incident and on-call copilots.** During an incident, an agent that reads logs, correlates recent deploys, queries dashboards, and drafts a hypothesis and a timeline. It compresses the frantic first ten minutes of an incident.
 - **Docs generation.** Keeping API docs, runbooks, and architecture notes in sync with code — a chronically neglected task that agents are well-suited to.
@@ -10579,6 +10594,19 @@ The most valuable practices aren't individual tricks; they're *systemic* — AI 
 Leading engineering orgs, including Anthropic itself, have written publicly about running large fleets of coding agents internally, treating agent instructions and evals as first-class artifacts, and using agents heavily in their own development. The transferable lesson isn't any single proprietary detail; it's the *posture*: make AI a maintained part of your platform and process, with the same rigor — version control, review, testing, evals — you apply to code.
 
 > **Takeaway:** The biggest wins come from putting AI into shared infrastructure — review bots, CI, golden paths — not just individual laptops. That's where a team's productivity compounds.
+
+### Measuring whether any of this is working
+
+The uncomfortable question, and the one a senior engineer should be able to answer rather than assert: **is the team actually faster?** Published studies have found effects ranging from large speedups to a measured *slowdown* among experienced developers on codebases they know well — who nonetheless believed they had been faster. That last detail is the important one. Perceived productivity is an unreliable instrument here, because the felt experience of an agent working is one of constant motion, and motion reads as progress.
+
+You don't need a research programme to do better than vibes, but you do need to measure the *outcome*, not the activity:
+
+- **The wrong metrics** are lines of code, number of PRs, and percentage of code AI-generated. Every one of them improves when the agent writes verbose, duplicative code that a human then has to review and later maintain. Optimizing them makes things worse while the dashboard turns green.
+- **The right metrics** are the ones you already track for delivery (Chapter 12): cycle time from start to merge, change failure rate, and how often changes get reverted. If AI is helping, work gets to production faster *without* the defect rate rising. If change failure rate climbs while cycle time drops, you have found the trade you're actually making.
+- **Review time is the leading indicator.** The bottleneck moves to verification, so watch time-to-first-review and how long diffs sit. If PRs are appearing faster than they're being read, throughput hasn't increased — the queue has.
+- **Token spend per merged PR** is the honest cost metric, and worth knowing before someone in finance asks. It also tells you when parallel agents and huge contexts have stopped paying for themselves.
+
+> **Takeaway.** Run the comparison on your own team rather than importing a headline number, because the effect genuinely varies with codebase familiarity, task type, and how good your workflow assets are — the same tool is a large win on unfamiliar code and can be a net loss on a codebase you know cold. And be willing to hear the answer: a practice that isn't working on a particular kind of task is worth knowing about, and "we use AI for everything" is a slogan, not an engineering decision.
 
 ### Verification and trust discipline
 
@@ -10796,11 +10824,11 @@ So far the AI has been your collaborator. The next chapter flips the relationshi
 
 # Chapter 19: Building AI-Powered Systems
 
-_⏱️ Estimated read time: ~35 min · 6165 words (study pace)_
+_⏱️ Estimated read time: ~1 h · 10851 words (study pace)_
 
 Chapter 18 was about *using* AI to write software. This chapter flips the relationship: now the AI model is a *component inside* the software you ship. This is a different discipline. When you use an assistant to write a function, you review the output once and move on. When you embed a model in a running system, that model produces fresh, non-deterministic output on every request, for every user, forever — and you own the consequences. That single fact reshapes how you design, test, and operate the application.
 
-This chapter is a practical field guide to the popular AI system archetypes of 2025–2026 — retrieval-augmented generation (RAG), chatbots, and agents — with a .NET focus. We will build up from fundamentals (how to reason about an LLM as a component) through the modern .NET AI stack, and finish with the unglamorous production concerns that separate a demo from a product: evaluation, observability, cost, and safety.
+This chapter is a practical field guide to the popular AI system archetypes of 2025–2026 — retrieval-augmented generation (RAG), chatbots, workflows, and agents — with a .NET focus. We will build up from fundamentals (how to reason about an LLM as a component) through the modern .NET AI stack, and finish with the unglamorous production concerns that separate a demo from a product: evaluation, observability, cost, and safety. A theme worth flagging up front, because it shapes half the decisions in this chapter: the interesting engineering question is rarely *which model*, it is **how much of the control flow you keep in your own code** — and the answer is almost always "more than the demo suggests".
 
 ## Thinking about an LLM as a component
 
@@ -10950,6 +10978,23 @@ await builder.Build().RunAsync();
 
 > **When *not* to build one:** if the tools are only ever used by a single application you control, plain function calling is simpler and has fewer moving parts. MCP earns its keep at integration boundaries — across teams, products, or organizations — not inside one service. Also: exposing tools via MCP is exposing an API surface. Apply the same authentication, authorization, and rate limiting you would to any public endpoint.
 
+### Agent-to-agent interop (A2A)
+
+MCP standardizes the connection between an agent and its *tools*. The complementary question is how one agent talks to **another agent** — one it doesn't own, running in another team's system or another company's cloud. **A2A** (the Agent2Agent protocol, contributed to the Linux Foundation) is the emerging standard for that: an agent publishes an **agent card** describing what it can do and how to reach it, and clients delegate **tasks** to it over HTTP, following the task's progress to completion.
+
+The distinction is worth holding precisely, because the two protocols get conflated:
+
+| | MCP | A2A |
+|---|---|---|
+| Connects | An agent to tools and data | An agent to another agent |
+| The other side is | A function you call and get a result from | An autonomous peer that works a task on its own |
+| Interaction shape | Request/response within one turn | A long-running task with status updates |
+| Discovery | Server advertises tools at connect time | Agent card advertises capabilities |
+
+> **When *not* to reach for it.** Most systems described as "multi-agent" are one team's services calling each other, and there the right answer is the boring one: an HTTP API with a schema, authenticated and versioned like everything else you ship. A protocol for agent interop earns its keep at the same boundary MCP does — across teams, vendors, or organizations, where neither side can assume anything about the other's implementation. Inside one codebase it is ceremony, and it buys you a discovery mechanism for capabilities you already know exist.
+
+The security posture deserves stating plainly, because it is worse than MCP's. Delegating a task to an external agent means untrusted output from a system you don't control flows back into your model's context — the prompt-injection surface from the safety section, now with an autonomous system on the other end rather than a document. Treat a peer agent's response as untrusted input in every sense: label it as data, never let it directly trigger a privileged tool call, and validate anything it asserts before acting on it.
+
 ## Retrieval-Augmented Generation (RAG)
 
 RAG is the most important application pattern to understand, because it directly attacks the LLM's two biggest weaknesses: its knowledge is frozen at training cutoff, and it knows nothing private. **RAG grounds the model in *your* data by retrieving relevant content at query time and injecting it into the prompt.** The model then answers *from* that content rather than from its parametric memory, which reduces hallucination and — crucially — lets you cite sources.
@@ -11094,7 +11139,7 @@ RAG is not the answer to everything. Reach for alternatives when:
 
 A chatbot layers multi-turn conversation on top of these primitives. The distinctive engineering challenges:
 
-**Conversation state and memory.** The model is stateless, so you store the message history per conversation (in a cache or database, keyed by conversation id) and resend the relevant slice each turn. "Memory" beyond the current window means summarizing or extracting durable facts ("user prefers metric units") into a store and reinjecting them.
+**Conversation state and memory.** The model is stateless, so you store the message history per conversation (in a cache or database, keyed by conversation id) and resend the relevant slice each turn. "Memory" beyond the current window means summarizing or extracting durable facts ("user prefers metric units") into a store and reinjecting them — a subsystem with enough substance of its own that the next section is devoted to it.
 
 **Streaming responses.** Users should see tokens appear as they're generated, not wait for the full answer. Streaming slashes *perceived* latency even when total time is unchanged. In .NET, `IAsyncEnumerable` maps cleanly onto this:
 
@@ -11115,6 +11160,114 @@ await foreach (var update in chat.GetStreamingResponseAsync(messages, options))
 
 **Human handoff.** Know your limits. Detect when the bot is stuck, when the user is frustrated, or when the request is high-stakes (legal, safety, money) and route to a human — with the conversation transcript attached. A graceful handoff beats a confident wrong answer every time.
 
+## Memory: what the system remembers between turns
+
+The chatbot section treated memory as a context-window problem — trim or summarize so the history fits. That is the *tactical* half. The strategic half is deciding what the system should remember at all, for how long, and where it lives, because "memory" is four different mechanisms that teams routinely conflate into one vague feature request.
+
+**Working memory** is the message list for the current conversation. It lives in a cache or a table keyed by conversation id, it is resent in full on every turn, and it is bounded by trimming and rolling summarization. Everything in the chatbot section applies here.
+
+**Episodic memory** is the record of past conversations — what happened in session #47. Usually you don't want it verbatim; you want it *retrievable*. Store the transcripts, embed their summaries, and pull the relevant one back in when the user references it ("like the issue I reported last month"). Note what this is: episodic memory is a RAG problem wearing a different hat, and it should reuse the same retrieval infrastructure rather than growing its own.
+
+**Semantic memory** is durable extracted facts: "prefers metric units", "on the Enterprise plan", "manages the Frankfurt region". These are the ones worth injecting into the system prompt on every turn, because they're small and always relevant. They are produced by an **extraction pipeline** — a background job that reads a finished conversation and proposes facts — not by the chat call itself. Keep the extraction out of the request path; it's slow, and doing it inline makes every turn pay for a benefit that only helps later turns.
+
+**Procedural memory** is learned behavior: instructions the system has accumulated about *how* to act ("this customer always wants the ticket number in the subject line"). In practice this is semantic memory that gets written into the system prompt rather than the context, and it deserves its own review path — a fact the model got wrong is a bad answer, but a *procedure* the model got wrong is a bad answer repeated forever.
+
+### The engineering that actually bites
+
+**Extraction is a write path with a correctness problem.** A model deciding what is "worth remembering" will occasionally promote a transient statement into a permanent fact — the user said "for this order, ship to the office" and the system remembers "ships to the office". Constrain extraction with a schema of allowed fact types, prefer explicit confirmation for anything consequential, and give facts a **provenance** (which conversation, which turn) and a **timestamp** so you can expire and audit them.
+
+**Facts conflict and go stale.** Two conversations produce "prefers email" and "prefers SMS". You need a resolution rule — last-write-wins by timestamp is the honest default — and a decay policy, because a preference from two years ago is not evidence about today. A memory store without expiry becomes a slowly accumulating source of confidently wrong context.
+
+**Memory is a tenancy and privacy boundary, and this is where it gets dangerous.** A memory store is a database of personal statements keyed by user, which means it inherits every obligation from Chapters 14 and 28: it is personal data, it is subject to deletion requests, and it must be isolated per tenant. Two specific failure modes to design against:
+
+- **Cross-tenant bleed.** If retrieval over the memory store isn't filtered by tenant *in the query*, one customer's extracted facts can surface in another's prompt. Filter at the store, not by trimming results afterwards — the same rule as RAG retrieval.
+- **Undeletable memory.** "Delete my data" must reach the memory store, the embeddings derived from it, and any rolling summary that absorbed the fact. A summary is a derived work containing the original personal data; if your deletion job only clears the source table, you have not deleted anything. Keep the link from summary back to its sources so deletion can invalidate and regenerate.
+
+**Memory has a per-turn price.** Every fact injected into the system prompt is billed on every single turn of every conversation, forever. Fifty remembered facts at 20 tokens each is a thousand tokens of overhead on a two-hundred-token question. Cap the number of injected facts, rank them by relevance to the current turn rather than injecting the whole set, and measure the cost line — this is a bill that grows quietly with tenure rather than with traffic.
+
+> **Pitfall.** "Add memory" sounds like a feature and behaves like a subsystem: a write path with its own correctness problems, a store with its own retention and deletion policy, a retrieval step with its own relevance tuning, and a permanent tax on every prompt. Scope it deliberately. Most products need semantic memory over a handful of schema-constrained fact types and nothing else; a general "the assistant remembers everything" is far more system than most features can justify.
+
+## Workflow patterns: the ground between one call and an agent
+
+Most production AI features are neither a single model call nor a free-running agent. They live in the middle: **a workflow** — a control flow *you* write in ordinary C#, with model calls at specific points. The code decides what happens next; the model decides only what to say at each step. That distinction is the whole design space, and getting it right is worth more than any prompt-tuning.
+
+The reason to prefer a workflow is that everything you already know about engineering still applies to it. You can unit-test a stage, log it, retry it, cache it, cap it, and reason about the set of paths through it. An agent's control flow lives inside a model's head, where you can do none of those things. So the discipline is: **push as much structure into code as the problem allows, and spend autonomy only where the problem genuinely refuses to be structured.**
+
+The catalogue below is small and worth knowing by name, because these five compose into nearly everything.
+
+### Prompt chaining
+
+Decompose the task into a fixed sequence of stages, each with its own prompt, each feeding the next. Extract → normalize → classify → draft. Every stage is simpler, cheaper, and more reliable than the monolithic prompt that tried to do all four at once, and — the real prize — you can put a **gate** between stages: a plain `if` in C# that validates the intermediate result and short-circuits when it fails.
+
+```csharp
+// Stage 1: extract, with a schema the model must satisfy.
+var ticket = await _chat.GetResponseAsync<TicketFacts>(
+    $"Extract the reported symptom and any error codes:\n{raw}", options);
+
+// The gate. No model involved — just a decision your code owns.
+if (ticket.Result.ErrorCodes.Count == 0 && ticket.Result.Symptom is null)
+    return TriageResult.NeedsHuman("no technical content");
+
+// Stage 2: only well-formed input ever reaches the expensive stage.
+var diagnosis = await _chat.GetResponseAsync<Diagnosis>(
+    Prompts.Diagnose(ticket.Result, retrievedRunbooks), options);
+```
+
+Chaining trades latency (two round-trips instead of one) for accuracy and debuggability. Take that trade by default: when a chained flow produces a bad answer, the failing stage is *visible* in the trace, and you fix one prompt instead of re-tuning a paragraph that does four jobs at once.
+
+### Routing
+
+Classify the input first, then dispatch to a specialized handler. A support message goes to the refund flow, the technical-troubleshooting flow, or the "hand to a human" flow — each with its own prompt, its own tools, and its own model.
+
+Routing is the highest-leverage pattern in the catalogue for two reasons. First, **specialized prompts beat one general prompt**: a prompt that only handles refunds can be blunt and detailed in a way a prompt covering nine intents cannot. Second, it is where **model cascades** live — the classifier is a tiny, cheap, fast model; only the branches that genuinely need frontier reasoning pay for it. A router that sends 80% of traffic to a small model is usually the single largest cost reduction available to an AI feature, and it costs one extra sub-second call to get.
+
+The classifier itself should return a closed set — an enum constrained by schema, never free text — and your code must handle the "none of these" case explicitly rather than letting an unmatched label fall through to a default branch.
+
+### Parallelization
+
+Two distinct shapes hide under one name:
+
+- **Sectioning** — split the work into independent pieces and run them at once. Review a document for legal risk, tone, and factual accuracy as three concurrent calls, then merge. Each prompt is focused, and total latency is the slowest branch rather than the sum. This is a plain `Task.WhenAll` over `IChatClient` calls.
+- **Voting** — run the *same* task several times (or across several models) and aggregate: take the majority, or flag any disagreement for review. Useful when a false negative is expensive — "does this code change touch authentication?" — and you would rather pay 3× to catch the case a single run misses.
+
+```csharp
+// Sectioning: independent aspects, one round-trip's worth of latency.
+var results = await Task.WhenAll(
+    Review(doc, Aspect.LegalRisk),
+    Review(doc, Aspect.Tone),
+    Review(doc, Aspect.FactualAccuracy));
+```
+
+> **Cost note.** Voting multiplies spend by the number of voters for a *sub-linear* gain in accuracy. Reserve it for the small number of decisions where being wrong is much more expensive than the extra calls — not as a general reliability strategy. Sectioning, by contrast, usually costs about the same as the monolithic prompt it replaces, because you were sending those tokens anyway.
+
+### Orchestrator-workers
+
+A model decomposes the goal into subtasks at runtime, workers execute them, and a synthesizer merges the results. The difference from sectioning is that **the number and nature of the subtasks aren't known when you write the code** — "find every place this deprecated API is used and propose a fix for each" produces a different work list for every input.
+
+This is the first pattern with genuine dynamism, and it is where the reliability tax starts. Bound it: cap the number of subtasks the orchestrator may create, cap the depth (workers do not get to spawn workers), and validate the work list before executing it. An orchestrator that decides to open 400 subtasks is a bill, not a feature.
+
+### Evaluator-optimizer
+
+Generate, critique, revise, repeat. One call produces a candidate, a second grades it against an explicit rubric, and if it fails the feedback goes back into a revision. Loop until it passes or you hit the cap.
+
+This works when — and only when — **the critique is more reliable than the generation**. That holds when there is an objective signal to check against: the code compiles or it doesn't, the JSON validates or it doesn't, the translation preserves the named entities or it doesn't. It fails when the critic is just the same model asked to be picky about a matter of taste; then you pay double for a second opinion that's correlated with the first and watch the output oscillate between two mediocre drafts.
+
+> **Best practice.** Give the evaluator a *rubric with a pass/fail bar*, not "make this better", and prefer a mechanical check to a model wherever one exists. A compiler, a schema validator, and a unit-test run are all evaluators — and they are free, instant, and honest. Use the model as the evaluator only for the part no program can check.
+
+### Choosing between them
+
+| Situation | Reach for | Why |
+|---|---|---|
+| Steps are known and always the same | Prompt chaining | Simpler prompts, gates between stages, a visible failing step |
+| Input falls into a few known kinds | Routing | Specialized prompts; cheap model handles the easy majority |
+| Independent aspects of one input | Parallelization (sectioning) | Focused prompts, latency of the slowest branch |
+| A costly decision you can't afford to get wrong | Parallelization (voting) | Catches the miss a single run makes — at N× the price |
+| Subtasks exist but only become known at runtime | Orchestrator-workers | Dynamic decomposition, still bounded by your code |
+| Output quality is checkable against a rubric or a compiler | Evaluator-optimizer | Iterative improvement with an objective stop condition |
+| The *path itself* is unpredictable and can't be enumerated | An agent (next section) | Nothing else can express it — accept the cost and add controls |
+
+> **Takeaway.** Walk down this table, not up it. Start with the simplest pattern that could work and add structure-breaking autonomy only when a concrete input proves the simpler pattern can't express the problem. Teams that start at the bottom row build agents that are slower, costlier, and less reliable than the three-call chain they were avoiding.
+
 ## Agents
 
 An **agent** is the natural extension of tool calling into autonomy. Where a chatbot responds turn by turn, an agent is given a *goal* and runs a **loop**: it reasons about what to do, takes an action (a tool call), observes the result, and repeats until the goal is met or it gives up. The canonical formulation is **ReAct** (Reason + Act): the model alternates between a reasoning step ("I need the order status, then the shipping ETA") and an acting step (call `GetOrderStatus`), feeding each observation back into its reasoning.
@@ -11123,7 +11276,7 @@ An agent, then, is: **an LLM + a set of tools + a control loop + memory.** Optio
 
 Minimally, the loop is just tool-calling run until completion — which is exactly what `UseFunctionInvocation` does. The step from "chatbot with tools" to "agent" is mostly about *autonomy and iteration count*: an agent may take many steps unattended.
 
-**When agents help vs. a simpler pipeline.** This is a judgment senior engineers must get right, because agents are seductive and often overkill. If the task has a *known, fixed* sequence of steps, write a **pipeline** (deterministic orchestration with LLM calls at specific stages). Agents earn their complexity only when the path is *genuinely dynamic* — the number and order of steps depends on what's discovered along the way, and can't be scripted in advance.
+**When agents help vs. a workflow.** This is a judgment senior engineers must get right, because agents are seductive and often overkill. The previous section is the alternative: if the task fits any row above the last one in that decision table, build the workflow. Agents earn their complexity only when the path is *genuinely dynamic* — the number and order of steps depends on what's discovered along the way, and can't be enumerated in advance. The honest test is to try to write the workflow: if you can sketch the stages, you don't need an agent, and if you genuinely can't, you have your answer.
 
 > **Rule of thumb:** don't reach for an autonomous agent when a directed workflow will do. A hard-coded chain of three LLM calls is more reliable, cheaper, faster, and far easier to debug than a free-running loop. Add autonomy only where the branching genuinely can't be predetermined.
 
@@ -11136,19 +11289,83 @@ Minimally, the loop is just tool-calling run until completion — which is exact
 
 > **Safety note:** the more autonomy and the more powerful the tools, the higher the blast radius. An agent that can execute code or make purchases and is exposed to untrusted input (a web page, a user message) is a prompt-injection target. Scope permissions to the minimum, and never let a single model turn both read untrusted content *and* invoke a high-privilege tool without a checkpoint.
 
+## Running agents durably
+
+Every agent example in this chapter — and in most articles about agents — is a `while` loop in a request handler. That is a demo. A real agent run takes minutes to hours, makes a dozen calls to flaky remote services, and may need to pause for two days waiting for a human to approve a refund. A loop in memory holds all of its state on the stack of one process, which means the run dies with the pod. Kubernetes recycles that pod during a routine deploy, and forty minutes of reasoning and $6 of tokens evaporate with no way to resume.
+
+This is not a new problem; it's the long-running-workflow problem the .NET ecosystem already solved for order fulfilment and payment processing. Chapter 9's sagas and Chapter 22's background services and actors are the machinery. What's new is only that one of the steps is an LLM call.
+
+**The shape of the fix is durable execution.** Instead of holding the loop's state in memory, you persist it after every step — the message history, the tool results, the iteration count — so any process can pick the run up where it stopped. The mental shift is that an agent run stops being a *method call* and becomes a **workflow instance with an id**, one you can query, resume, cancel, and audit.
+
+```
+in-memory loop                     durable run
+──────────────                     ───────────
+state on the stack                 state in a store, keyed by run id
+dies with the process              resumes on any instance
+"waiting" = a blocked thread       "waiting" = a persisted, cost-free pause
+no history after the fact          every step replayable for debugging
+```
+
+### What to use in .NET
+
+- **Durable Functions / the Durable Task SDK** — the most direct fit. Your orchestrator function calls activities (each LLM call, each tool execution), and the framework checkpoints after each one, replaying deterministically to rebuild state after a restart. Long waits are first-class: `WaitForExternalEvent` holds a run open for days at zero compute cost. Note the constraint the replay model imposes — orchestrator code must be deterministic, so **every model call and tool invocation belongs in an activity**, never inline in the orchestrator. An LLM call in orchestrator code is the canonical way to break replay.
+- **Dapr Workflow** — the same durable-execution model as a sidecar, if you're already on Dapr (Chapter 22). Workflows are plain C#, state and retries are handled by the runtime.
+- **A hosted agent service** — Azure AI Foundry's Agent Service and the equivalents from other providers persist threads and run state for you. Least code, least control, and a real dependency: your agent's state now lives in a vendor's store.
+- **Roll your own on the message bus** — with MassTransit or a queue plus a state table, each agent step is a message and the state machine is explicit (Chapter 9). More work, but the most control, and it fits naturally if the rest of your system is already event-driven.
+
+### The parts that are specific to agents
+
+Durable execution solves persistence. Four problems remain, and they're the ones that make agent runs different from order fulfilment:
+
+**Tool calls must be idempotent, because replay will repeat them.** A durable framework replays history to rebuild state, and a crash between "sent the email" and "recorded that we sent the email" means the run resumes and sends it again. This is exactly the exactly-once problem from Chapter 9, and the answer is the same: an idempotency key per tool invocation, derived from the run id plus the step index, checked by the tool implementation before it acts. Read-only tools are free; every tool with a side effect needs a key.
+
+**Compensation, because agents fail halfway through.** An agent that booked a flight and then failed to book the hotel has left the world in a state nobody asked for. Model the reversible actions as saga steps with compensations, and — the agent-specific part — **have your code run the compensations, not the model**. An LLM asked to "undo what you did" will improvise. The compensation for `BookFlight` is a `CancelFlight` call your code invokes from a `catch`, exactly as it would in any distributed transaction.
+
+**Human approval as a durable wait, not a blocked thread.** The human-in-the-loop checkpoint everyone recommends is trivial in a demo and structural in production: the run must survive until the human answers, which may be after lunch or after the weekend. In a durable workflow this is a persisted wait for an external event, with a timeout and an escalation path. In the naive loop it is a thread parked for three days — which is to say, an outage.
+
+```csharp
+// Durable Functions: the run pauses here, costing nothing, and survives
+// deploys and restarts until the approval arrives or the timeout fires.
+var approval = await context.WaitForExternalEvent<ApprovalDecision>(
+    eventName: "RefundApproval",
+    timeout: TimeSpan.FromDays(2),
+    defaultValue: ApprovalDecision.Denied);
+
+if (!approval.Granted)
+    return AgentOutcome.Halted("refund not approved");
+```
+
+**Budgets are run-scoped state, so they must be persisted too.** The bounded-iteration and token caps from the previous section only work if the counters survive the restart that resumes the run. A budget held in a local variable resets to zero every time the run resumes — and an agent that resumes with a fresh budget after each crash has, in effect, no budget at all. Keep the spend counter in the run state and check it inside the loop.
+
+> **Best practice.** Give every agent run a durable id, and put that id in your logs, traces, and any ticket the run creates. When the run does something inexplicable four days later, the ability to pull up the full replayable history of a specific run — every prompt, every tool call, every result — is the difference between a diagnosis and a shrug. This is Chapter 13's correlation id, applied to a process that reasons.
+
+> **Pitfall — durable does not mean safe to resume.** A run that resumes after two days is holding a two-day-old view of the world: stale prices, a cancelled order, a revoked permission. Re-validate the preconditions of any consequential action *at the moment of execution* rather than trusting the state the model reasoned over before the pause. The longer the pause, the more the model's context is a historical document rather than a description of the present.
+
 ## The .NET AI stack
 
 > **Dated snapshot (mid-2026):** the package names, model names, and vendor landscape in this chapter are the fastest-rotting facts in this book. The architecture — a provider-agnostic abstraction layer, orchestration on top, RAG plumbing, evals as the regression suite — is durable; re-verify the specific packages, models, and provider capabilities against the current ecosystem before building.
 
-The .NET ecosystem matured fast. The pieces you should know:
+The .NET ecosystem matured fast — and then consolidated, which is the part most write-ups are behind on. Think of it as four layers, and pick the highest one that doesn't take away something you need.
 
-- **Microsoft.Extensions.AI** — the unifying abstraction layer (the `IChatClient` and `IEmbeddingGenerator` interfaces used throughout this chapter). It plays the role for AI that `ILogger`/`HttpClientFactory` play elsewhere: one provider-agnostic interface, pluggable implementations (OpenAI, Azure OpenAI, Anthropic, Ollama, local ONNX), and a **middleware pipeline** for cross-cutting concerns — function invocation, caching, telemetry, retries — composed via `AsBuilder()`. Program against these interfaces and your provider becomes a swap, not a rewrite. This is the recommended foundation for new .NET AI code.
-- **Semantic Kernel** — a higher-level orchestration SDK. It introduces **plugins** (collections of functions/tools the kernel can call), **memory** connectors (embeddings + vector stores for RAG), and orchestration for multi-step and agent workflows. Use it when you want batteries-included orchestration rather than assembling primitives yourself. (Its older explicit "planner" components have largely given way to function-calling-driven planning, mirroring the wider industry shift.)
-- **Kernel Memory** — a service/library dedicated to RAG ingestion and retrieval: it handles loading, chunking, embedding, storage, and query as a pipeline you can run in-process or as a standalone service. Reach for it instead of hand-rolling the RAG plumbing shown earlier.
-- **Provider SDKs** — the official `OpenAI`, `Azure.AI.OpenAI`, and Anthropic .NET SDKs for when you need provider-specific features beneath the abstraction.
-- **ONNX Runtime / local models** — for running smaller models locally (on-device or on your own hardware) for privacy, offline use, or cost. Microsoft.Extensions.AI can front a local model behind the same `IChatClient`, so local vs. cloud becomes a configuration choice.
+| Layer | What it is | Choose it when |
+|---|---|---|
+| **Microsoft.Extensions.AI** | The abstraction layer: `IChatClient`, `IEmbeddingGenerator`, and a middleware pipeline | Always — it's the floor everything else stands on. Sufficient on its own for single calls, chains, routing, and RAG |
+| **Microsoft Agent Framework** | Orchestration: agents, threads, tool/plugin registration, multi-agent and graph-style workflows | You need agent runs, persisted threads, or multi-agent coordination and want it maintained rather than hand-rolled |
+| **Azure AI Foundry Agent Service** | A hosted agent runtime — the service stores threads and run state and executes tools | You want managed state and the operational burden off your team, and accept a vendor dependency at the core |
+| **Provider SDKs** (`OpenAI`, `Azure.AI.OpenAI`, Anthropic) | The raw client for one provider | You need a provider-specific capability the abstraction hasn't surfaced yet — as an escape hatch beneath the layers, not as your default |
 
-A compact Semantic Kernel example — registering a plugin and letting the model call it automatically:
+**Microsoft.Extensions.AI** is the unifying abstraction (the `IChatClient` and `IEmbeddingGenerator` interfaces used throughout this chapter). It plays the role for AI that `ILogger`/`HttpClientFactory` play elsewhere: one provider-agnostic interface, pluggable implementations (OpenAI, Azure OpenAI, Anthropic, Ollama, local ONNX), and a **middleware pipeline** for cross-cutting concerns — function invocation, caching, telemetry, retries — composed via `AsBuilder()`. Program against these interfaces and your provider becomes a swap, not a rewrite. Note how much of this chapter needs nothing above this layer: chaining, routing, parallelization, and RAG are all ordinary C# over `IChatClient`.
+
+**Microsoft Agent Framework** is where Microsoft's two previous orchestration efforts converged. **Semantic Kernel** brought plugins, connectors, and enterprise plumbing; **AutoGen** brought multi-agent conversation patterns from Microsoft Research; the Agent Framework is their merger, built on Microsoft.Extensions.AI rather than beside it. It adds agents as first-class objects, persisted conversation threads, tool registration, and workflow constructs for connecting multiple agents. If you're reading older material, this is the context you need: Semantic Kernel is not wrong, it's the predecessor, and the migration path is explicitly supported. For new work, start at Microsoft.Extensions.AI and add the Agent Framework when you actually need orchestration.
+
+Two more pieces sit alongside rather than in the stack:
+
+- **Kernel Memory** — a service/library dedicated to RAG ingestion and retrieval: loading, chunking, embedding, storage, and query as a pipeline you can run in-process or standalone. Reach for it instead of hand-rolling the plumbing shown earlier.
+- **ONNX Runtime / local models** — for running smaller models locally (on-device or on your own hardware) for privacy, offline use, or cost. Microsoft.Extensions.AI can front a local model behind the same `IChatClient`, so local vs. cloud becomes a configuration choice. **.NET Aspire** is the pragmatic way to wire this up in development: model a local model runner and a vector store as Aspire resources so the whole AI stack comes up with `dotnet run` and gets swapped for hosted services in production (Chapter 11).
+
+> **Pitfall — the framework is not the hard part.** Teams spend weeks choosing between orchestration frameworks and then discover the difficulty was never orchestration; it was retrieval quality, evals, and cost. All four layers above will happily run a badly grounded prompt. Pick a layer in an afternoon and spend the saved week on your eval set.
+
+A compact Semantic Kernel example — the shape you will meet in existing code, and the one the Agent Framework carries forward: register a set of functions, then let the model call them automatically.
 
 ```csharp
 using Microsoft.SemanticKernel;
@@ -11171,6 +11388,8 @@ var result = await kernel.InvokePromptAsync(
 Console.WriteLine(result);
 ```
 
+The Agent Framework's equivalent is the same idea one level up — an agent object owning its tools and its thread, rather than a kernel you invoke a prompt against — so the concepts transfer directly even though the type names don't.
+
 **Cross-ecosystem awareness.** The Python world has a rich, fast-moving family of orchestration frameworks (LangChain, LlamaIndex, LangGraph, DSPy, Haystack at the time of writing), and their concepts — chains, retrieval pipelines, graph-based agent orchestration, programmatic prompt optimization — cross over and shape the whole field's vocabulary. Learn the concepts, not the frameworks; in a .NET shop you'll almost always build on the Microsoft.Extensions.AI and Semantic Kernel abstractions instead.
 
 ## Integrating AI into existing applications
@@ -11191,6 +11410,20 @@ Bolting a model onto a production app is where many teams stumble. The patterns 
 
 **Cost controls, rate limiting, retries.** Set per-user and per-tenant token budgets and enforce them. Rate-limit calls to stay within provider quotas and to cap spend. Use retries with **exponential backoff and jitter** for the inevitable 429s and transient 5xxs — but bound them, and make them idempotent-safe. These belong in the middleware pipeline, applied uniformly, not sprinkled per call site.
 
+## Cost mechanics: caching, batching, and thinking budgets
+
+The caching advice above is about *your* cache — you store the response and skip the call. Providers also expose three levers that change the economics from their side, and each one has an architectural consequence rather than being a flag you flip.
+
+**Prompt caching** lets the provider reuse the computation for a prompt *prefix* it has seen recently, charging a large discount on those tokens and returning them faster. The consequence is a layout rule: **stable content first, volatile content last.** Your system prompt, tool definitions, few-shot examples, and any long fixed document are the prefix; the user's turn goes at the end. Interleaving a timestamp, a request id, or freshly-ordered retrieval results near the top of the prompt invalidates everything after it and quietly forfeits the discount — a common and entirely invisible waste, because the feature still works, it just costs full price. In a RAG or agent loop, where the same large system prompt rides on every one of a dozen calls, this is frequently the single biggest lever available.
+
+> **Gotcha.** Prompt caching interacts badly with over-eager prompt "optimization". A team that injects the current date into the system prompt for freshness has made the prefix change every day at midnight — tolerable. A team that injects the current *time* has made it change on every request, and the cache never hits at all. Check what varies in your prefix before concluding the discount doesn't apply to you.
+
+**Batch APIs** trade latency for roughly half the price: you submit a set of requests and collect the results within a provider-defined window (typically hours). Nothing interactive can use this — and a surprising amount of what a production system does isn't interactive. Backfilling embeddings, classifying a night's worth of tickets, generating summaries for a reporting table, and **running your eval suite** are all batch work. If your evals are expensive enough that you hesitate to run them, that hesitation is the problem, and batching is usually the fix.
+
+**Reasoning models and thinking budgets.** Models that spend extra tokens reasoning before answering do measurably better on multi-step logic, planning, and hard debugging — and worse on everything else, in the sense that you pay for tokens you never see and wait longer for them. Most providers expose a budget or effort setting. Treat it as a per-task-type decision, not a global default: high effort for the planning step of an agent or a complex diagnosis, minimum or off for extraction, classification, routing, and formatting. A router that also picks the thinking budget per branch is doing the same job as the model cascade, on a second axis.
+
+> **Best practice.** These three levers are worth an afternoon before any prompt micro-optimization, because they're structural: reorder your prompt for caching, move your non-interactive work to batch, and match thinking budget to task type. Together they routinely cut a bill by more than half without touching a single word of a prompt — and they change nothing about output quality, which is more than can be said for most cost work.
+
 ## Evaluation, observability, and safety
 
 This is the section that separates a demo from a product. It is also the part most teams skip and most regret.
@@ -11206,6 +11439,8 @@ You cannot improve — or safely change — what you don't measure. Build an **e
 Microsoft ships **Microsoft.Extensions.AI.Evaluation**, a .NET library for building exactly these eval suites in your test project — so LLM evals can live beside your unit tests and run in CI.
 
 > **Takeaway:** treat evals as the regression suite for your AI features. No eval set, no confident change. A model or prompt update without a re-run is a blind deploy.
+
+**Evals are not the whole test suite.** The temptation is to conclude that because the output is nondeterministic, the feature can only be evaluated. That's backwards: an AI feature is mostly ordinary code — prompt assembly, retrieval, chunking, tool implementations, schema validation, budget enforcement, control flow — and that code carries most of the bugs. Program against `IChatClient` and a fake client makes all of it unit-testable in the normal way: assert the prompt you built, the branch you took, the budget you enforced, the malformed tool argument you rejected. Save the eval suite for the one thing a unit test genuinely cannot pin, which is the quality of the generated text. Chapter 25 covers the full portfolio — faking the model, gating CI on an aggregate pass rate rather than individual cases, and keeping the eval set growing from production failures.
 
 ### Observability
 
@@ -11231,7 +11466,7 @@ LLM features open attack surfaces and failure modes traditional apps don't have.
 
 The threads of this chapter converge on four production priorities:
 
-**Cost optimization.** Route by difficulty — a cheap small model handles the easy 80% of requests, escalating to an expensive model only when needed (**model routing / cascades**). Cache aggressively (exact and semantic). Prefer the smallest model that passes your evals; the frontier model is rarely required. Trim prompts and context ruthlessly — you pay per token, every call.
+**Cost optimization.** Route by difficulty — a cheap small model handles the easy 80% of requests, escalating to an expensive model only when needed (**model routing / cascades**). Cache aggressively, on both sides: your own response cache, and the provider's prompt cache via a stable prefix. Move non-interactive work to a batch API. Prefer the smallest model that passes your evals, and spend a thinking budget only where the task rewards it; the frontier model at full effort is rarely required. Trim prompts and context ruthlessly — you pay per token, every call.
 
 **Latency.** Stream to cut perceived latency. Parallelize independent calls (retrieve while you prepare the prompt; fan out multiple tool calls at once). Pick smaller/faster models for latency-critical paths. Cache the hot paths.
 
@@ -13076,11 +13311,11 @@ Serialization is where your data model meets the outside world, and the format y
 
 # Chapter 25: Advanced & Specialized Testing
 
-_⏱️ Estimated read time: ~25 min · 4207 words (study pace)_
+_⏱️ Estimated read time: ~30 min · 5187 words (study pace)_
 
 Chapter 7 gave you the foundations: unit tests with xUnit, mocking with Moq or NSubstitute, integration tests, and spinning up real dependencies with Testcontainers. Those techniques carry most teams a long way. But as a system grows from a single service into a fleet of services, and as a codebase matures from "does it work?" into "can we change it safely for the next five years?", a new set of problems appears that the foundational techniques do not address well.
 
-This chapter is about those problems and the specialized tools built for them. Contract testing tames the combinatorial explosion of cross-service integration tests. Property-based testing finds the inputs you never thought to write an assertion for. End-to-end and UI testing verify the whole stack through a real browser. Load testing tells you whether the system survives Black Friday. And a cluster of supporting disciplines — deterministic time, test data management, and mutation testing — keep the whole test suite honest.
+This chapter is about those problems and the specialized tools built for them. Contract testing tames the combinatorial explosion of cross-service integration tests. Property-based testing finds the inputs you never thought to write an assertion for. End-to-end and UI testing verify the whole stack through a real browser. Load testing tells you whether the system survives Black Friday. Eval suites extend the portfolio to features whose output a model generates, where no fixed assertion applies. And a cluster of supporting disciplines — deterministic time, test data management, and mutation testing — keep the whole test suite honest.
 
 The through-line is a single senior-level habit of mind: **treat your tests as a system to be engineered, with their own costs, failure modes, and return on investment**, not as a checkbox you tick after the "real" code is done.
 
@@ -13406,6 +13641,43 @@ dotnet stryker --threshold-high 80 --threshold-low 60 --threshold-break 50
 
 > **Practical note:** mutation testing is computationally expensive — it reruns the suite once per mutant, potentially thousands of times. Don't run it on every commit over the whole solution. Run it **on the diff** in CI (Stryker supports `--since` to mutate only changed code), or on a nightly schedule for critical modules. Point it at your core domain logic, where a missed bug is most costly — not at DTOs and configuration glue.
 
+## Testing Nondeterministic Systems: Evals for AI Features
+
+Every technique so far assumes a fixed input produces a fixed output. Ship a feature backed by an LLM and that assumption is gone: the same prompt can return different text on every call, and *both* answers may be correct. `Assert.Equal(expected, actual)` has nothing to say about it. Chapter 19 covers building these systems; this section is about the testing portfolio they need, because teams reliably reach one of two wrong conclusions — "you can't test this" or "we'll just mock the model" — and both leave the actual risk uncovered.
+
+The way out is to split the system into two parts that are tested completely differently.
+
+### Most of it is ordinary code — test it ordinarily
+
+An AI feature is mostly not the model. Prompt construction, retrieval, chunking, tool implementations, schema validation, retries, budget enforcement, and the workflow's control flow are all deterministic code, and they are where most bugs actually live. Test them with everything in Chapters 7 and 25 as normal — and to do that, you need the model out of the way.
+
+Program against `IChatClient` (Chapter 19) and a fake becomes trivial: a stub returning a canned `ChatResponse` lets you assert that your code built the right prompt, parsed the response correctly, enforced the token budget, and took the right branch. This is where property-based testing earns a second look — a chunker is exactly the kind of component whose invariants ("no chunk exceeds the token limit", "concatenating chunks reproduces the source", "overlaps are within bounds") FsCheck will break far faster than your examples will.
+
+> **Best practice — test the tools as tools.** In an agentic feature, the functions the model can invoke are the code with the real blast radius: they read databases and send emails. They're plain methods. Test them directly, with the model nowhere in sight, including the argument validation that runs when the model passes something malformed — which it will, and which a test suite that only exercises well-formed calls will never catch.
+
+### The model's output needs an eval suite, not a test
+
+For the part that's genuinely nondeterministic, you build an **eval set**: representative inputs paired with a grading method, run as a suite, tracked as a **pass rate over time**. The difference from a unit test is the assertion, and there are four kinds worth knowing, in descending order of how much you should want them:
+
+- **Deterministic checks on non-deterministic output.** Often overlooked, and always the first choice. Does the JSON validate against the schema? Is the cited document id one that was actually retrieved? Is the total the sum of the line items? These are ordinary assertions that happen to run against generated text, and they are fast, free, and unambiguous.
+- **Reference-based.** Compare against a known-good answer — exact match for classification and extraction, similarity for freeform.
+- **LLM-as-judge.** A model grades the output against a rubric. Scalable and surprisingly decent, but it is *itself* a nondeterministic component: validate the judge against human labels periodically, or you are measuring with an instrument you never calibrated.
+- **Human review.** The gold standard, reserved for high-stakes features and periodic sampling of production traffic.
+
+`Microsoft.Extensions.AI.Evaluation` gives this a home in a normal .NET test project, so evals live beside your unit tests and run on the same runner.
+
+### Making it survive CI
+
+Three practical problems separate an eval suite that runs in CI from one that gets disabled in month two:
+
+**They cost money and time.** A 200-case eval set against a frontier model on every push is a bill and a slow pipeline. Split the suite: a small, cheap smoke set (20-30 cases, deterministic checks only) on every PR, and the full set nightly or on release branches. A provider's batch API halves the cost of the nightly run at the price of latency nobody is waiting on.
+
+**They're flaky by construction.** Never gate on a single case passing — gate on the *aggregate*, with a threshold: "≥ 92% of the eval set passes." A single case flipping is signal only in a trend. Do pin what you can: fix the temperature at 0, seed anything random, freeze the retrieval corpus for the eval run, and pin the model version — an unpinned model is a dependency your provider updates without telling you, and it will move your pass rate on a day you changed nothing.
+
+**Regression matters more than the absolute number.** "87% pass" means little on its own. "87%, down from 94% before this prompt change" is the finding. Store the run history and compare against the previous baseline, exactly as you'd treat a performance benchmark — and for the same reason: it is the delta that tells you whether the change you just made was an improvement.
+
+> **Pitfall — the eval set that only contains cases that pass.** Eval sets are usually seeded from examples someone tried while building the feature, which are the examples the feature already handles. The valuable cases are the opposite: real production inputs that produced bad answers, added the day you find them. An eval set that isn't growing from production failures is measuring how well the feature works on the demo.
+
 ## Choosing Your Instruments
 
 Every technique in this chapter earns its keep by catching a defect class nothing else catches — at a price. Weigh both columns before adding one to your portfolio.
@@ -13418,6 +13690,7 @@ Every technique in this chapter earns its keep by catching a defect class nothin
 | API-level E2E | Full-stack wiring against a real deployed environment (network, DB, auth) | A deployed environment to point at; slower than in-process tests | The HTTP surface *is* the product |
 | Load testing (k6/NBomber) | Latency and error regressions under concurrency that functional tests can't see | A production-like environment; noisy results on shared runners | Before traffic events; nightly with pass/fail thresholds |
 | Mutation testing (Stryker.NET) | Assertion-free "covered" code — tests that execute but verify nothing | Reruns the suite once per mutant; very CPU-expensive | Core domain logic; run on the diff or nightly |
+| Eval suites (Microsoft.Extensions.AI.Evaluation) | Quality regressions in nondeterministic output that no assertion can pin | Token spend per run; a curated, maintained case set; threshold tuning | Any shipped feature whose output comes from a model |
 | Fake time + fixed seeds (`TimeProvider`) | Expiry/scheduling bugs; irreproducible time- and randomness-based flakes | Retrofitting injection into legacy code | Anything touching clocks, delays, timers, or random data |
 
 ## Bringing It Together
@@ -13430,6 +13703,7 @@ Each technique in this chapter targets a specific weakness of the foundational t
 - **k6 and NBomber** answer the questions functional tests can't, provided you assert on thresholds and run against realistic environments.
 - **`TimeProvider`, deterministic seeding, and disciplined test data** are the unglamorous infrastructure that makes every other test trustworthy.
 - **Mutation testing** audits the auditors, exposing the tests that execute code without actually checking it.
+- **Eval suites** extend the portfolio to output no assertion can pin, trading exact expectations for a tracked pass rate — the only way to change a prompt or a model with confidence.
 
 The senior mindset that unifies them: **every test is an investment with a cost and a return.** Fast, deterministic, and targeted at where failure is likely and expensive — that is the portfolio you are building, and these are the specialized instruments for building it well.
 
@@ -13445,6 +13719,7 @@ The senior mindset that unifies them: **every test is an investment with a cost 
 - **Stryker.NET documentation** — stryker-mutator.io — mutation testing, mutation score, thresholds, and diff-based runs.
 - **Microsoft Learn: `TimeProvider` and `FakeTimeProvider`** — learn.microsoft.com — testing time-dependent code in .NET 8+.
 - **AutoFixture and Bogus** — github.com/AutoFixture/AutoFixture and github.com/bchavez/Bogus — automated and realistic test data generation.
+- **Microsoft.Extensions.AI.Evaluation** — learn.microsoft.com — building and running LLM eval suites inside a .NET test project.
 - Kent C. Dodds, *"Write Tests. Not Too Many. Mostly Integration."* — the testing trophy argument.
 
 
@@ -17819,6 +18094,20 @@ Native AOT (Ahead-Of-Time) compiles your app directly to a self-contained native
 # What's New
 
 This page is the handbook's changelog. When a new release lands, a popup announces it on your next visit. Under each release, **Site & functionality** items are plain notes, while **Content updates** link to every chapter that changed — a link is ticked off (✓, stored locally in your browser) once you visit it, so you can work through an update at your own pace and see what's still unread.
+
+## Release — August 28, 2026
+
+**📖 Content updates**
+
+- [Chapter 19: Workflow patterns](#workflow-patterns-the-ground-between-one-call-and-an-agent) — The layer between a single call and an agent: prompt chaining, routing, parallelization, orchestrator-workers, and evaluator-optimizer, with a table for choosing between them.
+- [Chapter 19: Memory](#memory-what-the-system-remembers-between-turns) — The four kinds of memory, extraction as a write path that invents facts, and memory as a tenancy, deletion, and per-turn cost problem.
+- [Chapter 19: Running agents durably](#running-agents-durably) — Why an in-memory agent loop dies with the pod, and how Durable Task, idempotent tools, compensation, and persisted approval waits turn a run into a resumable workflow.
+- [Chapter 19: The .NET AI stack, refreshed](#the-net-ai-stack) — A four-layer decision table covering Microsoft Agent Framework and Foundry Agent Service, and where Semantic Kernel now sits.
+- [Chapter 19: Agent-to-agent interop](#agent-to-agent-interop-a2a) — What A2A is, how it differs from MCP, and why a plain HTTP API is usually the right answer inside one codebase.
+- [Chapter 19: Cost mechanics](#cost-mechanics-caching-batching-and-thinking-budgets) — Prompt caching and the prompt-layout rule it imposes, batch APIs for non-interactive work, and matching thinking budgets to task type.
+- [Chapter 25: Testing nondeterministic systems](#testing-nondeterministic-systems-evals-for-ai-features) — How to test an AI feature: fake the model for the deterministic 90%, and gate CI on an aggregate eval pass rate for the rest.
+- [Chapter 18: Workflow assets](#workflow-assets-making-the-setup-a-team-artifact) — Turning your agentic workflow into checked-in repo artifacts, and the two ways a conventions file goes bad.
+- [Chapter 18: Measuring whether any of this is working](#measuring-whether-any-of-this-is-working) — Why perceived productivity misleads, and which delivery metrics actually answer the question.
 
 ## Release — August 12, 2026
 

@@ -2,6 +2,20 @@
 
 This page is the handbook's changelog. When a new release lands, a popup announces it on your next visit. Under each release, **Site & functionality** items are plain notes, while **Content updates** link to every chapter that changed — a link is ticked off (✓, stored locally in your browser) once you visit it, so you can work through an update at your own pace and see what's still unread.
 
+## Release — August 28, 2026
+
+**📖 Content updates**
+
+- [Chapter 19: Workflow patterns](#workflow-patterns-the-ground-between-one-call-and-an-agent) — The layer between a single call and an agent: prompt chaining, routing, parallelization, orchestrator-workers, and evaluator-optimizer, with a table for choosing between them.
+- [Chapter 19: Memory](#memory-what-the-system-remembers-between-turns) — The four kinds of memory, extraction as a write path that invents facts, and memory as a tenancy, deletion, and per-turn cost problem.
+- [Chapter 19: Running agents durably](#running-agents-durably) — Why an in-memory agent loop dies with the pod, and how Durable Task, idempotent tools, compensation, and persisted approval waits turn a run into a resumable workflow.
+- [Chapter 19: The .NET AI stack, refreshed](#the-net-ai-stack) — A four-layer decision table covering Microsoft Agent Framework and Foundry Agent Service, and where Semantic Kernel now sits.
+- [Chapter 19: Agent-to-agent interop](#agent-to-agent-interop-a2a) — What A2A is, how it differs from MCP, and why a plain HTTP API is usually the right answer inside one codebase.
+- [Chapter 19: Cost mechanics](#cost-mechanics-caching-batching-and-thinking-budgets) — Prompt caching and the prompt-layout rule it imposes, batch APIs for non-interactive work, and matching thinking budgets to task type.
+- [Chapter 25: Testing nondeterministic systems](#testing-nondeterministic-systems-evals-for-ai-features) — How to test an AI feature: fake the model for the deterministic 90%, and gate CI on an aggregate eval pass rate for the rest.
+- [Chapter 18: Workflow assets](#workflow-assets-making-the-setup-a-team-artifact) — Turning your agentic workflow into checked-in repo artifacts, and the two ways a conventions file goes bad.
+- [Chapter 18: Measuring whether any of this is working](#measuring-whether-any-of-this-is-working) — Why perceived productivity misleads, and which delivery metrics actually answer the question.
+
 ## Release — August 12, 2026
 
 **🔧 Site & functionality**
