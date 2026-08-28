@@ -10307,7 +10307,7 @@ You already have the technical foundation. The path from middle to senior runs s
 
 # Chapter 18: The AI-Native Developer — Thriving in the AI Era
 
-_⏱️ Estimated read time: ~55 min · 10570 words (study pace)_
+_⏱️ Estimated read time: ~1 h · 11498 words (study pace)_
 
 For most of your career the deal has been simple: you learn to write code, and in exchange the industry pays you well to write it. That deal is being renegotiated in real time. By 2025 and into 2026, a competent AI coding assistant can produce a working REST endpoint, a unit test suite, an EF Core migration, or a plausible refactor faster than you can open the file. The raw act of turning a clear specification into syntactically correct C# — the thing you spent years getting good at — has largely been commoditized. That is not a threat to be defended against. It is a promotion, if you understand what you are being promoted into.
 
@@ -10471,6 +10471,21 @@ Keep it short and true. A bloated, aspirational rules file is worse than none be
 
 > **Rule of thumb:** Before a big task, ask "does the agent have what a new senior hire would need to do this well, and *nothing that would mislead them*?" Supplying that — and only that — is context engineering.
 
+### Workflow assets: making the setup a team artifact
+
+Everything in this part so far is a technique *you* apply. The step that separates a productive individual from a productive team is turning those techniques into **artifacts that live in the repository**, reviewed and versioned like code. The test is simple: if a new hire clones the repo and starts an agent, do they get your team's workflow, or do they get the defaults?
+
+Four kinds of asset are worth maintaining:
+
+- **A conventions file** (`AGENTS.md`, `CLAUDE.md`, or whatever your tool reads) at the repo root — the standing context every session starts with. What this project is, how to build and test it, the patterns this codebase uses, and, most valuable of all, the corrections: the things a model reliably gets wrong here. This is the single highest-return file in the repository, because it applies to every session by every person forever, and because it is where the "second time you correct the model, write it down" rule accumulates.
+- **Reusable prompts and skills** — the multi-step procedures your team performs repeatedly: how to add an endpoint the house way, how to write a migration, the release checklist, the incident-triage walkthrough. A procedure written down once and invoked by name beats the same procedure retyped from memory with a different omission each time.
+- **Permission and tool configuration** — the allowlist of commands agents may run unattended, the MCP servers a session may reach, and the destructive operations that always require a human. Checking this in means the safety posture is a reviewed decision rather than each developer's individual risk appetite.
+- **Hooks and automation** — deterministic actions wired around the agent: run the formatter after every edit, block a commit that touches a protected path, run the fast test suite before the agent declares itself done. Anything you'd otherwise have to *remember to ask for* belongs here, because a hook fires every time and a reminder in a prompt does not.
+
+> **Best practice — treat them as code, because they are.** These files go through pull request review, they get updated when they're wrong, and they get deleted when they're stale. A conventions file that describes the architecture from eighteen months ago is worse than none: it actively steers every agent on the team toward a structure that no longer exists, and nobody notices because nobody reads it — the model does.
+
+> **Pitfall — the bloated conventions file.** The failure mode is a 600-line document accumulating every rule anyone ever wanted, which burns context on every single request and buries the ten rules that matter. Keep it short and specific to *this* repo. If a rule is generic good practice the model already follows, delete it; you are paying tokens to state the obvious. The right length is the set of corrections that are surprising here.
+
 ### Spec-driven, plan-first development
 
 The reliable way to get good agentic output is to stop firing off one-line requests for non-trivial work and instead **write a spec, get a plan, then implement**. This mirrors how you'd hand work to a strong junior: you wouldn't say "add billing" and walk away.
@@ -10569,7 +10584,7 @@ The most valuable practices aren't individual tricks; they're *systemic* — AI 
 
 - **AI code review bots.** A bot reviews every PR, flagging likely bugs, security issues, and convention violations before a human looks. It never replaces human review, but it catches the obvious and lets humans focus on design. Treat its comments as a strong linter with opinions.
 - **PR and change summarization.** Auto-generated PR descriptions and release notes from the diff. Small time-saver, real consistency win, and it makes review faster because the reviewer starts oriented.
-- **AI in CI.** Beyond running the agent in a pipeline: agents that triage a failing build, propose a fix, and open a follow-up PR; agents that auto-fix lint and formatting; agents that attempt a first pass at a failing test.
+- **AI in CI.** Beyond running the agent in a pipeline: agents that triage a failing build, propose a fix, and open a follow-up PR; agents that auto-fix lint and formatting; agents that attempt a first pass at a failing test. The design question is the same one that governs any pipeline stage — what credentials does it hold, and what can it do unsupervised? An agent stage should run with a scoped token, push to a branch rather than to `main`, and produce a pull request a human merges. An agent with write access to protected branches is not a CI stage; it's an unreviewed deploy path.
 - **Test generation.** Agents that fill coverage gaps — characterization tests around legacy code before a refactor, edge-case tests for a new endpoint. Always human-reviewed, because a test that asserts the current (possibly buggy) behavior is worse than none.
 - **Incident and on-call copilots.** During an incident, an agent that reads logs, correlates recent deploys, queries dashboards, and drafts a hypothesis and a timeline. It compresses the frantic first ten minutes of an incident.
 - **Docs generation.** Keeping API docs, runbooks, and architecture notes in sync with code — a chronically neglected task that agents are well-suited to.
@@ -10579,6 +10594,19 @@ The most valuable practices aren't individual tricks; they're *systemic* — AI 
 Leading engineering orgs, including Anthropic itself, have written publicly about running large fleets of coding agents internally, treating agent instructions and evals as first-class artifacts, and using agents heavily in their own development. The transferable lesson isn't any single proprietary detail; it's the *posture*: make AI a maintained part of your platform and process, with the same rigor — version control, review, testing, evals — you apply to code.
 
 > **Takeaway:** The biggest wins come from putting AI into shared infrastructure — review bots, CI, golden paths — not just individual laptops. That's where a team's productivity compounds.
+
+### Measuring whether any of this is working
+
+The uncomfortable question, and the one a senior engineer should be able to answer rather than assert: **is the team actually faster?** Published studies have found effects ranging from large speedups to a measured *slowdown* among experienced developers on codebases they know well — who nonetheless believed they had been faster. That last detail is the important one. Perceived productivity is an unreliable instrument here, because the felt experience of an agent working is one of constant motion, and motion reads as progress.
+
+You don't need a research programme to do better than vibes, but you do need to measure the *outcome*, not the activity:
+
+- **The wrong metrics** are lines of code, number of PRs, and percentage of code AI-generated. Every one of them improves when the agent writes verbose, duplicative code that a human then has to review and later maintain. Optimizing them makes things worse while the dashboard turns green.
+- **The right metrics** are the ones you already track for delivery (Chapter 12): cycle time from start to merge, change failure rate, and how often changes get reverted. If AI is helping, work gets to production faster *without* the defect rate rising. If change failure rate climbs while cycle time drops, you have found the trade you're actually making.
+- **Review time is the leading indicator.** The bottleneck moves to verification, so watch time-to-first-review and how long diffs sit. If PRs are appearing faster than they're being read, throughput hasn't increased — the queue has.
+- **Token spend per merged PR** is the honest cost metric, and worth knowing before someone in finance asks. It also tells you when parallel agents and huge contexts have stopped paying for themselves.
+
+> **Takeaway.** Run the comparison on your own team rather than importing a headline number, because the effect genuinely varies with codebase familiarity, task type, and how good your workflow assets are — the same tool is a large win on unfamiliar code and can be a net loss on a codebase you know cold. And be willing to hear the answer: a practice that isn't working on a particular kind of task is worth knowing about, and "we use AI for everything" is a slogan, not an engineering decision.
 
 ### Verification and trust discipline
 
