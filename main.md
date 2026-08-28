@@ -8857,7 +8857,7 @@ Build the cockpit before you need it. When the 3 a.m. page arrives — and it wi
 
 # Chapter 14: Security
 
-_⏱️ Estimated read time: ~35 min · 5425 words (study pace)_
+_⏱️ Estimated read time: ~40 min · 6555 words (study pace)_
 
 Security is not a feature you bolt on at the end of a sprint. It is a property of a system that emerges from thousands of small decisions: how you parse input, where you store a connection string, which overload of a crypto API you call, and whether you trusted a value that came from the network. A senior .NET developer is expected to make those decisions correctly by reflex, and to recognize when a colleague has not.
 
@@ -9265,6 +9265,46 @@ public class TokenService
 
 > **Pitfall:** By default, data protection keys are stored on the local filesystem. In a load-balanced or containerized deployment, each instance generates its *own* keys, so a cookie encrypted by one server can't be decrypted by another — users get random logouts and errors. Configure a *shared* key ring (Azure Blob Storage, Redis, a shared volume) and protect it at rest. Do this before you scale out.
 
+### Crypto Agility and the Post-Quantum Migration
+
+Everything above assumes the algorithms hold. For most of your career they have, which has let us bake algorithm choices into code, config files, database columns, and certificate chains without thinking twice. That assumption now has an expiry date, and the interesting engineering problem is less "which algorithm" than "how quickly could we change ours?"
+
+**Why this is a today problem, not a 2035 problem.** A sufficiently large quantum computer running Shor's algorithm breaks the mathematics that RSA and elliptic-curve cryptography rest on. No such machine exists, and credible estimates of when one might are all over the map. That would be someone else's problem except for one detail: **an adversary can record your encrypted traffic today and decrypt it later.** This is called *harvest now, decrypt later*, and it is not speculative — bulk capture of encrypted traffic is a known activity of well-resourced intelligence services.
+
+So the question is not "when will quantum computers arrive." It is: **how long does this data need to stay confidential?** Session cookies, cache entries and short-lived tokens genuinely don't care. Medical records, legal case files, source code, diplomatic traffic, long-lived credentials, and anything with a statutory retention period of decades do. If the answer is "fifteen years," the migration deadline was some time ago.
+
+Symmetric cryptography is much less affected. Grover's algorithm gives at best a quadratic speed-up against a symmetric cipher, which is handled by doubling the key size — AES-256 remains fine. Hashing is similar. The damage is concentrated in **asymmetric** primitives: key exchange (RSA, ECDH) and signatures (RSA, ECDSA, EdDSA).
+
+**The standards.** NIST completed its selection process and published the first post-quantum standards in August 2024:
+
+| Standard | Algorithm | Replaces | Used for |
+|---|---|---|---|
+| FIPS 203 | **ML-KEM** (formerly Kyber) | ECDH, RSA key transport | Key encapsulation — establishing a shared secret |
+| FIPS 204 | **ML-DSA** (formerly Dilithium) | ECDSA, RSA signatures | General-purpose digital signatures |
+| FIPS 205 | **SLH-DSA** (formerly SPHINCS+) | — | Hash-based signatures; conservative fallback, larger and slower |
+
+Note the split. **Key exchange is the urgent half** — that is what harvest-now-decrypt-later attacks — while signatures mostly protect against *future* forgery and can migrate on a longer timeline (a signature verified today cannot be retroactively forged by a machine built in 2040).
+
+**Hybrid, not replacement.** In TLS the deployed approach is a *hybrid* key exchange: perform both a classical ECDH and an ML-KEM encapsulation, and derive the session key from both. The connection is secure unless *both* are broken, which hedges against the real possibility that the new algorithms have implementation or analysis flaws we haven't found yet — they are, after all, much younger than the ones they replace. Hybrid key exchange is already the default in mainstream browsers and is widely supported by major CDNs and cloud load balancers, which means a significant share of the web's traffic is already post-quantum protected at the transport layer without any application changing.
+
+**What this means for a .NET service, concretely.** For most of you, the honest answer is *less than the vendor pitch suggests*, because the TLS termination that matters is happening in your load balancer, CDN, or ingress controller — not in your code. Your practical work is:
+
+1. **Inventory where cryptography lives.** This is the actual project, and it takes longer than any code change. TLS termination points; certificate issuance; JWT and token signing; data-protection key rings; field-level encryption in the database; signed URLs; client certificates; SSH and code-signing keys; anything with `RSA` or `ECDsa` in the source; and every third-party library or device you cannot upgrade. Most organizations discover they cannot answer "what algorithms are we using and where" at all, which is the finding.
+2. **Turn on hybrid key exchange where the switch already exists** — your CDN and load balancer. This is usually a configuration flag and it protects the traffic most exposed to bulk capture.
+3. **Fix the long-retention data first.** Anything you encrypt and store for years is where the harvest-now risk actually bites.
+4. **Build agility into new code.** .NET 10 ships `MLKem`, `MLDsa` and `SlhDsa` types in `System.Security.Cryptography` (backed by the platform's native crypto — so availability depends on the underlying OpenSSL or Windows CNG version, and you should check `MLKem.IsSupported` rather than assume). Their real value right now is that you can build and test agility before you need it.
+
+**Crypto agility is the deliverable.** The migration you should be planning for is not "to ML-KEM." It is "to whatever comes next, on demand" — because this will happen again. Agility is an architectural property with concrete implications:
+
+- **Version your ciphertext.** Every encrypted blob should carry a small envelope identifying the algorithm and key that produced it, so a reader can decrypt old data with the old algorithm while new writes use the new one. `IDataProtector` already does this for you, which is one more reason to prefer it over hand-rolled AES.
+- **Never hardcode an algorithm identifier** in a place you can't change without a deployment — and especially not in a database column, a wire format, or a public API contract.
+- **Keep an interface between your code and the primitive**, so swapping the implementation is one class rather than a search-and-replace across the solution.
+- **Rehearse rotation.** A key you have never rotated is a key you cannot rotate. If your incident plan says "rotate the signing key," do it once, deliberately, on a Tuesday, and find out what breaks.
+
+> **Best practice.** Treat the inventory as the deliverable for this year and the algorithm swap as next year's. A team that knows exactly where its crypto lives can migrate in weeks whenever it needs to; a team that doesn't will need months no matter which algorithm is in fashion.
+
+**The related deadline that will bite sooner.** Independently of quantum anything, the CA/Browser Forum has agreed a schedule that shortens the maximum lifetime of public TLS certificates in stages — from today's 398 days down to 47 days by March 2029, with domain validation reuse shrinking alongside it. Whatever you think about post-quantum timelines, **this one is dated and certain**, and it makes manual certificate handling untenable. If any certificate in your estate is renewed by a human following a runbook, that is now a scheduled outage. Automate issuance and renewal (ACME via Let's Encrypt, your cloud's certificate manager, or `cert-manager` in Kubernetes), monitor expiry as a first-class alert, and make sure the automation covers the awkward ones — internal services, client certificates, mutual TLS between services, and the load balancer nobody remembers configuring.
+
 ## Web-Facing Defenses
 
 Beyond the fundamentals, the browser threat model demands specific defenses.
@@ -9376,7 +9416,7 @@ Scanning tells you about *known* vulnerabilities in packages you already trust. 
 
 ## Summary
 
-Security is a discipline of layered, deliberate decisions. Adopt the mindset — defense in depth, least privilege, secure by default, never trust input — and it informs every line you write. Know the OWASP Top 10 as *categories* of failure and the .NET mitigation for each. Distinguish authentication (who you are) from authorization (what you may do), and implement both with the framework's tools rather than reinventing them. Delegate identity to OAuth 2.0 / OIDC with the Authorization Code + PKCE flow, validate JWTs on issuer, audience, expiry, and signature — every time. Keep secrets out of source and in a managed vault, enforce TLS with HSTS, hash passwords with a slow salted algorithm, reach for `IDataProtector` instead of raw crypto, and defend the browser boundary with validation, encoding, anti-forgery tokens, tight CORS, and a strong CSP. Finally, scan your dependencies continuously — because the vulnerability you didn't write is still yours to fix.
+Security is a discipline of layered, deliberate decisions. Adopt the mindset — defense in depth, least privilege, secure by default, never trust input — and it informs every line you write. Know the OWASP Top 10 as *categories* of failure and the .NET mitigation for each. Distinguish authentication (who you are) from authorization (what you may do), and implement both with the framework's tools rather than reinventing them. Delegate identity to OAuth 2.0 / OIDC with the Authorization Code + PKCE flow, validate JWTs on issuer, audience, expiry, and signature — every time. Keep secrets out of source and in a managed vault, enforce TLS with HSTS, hash passwords with a slow salted algorithm, reach for `IDataProtector` instead of raw crypto, keep your algorithm choices agile — you will have to change them, and the certificate-lifetime clock is already running — and defend the browser boundary with validation, encoding, anti-forgery tokens, tight CORS, and a strong CSP. Finally, scan your dependencies continuously — because the vulnerability you didn't write is still yours to fix.
 
 
 ---
