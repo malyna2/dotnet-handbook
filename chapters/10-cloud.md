@@ -385,6 +385,62 @@ Everything in this chapter comes back to two disciplines that separate a mid-lev
 - **Isolate the network.** Databases in private subnets/VNets, never exposed to the public internet; access controlled by security groups.
 - **Respect the shared responsibility model.** The provider secures the platform; the config, the data, and the access policy are always yours.
 
+## Lock-In, and the Honest Economics of Leaving
+
+Every architecture discussion involving a managed service eventually reaches someone saying "but that locks us in," at which point the conversation usually stops. It shouldn't, because "locked in" is not a binary state and the objection is frequently used to justify building something worse.
+
+Here is the reframe that makes the discussion productive: **lock-in is not a yes/no property, it is a switching cost — and switching cost is worth paying for capability you get now.** You are already locked into your programming language, your database engine, your identity provider, and your ORM. Nobody proposes writing SQL that runs identically on six engines. The question is never "are we locked in," it is "what would leaving cost, and is the thing we get worth that price?"
+
+### The gradient
+
+Switching cost is not evenly distributed across the services you use. It concentrates, and knowing where lets you make deliberate trades:
+
+| Layer | Example | Cost to leave | Why |
+|---|---|---|---|
+| **Compute** | Containers on ECS / Container Apps / GKE | Low | Your image runs anywhere. Mostly you rewrite deployment config. |
+| **Managed open-source** | RDS/Azure Database for PostgreSQL, managed Redis, managed Kafka | Low–moderate | The engine is portable; you're leaving the *operations*, not the data model. |
+| **Proprietary data stores** | DynamoDB, Cosmos DB | High | The data model itself is shaped by the store's partitioning and query semantics. Leaving means redesigning access patterns, not just migrating rows. |
+| **Proprietary glue** | Step Functions, EventBridge rules, Logic Apps, IAM policy | High | This is business logic expressed in a vendor's configuration language. It has no export format and is rarely documented anywhere else. |
+| **Managed AI/ML platform** | Provider-specific model APIs, vector services | Moderate–high | Model behaviour differs; prompts, evals, and tuning don't transfer cleanly. |
+
+Two things fall out of that table.
+
+**The expensive lock-in is rarely the thing people worry about.** Teams argue about the database and then encode six months of workflow logic into a state machine defined in a proprietary JSON dialect that exists only in one cloud's console. The compute layer — the thing everyone tries hardest to keep portable — is the cheapest to move.
+
+**Data gravity is the real anchor.** Not the format: the *volume*, and the egress bill attached to it. Moving a hundred terabytes out of a cloud costs real money at published egress rates, takes real time, and has to happen while the system keeps running. This is why egress pricing exists and is priced the way it is. (EU regulation has begun to push on this — the Data Act's provisions on switching cloud providers are phasing in, and the major providers have already made free-egress-on-exit offers — but do not plan an architecture around a discount that requires you to be leaving.)
+
+### The abstraction layer that costs more than the lock-in
+
+The instinctive engineering response is to write a portability layer: wrap the cloud SDK behind your own interfaces so you can swap providers later.
+
+Occasionally this is right — usually when you genuinely run on two clouds today, or when a contract requires it. Far more often it is a large, permanent tax paid against a migration that never happens:
+
+- You get the **lowest common denominator** of every provider's features, so you lose the capability that justified using a managed service at all.
+- The abstraction is **wrong until it's tested**, and it isn't tested, because you only have one provider. The day you migrate you discover your interface leaked assumptions about the original — retry semantics, consistency, ordering, error codes.
+- It is **code your team maintains forever** instead of code a vendor maintains.
+
+> **Best practice.** Prefer *portable seams* over portability layers. Keep provider-specific code behind the boundaries your architecture already has — a repository, a message publisher, an ACL at a bounded-context edge (Chapters 6 and 30) — and let it be genuinely provider-specific inside. That gives you a known, contained blast radius for a future migration without paying an ongoing abstraction tax. Where the abstraction already exists and is free — `IDistributedCache`, `ILogger`, OpenTelemetry, S3-compatible APIs, a Postgres wire protocol — take it. Where you'd have to build it, usually don't.
+
+### Repatriation: when leaving actually pays
+
+"Cloud repatriation" — moving workloads back to owned or colocated hardware — went from heresy to a recurring headline, largely on the back of a few well-publicized write-ups reporting seven-figure annual savings. Before you cite them in a design review, understand which properties made those cases work, because they are specific:
+
+- **Steady, predictable load.** The cloud's core value is elasticity, and elasticity is worth nothing to a workload that runs at a flat 70% around the clock. You are paying an on-demand premium for an option you never exercise.
+- **High egress or high storage volume**, where the marginal cloud price is far above the marginal hardware price.
+- **An existing operations capability.** Someone has to rack, patch, monitor, secure, and be on call for hardware. If that team doesn't exist, "savings" is a compute-cost comparison that omits the salaries.
+- **Scale enough to amortize it.** The fixed cost of running your own infrastructure is substantial; below some size it dominates.
+
+And what you give up is real: capacity you can't get in an hour, DR that isn't a config change, managed service SLAs, and the ability for a small team to run a large system. Most published success stories are companies with large steady workloads and existing infrastructure teams. Most teams reading this book are not that.
+
+> **Gotcha.** The most common repatriation-shaped saving does not require leaving the cloud at all. Before anyone builds a business case for a datacenter, run the Chapter 28 checklist: right-sizing, reserved capacity or savings plans for the steady baseline, spot for the tolerant parts, deleting zombie resources, and fixing the top three egress paths. Teams routinely find 30–50% this way, in a fortnight, with no migration risk. Do that first; if the number still justifies leaving, you now have a much better-informed case.
+
+### A decision rule you can use in a design review
+
+- **Use the managed service** when it does something meaningfully hard (a database's durability and failover, a broker's delivery guarantees, a CDN's footprint), and its switching cost is proportionate.
+- **Be deliberate about proprietary glue.** Logic that lives in a vendor's configuration language is the most expensive kind to move and the easiest to accumulate accidentally. If a workflow is central to your business, consider keeping it in code you own.
+- **Write down what leaving would cost** for the two or three services you depend on most. Not a plan — an estimate, one paragraph each, in an ADR (Chapter 17). This converts a recurring argument into a known number, and the number is usually smaller than the loudest person in the room thinks.
+- **Revisit when the shape changes.** The right answer at 10 engineers and spiky traffic is different at 200 engineers and a flat baseline. Lock-in decisions should be reviewed when the business changes, not defended forever.
+
 ## Summary
 
 The cloud replaces owned capacity with metered capability, along a spectrum from IaaS (you manage almost everything) to serverless (you manage almost nothing). Regions and Availability Zones give you locality and resilience; the shared responsibility model draws the line between the provider's job and yours; and metered billing rewards vigilance.

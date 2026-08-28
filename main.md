@@ -6627,7 +6627,7 @@ None of these patterns is exotic once you've internalized the core insight: **th
 
 # Chapter 10: Cloud — AWS & Azure
 
-_⏱️ Estimated read time: ~25 min · 4262 words (study pace)_
+_⏱️ Estimated read time: ~30 min · 5463 words (study pace)_
 
 For most of computing history, running software meant owning hardware. You bought servers, racked them in a room with expensive cooling, hired people to replace failed disks at 3 a.m., and paid for enough capacity to survive your busiest day of the year — capacity that sat idle the other 364 days. The cloud rewired this economic model. Instead of buying a power station, you plug into the grid and pay for the kilowatt-hours you actually use. That single shift in mindset — from *owning capacity* to *renting capability* — is the thread that runs through everything in this chapter.
 
@@ -7011,6 +7011,62 @@ Everything in this chapter comes back to two disciplines that separate a mid-lev
 - **Encrypt in transit and at rest** (usually a checkbox or default now — make sure it's on).
 - **Isolate the network.** Databases in private subnets/VNets, never exposed to the public internet; access controlled by security groups.
 - **Respect the shared responsibility model.** The provider secures the platform; the config, the data, and the access policy are always yours.
+
+## Lock-In, and the Honest Economics of Leaving
+
+Every architecture discussion involving a managed service eventually reaches someone saying "but that locks us in," at which point the conversation usually stops. It shouldn't, because "locked in" is not a binary state and the objection is frequently used to justify building something worse.
+
+Here is the reframe that makes the discussion productive: **lock-in is not a yes/no property, it is a switching cost — and switching cost is worth paying for capability you get now.** You are already locked into your programming language, your database engine, your identity provider, and your ORM. Nobody proposes writing SQL that runs identically on six engines. The question is never "are we locked in," it is "what would leaving cost, and is the thing we get worth that price?"
+
+### The gradient
+
+Switching cost is not evenly distributed across the services you use. It concentrates, and knowing where lets you make deliberate trades:
+
+| Layer | Example | Cost to leave | Why |
+|---|---|---|---|
+| **Compute** | Containers on ECS / Container Apps / GKE | Low | Your image runs anywhere. Mostly you rewrite deployment config. |
+| **Managed open-source** | RDS/Azure Database for PostgreSQL, managed Redis, managed Kafka | Low–moderate | The engine is portable; you're leaving the *operations*, not the data model. |
+| **Proprietary data stores** | DynamoDB, Cosmos DB | High | The data model itself is shaped by the store's partitioning and query semantics. Leaving means redesigning access patterns, not just migrating rows. |
+| **Proprietary glue** | Step Functions, EventBridge rules, Logic Apps, IAM policy | High | This is business logic expressed in a vendor's configuration language. It has no export format and is rarely documented anywhere else. |
+| **Managed AI/ML platform** | Provider-specific model APIs, vector services | Moderate–high | Model behaviour differs; prompts, evals, and tuning don't transfer cleanly. |
+
+Two things fall out of that table.
+
+**The expensive lock-in is rarely the thing people worry about.** Teams argue about the database and then encode six months of workflow logic into a state machine defined in a proprietary JSON dialect that exists only in one cloud's console. The compute layer — the thing everyone tries hardest to keep portable — is the cheapest to move.
+
+**Data gravity is the real anchor.** Not the format: the *volume*, and the egress bill attached to it. Moving a hundred terabytes out of a cloud costs real money at published egress rates, takes real time, and has to happen while the system keeps running. This is why egress pricing exists and is priced the way it is. (EU regulation has begun to push on this — the Data Act's provisions on switching cloud providers are phasing in, and the major providers have already made free-egress-on-exit offers — but do not plan an architecture around a discount that requires you to be leaving.)
+
+### The abstraction layer that costs more than the lock-in
+
+The instinctive engineering response is to write a portability layer: wrap the cloud SDK behind your own interfaces so you can swap providers later.
+
+Occasionally this is right — usually when you genuinely run on two clouds today, or when a contract requires it. Far more often it is a large, permanent tax paid against a migration that never happens:
+
+- You get the **lowest common denominator** of every provider's features, so you lose the capability that justified using a managed service at all.
+- The abstraction is **wrong until it's tested**, and it isn't tested, because you only have one provider. The day you migrate you discover your interface leaked assumptions about the original — retry semantics, consistency, ordering, error codes.
+- It is **code your team maintains forever** instead of code a vendor maintains.
+
+> **Best practice.** Prefer *portable seams* over portability layers. Keep provider-specific code behind the boundaries your architecture already has — a repository, a message publisher, an ACL at a bounded-context edge (Chapters 6 and 30) — and let it be genuinely provider-specific inside. That gives you a known, contained blast radius for a future migration without paying an ongoing abstraction tax. Where the abstraction already exists and is free — `IDistributedCache`, `ILogger`, OpenTelemetry, S3-compatible APIs, a Postgres wire protocol — take it. Where you'd have to build it, usually don't.
+
+### Repatriation: when leaving actually pays
+
+"Cloud repatriation" — moving workloads back to owned or colocated hardware — went from heresy to a recurring headline, largely on the back of a few well-publicized write-ups reporting seven-figure annual savings. Before you cite them in a design review, understand which properties made those cases work, because they are specific:
+
+- **Steady, predictable load.** The cloud's core value is elasticity, and elasticity is worth nothing to a workload that runs at a flat 70% around the clock. You are paying an on-demand premium for an option you never exercise.
+- **High egress or high storage volume**, where the marginal cloud price is far above the marginal hardware price.
+- **An existing operations capability.** Someone has to rack, patch, monitor, secure, and be on call for hardware. If that team doesn't exist, "savings" is a compute-cost comparison that omits the salaries.
+- **Scale enough to amortize it.** The fixed cost of running your own infrastructure is substantial; below some size it dominates.
+
+And what you give up is real: capacity you can't get in an hour, DR that isn't a config change, managed service SLAs, and the ability for a small team to run a large system. Most published success stories are companies with large steady workloads and existing infrastructure teams. Most teams reading this book are not that.
+
+> **Gotcha.** The most common repatriation-shaped saving does not require leaving the cloud at all. Before anyone builds a business case for a datacenter, run the Chapter 28 checklist: right-sizing, reserved capacity or savings plans for the steady baseline, spot for the tolerant parts, deleting zombie resources, and fixing the top three egress paths. Teams routinely find 30–50% this way, in a fortnight, with no migration risk. Do that first; if the number still justifies leaving, you now have a much better-informed case.
+
+### A decision rule you can use in a design review
+
+- **Use the managed service** when it does something meaningfully hard (a database's durability and failover, a broker's delivery guarantees, a CDN's footprint), and its switching cost is proportionate.
+- **Be deliberate about proprietary glue.** Logic that lives in a vendor's configuration language is the most expensive kind to move and the easiest to accumulate accidentally. If a workflow is central to your business, consider keeping it in code you own.
+- **Write down what leaving would cost** for the two or three services you depend on most. Not a plan — an estimate, one paragraph each, in an ADR (Chapter 17). This converts a recurring argument into a known number, and the number is usually smaller than the loudest person in the room thinks.
+- **Revisit when the shape changes.** The right answer at 10 engineers and spiky traffic is different at 200 engineers and a flat baseline. Lock-in decisions should be reviewed when the business changes, not defended forever.
 
 ## Summary
 
@@ -16072,7 +16128,7 @@ There is no universally correct answer — there is the answer that fits *this* 
 
 # Chapter 30: Working with Legacy & Brownfield Code
 
-_⏱️ Estimated read time: ~30 min · 4261 words (study pace)_
+_⏱️ Estimated read time: ~35 min · 5369 words (study pace)_
 
 ## The Myth of the Greenfield
 
@@ -16500,6 +16556,70 @@ public decimal Price(Cart cart)
 ```
 
 **Measure progress with real signals, not vibes.** A modernization program that can't show it's working will be cancelled. Track things that stakeholders and the team both feel: percentage of traffic served by new services; number of legacy endpoints retired; test coverage on hotspot files trending up; deployment frequency and lead time (are changes getting easier?); and change-failure rate (are they getting safer?). These last two come from the DORA metrics and are excellent proxies for "is this codebase becoming pleasant to work in." The goal isn't a perfect architecture on a slide; it's a system your team can change quickly and safely — and that you can *prove* is trending that way.
+
+## The EOL Treadmill: Legacy Is a Verb
+
+This chapter has treated legacy as a state you inherit. It is worth ending on the observation that it is also a process you are subject to, continuously, whether or not you write any code.
+
+Consider what a single ASP.NET Core service actually depends on, and who controls the clock on each:
+
+```
+  your code                    ← you decide when this changes
+    ├── NuGet packages         ← maintainers decide; support windows vary wildly
+    ├── .NET runtime           ← Microsoft: annual November release, fixed support window
+    ├── base container image   ← distro maintainers: Debian/Alpine/Ubuntu release cycles
+    ├── the OS or node image   ← your cloud's supported Kubernetes/VM versions
+    ├── the database engine    ← managed-service provider forces upgrades on a schedule
+    └── the cloud API versions ← deprecated with notice, then they stop answering
+```
+
+Every one of those has an expiry date set by somebody else. You did not agree to it, you cannot negotiate it, and the work it generates arrives whether or not it is in your roadmap. **A system that nobody changes still decays**, which is the single most counter-intuitive fact about maintenance and the reason "we'll freeze it and revisit next year" is not the low-risk option it sounds like.
+
+### The current, dated example
+
+.NET's cadence is one new major version every November, with even-numbered releases supported for three years (LTS) and odd-numbered ones for two (Appendix B has the full table). Concretely, as this is written:
+
+- **.NET 8 (LTS) and .NET 9 (STS) both reach end of support on November 10, 2026.** They end on the same day — a quirk of the STS extension to 24 months landing exactly on the LTS date.
+- **.NET 10 (LTS)** is supported through November 2028 and is the target for anything long-lived.
+
+After the end-of-support date there are no security patches. Not "fewer" — none. A service still running on .NET 8 in December 2026 is running unpatched code with a published list of what is wrong with it, and that has consequences well beyond engineering taste: it will fail your SOC 2 audit, it will be flagged by any customer's security questionnaire, and if it is in scope for the EU Cyber Resilience Act (Chapter 35), shipping software you no longer patch becomes a regulatory problem rather than a backlog item.
+
+> **Gotcha.** The runtime is usually not the binding constraint — the base image is. A container built `FROM` a distro release that goes EOL keeps working perfectly and quietly stops receiving OS-level CVE fixes, which your scanner will notice long before anyone else does. Track base image EOL dates alongside runtime dates; they rarely align.
+
+### Why frequent is cheaper than infrequent
+
+The arithmetic here is not intuitive, and getting it wrong is how teams end up doing eighteen-month migrations.
+
+Upgrade cost does not scale linearly with the number of versions skipped, because:
+
+- **Breaking changes compound.** Two consecutive versions have a documented, tested upgrade path. Four versions apart, you are combining four sets of breaking changes, and the interactions between them are documented nowhere.
+- **The ecosystem moves with the platform.** Packages drop support for old targets. Skip long enough and you need to upgrade every dependency simultaneously with the runtime, which turns one variable into forty.
+- **Tooling assumes recency.** Analyzers, the upgrade assistant, SDK tooling and community answers all target the current and previous version. Far enough back, you are on your own.
+- **Knowledge decays.** The engineer who understood why that startup hack exists has left, and the reason was never written down.
+
+Which yields the rule: **an upgrade you do every year is a task; one you do every four years is a project; one you do every eight is a rewrite.** The same total work, priced very differently — and only the first one can be absorbed without asking anyone's permission.
+
+### Budget it as a standing cost, not a project
+
+The organizational failure here is treating platform upgrades as discretionary work requiring a business case. They are not a feature; they are the cost of continuing to have a system, more like paying for hosting than like building something.
+
+What works in practice:
+
+- **Reserve capacity permanently.** A standing allocation — a fixed share of each iteration, or one engineer's rotation — for dependency and platform maintenance. Not "when we have time," which never arrives.
+- **Keep a dated inventory.** Every service, its runtime version, base image, and their end-of-support dates, generated from what is actually deployed rather than from a wiki page. This is the service-catalog data from Chapter 12 doing a second job, and it is what turns "are we exposed?" from an investigation into a query.
+- **Alert before the date, not on it.** Ninety days of warning is a sprint's worth of planning. The day-of alert is an incident.
+- **Upgrade the boring services first.** Practising on the low-risk ones is how you find out what your upgrade actually involves before you attempt it on the service that takes payments.
+- **Make the pipeline do the work.** Automated dependency PRs with a cooldown window (Chapter 35), a build matrix that compiles against the *next* runtime before you commit to it, and CI failing on a target framework approaching EOL. The upgrade you notice in a red build is far cheaper than the one you notice in an audit.
+
+> **Best practice.** Multi-target during transitions (as described earlier in this chapter) and keep the *next* version green in CI continuously, even before you plan to adopt it. The cost of upgrading is then paid down incrementally, in units small enough that nobody has to approve them — which is the only reliable way this work gets done.
+
+### The constraint nobody puts in the architecture diagram
+
+The deepest version of this point: **the maintenance cadence you can sustain is an architectural constraint**, and it belongs in design discussions alongside latency budgets and consistency requirements.
+
+Forty microservices means forty runtime upgrades, forty base images, forty dependency graphs. That is a real, recurring cost, and it is one of the strongest arguments for the modular monolith (Chapter 6) at team sizes that cannot staff forty upgrade paths. Similarly, every additional language, framework, database engine and cloud service you adopt adds its own independent expiry schedule.
+
+The question to ask when adopting anything new is not only "does this solve our problem?" but "**who will upgrade this in three years, and will they know why we chose it?**" A team that asks this consistently ends up with fewer, better-understood technologies — and considerably less of the legacy this chapter is about.
 
 ## Sources & Further Reading
 
