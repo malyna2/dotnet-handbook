@@ -12455,7 +12455,7 @@ We close with the mental model that should underpin every networked design decis
 
 # Chapter 21: Distributed Systems Theory & Reliability Engineering
 
-_⏱️ Estimated read time: ~25 min · 4171 words (study pace)_
+_⏱️ Estimated read time: ~35 min · 5923 words (study pace)_
 
 A single-process program lives in a comfortable universe. Memory reads are instantaneous, function calls always return, and if something crashes, the whole thing crashes together — you never have to reason about *half* your program being alive while the other half is dead. The moment you split that program across two machines connected by a network, you leave that comfortable universe forever. Messages get lost. Clocks disagree. One node thinks another is dead when it is merely slow. And crucially, **you can never tell the difference between a slow node and a dead one** — that single fact is the source of most of the pain in this chapter.
 
@@ -12650,9 +12650,9 @@ var response = await pipeline.ExecuteAsync(
 
 Read the layering carefully. The *inner* timeout (2s) bounds each individual attempt; the retry sits outside it so a hung call is cancelled and retried; the circuit breaker sits outside the retry so it can count failures *including* exhausted retries and trip; the *outer* timeout caps the total elapsed time across all retries so the user isn't left waiting 30 seconds. Add a **bulkhead** (`RateLimiter`/concurrency limiter) around it, and every theoretical pattern from this chapter is now enforced in production code.
 
-### Chaos Engineering and Blast Radius
+### Blast Radius
 
-You don't actually know your system survives failure until you *cause* failure. **Chaos engineering** (pioneered by Netflix's Chaos Monkey) deliberately injects faults — killing instances, adding latency, dropping packets — in production or production-like environments, to verify that your degradation, retries, and failovers work *before* a real outage tests them for you. The discipline: form a hypothesis ("if we kill one replica, latency stays under SLO"), run the experiment on a small **blast radius**, and expand only as confidence grows.
+Every resilience pattern above is a claim about behaviour under failure, and claims need verifying — the *Verifying Resilience* section below is about how. What every experiment is bounded by, and what most reliability work is ultimately about, is blast radius.
 
 **Blast radius** is the amount of the system a single failure can damage. Great reliability engineering is largely *blast-radius reduction*: cell-based / sharded architectures, bulkheads, per-tenant isolation, and gradual (canary) rollouts all exist to ensure that when — not if — something breaks, it breaks *small*.
 
@@ -12665,6 +12665,129 @@ You don't actually know your system survives failure until you *cause* failure. 
   - **RPO (Recovery Point Objective):** how much *data* you can afford to lose, measured in time. An RPO of 5 minutes means backups/replication must be no more than 5 minutes stale.
 
 An RPO near zero demands synchronous replication (and CAP/PACELC latency costs — the theory comes full circle). A generous RPO of an hour lets you use cheap periodic backups. Match the cost of your DR strategy to the actual business value at risk; not every system deserves multi-region synchronous replication, and pretending otherwise just burns money you should spend elsewhere.
+
+## Verifying Resilience: Chaos Engineering in Practice
+
+Look back at the Polly pipeline earlier in this chapter. Timeout, retry with jitter, circuit breaker, fallback, bulkhead — perhaps forty lines of configuration, sitting in the request path of every call your service makes.
+
+Now answer honestly: **when did that code last run?**
+
+Not "when was it deployed." When did the circuit breaker last open? When did the fallback last return a degraded response? For most services, the answer is "during an incident, which is also when we discovered the breaker's threshold was wrong."
+
+Resilience code is the only code we routinely ship without executing. Its failure paths run rarely by design, unit tests exercise the happy path, and integration tests run against dependencies that are up. So the retry policy that retries a non-idempotent operation, the circuit breaker whose threshold is so high it never trips, the fallback that throws a `NullReferenceException`, and the timeout that is longer than the caller's timeout — all of these sit in production, untested, until the day they are needed and don't work. Frequently they make the incident *worse*: a retry storm turning a slow dependency into a dead one is one of the most common ways a partial outage becomes a total one.
+
+**Chaos engineering** is the practice of executing that code deliberately, on your terms, at 10 a.m. on a Tuesday with the right people watching.
+
+### It is an experiment, not vandalism
+
+The name has done the discipline a disservice; it sounds like breaking things for fun, and the version that involves randomly killing production instances on a Friday is what most people picture. That is the mature end of the practice, not the entry point. The actual method is closer to science than to sabotage, and the structure is what separates it from an outage you caused yourself:
+
+1. **Define steady state.** A measurable property of the *system's behaviour*, expressed in user-visible terms: "checkout success rate stays above 99.5%," "p99 latency stays under 400ms." Not "the pods are running" — internal health is not steady state, because a system whose pods are all healthy can still be failing every user.
+2. **Form a hypothesis.** "When the recommendations service becomes unavailable, checkout success rate is unaffected and p99 latency rises by less than 50ms." Write it down *before* you run it. A hypothesis you write afterwards is a description.
+3. **Define the blast radius and the abort condition.** Which slice of traffic, which environment, how long — and the specific signal that stops the experiment immediately. Know how to stop it before you start it.
+4. **Inject the fault** in the smallest scope that can test the hypothesis.
+5. **Compare against the hypothesis.** The experiment "fails" when reality disagrees with what you wrote down — and a failed experiment is the entire point. It found something a real incident would otherwise have found for you.
+6. **Fix, then re-run.** An experiment you never re-run tells you what was broken in March.
+
+> **Best practice.** The experiments that find the most bugs are the boring ones close to home: your immediate dependencies, one at a time. Start with "what happens when the cache is down" — not "what happens when we lose a region." Almost every team that runs that first experiment finds something, usually that a cache miss path nobody tested is either far slower than assumed or throws.
+
+### Prerequisites, honestly stated
+
+Chaos engineering is not the first reliability investment a team should make, and running it without the following is how it becomes theatre — or an incident:
+
+- **Observability good enough to see the effect.** If you cannot measure your steady-state metric in near real time, you cannot detect that the experiment broke it. You will either miss the finding or panic at the wrong dashboard. Chapter 13 is a prerequisite, not a companion.
+- **A rollback path that works.** The abort condition is only useful if aborting is fast. A feature flag that takes a deployment to flip is not an abort mechanism.
+- **Somewhere to run it that is not production.** Start in staging. Yes, staging differs from production and will therefore miss things — that is an argument for eventually running in production, not an argument for starting there.
+- **Organizational consent.** Announce the experiment, its window, and its abort condition. An unannounced experiment is indistinguishable from an incident, and the second time you cause a page at 3 p.m. the practice gets banned.
+
+### Fault injection in .NET with Polly
+
+The nice property of the Polly v8 chaos strategies is that they compose into the *same* pipeline as your resilience strategies — so you inject the fault at the exact layer the resilience is supposed to handle, in your own process, with no infrastructure required.
+
+Four strategies cover most needs: **latency** (slow a call), **fault** (throw), **outcome** (return a specific result, e.g. a `503`), and **behavior** (run arbitrary code, for the exotic cases).
+
+```csharp
+builder.Services.AddHttpClient<RecommendationsClient>()
+    .AddResilienceHandler("recommendations", (pipeline, context) =>
+    {
+        // Real resilience strategies first — these are what we are testing.
+        pipeline.AddTimeout(TimeSpan.FromSeconds(2));
+        pipeline.AddRetry(new HttpRetryStrategyOptions
+        {
+            MaxRetryAttempts = 3,
+            BackoffType = DelayBackoffType.Exponential,
+            UseJitter = true
+        });
+        pipeline.AddCircuitBreaker(new HttpCircuitBreakerStrategyOptions
+        {
+            FailureRatio = 0.5,
+            SamplingDuration = TimeSpan.FromSeconds(30),
+            MinimumThroughput = 10
+        });
+
+        // Chaos strategies go OUTERMOST in the pipeline, so the fault is
+        // introduced closest to the dependency and every strategy above
+        // gets to react to it — exactly as it would in a real outage.
+        var options = context.ServiceProvider
+            .GetRequiredService<IOptionsMonitor<ChaosOptions>>();
+
+        pipeline.AddChaosLatency(new ChaosLatencyStrategyOptions
+        {
+            // Injection is controlled at run time, not at deploy time.
+            EnabledGenerator = _ => ValueTask.FromResult(options.CurrentValue.LatencyEnabled),
+            InjectionRateGenerator = _ => ValueTask.FromResult(options.CurrentValue.Rate),
+            Latency = TimeSpan.FromSeconds(5)
+        });
+
+        pipeline.AddChaosOutcome(new ChaosOutcomeStrategyOptions<HttpResponseMessage>
+        {
+            EnabledGenerator = _ => ValueTask.FromResult(options.CurrentValue.OutcomeEnabled),
+            InjectionRateGenerator = _ => ValueTask.FromResult(options.CurrentValue.Rate),
+            OutcomeGenerator = static _ => ValueTask.FromResult<Outcome<HttpResponseMessage>?>(
+                Outcome.FromResult(new HttpResponseMessage(HttpStatusCode.ServiceUnavailable)))
+        });
+    });
+```
+
+Three details that decide whether this is safe:
+
+- **`EnabledGenerator` reads from configuration on every call**, so injection is turned on and off at run time — through a feature flag or `IOptionsMonitor` — with no deployment. That is your abort switch, and it must be instant.
+- **The injection rate is a percentage**, so you can start at 1% of calls and turn it up. That is your blast radius control.
+- **Gate it by environment as well as by flag.** A chaos strategy that can be enabled in production by a config change is a chaos strategy that will be enabled in production by an accidental config change. Belt and braces: `if (env.IsProduction() && !explicitlyApprovedChaosWindow) return;`
+
+> **Gotcha.** Injecting chaos at the *inner*most layer of the pipeline tests nothing useful — you have proven that a fault thrown after the retry policy propagates to the caller. The chaos strategy must sit outside (that is, closer to the dependency than) the strategies whose behaviour you are trying to observe.
+
+### Platform-level injection
+
+Polly tests how *your process* responds to a misbehaving dependency. It cannot test what happens when your process disappears, when a node's disk fills, or when two services can reach the database but not each other. That needs the layer below:
+
+- **Pod and node termination** — does the load balancer notice fast enough? Do in-flight requests drain, or are they dropped? Does your `IHostApplicationLifetime` shutdown path actually finish what it started (Chapter 22)?
+- **Network latency and partition** between specific services — the case that finds split-brain bugs and timeout misconfigurations. A service mesh can inject latency and abort responses declaratively between named services.
+- **Resource exhaustion** — CPU, memory, disk pressure on a node, which is how you discover that your pod has no memory limit and takes its neighbours down with it.
+- **Dependency-level failure** — a managed database failover, a broker restart. Cloud providers offer these as a service (AWS Fault Injection Service, Azure Chaos Studio), which is safer than doing it by hand because they include the stop button.
+
+Chaos Mesh and LitmusChaos are the common open-source options in the Kubernetes world; both express experiments as CRDs, which means they live in git and run in a pipeline like anything else.
+
+### Game days
+
+The highest-value version of all this involves no automation. A **game day** is a scheduled exercise where a team injects a realistic failure and works the resulting incident with their real tooling and real runbooks.
+
+It works because it tests the parts no fault injector reaches: whether the on-call engineer can find the dashboard, whether the runbook's first step still exists, whether anyone knows who owns the failing service, whether the escalation path works on a Friday evening, whether the status page can actually be updated by the person who needs to update it. These are, in practice, where incident time actually goes — and they are invisible to every technical control in this chapter.
+
+A workable format: pick a scenario a week ahead and tell people the window but not the scenario; nominate an incident commander who is deliberately *not* the person who knows the system best; run it for a fixed 60–90 minutes with a facilitator holding the stop button; and write up findings as ordinary backlog items with owners. The output is not a score. It is a list of specific, unglamorous gaps — an out-of-date runbook, an alert that fires to a rotation that no longer exists, a dashboard nobody has permission to view.
+
+> **Takeaway.** Run one game day before you automate anything. It will produce more actionable findings than a quarter of fault injection, it costs one afternoon, and it tells you whether your organization is ready for the automated version.
+
+### Where it is theatre
+
+Being honest about the failure modes of the practice itself:
+
+- **Chaos without observability** proves nothing. You broke something, nothing obvious happened, you declared success. Whether the error budget moved is unknown.
+- **Chaos as a compliance checkbox** — a quarterly experiment run against a scenario known to pass, so the audit line is green.
+- **Chaos in an environment nothing depends on**, with no traffic and no real data, testing a topology production does not have.
+- **Findings without owners.** The experiment failed, everyone agreed it was interesting, nobody filed the ticket. This is the most common one by a wide margin.
+
+The practice earns its keep when a failed experiment reliably produces a fix, and when the same experiment is re-run afterwards to confirm it. Everything else is a demonstration.
 
 ## The Debugging Map: Symptom → Theory → Mitigation
 
@@ -12698,7 +12821,10 @@ The mid-level instinct is to make the network invisible and hope. The senior ins
 - AWS Architecture Blog, "Exponential Backoff and Jitter"; the AWS Well-Architected Framework — Reliability Pillar.
 - Microsoft Learn: "Cloud Design Patterns" (Circuit Breaker, Bulkhead, Retry, Throttling) and the Polly / `Microsoft.Extensions.Http.Resilience` documentation.
 - Azure Well-Architected Framework — Reliability pillar (RTO/RPO, failover, redundancy).
-- Netflix Technology Blog on Chaos Engineering; *Chaos Engineering* by Rosenthal and Jones.
+- Netflix Technology Blog on Chaos Engineering; *Chaos Engineering* by Rosenthal and Jones (O'Reilly) — the origin of the hypothesis-driven method used above.
+- **Principles of Chaos Engineering** (principlesofchaos.org) — the short, canonical statement of the discipline.
+- **Polly v8 chaos strategies** documentation (`Polly.Simmy` lineage) — latency, fault, outcome, and behavior injection composed into a resilience pipeline. https://www.pollydocs.org/chaos/
+- **Azure Chaos Studio** and **AWS Fault Injection Service** documentation; **Chaos Mesh** and **LitmusChaos** for Kubernetes-native experiments.
 
 
 ---
