@@ -245,6 +245,47 @@ Flaky tests are worse than no tests: they train the team to ignore red builds. A
 - **Quarantine, don't ignore.** When a test flakes, move it to a quarantined lane that runs but doesn't block the pipeline, file a bug, and fix or delete it on a deadline. A permanently-ignored `[Fact(Skip = "flaky")]` is dead weight that rots.
 - **Track flake rate as a metric.** If you can't measure it, you won't fix it.
 
+### Accessibility checks in the same run
+
+Since you already have a browser driving your app, you are one dependency away from catching a whole category of defects that unit tests structurally cannot see — and that, in the EU since June 2025, are compliance defects rather than cosmetic ones (Chapter 29 covers the standards and the markup).
+
+**axe-core** is the rules engine everyone uses; `Deque.AxeCore.Playwright` wires it into Playwright for .NET:
+
+```csharp
+using Deque.AxeCore.Playwright;
+using Deque.AxeCore.Commons;
+
+[Test]
+public async Task Checkout_page_has_no_accessibility_violations()
+{
+    await Page.GotoAsync("/checkout");
+    await Expect(Page.GetByRole(AriaRole.Heading, new() { Name = "Checkout" }))
+        .ToBeVisibleAsync();                       // don't scan a half-rendered page
+
+    var results = await Page.RunAxe(new AxeRunOptions
+    {
+        RunOnly = new RunOnlyOptions
+        {
+            Type = "tag",
+            Values = ["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa"]
+        }
+    });
+
+    Assert.That(results.Violations, Is.Empty,
+        FormatViolations(results.Violations));      // print rule, impact, and selector
+}
+```
+
+Three things make the difference between this being useful and being a nuisance:
+
+**Scan the page in the state you care about.** A scan that runs before hydration, or with a modal closed, tests markup no user sees. Drive the UI to the interesting state first — modal open, validation errors shown, table sorted — and scan there. Most real violations live in the states, not the initial render.
+
+**Fail on new violations, not on all violations.** Retrofitting into an existing app produces hundreds of findings on day one, and a suite that is red on day one gets disabled by day three. Snapshot the current violations as a baseline, fail the build only on additions, and burn the baseline down deliberately. This is the same tactic as introducing any analyzer into legacy code (Chapter 30).
+
+**Assert on roles and names throughout your normal E2E tests.** This is the underrated half. Playwright's `GetByRole`, `GetByLabel`, and `GetByText` locators resolve through the accessibility tree — the same tree a screen reader consumes. A test written as `Page.GetByRole(AriaRole.Button, new() { Name = "Place order" })` fails if that button loses its accessible name, becomes a `<div>`, or stops being labelled. You get accessibility regression coverage as a side effect of writing your E2E tests the way Playwright already recommends, at no extra cost.
+
+> **Gotcha — know the ceiling.** Automated rules catch roughly a third of WCAG issues: the mechanical ones (missing labels, contrast, invalid ARIA, duplicate IDs). They cannot tell you whether alt text is *meaningful*, whether focus order is *logical*, or whether a custom widget is *usable*. A green axe run is evidence of no obvious errors, not evidence of an accessible product. Budget a manual keyboard-and-screen-reader pass per release for anything user-facing, and treat the automated suite as the regression net that keeps the manual findings fixed.
+
 ## Load & Performance Testing
 
 Functional tests answer "is it correct?"; load tests answer "does it stay correct and fast under concurrency and volume?" Two tools dominate for .NET teams.
