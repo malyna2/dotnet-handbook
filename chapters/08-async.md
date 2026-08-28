@@ -569,3 +569,67 @@ Rx is a specialized tool. For request/response and ordinary async I/O, stick wit
 - Protect shared state with `lock`, `Interlocked`, and concurrent collections; leave manual memory barriers to the experts.
 
 Master these, and asynchronous code stops being a source of mysterious hangs and becomes what it should be: a precise tool for building responsive, scalable systems.
+
+## Exercises
+
+Three short drills. The first two have answers you can check; the third is work in your own codebase, which is where this chapter actually pays off.
+
+### Find the bug
+
+This handler compiles, passes its unit test, and takes the service down under load.
+
+```csharp
+[HttpGet("/reports/{id:int}")]
+public IActionResult GetReport(int id)
+{
+    var report = _reportService.BuildReportAsync(id).Result;
+
+    var recipients = _db.Subscribers
+        .Where(s => s.ReportId == id)
+        .ToList();
+
+    Parallel.ForEach(recipients, r =>
+    {
+        _mailer.SendAsync(r.Email, report).Wait();
+    });
+
+    return Ok(report);
+}
+```
+
+Name every defect you can see, then say which one causes the outage.
+
+<details>
+<summary>Answer</summary>
+
+Four separate problems, in increasing order of severity:
+
+1. **`.Result` and `.Wait()` are sync-over-async.** Each one blocks a thread-pool thread while waiting for I/O to complete. The thread is doing nothing except occupying a slot.
+2. **`Parallel.ForEach` over async work does not do what it looks like.** `Parallel.ForEach` is for CPU-bound work; the lambda returns as soon as `SendAsync` returns a `Task`, so the `.Wait()` inside is the only thing serialising it — you have combined the overhead of parallelism with the blocking of synchronous code. `Parallel.ForEachAsync` (or `Task.WhenAll` over a bounded set) is the tool for this.
+3. **No `CancellationToken` anywhere.** If the client disconnects, every one of those emails still gets sent.
+4. **The outage is thread-pool starvation.** Under load, each in-flight request occupies one thread blocked in `.Result` plus several more blocked in `.Wait()`. The pool injects new threads only slowly (roughly one per 500ms once it is past its minimum), so the queue grows faster than it drains. Latency climbs on *every* endpoint, including ones that touch none of this code — which is why the cause is so often misdiagnosed as a database problem.
+
+The fix is `async Task<IActionResult>`, `await` throughout, `Parallel.ForEachAsync` with a `MaxDegreeOfParallelism`, and a `CancellationToken` threaded from the action signature down.
+</details>
+
+### What would you do
+
+A colleague's PR adds `ConfigureAwait(false)` to every `await` in a new ASP.NET Core service, citing a blog post about deadlocks. It is 300 lines of diff across 40 files. What do you say in review?
+
+<details>
+<summary>How a senior engineer reasons about it</summary>
+
+The technically correct observation is that ASP.NET Core has no `SynchronizationContext`, so `ConfigureAwait(false)` changes nothing in this codebase — the deadlock it prevents is a WinForms/WPF/legacy-ASP.NET problem. In a *library* that might be consumed by such an app it remains good practice; in an ASP.NET Core service it is noise, and 300 lines of noise makes future diffs harder to read.
+
+But the review comment that lands well does not stop there. Your colleague read something, applied it diligently, and is not wrong about the underlying phenomenon — they are wrong about whether this codebase has it. So: explain the mechanism (what a `SynchronizationContext` is, and that ASP.NET Core doesn't install one), agree explicitly about where the advice *does* apply, and let them decide whether to drop the change or keep it for a library project in the same solution.
+
+There is also a judgment call about proportion. If the team has an analyzer rule about it, this is a rule discussion, not a PR discussion. And if the diff is otherwise good, "this is unnecessary but harmless, let's not block on it" is a legitimate answer — cargo-culted `ConfigureAwait(false)` costs readability, not correctness. Chapter 17 has more on picking which hills to defend in review.
+</details>
+
+### Go check
+
+Open the service you work on and answer these from the code, not from memory:
+
+- Find every `.Result`, `.Wait()`, and `.GetAwaiter().GetResult()`. For each one, decide: is it in startup code (usually fine), or on a request path (usually a latent outage)?
+- Find the longest `await` chain from an HTTP endpoint down to the outermost I/O call. Does a `CancellationToken` reach the bottom? If it stops halfway, everything below it is work you cannot cancel.
+- Look at one hot path and ask whether `ValueTask` would help — that is, whether it completes synchronously most of the time. If it always awaits real I/O, `Task` is the right choice and switching would gain nothing.

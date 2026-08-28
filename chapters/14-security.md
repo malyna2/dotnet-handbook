@@ -24,7 +24,7 @@ Before any specific technique, internalize four principles. They are not slogans
 
 The OWASP Top 10 is the industry's consensus list of the most critical web application risks. Below is each category with the mitigation you apply in .NET. Learn the *category*, not just the trick — the categories are stable even as frameworks change.
 
-> **Note:** This walk-through follows the **2021 edition** (A01–A10 below). OWASP published a revised Top 10 in 2025 — notably elevating software supply chain failures to its own category — but the list is deliberately stable between editions, and every .NET mitigation here carries over unchanged.
+> **Note:** This walk-through follows the **2021 edition** (A01–A10 below). OWASP published a revised Top 10 in 2025 — notably elevating software supply chain failures to its own category, which [Chapter 35](#chapter-35-software-supply-chain-security) covers in full — but the list is deliberately stable between editions, and every .NET mitigation here carries over unchanged.
 
 ### A01: Broken Access Control
 
@@ -300,6 +300,140 @@ builder.Configuration.AddAzureKeyVault(
 
 > **Best practice — rotation.** Secrets should be rotated regularly and immediately upon suspected compromise. Design for rotation from day one: fetch secrets at runtime (or cache briefly) rather than baking them into a build, and support two valid keys during a rollover window so nothing breaks mid-rotation.
 
+## Zero Trust and Workload Identity
+
+Secrets management, above, is about storing credentials safely. This section is about the better move: **not having them.**
+
+### What zero trust actually claims
+
+Strip away the marketing and zero trust is one architectural assertion: **network position confers no trust.** Being inside the VPC, behind the firewall, or on the corporate LAN tells you nothing about whether a request is legitimate. Every request — including service-to-service requests that never leave your cluster — is authenticated and authorized on its own merits.
+
+The model it replaces is the *castle and moat*: a hard perimeter with a soft interior, where anything that got inside was assumed friendly. That model failed for reasons that are now obvious. Attackers get inside — through a phished laptop, a compromised dependency, an SSRF bug, a misconfigured bucket — and once inside, a flat trusted network hands them everything. Most large breaches of the last decade are lateral-movement stories, not perimeter-breach stories.
+
+Three practical consequences for a backend engineer:
+
+- **Authenticate every hop.** `OrderService` calling `PaymentService` must prove who it is, every call, even over a private subnet.
+- **Authorize every call.** Identity is not permission. `OrderService` may call `PaymentService.Charge` and nothing else.
+- **Assume breach.** Design so that a compromised service is a contained incident rather than a full one — short-lived credentials, narrow scopes, audited access.
+
+> **Pitfall.** "Zero trust" is also a product category, and vendors will sell you a gateway and call it done. The architecture is not a product. A team that buys the gateway but still runs services with a shared static API key and a flat network has bought a logo.
+
+### The problem: how does a service prove *what it is*?
+
+Human authentication is well understood — you know a password, hold a device, present a passkey. Service authentication is harder, and the traditional answer is embarrassing when written down: we give the service a long-lived secret and hope nobody else reads it.
+
+That secret has to be provisioned somehow, which creates the *secret zero* problem — the credential the service uses to fetch its other credentials from the vault. Wherever that lives (an environment variable, a file, a Kubernetes Secret, a build pipeline variable), it is a static string that grants access, never expires on its own, and is copied into every replica, every log that accidentally dumps the environment, and every core file.
+
+**Workload identity** replaces it with attestation. Instead of the workload *knowing* a secret, the platform *vouches* for the workload: the infrastructure it runs on already knows it scheduled this container, from this image, in this namespace, under this service account, and can sign a statement to that effect. The workload presents that short-lived, verifiable statement instead of a password.
+
+```
+  static secret                          workload identity
+  ─────────────                          ─────────────────
+  service holds SECRET_KEY               platform attests: "this is
+  forever, everywhere                    payments-api in ns=prod"
+        │                                        │
+        ▼                                        ▼
+  leak = compromise until                 identity document, valid
+  someone notices and rotates             for minutes, bound to the
+  (median: never)                         workload, not copyable
+```
+
+### SPIFFE and SPIRE
+
+**SPIFFE** (Secure Production Identity Framework For Everyone) is the vendor-neutral standard for this. Two concepts:
+
+- A **SPIFFE ID** is a URI naming a workload: `spiffe://prod.contoso.com/ns/payments/sa/payments-api`. It is the *name*, deliberately hierarchical and readable.
+- An **SVID** (SPIFFE Verifiable Identity Document) is the credential proving it — usually a short-lived X.509 certificate with the SPIFFE ID in the SAN, sometimes a JWT.
+
+**SPIRE** is the reference implementation. Its interesting part is the *attestation chain*, which is how it avoids simply moving the secret-zero problem:
+
+1. **Node attestation.** A SPIRE agent on each node proves the node's identity to the server using something the platform already vouches for — an AWS instance identity document, a Kubernetes node token, a TPM. No pre-shared secret.
+2. **Workload attestation.** When a process asks the local agent for its identity, the agent inspects the *calling process* — its PID, and from there its cgroup, container, image, Kubernetes service account — and matches it against registration entries. The workload proves nothing; the platform observes it.
+3. **Issuance and rotation.** The agent hands back an SVID valid for minutes to an hour, and rotates it automatically. Nothing is stored, nothing needs rotating by a human, and a stolen SVID expires before it is useful.
+
+The workload receives its credential over a local Unix socket (the SPIFFE Workload API). It never handles a long-lived key.
+
+### mTLS between services
+
+With every workload holding a short-lived certificate, mutual TLS becomes practical: both sides present certificates, both verify, and the connection carries a cryptographic identity your code can authorize against rather than an IP address it must guess about.
+
+```csharp
+// Authorize on the peer's verified identity, not on where the packet came from.
+app.Use(async (ctx, next) =>
+{
+    var cert = await ctx.Connection.GetClientCertificateAsync();
+    var spiffeId = cert?.Extensions
+        .OfType<X509SubjectAlternativeNameExtension>()
+        .SelectMany(e => e.EnumerateUriNames())
+        .FirstOrDefault(u => u.StartsWith("spiffe://"));
+
+    if (spiffeId is null || !PolicyAllows(spiffeId, ctx.Request.Path))
+    {
+        ctx.Response.StatusCode = StatusCodes.Status403Forbidden;
+        return;
+    }
+    await next();
+});
+```
+
+In practice you rarely write that yourself. A **service mesh** (Istio, Linkerd) puts a sidecar or node proxy in the path that terminates mTLS, rotates certificates, and enforces policy — so mTLS becomes a platform property rather than something each team implements. That is a genuine benefit and a real cost: the mesh hides the identity plumbing, which is fine until you are debugging a 403 that your application code never saw. Know what the mesh is doing on your behalf before you rely on it. Chapter 11 covers the operational side.
+
+> **Gotcha.** mTLS authenticates the *service*, not the *user*. A request arriving from `orders-api` over mTLS still carries an end user whose permissions must be checked separately. Conflating the two is how you build a system where any authenticated service can read any customer's data — the confused deputy, wearing a certificate.
+
+### OIDC federation: killing the last static credential in CI
+
+The most valuable place to apply this is your build pipeline, because that is where the highest-value long-lived credentials traditionally live. Chapter 12 mentions workload identity federation for Azure DevOps service connections; here is the mechanism, because the security of the whole arrangement rests on one configuration detail.
+
+1. Your CI platform runs a job and mints a **short-lived, signed JWT** describing it: issuer (`https://token.actions.githubusercontent.com`), and claims including `repository`, `ref`, `workflow`, `environment`, and a composite `sub`.
+2. The job presents that token to your cloud's STS.
+3. The cloud validates the signature against the CI platform's published JWKS, then checks the token's claims against a **trust policy** you configured.
+4. If it matches, the cloud returns credentials valid for minutes, scoped to a role you defined.
+
+No secret is stored anywhere. Nothing needs rotating. A leaked build log contains, at worst, an expired token.
+
+```yaml
+# GitHub Actions — request an OIDC token, exchange it, hold nothing.
+permissions:
+  id-token: write
+  contents: read
+
+steps:
+  - uses: aws-actions/configure-aws-credentials@v4
+    with:
+      role-to-assume: arn:aws:iam::111122223333:role/deploy-billing
+      aws-region: eu-west-1
+```
+
+```json
+// The trust policy — this condition IS the security boundary.
+{
+  "Effect": "Allow",
+  "Principal": { "Federated": "arn:aws:iam::111122223333:oidc-provider/token.actions.githubusercontent.com" },
+  "Action": "sts:AssumeRoleWithWebIdentity",
+  "Condition": {
+    "StringEquals": {
+      "token.actions.githubusercontent.com:aud": "sts.amazonaws.com",
+      "token.actions.githubusercontent.com:sub": "repo:contoso/billing:environment:production"
+    }
+  }
+}
+```
+
+> **Pitfall — the wildcard that gives away production.** Two mistakes recur, and both are catastrophic. Using `StringLike` with `repo:contoso/*` lets *any* repository in your organization — including a new one a contractor creates, or a public one anyone can fork and open a PR against — assume your production deployment role. Omitting the `sub` condition entirely lets *any GitHub repository on the internet* assume it. Pin `sub` to a specific repository *and* a specific ref or environment, use `StringEquals`, and review these policies the way you would review a firewall rule facing the internet — because that is what they are.
+
+The same pattern works for Azure (federated credentials on an app registration), GCP (Workload Identity Federation), and HashiCorp Vault (the JWT auth method). And it is not only for CI: **managed identities** on Azure, **IRSA / EKS Pod Identity** on AWS, and GKE Workload Identity apply the same idea to running workloads — the platform attests the pod, the cloud issues short-lived credentials, and your `DefaultAzureCredential` or AWS SDK picks them up with no configuration in your code.
+
+### Where it degrades
+
+Zero trust is a direction, not a binary state, and honest engineering means naming the parts that won't get there:
+
+- **Legacy services** that cannot present or validate certificates. Front them with a proxy that terminates mTLS and speaks plain HTTP over a tightly restricted path — and be explicit that the trusted segment is now the last hop.
+- **Third-party SaaS and appliances** that only accept an API key. Scope the key as tightly as the vendor allows, rotate it on a schedule you actually keep, and monitor its use.
+- **Databases**, which mostly still want a username and password. Use IAM/Entra authentication where the engine supports it (RDS IAM auth, Azure SQL with Entra tokens) — that gets you short-lived credentials for the highest-value secret you own.
+- **Break-glass access**, which must exist and must not be behind the same automation everything else is. Make it manual, heavily audited, and alarming when used.
+
+The goal is not a perfect score. It is that the number of long-lived, broadly-scoped credentials in your organization trends toward zero, and that you can name every remaining one.
+
 ## HTTPS, TLS, HSTS, and Certificates
 
 **TLS** (Transport Layer Security, the protocol behind HTTPS) provides three guarantees for data in transit: *confidentiality* (eavesdroppers see ciphertext), *integrity* (tampering is detected), and *authentication* (the certificate proves you're talking to the real server). It is non-negotiable for any application handling credentials or personal data.
@@ -408,6 +542,46 @@ public class TokenService
 
 > **Pitfall:** By default, data protection keys are stored on the local filesystem. In a load-balanced or containerized deployment, each instance generates its *own* keys, so a cookie encrypted by one server can't be decrypted by another — users get random logouts and errors. Configure a *shared* key ring (Azure Blob Storage, Redis, a shared volume) and protect it at rest. Do this before you scale out.
 
+### Crypto Agility and the Post-Quantum Migration
+
+Everything above assumes the algorithms hold. For most of your career they have, which has let us bake algorithm choices into code, config files, database columns, and certificate chains without thinking twice. That assumption now has an expiry date, and the interesting engineering problem is less "which algorithm" than "how quickly could we change ours?"
+
+**Why this is a today problem, not a 2035 problem.** A sufficiently large quantum computer running Shor's algorithm breaks the mathematics that RSA and elliptic-curve cryptography rest on. No such machine exists, and credible estimates of when one might are all over the map. That would be someone else's problem except for one detail: **an adversary can record your encrypted traffic today and decrypt it later.** This is called *harvest now, decrypt later*, and it is not speculative — bulk capture of encrypted traffic is a known activity of well-resourced intelligence services.
+
+So the question is not "when will quantum computers arrive." It is: **how long does this data need to stay confidential?** Session cookies, cache entries and short-lived tokens genuinely don't care. Medical records, legal case files, source code, diplomatic traffic, long-lived credentials, and anything with a statutory retention period of decades do. If the answer is "fifteen years," the migration deadline was some time ago.
+
+Symmetric cryptography is much less affected. Grover's algorithm gives at best a quadratic speed-up against a symmetric cipher, which is handled by doubling the key size — AES-256 remains fine. Hashing is similar. The damage is concentrated in **asymmetric** primitives: key exchange (RSA, ECDH) and signatures (RSA, ECDSA, EdDSA).
+
+**The standards.** NIST completed its selection process and published the first post-quantum standards in August 2024:
+
+| Standard | Algorithm | Replaces | Used for |
+|---|---|---|---|
+| FIPS 203 | **ML-KEM** (formerly Kyber) | ECDH, RSA key transport | Key encapsulation — establishing a shared secret |
+| FIPS 204 | **ML-DSA** (formerly Dilithium) | ECDSA, RSA signatures | General-purpose digital signatures |
+| FIPS 205 | **SLH-DSA** (formerly SPHINCS+) | — | Hash-based signatures; conservative fallback, larger and slower |
+
+Note the split. **Key exchange is the urgent half** — that is what harvest-now-decrypt-later attacks — while signatures mostly protect against *future* forgery and can migrate on a longer timeline (a signature verified today cannot be retroactively forged by a machine built in 2040).
+
+**Hybrid, not replacement.** In TLS the deployed approach is a *hybrid* key exchange: perform both a classical ECDH and an ML-KEM encapsulation, and derive the session key from both. The connection is secure unless *both* are broken, which hedges against the real possibility that the new algorithms have implementation or analysis flaws we haven't found yet — they are, after all, much younger than the ones they replace. Hybrid key exchange is already the default in mainstream browsers and is widely supported by major CDNs and cloud load balancers, which means a significant share of the web's traffic is already post-quantum protected at the transport layer without any application changing.
+
+**What this means for a .NET service, concretely.** For most of you, the honest answer is *less than the vendor pitch suggests*, because the TLS termination that matters is happening in your load balancer, CDN, or ingress controller — not in your code. Your practical work is:
+
+1. **Inventory where cryptography lives.** This is the actual project, and it takes longer than any code change. TLS termination points; certificate issuance; JWT and token signing; data-protection key rings; field-level encryption in the database; signed URLs; client certificates; SSH and code-signing keys; anything with `RSA` or `ECDsa` in the source; and every third-party library or device you cannot upgrade. Most organizations discover they cannot answer "what algorithms are we using and where" at all, which is the finding.
+2. **Turn on hybrid key exchange where the switch already exists** — your CDN and load balancer. This is usually a configuration flag and it protects the traffic most exposed to bulk capture.
+3. **Fix the long-retention data first.** Anything you encrypt and store for years is where the harvest-now risk actually bites.
+4. **Build agility into new code.** .NET 10 ships `MLKem`, `MLDsa` and `SlhDsa` types in `System.Security.Cryptography` (backed by the platform's native crypto — so availability depends on the underlying OpenSSL or Windows CNG version, and you should check `MLKem.IsSupported` rather than assume). Their real value right now is that you can build and test agility before you need it.
+
+**Crypto agility is the deliverable.** The migration you should be planning for is not "to ML-KEM." It is "to whatever comes next, on demand" — because this will happen again. Agility is an architectural property with concrete implications:
+
+- **Version your ciphertext.** Every encrypted blob should carry a small envelope identifying the algorithm and key that produced it, so a reader can decrypt old data with the old algorithm while new writes use the new one. `IDataProtector` already does this for you, which is one more reason to prefer it over hand-rolled AES.
+- **Never hardcode an algorithm identifier** in a place you can't change without a deployment — and especially not in a database column, a wire format, or a public API contract.
+- **Keep an interface between your code and the primitive**, so swapping the implementation is one class rather than a search-and-replace across the solution.
+- **Rehearse rotation.** A key you have never rotated is a key you cannot rotate. If your incident plan says "rotate the signing key," do it once, deliberately, on a Tuesday, and find out what breaks.
+
+> **Best practice.** Treat the inventory as the deliverable for this year and the algorithm swap as next year's. A team that knows exactly where its crypto lives can migrate in weeks whenever it needs to; a team that doesn't will need months no matter which algorithm is in fashion.
+
+**The related deadline that will bite sooner.** Independently of quantum anything, the CA/Browser Forum has agreed a schedule that shortens the maximum lifetime of public TLS certificates in stages — from today's 398 days down to 47 days by March 2029, with domain validation reuse shrinking alongside it. Whatever you think about post-quantum timelines, **this one is dated and certain**, and it makes manual certificate handling untenable. If any certificate in your estate is renewed by a human following a runbook, that is now a scheduled outage. Automate issuance and renewal (ACME via Let's Encrypt, your cloud's certificate manager, or `cert-manager` in Kubernetes), monitor expiry as a first-class alert, and make sure the automation covers the awkward ones — internal services, client certificates, mutual TLS between services, and the load balancer nobody remembers configuring.
+
 ## Web-Facing Defenses
 
 Beyond the fundamentals, the browser threat model demands specific defenses.
@@ -513,8 +687,10 @@ Wire this into CI so a build *fails* when a vulnerable package appears, rather t
 
 > **Best practice:** Also enable NuGet package **source mapping** and consider **signed packages** to defend against dependency-confusion and typosquatting attacks, where an attacker publishes a malicious package with a name similar to (or matching an internal) package you depend on.
 
+Scanning tells you about *known* vulnerabilities in packages you already trust. It says nothing about a package that was deliberately backdoored last night, about your build system being modified after the source was clean, or about proving to a customer what went into the binary you shipped them. That wider problem — the packages you consume, the build that assembles them, and the artifacts you publish — is the subject of [Chapter 35: Software Supply Chain Security](#chapter-35-software-supply-chain-security).
+
 > **Capstone tie-in:** This chapter is exercised by ShopCore Step 5 (Caching, Auth, and Observability) — you'd add JWT authentication and role-based authorization so only authenticated users check out and only admins mutate the catalog. See Chapter 32.
 
 ## Summary
 
-Security is a discipline of layered, deliberate decisions. Adopt the mindset — defense in depth, least privilege, secure by default, never trust input — and it informs every line you write. Know the OWASP Top 10 as *categories* of failure and the .NET mitigation for each. Distinguish authentication (who you are) from authorization (what you may do), and implement both with the framework's tools rather than reinventing them. Delegate identity to OAuth 2.0 / OIDC with the Authorization Code + PKCE flow, validate JWTs on issuer, audience, expiry, and signature — every time. Keep secrets out of source and in a managed vault, enforce TLS with HSTS, hash passwords with a slow salted algorithm, reach for `IDataProtector` instead of raw crypto, and defend the browser boundary with validation, encoding, anti-forgery tokens, tight CORS, and a strong CSP. Finally, scan your dependencies continuously — because the vulnerability you didn't write is still yours to fix.
+Security is a discipline of layered, deliberate decisions. Adopt the mindset — defense in depth, least privilege, secure by default, never trust input — and it informs every line you write. Know the OWASP Top 10 as *categories* of failure and the .NET mitigation for each. Distinguish authentication (who you are) from authorization (what you may do), and implement both with the framework's tools rather than reinventing them. Delegate identity to OAuth 2.0 / OIDC with the Authorization Code + PKCE flow, validate JWTs on issuer, audience, expiry, and signature — every time. Keep secrets out of source and in a managed vault — then go further and delete them, replacing static credentials with platform-attested workload identity and short-lived tokens; enforce TLS with HSTS, hash passwords with a slow salted algorithm, reach for `IDataProtector` instead of raw crypto, keep your algorithm choices agile — you will have to change them, and the certificate-lifetime clock is already running — and defend the browser boundary with validation, encoding, anti-forgery tokens, tight CORS, and a strong CSP. Finally, scan your dependencies continuously — because the vulnerability you didn't write is still yours to fix.

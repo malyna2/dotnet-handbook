@@ -250,6 +250,120 @@ Native desktop and mobile UI is its own discipline, and a backend-leaning book d
 
 The senior-relevant point is that all three are *API consumers*. What they depend on is your side of the boundary: a clean, documented OpenAPI contract; token-based auth flows that work without browser cookies; resilience to flaky mobile networks; and above all versioning discipline — an installed app cannot be force-refreshed like a SPA, so old client versions will hit your API for months. Design that boundary well and the client framework is their choice, not your problem.
 
+## Accessibility: The Part That Is Now Law
+
+Accessibility is the one frontend topic that has moved, in the last few years, from "good practice we should get to" into "a legal requirement with a date attached." Two things drove that.
+
+The **European Accessibility Act** became applicable in June 2025. It obliges a broad set of consumer-facing products and services sold in the EU — e-commerce, banking, transport ticketing, e-books, telecoms — to meet accessibility requirements, with the harmonised standard EN 301 549 pointing at **WCAG 2.1/2.2 level AA**. Public-sector bodies in the EU were already covered by the Web Accessibility Directive; the EAA extends it to the private sector. In the US, Section 508 covers federal procurement, and ADA litigation over inaccessible websites has been a steady feature of the landscape for a decade.
+
+The practical consequence for a backend-leaning developer who occasionally builds UI: **inaccessible markup is now a compliance defect, not a polish item**, and "the designer didn't specify it" stopped being an answer.
+
+### WCAG, and how to actually think about it
+
+WCAG is organised under four principles — the **POUR** acronym — and they are worth knowing as a reasoning tool rather than a checklist:
+
+- **Perceivable.** Can the user receive the information at all? Text alternatives for images, captions for video, sufficient colour contrast, not conveying meaning by colour alone.
+- **Operable.** Can they drive it? Everything reachable and usable by keyboard, no traps, enough time, no seizure-inducing flashing, skip links past repeated navigation.
+- **Understandable.** Is it predictable? Consistent navigation, labelled inputs, errors identified in text and explained, no surprising context changes on focus.
+- **Robust.** Will assistive technology parse it? Valid markup, correct name/role/value for every control.
+
+Conformance comes in levels A, AA, AAA. **AA is the target** — it is what the regulations reference, and AAA includes requirements (like 7:1 contrast) that are not achievable for most designs.
+
+WCAG 2.2 added a handful of criteria worth knowing because they catch modern UI patterns: focus must not be entirely hidden behind sticky headers, drag operations need a single-pointer alternative, click targets need a minimum size, and users must not be forced to re-enter information they already gave you in the same process.
+
+### Semantic HTML first, ARIA second
+
+Almost every accessibility bug I have seen in a .NET shop's UI comes from the same root cause: a `<div>` with a click handler doing the job of a `<button>`.
+
+```html
+<!-- Not focusable, not keyboard-operable, no role, no state.
+     A screen reader announces nothing useful. -->
+<div class="btn" onclick="submit()">Save</div>
+
+<!-- Focusable, Enter/Space activated, announced as a button,
+     disabled state understood — all of it for free. -->
+<button type="button" onclick="submit()">Save</button>
+```
+
+The native element carries a *name*, a *role*, and *state* that browsers and assistive technology already agree on. Recreating that with ARIA means reimplementing focus handling, keyboard activation, `aria-pressed`/`aria-expanded` state, and disabled semantics — correctly, in every browser and screen reader combination.
+
+This is why the **first rule of ARIA** is: don't use ARIA. If a native element or attribute exists with the semantics you need, use it. ARIA adds *semantics* to markup; it never adds *behaviour*. `role="button"` on a `<div>` does not make Enter activate it, does not make it focusable, and does not make it a button — it makes a screen reader announce "button" for something that then does nothing when the user presses Enter, which is worse than saying nothing at all.
+
+> **Pitfall.** The most common harmful pattern is ARIA applied to paper over a structural problem: `aria-label` on a `<div>` acting as a heading, `role="navigation"` on something that should be a `<nav>`, or `aria-live` sprinkled everywhere to force announcements. Bad ARIA is measurably worse than no ARIA — the WebAIM annual survey has consistently found pages using ARIA average *more* detected errors than pages without it.
+
+Reach for ARIA when you genuinely have no native equivalent: a tab set, a combobox with an autocomplete listbox, a tree view, a live region for asynchronous status. And when you do, follow the **ARIA Authoring Practices Guide** patterns exactly — including the keyboard interaction table, which is the part people skip and the part users notice.
+
+### Keyboard operability and focus
+
+Test this today, on the app you are working on: put your mouse down and try to complete your primary user journey. This single exercise finds most of the serious problems.
+
+What to look for:
+
+- **Everything interactive is reachable** by Tab, in an order that matches the visual layout. If you find yourself reaching for `tabindex="3"` to fix the order, the DOM order is wrong — fix that instead. The only `tabindex` values you should normally use are `0` (put this in the natural order) and `-1` (focusable by script only, not by Tab).
+- **Focus is visible.** `outline: none` with no replacement is the single most damaging line of CSS for keyboard users. If the default ring is ugly, style `:focus-visible` — don't remove it.
+- **Modals trap focus while open, and return it on close.** Open a dialog, Tab through it: focus must not escape to the page behind. When it closes, focus goes back to the element that opened it, or the user is dumped at the top of the document with no idea where they are. The native `<dialog>` element with `showModal()` handles most of this for you.
+- **Skip links.** A "skip to main content" link as the first focusable element saves keyboard users from tabbing through forty navigation items on every page.
+- **No focus traps you didn't intend** — the classic being an embedded third-party widget you can Tab into but not out of.
+
+### Forms, where it matters most
+
+Forms are where inaccessible UI stops being an inconvenience and starts costing people money.
+
+```html
+<!-- The label is programmatically associated: clicking it focuses the
+     input, and a screen reader announces the label with the field. -->
+<label for="email">Email address</label>
+<input id="email" name="email" type="email"
+       autocomplete="email"
+       aria-describedby="email-hint email-error"
+       aria-invalid="true" />
+<p id="email-hint">We'll only use this for order updates.</p>
+<p id="email-error" class="error">Enter an email address in the format name@example.com.</p>
+```
+
+The rules that carry most of the weight: every input has a real `<label>` (placeholder text is not a label — it disappears when the user types and is often too low-contrast); errors are associated with their field via `aria-describedby` and `aria-invalid`, not just coloured red; error text says what to do, not "invalid input"; `autocomplete` attributes are set so browsers and password managers can fill fields; and required fields are marked in text, not only with an asterisk whose meaning is explained in a legend nobody reads.
+
+For asynchronous validation and status messages, an `aria-live="polite"` region announces changes without stealing focus. Use it sparingly and only for genuine status; a live region on a chat log that fires on every keystroke is a torture device.
+
+### Blazor-specific pitfalls
+
+Blazor generates HTML, so everything above applies unchanged. But its component model introduces two problems that catch teams out:
+
+**Route changes don't announce themselves.** In a server-rendered app, navigating to a new page resets focus and the screen reader announces the new document. In an interactive Blazor app (as in any SPA), navigation swaps the DOM and focus stays wherever it was — often on a link that no longer exists. The fix is to move focus to the new page's `<h1>` after navigation and announce the change:
+
+```razor
+@inject NavigationManager Nav
+
+<h1 @ref="_heading" tabindex="-1">@Title</h1>
+
+@code {
+    private ElementReference _heading;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+            await _heading.FocusAsync();   // tabindex="-1" makes this possible
+    }
+}
+```
+
+Pair it with an `aria-live` region that announces the new page title, so users who don't move with focus still learn where they are.
+
+**Render modes change when your JS runs.** With `InteractiveServer` or `InteractiveWebAssembly`, the page is served as static HTML first and becomes interactive later. Any accessibility behaviour you implemented in `OnAfterRenderAsync` or via JS interop does not exist during that window — and on a slow connection that window is seconds long. Prefer solutions that work in the initial markup (a real `<button>`, a real `<label>`) over ones that depend on interactivity having arrived.
+
+Also: `NavLink` renders an `<a>`, which is correct — but a `NavLink` styled as a button, or an `<a>` with no `href` used as a click target, reintroduces the `div`-as-button problem in Razor syntax. And component libraries vary enormously in accessibility quality; check the one you adopt against a keyboard pass before it is load-bearing across forty screens.
+
+### Testing it
+
+Automated checking is genuinely useful and genuinely limited, and knowing the ratio matters. Rules-based tools like **axe-core** reliably catch missing alt text, insufficient contrast, unlabelled inputs, duplicate IDs, and invalid ARIA — which is a real slice of the problem, and exactly the slice that regresses silently. Published analyses consistently put automated coverage at **roughly 30–40% of WCAG issues**. The rest — is the alt text *meaningful*, is the focus order *logical*, does the error message actually help, is this custom widget usable with a screen reader — requires a human.
+
+So run both:
+
+- **In CI**, axe-core against your key pages, failing the build on new violations. The wiring is in Chapter 25.
+- **By hand, periodically**: the keyboard-only pass described above, a zoom-to-200% pass, and a screen reader pass (NVDA on Windows is free; VoiceOver ships on macOS). Half an hour with a screen reader on your own product is the most effective accessibility training available, and it is uncomfortable in a way that changes how you write markup afterwards.
+
+> **Best practice.** Fix accessibility in your shared components, not in your pages. A design system where the `Button`, `Modal`, `Field` and `Table` components are correct once means hundreds of screens are correct by default — and it turns accessibility from a per-feature tax into a solved infrastructure problem. This is the same leverage argument as any other cross-cutting concern in this book.
+
 ## How Much Frontend Should You Actually Learn?
 
 You are optimizing for *effectiveness at the boundary*, not for becoming a frontend engineer. A practical target for a backend-leaning senior:

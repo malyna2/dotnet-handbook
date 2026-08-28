@@ -4,7 +4,7 @@ _⏱️ Estimated read time: ~65 min ·    11463 words (study pace)_
 
 Every senior engineer eventually learns that the hard part of the job is not writing code — it is deciding what to do when the code you already shipped meets reality. Reality shows up as a traffic spike you did not plan for, a "successful" request that silently lost data, a p99 latency graph that looks like a seismograph, and a dependency that vanishes at the worst possible moment. This chapter is a war-room playbook. Each scenario is a story you could plausibly live through on a production on-call rotation, framed around one question: *how do you react, and what architectural decision does that push you toward?*
 
-Treat this as a reference you can open under pressure and as an interview crib sheet. The earlier chapters gave you the building blocks — scaling and cloud (Ch. 10), containers and Kubernetes (Ch. 11), data at scale (Ch. 23), messaging and distributed patterns (Ch. 9), distributed theory and SRE (Ch. 21), the runtime and GC (Ch. 2), and performance (Ch. 15). Here we do not re-teach those; we put them to work under fire and reason about the trade-offs. Each of the nine scenarios below follows the same shape: the situation, how you notice it, how to stop the bleeding, the root causes, the durable fix and its trade-offs, and how to talk about it in an interview.
+Treat this as a reference you can open under pressure and as an interview crib sheet. The earlier chapters gave you the building blocks — scaling and cloud (Ch. 10), containers and Kubernetes (Ch. 11), data at scale (Ch. 23), messaging and distributed patterns (Ch. 9), distributed theory and SRE (Ch. 21), the runtime and GC (Ch. 2), and performance (Ch. 15). Here we do not re-teach those; we put them to work under fire and reason about the trade-offs. Each of the twelve scenarios below follows the same shape: the situation, how you notice it, how to stop the bleeding, the root causes, the durable fix and its trade-offs, and how to talk about it in an interview.
 
 ## The incident cheat-card
 
@@ -21,6 +21,9 @@ This is the page to open at 3 a.m. — one row per scenario, each row expanded i
 | Sawtooth working set; `OOMKilled` (exit 137) every few hours — time kills it, not traffic (Scenario 7) | Memory headroom before the next kill | 1. Confirm leak vs. plateau vs. mis-set limit. 2. Buy time with a rolling restart / higher limit. 3. Take two gcdumps an hour apart and diff them. |
 | Ship date next week; "security" is a checkbox on someone's ticket (Scenario 8) | Review time before the ship date | 1. Walk the non-negotiables in priority order. 2. Test object-level access control — can Alice fetch Bob's order? 3. Scan dependencies and the repo history for leaked secrets. |
 | An erasure request citing GDPR; a junior just logged the full user object, PII included (Scenario 9) | Knowing where the PII actually lives | 1. Classify the fields and find every copy. 2. Stop the log leak — scrub at the boundary. 3. Erase via crypto-shred plus purge; loop in legal/privacy. |
+| An advisory names a package four levels down your graph; did it ever reach a build? (Scenario 10) | An answer in the next 30 minutes | 1. Grep committed lockfiles across all repos, branches and tags. 2. Check SBOMs and restore logs for actual builds. 3. If it executed anywhere, rotate every credential that machine could see. |
+| The agent sent data to an address nobody recognises; every step in the log looks permitted (Scenario 11) | The ability to say whose data left | 1. Disable the outbound tool, not the assistant. 2. Scope exposure from tool-call logs. 3. Trace back to the poisoned document and purge the index. |
+| Egress up 280%, nothing broke, no alert fired, signups flat (Scenario 12) | Cost velocity you are not measuring | 1. Characterise the traffic before blocking anything. 2. Cache hard at the edge and strip unknown query parameters. 3. Scale back what auto-scaled up and stayed. |
 
 ---
 
@@ -763,6 +766,184 @@ Have a plan *before* the breach: detect, contain, assess scope (which data, whos
 
 > A senior engineer treats personal data as **radioactive material**: valuable, useful, and dangerous to store. You minimize how much you hold, shield it (encryption, tokenization), track everyone who touches it (audit), plan its disposal (retention + crypto-shredding), and never let it leak into the places you weren't watching (logs, traces, backups). The regulations are just the legal encoding of that engineering discipline.
 
+## Scenario 10 — Poisoned well: a dependency you never chose shipped a backdoor
+
+### The scenario
+
+09:12 on a Tuesday. A security advisory lands: a popular package published two malicious versions during an eleven-hour window two days ago. The maintainer's account was phished; the releases have been yanked. The package is not one you have ever heard of — it is four levels down your dependency graph, pulled in by a logging library you have used for years. The payload harvested environment variables and registry credentials from any machine that *built* against it.
+
+Your CTO wants to know, in the next thirty minutes, whether you are affected.
+
+### Symptoms / how you notice
+
+You almost certainly do not notice this yourself. That is the defining property of the scenario. It arrives as:
+
+- A GitHub Dependabot alert, a vendor advisory, or someone linking a blog post in a chat channel.
+- Occasionally: unexplained outbound network connections from a build agent, or a registry token used from an IP you don't recognise.
+
+By the time you know, the window has already closed or not — either way, the clock is on the answer, not the detection.
+
+### Immediate response (stop the bleeding)
+
+1. **Determine exposure, not impact.** The first question is narrow and answerable: *did the malicious version ever resolve in any build?* Grep your committed `packages.lock.json` files across every repository, and across release branches and tags, not just `main`. If you have lockfiles committed, this is one command and a couple of minutes. If you don't, you are re-resolving historical dependency graphs under time pressure — which is the real lesson of this scenario.
+2. **Check builds, not just repos.** A lockfile says what *would* resolve. Restore logs and per-release SBOMs say what *did*. Query them for the package and version.
+3. **Freeze the automation.** Pause dependency-update bots and any auto-merge, so you don't pull the bad version in *while investigating* it. This has happened to people.
+4. **If it executed anywhere, treat every credential that machine could see as compromised.** Registry tokens, cloud credentials, signing keys, SSH keys, environment variables, anything in the runner's memory. Rotate them. Do not reason your way to "it probably didn't reach that one" — a credential harvester takes everything, and the reasoning that says otherwise is exactly what the attacker is relying on.
+5. **Purge the caches.** Yanking removes it from the registry, not from your build agents, `~/.nuget/packages`, Docker layer caches, or internal mirrors. A "fixed" build that restores the malicious package from local disk is a common and demoralising outcome.
+
+> **Rule of thumb: exposure is a query if you prepared, and an excavation if you didn't. The controls that make this survivable are all boring, and all installed months in advance.**
+
+### Root causes
+
+- **The graph is deeper than anyone's model of it.** Nobody chose the compromised package; it arrived transitively. Reviewing your direct dependencies would not have caught this.
+- **Restore is not inert.** In .NET the execution vector is not an install script — NuGet has none — it is `build/*.props` and `*.targets` files that MSBuild imports, analyzers and source generators that run inside the compiler, and `dotnet tool` packages. You do not have to *call* the package for it to run; you have to *build*.
+- **Build agents hold the good credentials.** A CI runner has registry tokens, cloud access, and often signing keys. It is a production machine with a shell exposed to anything in the dependency graph.
+- **Floating versions and eager auto-merge** widen the window from "teams that upgraded deliberately" to "everyone who built."
+
+### The fix & architectural options (with trade-offs)
+
+The full treatment is [Chapter 35](#chapter-35-software-supply-chain-security); the incident-relevant subset, in order of value:
+
+| Control | What it buys you in *this* incident | Cost |
+|---|---|---|
+| Committed lockfiles + `--locked-mode` | Turns exposure analysis into a grep; makes any graph change a reviewable diff | An afternoon; occasional friction on version bumps |
+| Update cooldown (ignore releases < 3–7 days old) | You very likely never resolved it at all — most malicious releases are yanked within hours | ~15 minutes of Renovate config; slightly later patches |
+| SBOM per release, stored | Answers "which deployed version contains it," including services nobody has touched in a year | A build step and somewhere to put them |
+| Short-lived OIDC credentials in CI | Step 4 shrinks from "rotate everything" to "the token expired anyway" | A day of IAM work |
+| Egress allowlist on build runners | A successful compromise becomes a failed exfiltration | Ongoing maintenance of the allowlist |
+| Ephemeral runners | Malware cannot persist into the next build | Usually free on hosted runners |
+
+**The trade-off worth naming:** a cooldown window means you also receive *security* patches a few days late. For most organizations this is the right trade — you are far likelier to be hit by a malicious release than by a vulnerability exploited within its first 72 hours — but it should be a deliberate decision, and you can exempt advisories you're actively tracking.
+
+### How to prevent the pain
+
+- Commit lockfiles today. It is the single highest-value thing in this scenario and it takes an afternoon.
+- Add the cooldown window. Fifteen minutes.
+- Reserve your ID prefix on nuget.org and configure `packageSourceMapping` — different attack, same afternoon.
+- Write the response runbook *now*, while nothing is on fire, and make step one "grep the lockfiles."
+- Rehearse it. A game day (Chapter 21) using a real advisory from last year will find that nobody knows which repos exist, which is the finding.
+
+> **In an interview:** "First I'd scope exposure, not impact — grep committed lockfiles across all repos and branches for the affected version, then check SBOMs and restore logs to see whether it ever reached a build. If it executed on a runner, I'd assume every credential that machine could see is compromised and rotate, rather than reasoning about what the payload probably took. Then purge package and layer caches, because yanking doesn't clear them, and pin forward rather than rolling back — attackers backport. The reason I can answer the first question in minutes is that lockfiles are committed and SBOMs are stored per release; without those, the same incident is a week of archaeology. And the control that would most likely have prevented it entirely is a cooldown window on dependency updates, since these releases are usually pulled within hours."
+
+---
+
+## Scenario 11 — The agent leaked customer data through a tool call
+
+### The scenario
+
+You shipped an AI support assistant six weeks ago. It retrieves from your knowledge base and past tickets, and it has three tools: look up a customer's orders, search documentation, and send a follow-up email.
+
+A customer support lead forwards you something odd: a follow-up email was sent to an address nobody recognises, and it contains a list of order references belonging to *other* customers. There is no bug in your code. The logs show the model called `send_email` with those arguments, and it called `get_orders` before that, and both calls succeeded because both were permitted.
+
+Six weeks ago, someone opened a support ticket whose body contained instructions addressed to the assistant.
+
+### Symptoms / how you notice
+
+- An action the system took that no user requested — an email, an API call, a record change — with a plausible-looking audit trail behind it.
+- Outbound requests to hosts that appear nowhere in your configuration (including image URLs rendered in a chat transcript — the browser fetches them, and the query string carries the payload).
+- A spike in tool calls per conversation, or the same tool being called with arguments drawn from a different conversation's context.
+- Frequently: nothing at all, until a human notices something that doesn't add up. This class of incident is under-detected because every individual step looks like normal operation.
+
+### Immediate response (stop the bleeding)
+
+1. **Disable the outbound tools first, not the assistant.** Killing `send_email` and any HTTP tool stops the exfiltration while leaving a degraded but useful product. Kill switches per tool — not just per feature — need to exist beforehand; if they don't, this is the moment you learn that.
+2. **Scope the exposure from your tool-call logs.** Every tool invocation, its arguments, its result, and its conversation ID. This is the only record of what happened; provider logs will not have your arguments and your application logs may not have the model's. If you did not log tool calls with arguments, you cannot answer "whose data left," which is the question legal will ask.
+3. **Find the payload.** Work backwards from the malicious tool call to the retrieved context of that turn, then to the source document. Expect it to be old — content-based injections sit in your corpus until something retrieves them.
+4. **Purge and re-index.** Remove the poisoned document, then search the corpus for similar patterns; if one attacker seeded one, assume more.
+5. **Treat it as a data breach and start that process** — Scenario 9's playbook. Whose data, how much, notification obligations. "An AI did it" changes nothing about the obligation.
+
+> **Rule of thumb: an agent incident is contained by removing capability, not by fixing the prompt. Turn off the outbound tool, then investigate.**
+
+### Root causes
+
+- **The model has one channel.** Your system prompt, the user's message, and a retrieved ticket all arrive as tokens in the same context. There is no parameterization primitive that separates instructions from data — which is why this is not a bug you can fix the way you fix SQL injection.
+- **The lethal trifecta was present**: access to private data (`get_orders`), exposure to untrusted content (retrieved tickets, written by anyone), and an egress channel (`send_email`). Any two would have been survivable. All three, in one context, is exploitable by design.
+- **The tool authorized against the agent's identity, not the caller's.** `get_orders` ran with a service account that could read every customer, and the intended scoping ("only this customer's orders") lived in the prompt. The prompt is not an authorization boundary.
+- **`send_email` accepted a free-form recipient.** An unconstrained egress parameter is an exfiltration API.
+
+### The fix & architectural options (with trade-offs)
+
+| Option | What it does | Trade-off |
+|---|---|---|
+| **Break the trifecta** — split into two agents: one with private data and no egress, one with egress and only trusted content | Removes the capability entirely; nothing to exploit | More architecture; some flows genuinely need both and must be redesigned |
+| **Authorize every tool against the end user's identity, in code** | Holds even when the model is fully compromised — `get_orders` returns only *this* caller's orders | Requires threading caller identity through the agent; a real refactor if you didn't from day one |
+| **Constrain egress**: fixed recipient (the ticket's own requester), host allowlist for HTTP, disable image/link rendering in transcripts | Cheapest effective control; kills the exfiltration path without touching the model | Loses some legitimate flexibility |
+| **Human confirmation on irreversible actions**, showing the *actual* arguments | Catches what automation misses | Friction; and a confirmation summary written by the model being confirmed is theatre — show raw arguments |
+| **Input filtering / injection classifiers on retrieved content** | Catches the obvious attempts | Probabilistic. Useful as a layer, never as the boundary |
+
+**The trade-off worth naming:** the robust fix (splitting the agent, scoping the data tool) is architectural and takes weeks; the cheap fix (constraining the recipient, allowlisting hosts) takes a day and closes *this* hole. Do the cheap one immediately and schedule the architectural one — but be honest in the write-up that the cheap fix removed one exfiltration channel, not the class.
+
+### How to prevent the pain
+
+- **Run the trifecta check as a design review gate** for anything with tools and production data: private data, untrusted content, egress — which leg are we breaking? Three lines in the design doc.
+- **Authorize in code, against the caller, on every tool.** Non-negotiable, and cheap if you do it from the start.
+- **Log every tool call with arguments, results and conversation ID**, and treat those logs as sensitive data (they contain everything the model saw).
+- **Per-tool kill switches**, tested.
+- **Budget the loop** — max iterations, max tool calls, wall-clock timeout — so an injected instruction hits a wall.
+- Full treatment in Chapter 19's *Securing AI features and agents*.
+
+> **In an interview:** "I'd contain it by disabling the outbound tool rather than the assistant, then scope exposure from tool-call logs — which only works if you logged arguments, so that's a design decision made months earlier. The root cause isn't a bug in the prompt; it's that the agent had all three legs of the lethal trifecta: private data, untrusted content from retrieved tickets, and an egress tool with a free-form recipient. Prompt hardening can't fix that, because instructions and data are the same tokens. The durable fix is architectural — authorize the data tool against the end user's identity in code so it can only ever return that caller's orders, and constrain or remove the egress. And I'd treat it as a data breach from minute one, because it is one."
+
+---
+
+## Scenario 12 — The invisible customer: an AI crawler tripled the egress bill
+
+### The scenario
+
+Finance forwards last month's cloud invoice with a question mark. Egress is up 280%, the CDN bill has doubled, and the database tier was auto-scaled up twice — permanently, because nobody scaled it back. Nothing broke. No alert fired. Availability was 99.98% all month, latency is normal, and the product team reports no user complaints.
+
+Traffic is up roughly 4×. Signups are flat.
+
+### Symptoms / how you notice
+
+- **Cost, weeks late.** This is the defining feature: every technical signal looks healthy, because the system did exactly what you built it to do — it scaled up and served the traffic.
+- Request volume rising without any corresponding business metric moving.
+- A very high ratio of HTML requests to asset requests (a browser fetches your CSS, fonts and images; a crawler usually doesn't).
+- Cache hit ratio falling while traffic rises — the traffic is walking your entire URL space rather than clustering on popular pages.
+- Requests spread evenly across the whole sitemap, including pages no human has visited in a year.
+
+### Immediate response (stop the bleeding)
+
+1. **Characterise the traffic before you block anything.** Group by user agent, ASN, and IP prefix; compare asset-to-HTML ratio and URL breadth against a known-human baseline. Rushing to block is how you de-index yourself from a search engine that sends you real customers.
+2. **Cache harder at the edge, immediately.** For unidentified clients this is usually a one-line CDN change with a large effect and no risk of blocking a legitimate user. An origin that never sees the request costs nothing to serve.
+3. **Fix the cache key if it's leaking.** If the traffic carries tracking or random query parameters and your CDN varies on them, every request is a miss and your CDN is faithfully forwarding all of it to your origin. Strip unknown parameters at the edge — this alone often resolves the incident.
+4. **Rate limit unidentified clients at the CDN**, keyed on IPv6 **/64 prefix** rather than individual address (a single subscriber may hold billions of addresses).
+5. **Scale the database back down** once origin load drops, and check for other resources that auto-scaled up and stayed there. This is frequently the largest line item and the easiest to forget.
+
+> **Rule of thumb: an availability-preserving cost event has no alert unless you built one. Alert on rate of spend, not on monthly budget — a monthly alarm tells you about last night four weeks late.**
+
+### Root causes
+
+- **Automated traffic is roughly half the web now**, and a growing share is AI-related — training crawlers, retrieval fetchers answering a user's question, and agents browsing on someone's behalf. Sites with substantial text — docs, catalogs, listings — are exactly the target.
+- **`robots.txt` is a request, not a control**, and compliance is inconsistent; some operators honour it for their crawler but not their retrieval fetcher.
+- **Elastic infrastructure converts a capacity attack into a billing event.** The system stays up and you pay. Nothing pages.
+- **The cost alerting was monthly and absolute**, so a 4× traffic change took four weeks to surface.
+- Often: **a cache key including a client-controlled parameter**, turning every request into an origin hit.
+
+### The fix & architectural options (with trade-offs)
+
+| Option | Effect | Trade-off |
+|---|---|---|
+| **Aggressive edge caching for unauthenticated traffic** | Largest single win; origin cost approaches zero | Staleness; needs a real invalidation story |
+| **Verified crawler allowlist** (reverse-DNS or published IP ranges) + challenge everything else | Keeps the crawlers that send you customers, prices the rest | Verification is per-operator work; needs maintenance |
+| **Proof-of-work / challenge interstitial** for unidentified clients | Inverts the economics — cheap for one human, expensive across a million pages | Some accessibility and UX cost; can affect legitimate automation |
+| **Serve a cheap representation to bots** (static, pre-rendered, no personalization) | Removes the database from the path entirely | Two rendering paths to maintain |
+| **Block outright by ASN/UA** | Immediate | Brittle, easily evaded, and risks de-indexing — least favourite, most reached for |
+
+**The strategic trade-off nobody frames explicitly:** some of this traffic may be *valuable*. A retrieval bot fetching your docs to answer a user's question may be sending you customers who never see a search result page. Decide your policy deliberately — which bots you want, which you're indifferent to, which are pure cost — before you tune the controls. That is a product decision, not an infrastructure one.
+
+### How to prevent the pain
+
+- **Alert on cost velocity** — spend per hour, or a day-over-day delta on egress and request volume — not on a monthly budget threshold.
+- **Put a business metric next to the traffic metric** on the same dashboard. Requests up, signups flat, is the shape of this incident and it is instantly readable.
+- **Make autoscaling scale down** and alert when a floor changes. Ratchets that only go up are a recurring, silent cost.
+- **Normalize cache keys at the edge** and strip unknown query parameters, as a standing rule.
+- **Know your egress paths** (Chapter 28) — the same inventory that serves FinOps answers this in minutes.
+
+> **In an interview:** "The first thing I'd flag is that this is a cost incident with no availability signal, so the real failure is in the alerting — a monthly budget alarm surfaces it four weeks late, where a spend-velocity alert surfaces it the same day. Technically I'd characterise before blocking: user agent, ASN, asset-to-HTML ratio, URL breadth. Then the cheap high-value moves are edge caching for unauthenticated traffic and fixing any cache key that varies on a client-controlled parameter, which is often the whole problem. Blocking by user agent is the thing everyone reaches for and the least effective, since it's a string the client chooses — and it risks de-indexing you. Longer term it's a policy question, not just an engineering one: which crawlers do we actually want, given some of them send us customers?"
+
+---
+
 ---
 
 ## Sources & Further Reading
@@ -797,6 +978,12 @@ Have a plan *before* the breach: detect, contain, assess scope (which data, whos
 - OWASP — *Top 10 Web Application Security Risks* (`owasp.org/Top10`) and the OWASP Cheat Sheet Series.
 - OWASP — *LLM Top 10 / prompt injection* guidance.
 - Microsoft Learn — *ASP.NET Core security* (authentication, authorization, data protection, rate limiting, security headers).
+
+**Supply chain, AI agents & abuse (Scenarios 10–12)**
+- Chapter 35 of this book, and its sources — NuGet package source mapping and lockfiles, SLSA, Sigstore, SBOM formats, and the CRA timeline.
+- OWASP — *Top 10 for LLM Applications* (prompt injection, excessive agency, sensitive information disclosure, unbounded consumption).
+- Simon Willison's writing on the **lethal trifecta** (private data + untrusted content + exfiltration) — the clearest statement of why agent exfiltration is a capability problem rather than a prompting one.
+- Cloudflare Radar and similar public traffic reports — the automated-versus-human traffic mix and AI crawler behaviour.
 
 **Personal data / privacy engineering**
 - EUR-Lex — *Regulation (EU) 2016/679 (GDPR)*, in particular Art. 5 (principles), Art. 17 (right to erasure), Art. 25 (data protection by design), Art. 32 (security of processing).

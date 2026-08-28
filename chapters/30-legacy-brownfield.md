@@ -429,6 +429,70 @@ public decimal Price(Cart cart)
 
 **Measure progress with real signals, not vibes.** A modernization program that can't show it's working will be cancelled. Track things that stakeholders and the team both feel: percentage of traffic served by new services; number of legacy endpoints retired; test coverage on hotspot files trending up; deployment frequency and lead time (are changes getting easier?); and change-failure rate (are they getting safer?). These last two come from the DORA metrics and are excellent proxies for "is this codebase becoming pleasant to work in." The goal isn't a perfect architecture on a slide; it's a system your team can change quickly and safely — and that you can *prove* is trending that way.
 
+## The EOL Treadmill: Legacy Is a Verb
+
+This chapter has treated legacy as a state you inherit. It is worth ending on the observation that it is also a process you are subject to, continuously, whether or not you write any code.
+
+Consider what a single ASP.NET Core service actually depends on, and who controls the clock on each:
+
+```
+  your code                    ← you decide when this changes
+    ├── NuGet packages         ← maintainers decide; support windows vary wildly
+    ├── .NET runtime           ← Microsoft: annual November release, fixed support window
+    ├── base container image   ← distro maintainers: Debian/Alpine/Ubuntu release cycles
+    ├── the OS or node image   ← your cloud's supported Kubernetes/VM versions
+    ├── the database engine    ← managed-service provider forces upgrades on a schedule
+    └── the cloud API versions ← deprecated with notice, then they stop answering
+```
+
+Every one of those has an expiry date set by somebody else. You did not agree to it, you cannot negotiate it, and the work it generates arrives whether or not it is in your roadmap. **A system that nobody changes still decays**, which is the single most counter-intuitive fact about maintenance and the reason "we'll freeze it and revisit next year" is not the low-risk option it sounds like.
+
+### The current, dated example
+
+.NET's cadence is one new major version every November, with even-numbered releases supported for three years (LTS) and odd-numbered ones for two (Appendix B has the full table). Concretely, as this is written:
+
+- **.NET 8 (LTS) and .NET 9 (STS) both reach end of support on November 10, 2026.** They end on the same day — a quirk of the STS extension to 24 months landing exactly on the LTS date.
+- **.NET 10 (LTS)** is supported through November 2028 and is the target for anything long-lived.
+
+After the end-of-support date there are no security patches. Not "fewer" — none. A service still running on .NET 8 in December 2026 is running unpatched code with a published list of what is wrong with it, and that has consequences well beyond engineering taste: it will fail your SOC 2 audit, it will be flagged by any customer's security questionnaire, and if it is in scope for the EU Cyber Resilience Act (Chapter 35), shipping software you no longer patch becomes a regulatory problem rather than a backlog item.
+
+> **Gotcha.** The runtime is usually not the binding constraint — the base image is. A container built `FROM` a distro release that goes EOL keeps working perfectly and quietly stops receiving OS-level CVE fixes, which your scanner will notice long before anyone else does. Track base image EOL dates alongside runtime dates; they rarely align.
+
+### Why frequent is cheaper than infrequent
+
+The arithmetic here is not intuitive, and getting it wrong is how teams end up doing eighteen-month migrations.
+
+Upgrade cost does not scale linearly with the number of versions skipped, because:
+
+- **Breaking changes compound.** Two consecutive versions have a documented, tested upgrade path. Four versions apart, you are combining four sets of breaking changes, and the interactions between them are documented nowhere.
+- **The ecosystem moves with the platform.** Packages drop support for old targets. Skip long enough and you need to upgrade every dependency simultaneously with the runtime, which turns one variable into forty.
+- **Tooling assumes recency.** Analyzers, the upgrade assistant, SDK tooling and community answers all target the current and previous version. Far enough back, you are on your own.
+- **Knowledge decays.** The engineer who understood why that startup hack exists has left, and the reason was never written down.
+
+Which yields the rule: **an upgrade you do every year is a task; one you do every four years is a project; one you do every eight is a rewrite.** The same total work, priced very differently — and only the first one can be absorbed without asking anyone's permission.
+
+### Budget it as a standing cost, not a project
+
+The organizational failure here is treating platform upgrades as discretionary work requiring a business case. They are not a feature; they are the cost of continuing to have a system, more like paying for hosting than like building something.
+
+What works in practice:
+
+- **Reserve capacity permanently.** A standing allocation — a fixed share of each iteration, or one engineer's rotation — for dependency and platform maintenance. Not "when we have time," which never arrives.
+- **Keep a dated inventory.** Every service, its runtime version, base image, and their end-of-support dates, generated from what is actually deployed rather than from a wiki page. This is the service-catalog data from Chapter 12 doing a second job, and it is what turns "are we exposed?" from an investigation into a query.
+- **Alert before the date, not on it.** Ninety days of warning is a sprint's worth of planning. The day-of alert is an incident.
+- **Upgrade the boring services first.** Practising on the low-risk ones is how you find out what your upgrade actually involves before you attempt it on the service that takes payments.
+- **Make the pipeline do the work.** Automated dependency PRs with a cooldown window (Chapter 35), a build matrix that compiles against the *next* runtime before you commit to it, and CI failing on a target framework approaching EOL. The upgrade you notice in a red build is far cheaper than the one you notice in an audit.
+
+> **Best practice.** Multi-target during transitions (as described earlier in this chapter) and keep the *next* version green in CI continuously, even before you plan to adopt it. The cost of upgrading is then paid down incrementally, in units small enough that nobody has to approve them — which is the only reliable way this work gets done.
+
+### The constraint nobody puts in the architecture diagram
+
+The deepest version of this point: **the maintenance cadence you can sustain is an architectural constraint**, and it belongs in design discussions alongside latency budgets and consistency requirements.
+
+Forty microservices means forty runtime upgrades, forty base images, forty dependency graphs. That is a real, recurring cost, and it is one of the strongest arguments for the modular monolith (Chapter 6) at team sizes that cannot staff forty upgrade paths. Similarly, every additional language, framework, database engine and cloud service you adopt adds its own independent expiry schedule.
+
+The question to ask when adopting anything new is not only "does this solve our problem?" but "**who will upgrade this in three years, and will they know why we chose it?**" A team that asks this consistently ends up with fewer, better-understood technologies — and considerably less of the legacy this chapter is about.
+
 ## Sources & Further Reading
 
 - **Michael Feathers, *Working Effectively with Legacy Code*** — the definitive treatment of characterization tests, seams, dependency-breaking techniques, and Sprout/Wrap Method/Class. The single most important book on this topic.

@@ -128,6 +128,11 @@ function render(md){
       i++; continue;
     }
     if(/^(-{3,}|\*{3,}|_{3,})\s*$/.test(line)){ html.push("<hr>"); i++; continue; }
+    // Collapsible blocks: a small, deliberate raw-HTML allowlist so exercise
+    // answers can be hidden. Everything else stays escaped (see inline()).
+    var sm=line.trim().match(/^<summary>(.*)<\/summary>$/i);
+    if(sm){ html.push("<summary>"+inline(sm[1])+"</summary>"); i++; continue; }
+    if(/^<\/?(details|summary)(\s[^>]*)?>$/i.test(line.trim())){ html.push(line.trim()); i++; continue; }
     if(/^\s*\|.*\|\s*$/.test(line) && i+1<lines.length && /^\s*\|?[\s:|-]+\|[\s:|-]*$/.test(lines[i+1]) && lines[i+1].indexOf("-")>=0){
       var head=splitRow(line);
       i+=2;
@@ -154,7 +159,8 @@ function render(md){
     while(i<lines.length && !/^\s*$/.test(lines[i]) && !/^```/.test(lines[i]) &&
           !/^(#{1,6})\s/.test(lines[i]) && !/^>\s?/.test(lines[i]) &&
           !/^\s*([-*+]|\d+\.)\s+/.test(lines[i]) && !/^\s*\|.*\|\s*$/.test(lines[i]) &&
-          !/^(-{3,}|\*{3,})\s*$/.test(lines[i])){
+          !/^(-{3,}|\*{3,})\s*$/.test(lines[i]) &&
+          !/^<\/?(details|summary)(\s[^>]*)?>/i.test(lines[i].trim())){
       para.push(lines[i]); i++;
     }
     flushPara(para);

@@ -545,7 +545,7 @@ Note `${{ }}`—compile-time expansion—versus `$[ ]` for runtime and `$( )` fo
 
 **Private feeds need `NuGetAuthenticate@1`.** Azure Artifacts feeds are not anonymous. The task injects credentials for the build identity into the NuGet provider so a plain `dotnet restore` works; without it you get `NU1101` (package not found), because an unauthenticated feed returns nothing rather than a 401. If the feed lives in another organization, you also need a service connection and to name it in the task's `nuGetServiceConnections` input.
 
-**Service connections are the credential boundary.** A service connection is a stored, permissioned identity that tasks use to talk to Azure, AWS, Docker registries, or Kubernetes. The old form stored a service-principal client secret that someone had to rotate. The modern form is **workload identity federation**: the connection is configured to trust tokens issued by your Azure DevOps organization for a specific service connection, so the agent exchanges a short-lived OIDC token for an Azure access token at run time and *no secret exists to leak or rotate*. Convert your Azure connections to workload identity federation; it removes an entire category of incident. This is the same reasoning as the managed-identity advice in *Secrets in Pipelines* below, and the broader identity model is covered in [Chapter 14: Security](#chapter-14-security).
+**Service connections are the credential boundary.** A service connection is a stored, permissioned identity that tasks use to talk to Azure, AWS, Docker registries, or Kubernetes. The old form stored a service-principal client secret that someone had to rotate. The modern form is **workload identity federation**: the connection is configured to trust tokens issued by your Azure DevOps organization for a specific service connection, so the agent exchanges a short-lived OIDC token for an Azure access token at run time and *no secret exists to leak or rotate*. Convert your Azure connections to workload identity federation; it removes an entire category of incident. This is the same reasoning as the managed-identity advice in *Secrets in Pipelines* below; the trust chain it rests on — and the trust-policy condition that is the whole security boundary — is worked through in the *Zero Trust and Workload Identity* section of [Chapter 14: Security](#chapter-14-security).
 
 ### Reading and Fixing the Build
 
@@ -789,6 +789,103 @@ A typical quality-gate stage in the pipeline runs the Sonar scanner around the b
 > **Best practice:** Set quality gates on *new* code rather than demanding a huge legacy codebase suddenly hit 90% coverage. A ratcheting gate—"don't make it worse"—is achievable and steadily improves the codebase, whereas an unrealistic absolute gate just gets disabled the first time it blocks a hotfix.
 
 > **Capstone tie-in:** This chapter is exercised by ShopCore Steps 4 (CI/CD with GitHub Actions) and 8 (Deploy with Infrastructure as Code) — you'd build a workflow that tests every PR and publishes tagged images, then promote those images into a Terraform-provisioned environment. See Chapter 32.
+
+## Platform Engineering and Measuring Delivery
+
+Everything so far in this chapter is machinery: pipelines, artifacts, gates, secrets. This section is about the two questions that sit above the machinery and get asked of senior engineers rather than of pipelines — **who builds and owns this for everyone?** and **how do we know any of it is working?**
+
+### The problem platform engineering exists to solve
+
+"You build it, you run it" was a corrective to a real dysfunction: developers throwing code over a wall at an operations team who had no context and no way to say no. It worked. Then it kept going, and the accumulated result is a backend developer who is also expected to be fluent in Terraform, Kubernetes, Helm, a service mesh, three observability products, an IaC linter, a secrets manager, two cloud IAM models, and the CI DSL of the week — while shipping features.
+
+That is a **cognitive load** problem, and it does not resolve by hiring more senior people. Past a certain organizational size, every team independently solving the same infrastructure problems produces twelve slightly different, slightly wrong solutions, and the cost is paid forever in maintenance and incidents.
+
+**Platform engineering** is the response: a small team builds and operates an internal product whose customers are the other engineers. The word *product* is load-bearing — it implies users you can talk to, adoption you have to earn, a roadmap driven by demand, and the possibility of building the wrong thing.
+
+| | DevOps (the practice) | SRE | Platform engineering |
+|---|---|---|---|
+| Core idea | Dev and ops share ownership | Reliability as an engineering discipline | Infrastructure capability as an internal product |
+| Primary output | Culture, automation, feedback loops | SLOs, error budgets, toil reduction | Golden paths, self-service tooling |
+| Fails when | It becomes a job title for one team | Error budgets are advisory only | The platform team becomes a ticket queue |
+
+They are complements, not alternatives. SRE gives you the reliability vocabulary (Chapter 13); platform engineering gives you the leverage to apply it consistently.
+
+### Golden paths, and why paved beats gated
+
+A **golden path** is the supported, opinionated way to do a common thing: create a service, add a database, expose an endpoint, ship to production. It is not the *only* way — that distinction matters enormously — it is the way that is already solved.
+
+A good golden path for a new .NET service delivers, from one command, a repository with the company's project layout and analyzer settings, a working CI pipeline, containerization, health checks and OpenTelemetry wired up, an entry in the service catalog, a dashboard, an on-call rotation, and a deployment to a dev environment. What used to take a competent engineer two weeks of copying from a neighbouring repo takes an afternoon, and — the real prize — the twentieth service is configured the same way as the first.
+
+The design principle that decides whether this succeeds:
+
+> **Best practice — pave, don't gate.** Make the supported path so obviously easier than the alternatives that people choose it. The moment the platform's primary mechanism is *refusing* things, engineers route around it, and you have built a bureaucracy that also has an on-call rotation.
+
+That does not mean no guardrails. It means guardrails should be *defaults* rather than *approvals*: the template already has the right IAM scope, the base image is already hardened, the pipeline already runs the security gates. Reserve hard blocks (admission control, required checks) for the small set of things that genuinely must never happen — an unsigned image reaching production, a secret in a commit — and let everything else be a default that a team can deviate from with a written reason.
+
+**Golden paths rot.** A template generated a year ago is a snapshot; a hundred services generated from it drift into a hundred variations. Budget for propagating changes — a tool that can re-apply template updates to existing repositories and open PRs — or accept that your golden path describes only new services, which is a much smaller benefit than it looked.
+
+### Service catalogs and ownership
+
+The most valuable thing an internal platform holds is not the tooling — it is the answer to *"who owns this?"*. Every organization past about thirty services has some component that nobody can confidently claim, and it is invariably load-bearing.
+
+**Backstage** (the CNCF project originating at Spotify) is the common open-source implementation, and it is a big commitment — a Node application your team maintains, with plugins to build. Several commercial alternatives exist. Before adopting any of them, be clear about what makes a catalog useful, because it is not the software:
+
+- Ownership is **current** — enforced by CI (a `CODEOWNERS` or catalog entry required for the pipeline to run), not maintained by goodwill.
+- It is **generated** from things that are already true (repositories, deployments, dashboards) rather than typed in by hand.
+- People actually **land in it** during real work — from an alert, from a dependency graph, from a "who do I ask about this" moment.
+
+A catalog nobody consults because its data is nine months stale is worse than none, because it answers questions confidently and wrongly.
+
+### DORA: four metrics, and exactly how each is gamed
+
+The DORA research programme identified four measures that correlate with software delivery performance. They are the industry's common language, and knowing how each one breaks is more useful than knowing the definitions.
+
+| Metric | What it measures | How it gets gamed |
+|---|---|---|
+| **Deployment frequency** | How often you release to production | Deploy the same artifact repeatedly; count no-op deploys; redefine "deployment" |
+| **Lead time for changes** | Commit → running in production | Start the clock at PR-open rather than first commit, hiding the weeks of work before it |
+| **Change failure rate** | Share of deployments causing degradation | Reclassify incidents as "planned maintenance"; raise the bar for what counts as a failure |
+| **Failed deployment recovery time** | How long to restore service | Close incidents when mitigated rather than resolved; split one incident into several short ones |
+
+Two structural warnings.
+
+**They are throughput and stability, not value.** A team can hit elite numbers on all four while shipping features nobody uses. DORA measures how well your delivery machine runs, not whether it is pointed anywhere useful. It was never intended as a proxy for value, and using it that way is the most common misreading.
+
+**They stop measuring the moment they become targets.** This is Goodhart's law and it is not avoidable by choosing better metrics. The mitigation is to use them as a *team's own diagnostic*, trended over time, discussed in retrospectives — and specifically **not** to compare teams against each other or attach them to performance reviews. The instant lead time appears on a manager's dashboard next to individual names, you are measuring reporting behaviour.
+
+> **Gotcha.** Change failure rate and deployment frequency are a *pair*. Improving one at the expense of the other is not improvement, and looking at either alone rewards exactly the wrong behaviour — either reckless shipping or paralysis. Read them together, always.
+
+### SPACE: the corrective
+
+SPACE was proposed by researchers (including some of the DORA authors) precisely because single-dimension metrics distort. It says productivity is multidimensional and you should sample across five dimensions rather than optimize one:
+
+- **S**atisfaction and well-being — how do developers feel about their tools and work? Burnout precedes attrition, which destroys delivery.
+- **P**erformance — outcomes: did the change work, is quality holding?
+- **A**ctivity — counts of things done. Necessary but the most misleading alone.
+- **C**ommunication and collaboration — review latency, discoverability, how knowledge moves.
+- **E**fficiency and flow — uninterrupted time, wait states, handoffs.
+
+The practical guidance: pick **at least three dimensions, including at least one from a survey**, and never report activity alone. Developer surveys are not soft data here — they are frequently the only instrument that detects the thing actually blocking a team, and DORA's own research consistently finds the biggest constraints are organizational rather than technical.
+
+### Measuring whether AI assistance is helping
+
+This is the live version of the measurement problem, and it is where the discipline above earns its keep. The evidence is genuinely mixed — including a 2025 randomized trial in which experienced developers working on codebases they knew well were *slower* with AI assistance while believing they had been substantially faster. Perceived speed is not evidence.
+
+The mechanics of measuring it honestly — which metrics mislead (lines of code, percentage AI-generated, PR count), which help (cycle time paired with change failure rate, review latency as the leading indicator, token spend per merged PR), and why the answer varies with codebase familiarity — are worked through in [Chapter 18](#chapter-18-the-ai-native-developer-thriving-in-the-ai-era). The point to carry here is structural: **AI assistance moves the bottleneck from writing to reviewing**, and if your delivery metrics show PRs arriving faster while review latency climbs, you have not increased throughput. You have grown a queue.
+
+### Feedback loop time is a first-class engineering problem
+
+The least glamorous, highest-return thing a platform team can do is make the loop shorter. A developer waiting 25 minutes for CI does not wait — they context-switch, and the cost of that switch dwarfs the CI time itself. A suite slow enough to discourage running it locally is a suite that stops catching things.
+
+Where the time usually goes, in rough order of payoff:
+
+- **Cache what is deterministic.** NuGet restore keyed on `packages.lock.json` (see *Caching only pays off if restore is deterministic*, above), Docker layers ordered so source changes don't invalidate dependency layers, and the build output itself.
+- **Parallelize.** Independent jobs should not be sequential stages. xUnit runs test collections in parallel by default; check you haven't disabled it with a shared fixture.
+- **Run the right subset on the right trigger.** Unit tests on every push; integration and E2E on PR; the full matrix nightly. Affected-project selection (from the changed paths) is a large win in a solution with many projects.
+- **Right-size the runner.** A build that is CPU-bound on a two-core runner is an easy purchase decision — engineer-hours cost more than compute.
+- **Measure it.** Track p50 and p95 pipeline duration as a metric your team actually looks at, the same way you'd track service latency. Slow CI degrades continuously and silently until someone charts it.
+
+**Monorepo or many repos** shapes all of this. A monorepo gives atomic cross-service changes, one dependency version, and trivially consistent tooling, at the cost of needing affected-target selection and good ownership boundaries to stay fast. Many repositories give independence and simple CI at the cost of coordinating changes that cross boundaries, and of versioning your internal libraries as if they were public. Both work at scale; what does not work is a monorepo without build-graph tooling, or polyrepo without a way to propagate a change across forty repositories. Pick the failure mode you can afford to engineer around.
 
 ## Bringing It Together
 

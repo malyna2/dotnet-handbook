@@ -294,3 +294,15 @@ a.wn-link{font-weight:600}
 a.wn-link::before{content:"● ";color:var(--accent)}
 a.wn-link.wn-read{color:var(--fg-muted);font-weight:400}
 a.wn-link.wn-read::before{content:"✓ ";color:#3fb950}
+
+/* ---------- Exercise answers (collapsible) ---------- */
+#content details{margin:.6em 0;border:1px solid var(--border);border-radius:8px;
+  background:var(--bg-alt);padding:0 12px}
+#content details[open]{padding-bottom:6px}
+#content details>summary{cursor:pointer;padding:9px 2px;font-weight:600;font-size:14px;
+  color:var(--fg-muted);list-style:none;user-select:none}
+#content details>summary::-webkit-details-marker{display:none}
+#content details>summary::before{content:"▸ ";color:var(--accent);font-weight:700}
+#content details[open]>summary::before{content:"▾ "}
+#content details>summary:hover{color:var(--fg)}
+#content details>*:not(summary){margin-top:.4em}
