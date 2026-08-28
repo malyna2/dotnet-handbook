@@ -19854,6 +19854,10 @@ This page is the handbook's changelog. When a new release lands, a popup announc
 
 ## Release — August 28, 2026
 
+**🔧 Site & functionality**
+
+- Exercise answers are collapsible. Chapters that now end with an **Exercises** block keep their answers hidden behind a click, so you can work the problem before you read the solution.
+
 **📖 Content updates**
 
 - [Chapter 19: Workflow patterns](#workflow-patterns-the-ground-between-one-call-and-an-agent) — The layer between a single call and an agent: prompt chaining, routing, parallelization, orchestrator-workers, and evaluator-optimizer, with a table for choosing between them.
@@ -19865,6 +19869,24 @@ This page is the handbook's changelog. When a new release lands, a popup announc
 - [Chapter 25: Testing nondeterministic systems](#testing-nondeterministic-systems-evals-for-ai-features) — How to test an AI feature: fake the model for the deterministic 90%, and gate CI on an aggregate eval pass rate for the rest.
 - [Chapter 18: Workflow assets](#workflow-assets-making-the-setup-a-team-artifact) — Turning your agentic workflow into checked-in repo artifacts, and the two ways a conventions file goes bad.
 - [Chapter 18: Measuring whether any of this is working](#measuring-whether-any-of-this-is-working) — Why perceived productivity misleads, and which delivery metrics actually answer the question.
+- [Chapter 35: Software Supply Chain Security](#chapter-35-software-supply-chain-security) — New chapter on the three surfaces an attacker uses — the packages you consume, the build that assembles them, and what you publish — and the .NET control that closes each.
+- [Chapter 19: Securing AI features and agents](#securing-ai-features-and-agents) — Why prompt injection has no parameterization fix, the lethal trifecta as the design rule for when an agent is unsafe by construction, and authorizing tools in code rather than in the prompt.
+- [Chapter 14: Crypto agility and the post-quantum migration](#crypto-agility-and-the-post-quantum-migration) — Harvest-now-decrypt-later sets the deadline by data retention, not by quantum hardware; the ML-KEM/ML-DSA standards; and the 47-day certificate clock already running.
+- [Chapter 14: Zero trust and workload identity](#zero-trust-and-workload-identity) — SPIFFE/SPIRE attestation instead of secret zero, mTLS identity, and the OIDC trust-policy condition that is the entire boundary between CI and production.
+- [Chapter 29: Accessibility](#accessibility-the-part-that-is-now-law) — WCAG 2.2 AA and the European Accessibility Act, semantic HTML before ARIA, and the two Blazor pitfalls that leave screen-reader users lost.
+- [Chapter 25: Accessibility checks in CI](#accessibility-checks-in-the-same-run) — Wiring axe-core into Playwright, baselining so a retrofit doesn't go red on day one, and the ~30% ceiling on what automation can catch.
+- [Chapter 12: Platform engineering and measuring delivery](#platform-engineering-and-measuring-delivery) — Golden paths and pave-don't-gate, service catalogs, and the four DORA metrics with a table of exactly how each one gets gamed.
+- [Chapter 28: Green software](#part-c-green-software-the-same-levers-a-second-reason) — Utilization beats micro-efficiency, where and when you run outweighs how you code, and an honest ranking of which .NET levers actually move the number.
+- [Chapter 20: Abuse, bots, and traffic you did not ask for](#abuse-bots-and-traffic-you-did-not-ask-for) — Rate limiting as an adversarial problem: what you key on, where the counter lives, DDoS by layer, credential stuffing, and denial of wallet.
+- [Chapter 21: Chaos engineering](#verifying-resilience-chaos-engineering-in-practice) — Resilience code is the only code we ship without ever executing; the experiment method, Polly v8 fault injection, and why a game day finds more than a quarter of automation.
+- [Chapter 10: Lock-in and the economics of leaving](#lock-in-and-the-honest-economics-of-leaving) — Lock-in as a switching cost rather than a binary, where that cost actually concentrates, and why a portability layer usually costs more than the lock-in.
+- [Chapter 30: The EOL treadmill](#the-eol-treadmill-legacy-is-a-verb) — A system nobody changes still decays: the .NET 8 and 9 end-of-support date, and why an upgrade skipped four times costs far more than four upgrades.
+- [Chapter 33: Scenario 10 — a poisoned dependency](#scenario-10-poisoned-well-a-dependency-you-never-chose-shipped-a-backdoor) — Answering "are we affected?" in thirty minutes from committed lockfiles and stored SBOMs, and rotating credentials without bargaining.
+- [Chapter 33: Scenario 11 — the agent leaked customer data](#scenario-11-the-agent-leaked-customer-data-through-a-tool-call) — Containing an agent incident by removing capability rather than by fixing the prompt.
+- [Chapter 33: Scenario 12 — the crawler that tripled the egress bill](#scenario-12-the-invisible-customer-an-ai-crawler-tripled-the-egress-bill) — A cost incident with no availability signal, where the real failure is in the alerting.
+- [Chapter 8: Exercises](#chapter-8-asynchronous-concurrent-programming) — New practice block: find the sync-over-async bug that starves the thread pool, and a review call on cargo-culted `ConfigureAwait(false)`.
+- [Chapter 4: Exercises](#chapter-4-data-access-databases) — New practice block: count the queries hiding in a nested N+1, and decide whether a cache or an index is the right fix.
+- [Chapter 17: Exercises](#chapter-17-soft-skills-engineering-practices) — New practice block: the estimate you genuinely cannot give, and reviewing a new joiner's first pull request.
 
 ## Release — August 12, 2026
 
