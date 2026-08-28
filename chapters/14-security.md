@@ -24,7 +24,7 @@ Before any specific technique, internalize four principles. They are not slogans
 
 The OWASP Top 10 is the industry's consensus list of the most critical web application risks. Below is each category with the mitigation you apply in .NET. Learn the *category*, not just the trick — the categories are stable even as frameworks change.
 
-> **Note:** This walk-through follows the **2021 edition** (A01–A10 below). OWASP published a revised Top 10 in 2025 — notably elevating software supply chain failures to its own category — but the list is deliberately stable between editions, and every .NET mitigation here carries over unchanged.
+> **Note:** This walk-through follows the **2021 edition** (A01–A10 below). OWASP published a revised Top 10 in 2025 — notably elevating software supply chain failures to its own category, which [Chapter 35](#chapter-35-software-supply-chain-security) covers in full — but the list is deliberately stable between editions, and every .NET mitigation here carries over unchanged.
 
 ### A01: Broken Access Control
 
@@ -512,6 +512,8 @@ Wire this into CI so a build *fails* when a vulnerable package appears, rather t
 - **Snyk**, **GitHub Advanced Security**, or **OWASP Dependency-Check** — deeper SCA (Software Composition Analysis) tooling that scans dependencies (and sometimes container images and IaC) across ecosystems.
 
 > **Best practice:** Also enable NuGet package **source mapping** and consider **signed packages** to defend against dependency-confusion and typosquatting attacks, where an attacker publishes a malicious package with a name similar to (or matching an internal) package you depend on.
+
+Scanning tells you about *known* vulnerabilities in packages you already trust. It says nothing about a package that was deliberately backdoored last night, about your build system being modified after the source was clean, or about proving to a customer what went into the binary you shipped them. That wider problem — the packages you consume, the build that assembles them, and the artifacts you publish — is the subject of [Chapter 35: Software Supply Chain Security](#chapter-35-software-supply-chain-security).
 
 > **Capstone tie-in:** This chapter is exercised by ShopCore Step 5 (Caching, Auth, and Observability) — you'd add JWT authentication and role-based authorization so only authenticated users check out and only admins mutate the catalog. See Chapter 32.
 
