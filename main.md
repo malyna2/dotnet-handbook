@@ -10796,7 +10796,7 @@ So far the AI has been your collaborator. The next chapter flips the relationshi
 
 # Chapter 19: Building AI-Powered Systems
 
-_⏱️ Estimated read time: ~55 min · 9422 words (study pace)_
+_⏱️ Estimated read time: ~1 h · 10709 words (study pace)_
 
 Chapter 18 was about *using* AI to write software. This chapter flips the relationship: now the AI model is a *component inside* the software you ship. This is a different discipline. When you use an assistant to write a function, you review the output once and move on. When you embed a model in a running system, that model produces fresh, non-deterministic output on every request, for every user, forever — and you own the consequences. That single fact reshapes how you design, test, and operate the application.
 
@@ -10949,6 +10949,23 @@ await builder.Build().RunAsync();
 ```
 
 > **When *not* to build one:** if the tools are only ever used by a single application you control, plain function calling is simpler and has fewer moving parts. MCP earns its keep at integration boundaries — across teams, products, or organizations — not inside one service. Also: exposing tools via MCP is exposing an API surface. Apply the same authentication, authorization, and rate limiting you would to any public endpoint.
+
+### Agent-to-agent interop (A2A)
+
+MCP standardizes the connection between an agent and its *tools*. The complementary question is how one agent talks to **another agent** — one it doesn't own, running in another team's system or another company's cloud. **A2A** (the Agent2Agent protocol, contributed to the Linux Foundation) is the emerging standard for that: an agent publishes an **agent card** describing what it can do and how to reach it, and clients delegate **tasks** to it over HTTP, following the task's progress to completion.
+
+The distinction is worth holding precisely, because the two protocols get conflated:
+
+| | MCP | A2A |
+|---|---|---|
+| Connects | An agent to tools and data | An agent to another agent |
+| The other side is | A function you call and get a result from | An autonomous peer that works a task on its own |
+| Interaction shape | Request/response within one turn | A long-running task with status updates |
+| Discovery | Server advertises tools at connect time | Agent card advertises capabilities |
+
+> **When *not* to reach for it.** Most systems described as "multi-agent" are one team's services calling each other, and there the right answer is the boring one: an HTTP API with a schema, authenticated and versioned like everything else you ship. A protocol for agent interop earns its keep at the same boundary MCP does — across teams, vendors, or organizations, where neither side can assume anything about the other's implementation. Inside one codebase it is ceremony, and it buys you a discovery mechanism for capabilities you already know exist.
+
+The security posture deserves stating plainly, because it is worse than MCP's. Delegating a task to an external agent means untrusted output from a system you don't control flows back into your model's context — the prompt-injection surface from the safety section, now with an autonomous system on the other end rather than a document. Treat a peer agent's response as untrusted input in every sense: label it as data, never let it directly trigger a privileged tool call, and validate anything it asserts before acting on it.
 
 ## Retrieval-Augmented Generation (RAG)
 
@@ -11300,15 +11317,27 @@ if (!approval.Granted)
 
 > **Dated snapshot (mid-2026):** the package names, model names, and vendor landscape in this chapter are the fastest-rotting facts in this book. The architecture — a provider-agnostic abstraction layer, orchestration on top, RAG plumbing, evals as the regression suite — is durable; re-verify the specific packages, models, and provider capabilities against the current ecosystem before building.
 
-The .NET ecosystem matured fast. The pieces you should know:
+The .NET ecosystem matured fast — and then consolidated, which is the part most write-ups are behind on. Think of it as four layers, and pick the highest one that doesn't take away something you need.
 
-- **Microsoft.Extensions.AI** — the unifying abstraction layer (the `IChatClient` and `IEmbeddingGenerator` interfaces used throughout this chapter). It plays the role for AI that `ILogger`/`HttpClientFactory` play elsewhere: one provider-agnostic interface, pluggable implementations (OpenAI, Azure OpenAI, Anthropic, Ollama, local ONNX), and a **middleware pipeline** for cross-cutting concerns — function invocation, caching, telemetry, retries — composed via `AsBuilder()`. Program against these interfaces and your provider becomes a swap, not a rewrite. This is the recommended foundation for new .NET AI code.
-- **Semantic Kernel** — a higher-level orchestration SDK. It introduces **plugins** (collections of functions/tools the kernel can call), **memory** connectors (embeddings + vector stores for RAG), and orchestration for multi-step and agent workflows. Use it when you want batteries-included orchestration rather than assembling primitives yourself. (Its older explicit "planner" components have largely given way to function-calling-driven planning, mirroring the wider industry shift.)
-- **Kernel Memory** — a service/library dedicated to RAG ingestion and retrieval: it handles loading, chunking, embedding, storage, and query as a pipeline you can run in-process or as a standalone service. Reach for it instead of hand-rolling the RAG plumbing shown earlier.
-- **Provider SDKs** — the official `OpenAI`, `Azure.AI.OpenAI`, and Anthropic .NET SDKs for when you need provider-specific features beneath the abstraction.
-- **ONNX Runtime / local models** — for running smaller models locally (on-device or on your own hardware) for privacy, offline use, or cost. Microsoft.Extensions.AI can front a local model behind the same `IChatClient`, so local vs. cloud becomes a configuration choice.
+| Layer | What it is | Choose it when |
+|---|---|---|
+| **Microsoft.Extensions.AI** | The abstraction layer: `IChatClient`, `IEmbeddingGenerator`, and a middleware pipeline | Always — it's the floor everything else stands on. Sufficient on its own for single calls, chains, routing, and RAG |
+| **Microsoft Agent Framework** | Orchestration: agents, threads, tool/plugin registration, multi-agent and graph-style workflows | You need agent runs, persisted threads, or multi-agent coordination and want it maintained rather than hand-rolled |
+| **Azure AI Foundry Agent Service** | A hosted agent runtime — the service stores threads and run state and executes tools | You want managed state and the operational burden off your team, and accept a vendor dependency at the core |
+| **Provider SDKs** (`OpenAI`, `Azure.AI.OpenAI`, Anthropic) | The raw client for one provider | You need a provider-specific capability the abstraction hasn't surfaced yet — as an escape hatch beneath the layers, not as your default |
 
-A compact Semantic Kernel example — registering a plugin and letting the model call it automatically:
+**Microsoft.Extensions.AI** is the unifying abstraction (the `IChatClient` and `IEmbeddingGenerator` interfaces used throughout this chapter). It plays the role for AI that `ILogger`/`HttpClientFactory` play elsewhere: one provider-agnostic interface, pluggable implementations (OpenAI, Azure OpenAI, Anthropic, Ollama, local ONNX), and a **middleware pipeline** for cross-cutting concerns — function invocation, caching, telemetry, retries — composed via `AsBuilder()`. Program against these interfaces and your provider becomes a swap, not a rewrite. Note how much of this chapter needs nothing above this layer: chaining, routing, parallelization, and RAG are all ordinary C# over `IChatClient`.
+
+**Microsoft Agent Framework** is where Microsoft's two previous orchestration efforts converged. **Semantic Kernel** brought plugins, connectors, and enterprise plumbing; **AutoGen** brought multi-agent conversation patterns from Microsoft Research; the Agent Framework is their merger, built on Microsoft.Extensions.AI rather than beside it. It adds agents as first-class objects, persisted conversation threads, tool registration, and workflow constructs for connecting multiple agents. If you're reading older material, this is the context you need: Semantic Kernel is not wrong, it's the predecessor, and the migration path is explicitly supported. For new work, start at Microsoft.Extensions.AI and add the Agent Framework when you actually need orchestration.
+
+Two more pieces sit alongside rather than in the stack:
+
+- **Kernel Memory** — a service/library dedicated to RAG ingestion and retrieval: loading, chunking, embedding, storage, and query as a pipeline you can run in-process or standalone. Reach for it instead of hand-rolling the plumbing shown earlier.
+- **ONNX Runtime / local models** — for running smaller models locally (on-device or on your own hardware) for privacy, offline use, or cost. Microsoft.Extensions.AI can front a local model behind the same `IChatClient`, so local vs. cloud becomes a configuration choice. **.NET Aspire** is the pragmatic way to wire this up in development: model a local model runner and a vector store as Aspire resources so the whole AI stack comes up with `dotnet run` and gets swapped for hosted services in production (Chapter 11).
+
+> **Pitfall — the framework is not the hard part.** Teams spend weeks choosing between orchestration frameworks and then discover the difficulty was never orchestration; it was retrieval quality, evals, and cost. All four layers above will happily run a badly grounded prompt. Pick a layer in an afternoon and spend the saved week on your eval set.
+
+A compact Semantic Kernel example — the shape you will meet in existing code, and the one the Agent Framework carries forward: register a set of functions, then let the model call them automatically.
 
 ```csharp
 using Microsoft.SemanticKernel;
@@ -11331,6 +11360,8 @@ var result = await kernel.InvokePromptAsync(
 Console.WriteLine(result);
 ```
 
+The Agent Framework's equivalent is the same idea one level up — an agent object owning its tools and its thread, rather than a kernel you invoke a prompt against — so the concepts transfer directly even though the type names don't.
+
 **Cross-ecosystem awareness.** The Python world has a rich, fast-moving family of orchestration frameworks (LangChain, LlamaIndex, LangGraph, DSPy, Haystack at the time of writing), and their concepts — chains, retrieval pipelines, graph-based agent orchestration, programmatic prompt optimization — cross over and shape the whole field's vocabulary. Learn the concepts, not the frameworks; in a .NET shop you'll almost always build on the Microsoft.Extensions.AI and Semantic Kernel abstractions instead.
 
 ## Integrating AI into existing applications
@@ -11350,6 +11381,20 @@ Bolting a model onto a production app is where many teams stumble. The patterns 
 **Keep the provider swappable.** Program to `IChatClient`, keep model names and prompts in configuration, and avoid leaning on one provider's proprietary quirks in your core logic. The model market shifts monthly; the team that can swap models in an afternoon has a durable advantage.
 
 **Cost controls, rate limiting, retries.** Set per-user and per-tenant token budgets and enforce them. Rate-limit calls to stay within provider quotas and to cap spend. Use retries with **exponential backoff and jitter** for the inevitable 429s and transient 5xxs — but bound them, and make them idempotent-safe. These belong in the middleware pipeline, applied uniformly, not sprinkled per call site.
+
+## Cost mechanics: caching, batching, and thinking budgets
+
+The caching advice above is about *your* cache — you store the response and skip the call. Providers also expose three levers that change the economics from their side, and each one has an architectural consequence rather than being a flag you flip.
+
+**Prompt caching** lets the provider reuse the computation for a prompt *prefix* it has seen recently, charging a large discount on those tokens and returning them faster. The consequence is a layout rule: **stable content first, volatile content last.** Your system prompt, tool definitions, few-shot examples, and any long fixed document are the prefix; the user's turn goes at the end. Interleaving a timestamp, a request id, or freshly-ordered retrieval results near the top of the prompt invalidates everything after it and quietly forfeits the discount — a common and entirely invisible waste, because the feature still works, it just costs full price. In a RAG or agent loop, where the same large system prompt rides on every one of a dozen calls, this is frequently the single biggest lever available.
+
+> **Gotcha.** Prompt caching interacts badly with over-eager prompt "optimization". A team that injects the current date into the system prompt for freshness has made the prefix change every day at midnight — tolerable. A team that injects the current *time* has made it change on every request, and the cache never hits at all. Check what varies in your prefix before concluding the discount doesn't apply to you.
+
+**Batch APIs** trade latency for roughly half the price: you submit a set of requests and collect the results within a provider-defined window (typically hours). Nothing interactive can use this — and a surprising amount of what a production system does isn't interactive. Backfilling embeddings, classifying a night's worth of tickets, generating summaries for a reporting table, and **running your eval suite** are all batch work. If your evals are expensive enough that you hesitate to run them, that hesitation is the problem, and batching is usually the fix.
+
+**Reasoning models and thinking budgets.** Models that spend extra tokens reasoning before answering do measurably better on multi-step logic, planning, and hard debugging — and worse on everything else, in the sense that you pay for tokens you never see and wait longer for them. Most providers expose a budget or effort setting. Treat it as a per-task-type decision, not a global default: high effort for the planning step of an agent or a complex diagnosis, minimum or off for extraction, classification, routing, and formatting. A router that also picks the thinking budget per branch is doing the same job as the model cascade, on a second axis.
+
+> **Best practice.** These three levers are worth an afternoon before any prompt micro-optimization, because they're structural: reorder your prompt for caching, move your non-interactive work to batch, and match thinking budget to task type. Together they routinely cut a bill by more than half without touching a single word of a prompt — and they change nothing about output quality, which is more than can be said for most cost work.
 
 ## Evaluation, observability, and safety
 
@@ -11391,7 +11436,7 @@ LLM features open attack surfaces and failure modes traditional apps don't have.
 
 The threads of this chapter converge on four production priorities:
 
-**Cost optimization.** Route by difficulty — a cheap small model handles the easy 80% of requests, escalating to an expensive model only when needed (**model routing / cascades**). Cache aggressively (exact and semantic). Prefer the smallest model that passes your evals; the frontier model is rarely required. Trim prompts and context ruthlessly — you pay per token, every call.
+**Cost optimization.** Route by difficulty — a cheap small model handles the easy 80% of requests, escalating to an expensive model only when needed (**model routing / cascades**). Cache aggressively, on both sides: your own response cache, and the provider's prompt cache via a stable prefix. Move non-interactive work to a batch API. Prefer the smallest model that passes your evals, and spend a thinking budget only where the task rewards it; the frontier model at full effort is rarely required. Trim prompts and context ruthlessly — you pay per token, every call.
 
 **Latency.** Stream to cut perceived latency. Parallelize independent calls (retrieve while you prepare the prompt; fan out multiple tool calls at once). Pick smaller/faster models for latency-critical paths. Cache the hot paths.
 
