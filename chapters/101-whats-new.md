@@ -2,6 +2,20 @@
 
 This page is the handbook's changelog. When a new release lands, a popup announces it on your next visit. Under each release, **Site & functionality** items are plain notes, while **Content updates** link to every chapter that changed — a link is ticked off (✓, stored locally in your browser) once you visit it, so you can work through an update at your own pace and see what's still unread.
 
+## Release — September 24, 2026
+
+**🔧 Site & functionality**
+
+- A new part in the sidebar, **Part XI — The Practice Gym**, collects hands-on labs; each lab chapter links to a starter kit in the repository.
+- The Contents page now states reading time and practice time separately.
+
+**📖 Content updates**
+
+- [Chapter 36: The Story Bank & Evidence Portfolio](#chapter-36-the-story-bank-evidence-portfolio) — New lab chapter: turn your work into STAR stories that survive follow-up questions, keep a weekly brag doc, and rehearse with a scored AI mock interviewer.
+- [Chapter 34: Behavioral questions](#behavioral-seniority) — A pointer to Chapter 36's worksheet for each behavioral question.
+- [Preface & Contents](#the-middle-senior-net-developer-handbook) — Corrected study-time figures, and an introduction to Part XI.
+- [Chapter 37: The Slow-Query Lab](#chapter-37-the-slow-query-lab-reading-execution-plans) — New lab chapter: fix nine slow EF Core queries on a 5-million-order PostgreSQL database and prove each fix with before/after plans, with an optional SQL Server track.
+
 ## Release — August 28, 2026
 
 **🔧 Site & functionality**
