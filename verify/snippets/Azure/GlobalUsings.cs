@@ -1,0 +1,12 @@
+global using Azure;
+global using Azure.Identity;
+global using Microsoft.Azure.Functions.Worker;
+global using Microsoft.DurableTask;
+global using Microsoft.EntityFrameworkCore;
+global using Microsoft.Extensions.Azure;
+global using Microsoft.Extensions.Configuration;
+global using Microsoft.Extensions.Configuration.AzureAppConfiguration;
+global using Microsoft.Extensions.DependencyInjection;
+global using Microsoft.Extensions.Hosting;
+global using System.Net.Http.Json;
+global using Microsoft.EntityFrameworkCore.Storage;
