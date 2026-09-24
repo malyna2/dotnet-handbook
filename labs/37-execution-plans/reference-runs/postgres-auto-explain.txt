@@ -1,0 +1,76 @@
+date        : 2026-09-24 12:36 UTC
+machine     : 4 vCPU (Intel(R) Xeon(R) Processor @ 2.10GHz), 16 GB RAM
+server      : PostgreSQL 18.6 (Debian 18.6-1.pgdg13+2) on x86_64-pc-linux-gnu, compiled by gcc (Debian 14.2.0-19) 14.2.0, 64-bit
+
+2026-09-24 12:35:25.720 UTC [7677] LOG:  duration: 1085.995 ms  plan:
+	Query Text: SELECT o.id, o.order_id, o.quantity, o.unit_price
+	FROM order_lines AS o
+	WHERE o.product_id = $1
+	ORDER BY o.id DESC
+	LIMIT $2
+	Query Parameters: $1 = '1', $2 = '20'
+	Limit  (cost=539.39..539.51 rows=46 width=26)
+	  ->  Sort  (cost=539.39..540.55 rows=463 width=26)
+	        Sort Key: id DESC
+	        ->  Index Scan using ix_order_lines_product_id on order_lines o  (cost=0.44..518.89 rows=463 width=26)
+	              Index Cond: (product_id = $1)
+2026-09-24 12:35:26.746 UTC [7677] LOG:  duration: 1022.738 ms  plan:
+	Query Text: SELECT o.id, o.order_id, o.quantity, o.unit_price
+	FROM order_lines AS o
+	WHERE o.product_id = $1
+	ORDER BY o.id DESC
+	LIMIT $2
+	Query Parameters: $1 = '1', $2 = '20'
+	Limit  (cost=539.39..539.51 rows=46 width=26)
+	  ->  Sort  (cost=539.39..540.55 rows=463 width=26)
+	        Sort Key: id DESC
+	        ->  Index Scan using ix_order_lines_product_id on order_lines o  (cost=0.44..518.89 rows=463 width=26)
+	              Index Cond: (product_id = $1)
+2026-09-24 12:35:27.758 UTC [7677] LOG:  duration: 1009.149 ms  plan:
+	Query Text: SELECT o.id, o.order_id, o.quantity, o.unit_price
+	FROM order_lines AS o
+	WHERE o.product_id = $1
+	ORDER BY o.id DESC
+	LIMIT $2
+	Query Parameters: $1 = '1', $2 = '20'
+	Limit  (cost=539.39..539.51 rows=46 width=26)
+	  ->  Sort  (cost=539.39..540.55 rows=463 width=26)
+	        Sort Key: id DESC
+	        ->  Index Scan using ix_order_lines_product_id on order_lines o  (cost=0.44..518.89 rows=463 width=26)
+	              Index Cond: (product_id = $1)
+2026-09-24 12:35:29.716 UTC [7677] LOG:  duration: 1009.423 ms  plan:
+	Query Text: SELECT o.id, o.order_id, o.quantity, o.unit_price
+	FROM order_lines AS o
+	WHERE o.product_id = $1
+	ORDER BY o.id DESC
+	LIMIT $2
+	Query Parameters: $1 = '1', $2 = '20'
+	Limit  (cost=539.39..539.51 rows=46 width=26)
+	  ->  Sort  (cost=539.39..540.55 rows=463 width=26)
+	        Sort Key: id DESC
+	        ->  Index Scan using ix_order_lines_product_id on order_lines o  (cost=0.44..518.89 rows=463 width=26)
+	              Index Cond: (product_id = $1)
+2026-09-24 12:35:31.021 UTC [7677] LOG:  duration: 1197.044 ms  plan:
+	Query Text: PREPARE lab_replay AS SELECT o.id, o.order_id, o.quantity, o.unit_price
+	FROM order_lines AS o
+	WHERE o.product_id = $1
+	ORDER BY o.id DESC
+	LIMIT $2
+	Query Parameters: $1 = '1', $2 = '20'
+	Limit  (cost=539.39..539.51 rows=46 width=26)
+	  ->  Sort  (cost=539.39..540.55 rows=463 width=26)
+	        Sort Key: id DESC
+	        ->  Index Scan using ix_order_lines_product_id on order_lines o  (cost=0.44..518.89 rows=463 width=26)
+	              Index Cond: (product_id = $1)
+2026-09-24 12:35:32.093 UTC [7677] LOG:  duration: 1070.091 ms  plan:
+	Query Text: PREPARE lab_replay AS SELECT o.id, o.order_id, o.quantity, o.unit_price
+	FROM order_lines AS o
+	WHERE o.product_id = $1
+	ORDER BY o.id DESC
+	LIMIT $2
+	Query Parameters: $1 = '1', $2 = '20'
+	Limit  (cost=539.39..539.51 rows=46 width=26)
+	  ->  Sort  (cost=539.39..540.55 rows=463 width=26)
+	        Sort Key: id DESC
+	        ->  Index Scan using ix_order_lines_product_id on order_lines o  (cost=0.44..518.89 rows=463 width=26)
+	              Index Cond: (product_id = $1)

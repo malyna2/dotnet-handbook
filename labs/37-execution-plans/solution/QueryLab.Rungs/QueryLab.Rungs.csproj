@@ -1,0 +1,10 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- The reference solution. Don't open it until you have your own answers:
+       the plans you read on the way are the point of the lab. -->
+  <ItemGroup>
+    <AssemblyMetadata Include="Implementation" Value="solution" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="../../src/QueryLab.Core/QueryLab.Core.csproj" />
+  </ItemGroup>
+</Project>

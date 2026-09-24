@@ -1,0 +1,12 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/QueryLab.Core/QueryLab.Core.csproj" />
+    <Project Path="src/QueryLab.Cli/QueryLab.Cli.csproj" />
+  </Folder>
+  <Folder Name="/starter/">
+    <Project Path="starter/QueryLab.Rungs/QueryLab.Rungs.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/QueryLab.Tests/QueryLab.Tests.csproj" />
+  </Folder>
+</Solution>

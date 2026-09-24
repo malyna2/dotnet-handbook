@@ -1,0 +1,53 @@
+# Lab 37 — Reading execution plans.
+#   docker compose up -d                        # PostgreSQL only (the main track)
+#   docker compose --profile sqlserver up -d    # plus SQL Server (the optional track)
+name: execution-plans-lab
+
+services:
+  postgres:
+    image: postgres:18.6
+    environment:
+      POSTGRES_USER: lab
+      POSTGRES_PASSWORD: lab
+      POSTGRES_DB: shop
+    ports:
+      - "5433:5432"            # 5433, so it doesn't collide with a Postgres you already run
+    shm_size: 1g               # parallel workers use shared memory; Docker's 64 MB default is too small
+    command:
+      - postgres
+      - -c
+      - shared_preload_libraries=pg_stat_statements,auto_explain
+      - -c
+      - shared_buffers=512MB
+      - -c
+      - random_page_cost=1.1   # SSD storage; the 4.0 default models spinning disks (Chapter 4)
+      - -c
+      - track_io_timing=on     # EXPLAIN (ANALYZE, BUFFERS) then shows time spent on I/O
+      - -c
+      - auto_explain.log_min_duration=1s
+    volumes:
+      - pgdata:/var/lib/postgresql
+      - ./postgres:/lab:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U lab -d shop"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+
+  sqlserver:
+    profiles: ["sqlserver"]
+    image: mcr.microsoft.com/mssql/server:2025-CU9-ubuntu-24.04
+    environment:
+      ACCEPT_EULA: "Y"
+      MSSQL_PID: Developer
+      MSSQL_SA_PASSWORD: "Lab_Passw0rd!"
+      MSSQL_MEMORY_LIMIT_MB: "2048"   # leave room for PostgreSQL and your IDE
+    ports:
+      - "14333:1433"
+    volumes:
+      - mssqldata:/var/opt/mssql
+      - ./sqlserver:/lab:ro
+
+volumes:
+  pgdata:
+  mssqldata:

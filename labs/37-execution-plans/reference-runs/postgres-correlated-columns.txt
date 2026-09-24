@@ -1,0 +1,99 @@
+date        : 2026-09-24 12:44 UTC
+machine     : 4 vCPU (Intel(R) Xeon(R) Processor @ 2.10GHz), 16 GB RAM
+server      : PostgreSQL 18.6 (Debian 18.6-1.pgdg13+2) on x86_64-pc-linux-gnu, compiled by gcc (Debian 14.2.0-19) 14.2.0, 64-bit
+
+=== without extended statistics
+                                                                                            QUERY PLAN                                                                                            
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ GroupAggregate  (cost=18443.72..19271.31 rows=6295 width=29) (actual time=108.173..126.150 rows=25027.00 loops=1)
+   Group Key: c.id
+   Buffers: shared hit=15297 read=72
+   I/O Timings: shared read=0.745
+   ->  Gather Merge  (cost=18443.72..19176.88 rows=6295 width=21) (actual time=108.155..119.940 rows=30003.00 loops=1)
+         Workers Planned: 2
+         Workers Launched: 2
+         Buffers: shared hit=15297 read=72
+         I/O Timings: shared read=0.745
+         ->  Sort  (cost=17443.70..17450.26 rows=2623 width=21) (actual time=104.317..106.097 rows=10001.00 loops=3)
+               Sort Key: c.id
+               Sort Method: quicksort  Memory: 503kB
+               Buffers: shared hit=15297 read=72
+               I/O Timings: shared read=0.745
+               Worker 0:  Sort Method: quicksort  Memory: 885kB
+               Worker 1:  Sort Method: quicksort  Memory: 763kB
+               ->  Parallel Hash Join  (cost=10319.45..17294.75 rows=2623 width=21) (actual time=44.911..100.563 rows=10001.00 loops=3)
+                     Hash Cond: (o.customer_id = c.id)
+                     Buffers: shared hit=15281 read=72
+                     I/O Timings: shared read=0.745
+                     ->  Parallel Index Only Scan using ix_orders_created_at_customer_id on orders o  (cost=0.43..6526.73 rows=171050 width=8) (actual time=0.173..19.793 rows=139902.67 loops=3)
+                           Index Cond: (created_at >= '2026-06-01 00:00:00+00'::timestamp with time zone)
+                           Heap Fetches: 0
+                           Index Searches: 1
+                           Buffers: shared hit=1613 read=1
+                           I/O Timings: shared read=0.028
+                     ->  Parallel Hash  (cost=10239.15..10239.15 rows=6389 width=21) (actual time=44.532..44.535 rows=26647.00 loops=3)
+                           Buckets: 131072 (originally 16384)  Batches: 1 (originally 1)  Memory Usage: 6432kB
+                           Buffers: shared hit=13668 read=71
+                           I/O Timings: shared read=0.717
+                           ->  Parallel Bitmap Heap Scan on customers c  (cost=172.99..10239.15 rows=6389 width=21) (actual time=5.897..30.518 rows=26647.00 loops=3)
+                                 Recheck Cond: ((country = 'DE'::text) AND (city = 'Berlin'::text))
+                                 Heap Blocks: exact=3745
+                                 Buffers: shared hit=13668 read=71
+                                 I/O Timings: shared read=0.717
+                                 Worker 0:  Heap Blocks: exact=5336
+                                 Worker 1:  Heap Blocks: exact=4547
+                                 ->  Bitmap Index Scan on ix_customers_country_city  (cost=0.00..169.16 rows=15333 width=0) (actual time=5.867..5.867 rows=79941.00 loops=1)
+                                       Index Cond: ((country = 'DE'::text) AND (city = 'Berlin'::text))
+                                       Index Searches: 1
+                                       Buffers: shared read=71
+                                       I/O Timings: shared read=0.717
+ Planning:
+   Buffers: shared hit=210 read=5
+   I/O Timings: shared read=0.069
+ Planning Time: 1.619 ms
+ Execution Time: 127.553 ms
+(47 rows)
+
+=== with CREATE STATISTICS lab_customers_country_city (dependencies, mcv) ON country, city
+                                                                                            QUERY PLAN                                                                                            
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ GroupAggregate  (cost=24422.56..28792.37 rows=33239 width=29) (actual time=80.883..94.849 rows=25027.00 loops=1)
+   Group Key: c.id
+   Buffers: shared hit=15369
+   ->  Gather Merge  (cost=24422.56..28293.79 rows=33239 width=21) (actual time=80.872..90.295 rows=30003.00 loops=1)
+         Workers Planned: 2
+         Workers Launched: 2
+         Buffers: shared hit=15369
+         ->  Sort  (cost=23422.53..23457.16 rows=13850 width=21) (actual time=77.758..79.108 rows=10001.00 loops=3)
+               Sort Key: c.id
+               Sort Method: quicksort  Memory: 822kB
+               Buffers: shared hit=15369
+               Worker 0:  Sort Method: quicksort  Memory: 758kB
+               Worker 1:  Sort Method: quicksort  Memory: 762kB
+               ->  Parallel Hash Join  (cost=15494.51..22469.82 rows=13850 width=21) (actual time=29.343..74.924 rows=10001.00 loops=3)
+                     Hash Cond: (o.customer_id = c.id)
+                     Buffers: shared hit=15353
+                     ->  Parallel Index Only Scan using ix_orders_created_at_customer_id on orders o  (cost=0.43..6526.73 rows=171050 width=8) (actual time=0.059..16.296 rows=139902.67 loops=3)
+                           Index Cond: (created_at >= '2026-06-01 00:00:00+00'::timestamp with time zone)
+                           Heap Fetches: 0
+                           Index Searches: 1
+                           Buffers: shared hit=1614
+                     ->  Parallel Hash  (cost=15072.38..15072.38 rows=33736 width=21) (actual time=28.881..28.883 rows=26647.00 loops=3)
+                           Buckets: 131072  Batches: 1  Memory Usage: 5504kB
+                           Buffers: shared hit=13739
+                           ->  Parallel Bitmap Heap Scan on customers c  (cost=907.34..15072.38 rows=33736 width=21) (actual time=2.476..19.968 rows=26647.00 loops=3)
+                                 Recheck Cond: ((country = 'DE'::text) AND (city = 'Berlin'::text))
+                                 Heap Blocks: exact=5762
+                                 Buffers: shared hit=13739
+                                 Worker 0:  Heap Blocks: exact=3742
+                                 Worker 1:  Heap Blocks: exact=4124
+                                 ->  Bitmap Index Scan on ix_customers_country_city  (cost=0.00..887.10 rows=80967 width=0) (actual time=2.717..2.718 rows=79941.00 loops=1)
+                                       Index Cond: ((country = 'DE'::text) AND (city = 'Berlin'::text))
+                                       Index Searches: 1
+                                       Buffers: shared hit=71
+ Planning:
+   Buffers: shared hit=31
+ Planning Time: 0.383 ms
+ Execution Time: 95.931 ms
+(38 rows)
+

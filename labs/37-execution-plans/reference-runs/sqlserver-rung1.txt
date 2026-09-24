@@ -1,0 +1,22 @@
+date        : 2026-09-24 12:36 UTC
+machine     : 4 vCPU (Intel(R) Xeon(R) Processor @ 2.10GHz), 16 GB RAM
+server      : Microsoft SQL Server 2025 (RTM-CU9) (KB5122048) - 17.0.5005.3 (X64) 
+
+=== 1a: @email nvarchar(4000) — a .NET string sent with the default type
+id | email | name
+54321 | Marco.Shevchenko54321@Example.com | Marco Shevchenko
+Table 'customers': scan count 1, logical reads 1174
+   actual  execs  estimated  operator
+        1      1        1.0  SELECT id, email, name FROM dbo.customers WHERE email = @email
+        1      1        1.0    |--Nested Loops(Inner Join, OUTER REFERENCES:([customers].[id]))
+        1      1        1.0         |--Index Scan(OBJECT:([customers].[uq_customers_email]),  WHERE:(CONVERT_IMPLICIT(nvarchar(254),[customers].[email],0)=[@email]))
+        1      1        1.0         |--Clustered Index Seek(OBJECT:([customers].[pk_customers]), SEEK:([customers].[id]=[customers].[id]) LOOKUP ORDERED FORWARD)
+=== 1b: @email varchar(254) — the parameter typed like the column
+id | email | name
+54321 | Marco.Shevchenko54321@Example.com | Marco Shevchenko
+Table 'customers': scan count 0, logical reads 6
+   actual  execs  estimated  operator
+        1      1        1.0  SELECT id, email, name FROM dbo.customers WHERE email = @email
+        1      1        1.0    |--Nested Loops(Inner Join, OUTER REFERENCES:([customers].[id]))
+        1      1        1.0         |--Index Seek(OBJECT:([customers].[uq_customers_email]), SEEK:([customers].[email]=[@email]) ORDERED FORWARD)
+        1      1        1.0         |--Clustered Index Seek(OBJECT:([customers].[pk_customers]), SEEK:([customers].[id]=[customers].[id]) LOOKUP ORDERED FORWARD)

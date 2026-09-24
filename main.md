@@ -24,9 +24,13 @@ Let's begin.
 
 ## Contents
 
-> **Total study time: ~18 hours** (reading prose at ~200 wpm and parsing every code sample at ~60 wpm). A straight cover-to-cover read is closer to **13 hours**; a quick skim, **~10 hours**. Each chapter shows its own estimate under its heading.
+> **Total study time: ~26 hours** (reading prose at ~200 wpm and parsing every code sample at ~60 wpm — the pace behind each chapter's own estimate under its heading). A straight cover-to-cover read (prose at ~250 wpm, code at ~100) is closer to **19 hours**; a quick skim (~300 and ~200 wpm), **~15 hours**.
+>
+> **Practice time comes on top.** The labs in Part XI are measured in hours of hands-on work, not reading: so far about **5–6 hours** to build your story bank and portfolio (Chapter 36), then about 45 minutes a week to keep them going, and about **10 hours** for the slow-query lab (Chapter 37).
 
 Use the **sidebar** on the left (or the **Browse chapters** cards below) to jump to any chapter.
+
+**Parts I–X teach; Part XI makes you practise.** The chapters in *Part XI — The Practice Gym* are labs. Each has a goal, a time budget, tasks in three levels with checkable acceptance criteria, and a list of the evidence to keep in your own public portfolio repo — because the gap between middle and senior is rarely knowledge, and almost always proof. Start with [Chapter 36](#chapter-36-the-story-bank-evidence-portfolio), which builds the story bank the other labs feed.
 
 ---
 
@@ -18496,7 +18500,7 @@ Traffic is up roughly 4×. Signups are flat.
 
 # Chapter 34: Interview Questions & How to Answer Them
 
-_⏱️ Estimated read time: ~40 min · 7458 words (study pace)_
+_⏱️ Estimated read time: ~40 min · 7488 words (study pace)_
 
 This chapter is a recall-and-rehearse bank. Every topic here is taught in depth earlier in the book; the goal now is to turn that knowledge into crisp spoken answers under pressure. Read a question, cover the answer, and say your version out loud. If it comes out rambling, tighten it. Each section starts with a *Revise* pointer to the chapter(s) that teach the material. **Red flag** lines show the wrong answer interviewers hear from juniors — if your spoken version sounds like one, go back and re-read.
 
@@ -18963,6 +18967,8 @@ Use one structure for every design prompt: **Requirements → Scale estimate →
 
 Answer these with **STAR** and keep the spotlight on *your* actions and a concrete result. Have three or four real stories prepared that you can flex to different questions.
 
+> **Practice it.** [Chapter 36](#chapter-36-the-story-bank-evidence-portfolio) has a worksheet for each question below, a way to mine your own work for the stories, and a scored mock-interview protocol to rehearse them.
+
 **Tell me about a hard bug you solved.**
 Pick a genuinely tricky one — intermittent, distributed, or a heisenbug. Emphasize *method*: how you reproduced it, formed and tested hypotheses, used tooling (logs, profiler, dump), found root cause, and prevented recurrence (a test, a monitor). Result: the metric that improved. The story sells your debugging process, not luck.
 
@@ -19380,6 +19386,1239 @@ None of this makes an untrusted dependency trustworthy. That is not the goal. Th
 - **European Commission — Cyber Resilience Act**, obligations and application timeline. https://digital-strategy.ec.europa.eu/en/policies/cyber-resilience-act
 - **CISA / NSA — "Securing the Software Supply Chain"** guidance series for developers and suppliers. https://www.cisa.gov/
 - Post-incident write-ups worth reading in full: the **xz-utils backdoor (CVE-2024-3094)** for multi-year social engineering into a build system, **SolarWinds** for build-time injection with clean source, and the **`tj-actions/changed-files` compromise (CVE-2025-30066)** for mutable tags in CI.
+
+
+---
+
+# Chapter 36: The Story Bank & Evidence Portfolio
+
+_⏱️ Estimated read time: ~50 min · 7428 words (study pace)_
+
+Part XI is the practice gym. The thirty-five chapters before it explain how things work; the chapters in this Part make you *do* them and leave something behind that you can show. That second half is the one people skip, and it is the one that decides interviews and promotions. The gap between a middle and a senior engineer is rarely knowledge — plenty of middle engineers could pass a written exam on this book. The gap is **proof**: incidents you handled, decisions you defended, systems you measured, things you wrote that other people acted on.
+
+This chapter comes first because it builds the place where all of that proof goes. You will set up a private **story bank** and a weekly **brag doc**, turn your real work into STAR stories that survive follow-up questions, rewrite your CV as claims backed by evidence, start a public **portfolio repo**, and rehearse with an AI interviewer that asks follow-ups and scores you honestly. Every lab after this one ends with an *Evidence to keep* list and an *Interview hook*; both feed the bank you build here.
+
+```
+daily work ──────────────┐
+                         ▼
+labs in this Part ──► brag doc ──► story bank ──► mock interview ──► rewrite
+        │            (private)     (private)            ▲               │
+        │                                               └───────────────┘
+        ▼
+    artifacts ──► public portfolio repo ◄── evidence index ◄── CV bullets
+```
+
+> **The portfolio rule.** Nothing you produce in Part XI goes into the handbook's repository. Your plans, test runs, post-mortems, reviews and designs go into **your own public portfolio repo**. Stories about a real employer stay **private**. Every lab repeats this, because it is the difference between doing an exercise and building evidence.
+
+The kit for this chapter — templates, interviewer prompts and a git-mining script — is at [labs/36-evidence-portfolio](https://github.com/malyna2/dotnet-handbook/tree/main/labs/36-evidence-portfolio).
+
+## Goal and the senior signal it trains
+
+**Goal:** turn what you have done into specific, measured claims you can defend under questioning.
+
+**The senior signal: detail density under follow-up.** An interviewer cannot check your employment history, so they check something they *can* observe: how deep your knowledge goes before it runs out. Someone who did the work can answer the third "why?" — why that index and not another, what the plan actually said, what would break at ten times the load. Someone retelling a colleague's work, or a blog post, runs out after the first. Follow-up questions work as a lie detector for second-hand experience, and they also catch honest people who simply never wrote down the details of what they did.
+
+The second mechanism is the **scorecard**. In most structured interview loops the interviewer writes evidence against named competencies — ownership, technical depth, collaboration — and the hiring decision is made from those notes, often by people who were not in the room. An answer that is pleasant but produces no quotable evidence does not score badly; it scores *nothing*, and nothing fails you. Everything in this chapter is about making your answers produce evidence someone can write down.
+
+## Time budget
+
+| Activity | Time |
+|---|---|
+| Setup: two repos, templates, mining script | 1 h |
+| Mining a year of work for candidates | 1–2 h |
+| Drafting five STAR worksheets | 2 h |
+| First round of mock interviews | 1 h |
+| **Ongoing:** brag doc | 15 min every Friday |
+| **Ongoing:** one mock interview, one rewrite | 30 min a week |
+
+## Setup
+
+You need two places, and the split matters.
+
+| | Private story bank | Public portfolio repo |
+|---|---|---|
+| **Holds** | STAR worksheets, coverage matrix, weekly brag doc, mock transcripts and scores | Lab artifacts, your evidence index, anything you would put a link to on your CV |
+| **Why this visibility** | It names employers, colleagues, customers and internal numbers | An interviewer should be able to read it without asking you |
+| **Where** | A private repo, or a folder in your notes app | A public GitHub repo, e.g. `my-dotnet-portfolio` |
+
+1. Create both. The kit's README has a copy-paste quick start.
+2. Copy the templates: `star-worksheet.md` and `coverage-matrix.md` into the story bank; `portfolio-README.md` into the portfolio repo as its `README.md`.
+3. Run the mining script over the repos you have worked in for the last year (next section).
+
+> **Gotcha.** Before you paste a story into any AI assistant, strip customer names, internal system names, hostnames and unpublished figures, and check your employer's policy on external AI tools. "The payments service at a mid-size retailer" works exactly as well as the real name, and it is the only version you are allowed to share.
+
+## Mining everyday work for stories
+
+Memory is a biased index. It keeps what was recent and what was dramatic, and it drops the quiet month in which you made a migration safe, taught someone the codebase, or talked a team out of a rewrite. Those are often the better stories. The artifact trail does not have this bias, so mine the trail rather than your memory.
+
+| Source | Query | What it finds |
+|---|---|---|
+| Your commits | `git log --author="<you>" --since="12 months ago" --no-merges` | Areas you own, bursts of activity, the week something changed |
+| Merged pull requests | GitHub search: `is:pr is:merged author:<login> merged:>=<a year ago, YYYY-MM-DD>` | What you shipped, and the descriptions you wrote at the time |
+| Reviews you gave | GitHub search: `is:pr reviewed-by:<login>` | Teaching, catches, disagreements |
+| Reverts and hotfixes | `git log -i --grep=revert --grep=hotfix --grep=rollback` | Incidents and bad decisions |
+| Incident tracker | Incidents where you were responder or incident commander | Your incident story |
+| Ticket tracker | Jira: `assignee was currentUser() AND resolved >= -52w` | The long tail of shipped work |
+| Calendar | Design reviews, interviews you ran, recurring 1:1s with a junior | Mentoring and influence |
+| Chat | Search for "thanks" or "thank you" together with your name | Impact other people noticed |
+| Past feedback | Performance reviews, peer feedback | The words other people use about you |
+
+The kit's `scripts/mine-git.sh` automates the git part. It reads only local history and prints a Markdown report of candidates: commits per month, the directories you touched most, commits whose message mentions an incident or a fix, your largest changes, commits made at weekends or late at night, and your commits that someone later reverted.
+
+```bash
+./scripts/mine-git.sh --since "12 months ago" ~/src/billing ~/src/orders \
+    > ~/story-bank/candidates.md
+```
+
+Read the report asking one question per line: **did a number move, and do I know by how much?** Then look for the **story triggers**, which are the moments that produce stories worth telling:
+
+- a number moved — latency, error rate, cost, lead time, incident count;
+- something surprised you — the cause was not where everyone looked;
+- you disagreed with someone, or changed your mind;
+- something broke on your watch;
+- someone got better because of you;
+- you said no, or "not yet", and it held;
+- you deleted something — a service, a dependency, a process.
+
+> **Best practice.** Find the number *now*, while the dashboard still has the data and the ticket still has the thread. A story without its number is weak; a number you cannot source is a liability. The brag doc (below) exists so that you never have to reconstruct a metric from memory again.
+
+## The story bank
+
+A story bank is a small set of prepared stories — five is enough to start — each worked out in enough detail to survive three levels of follow-up, and mapped to the questions it answers. You are not memorising scripts. You are preparing *material* that you can speak about freely because you know it thoroughly.
+
+### How a STAR answer is scored
+
+[Chapter 34](#chapter-34-interview-questions-how-to-answer-them) introduces STAR (Situation, Task, Action, Result). In a senior loop the proportions are what matter, because they show where your attention goes:
+
+```
+0:00       0:20   0:30                                 2:00       2:25  2:30
+ ├─Situation─┼─Task─┼───────────── Action ───────────────┼─ Result ──┼Refl.┤
+     ~15%       ~5%                 ~60%                      ~15%     ~5%
+```
+
+- **Situation and Task are context, not content.** If the listener needs a minute to understand your system, simplify it. They need just enough to follow the Action.
+- **Action is where the evidence is**: the decisions you made, the alternatives you rejected and why, who you had to convince and how. Say "I" for what you did and "we" for what the team did, precisely. Chapter 34's warning about the spotlight applies here.
+- **Result is a number with a baseline**, or a concrete outcome if you cannot defend a number.
+- **Reflection is what makes it senior.** It shows you learned something specific, and ideally that the lesson changed what you did later.
+
+Then the follow-ups start, and they climb a predictable ladder. Your story needs material on all three levels for its main decision:
+
+```
+Level 1  WHAT     "I added a partial index on the open orders, newest first."
+Level 2  WHY      "The plan showed a sequential scan discarding almost every
+                   row it read, then sorting everything to return twenty.
+                   The index removed both steps."
+Level 3  WHAT IF  "At ten times the table it still holds, because the index
+                   contains only open orders. If 'open' ever became most of
+                   the table, it would lose its edge over a plain index on
+                   created_at, and I would drop the filter."
+```
+
+If you run out at level 2, the story is thin. If you run out at level 1, it was probably not your decision.
+
+### The worksheet
+
+One file per story, in the private bank. Write notes, not prose: you will *speak* this story, and memorised prose sounds memorised. The full template is `templates/star-worksheet.md` in the kit; its core is:
+
+```markdown
+**Story name:** <3–5 words>
+**Questions it answers:** <at most three>
+**When / where:** <month year · team · your title at the time, as held>
+
+**Situation** (≤ 20 s): system, scale, what was at stake — for a stranger
+**Task** (1 sentence): what *you* were responsible for — not the team's goal
+**Action** (~60%):
+- Decision → alternatives considered → why this one
+- Who I had to convince, and how
+- The moment it could have gone wrong
+- What I did personally vs. what the team did
+**Result:** before → after · window · source of the number · honest caveat
+**Reflection:** what I'd do differently · what I do now because of this
+**Depth check:** one line each for WHAT / WHY / WHAT IF
+**Evidence I could show:** <sanitised link — or "none: confidential">
+```
+
+### Worksheets for the questions you will be asked
+
+These are Chapter 34's behavioral questions and its follow-up about deciding without complete information, plus two that come up in almost every senior loop: an incident you owned, and influencing without authority. For each, the notes say what the interviewer is actually probing, which story to pick, what to go and find, and what sinks the answer.
+
+#### "Tell me about a hard bug you solved"
+
+- **Probes:** method under uncertainty — reproduce, hypothesise, test one thing at a time, bisect (Chapter 17) — and whether you fixed the cause or only the symptom.
+- **Pick a story where** the bug was intermittent, distributed or production-only, and you found the root cause rather than a workaround.
+- **Numbers to go find:** how often it happened (one request in N, once a week), how long it went unexplained, time from your start to root cause, recurrences since the fix.
+- **Red flags:** "I added logging and saw it" with no hypothesis; the fix was a restart; the cause was "another team's bug" and the story ends there.
+- **Follow-ups to prepare:** "What did you rule out first, and why?" · "How did you know it was fixed?" · "What stops it coming back?"
+
+#### "Describe a disagreement with a colleague"
+
+- **Probes:** ego, listening, whether you settle disagreements with data, and whether you can disagree and commit.
+- **Pick a story where** both positions had merit — ideally one where you changed your mind, or committed fully to the option you argued against.
+- **Numbers to go find:** the spike, benchmark or data point that settled it.
+- **Red flags:** the colleague is the villain; you won by rank or by escalating; the disagreement was about style.
+- **Follow-ups to prepare:** "What would they say about this?" · "What would have changed your mind?" · "How do you two work together now?"
+
+#### "Tell me about a bad technical decision you made"
+
+- **Probes:** self-awareness and accountability — whether you can own a real mistake with a real cost, and explain why it looked right at the time.
+- **Pick a story where** the decision was yours, the cost was real, and the context made it reasonable when you made it.
+- **Numbers to go find:** what it cost (engineer-weeks, incidents, money, a delayed launch) and how long it took to notice and correct.
+- **Red flags:** a humble-brag ("I cared too much about quality"); blaming the requirements; a mistake with no cost.
+- **Follow-ups to prepare:** "How did you notice?" · "What did it cost?" · "What do you do differently now — and when did you last do it?"
+
+#### "How do you mentor junior developers?"
+
+- **Probes:** leverage — whether you make other people better, or just answer their questions (Chapter 17, *teach by asking*).
+- **Pick a story about** one person (anonymised), with a visible before and after in what they could do.
+- **Numbers to go find:** time to their first independent release, the first incident they handled alone, the scope they now own.
+- **Red flags:** "I review their code and answer questions"; no outcome for the mentee; mentoring as a list of activities.
+- **Follow-ups to prepare:** "What did you do when they were stuck?" · "What did you deliberately let them get wrong?" · "How did you know it was working?"
+
+#### "How do you handle technical debt?"
+
+- **Probes:** business framing and prioritisation — whether you can make debt visible in the business's terms and get it paid down without a rewrite.
+- **Pick a story where** you quantified a piece of debt, got time to fix it (or deliberately decided to leave it), and measured the effect.
+- **Numbers to go find:** the cost of the debt before (hours per change, incidents per quarter, lead time) and after.
+- **Red flags:** "we rewrote it"; arguments from code purity; "management wouldn't let us".
+- **Follow-ups to prepare:** "How did you convince the product manager?" · "Which debt did you decide to leave, and why?" · "How do you stop it coming back?"
+
+#### "How do you push back on scope or an unrealistic deadline?"
+
+- **Probes:** negotiation and estimation honesty — turning "no" into options (Chapter 17, *estimation*).
+- **Pick a story where** you put options on the table — cut scope, phase the delivery, move the date, accept a named risk — and someone else chose.
+- **Numbers to go find:** original versus agreed scope and date, what shipped when, how accurate your estimate turned out to be.
+- **Red flags:** you just said no; you silently worked weekends to hit it; the date slipped and you "told them so".
+- **Follow-ups to prepare:** "What did you give up?" · "What if they had rejected every option?" · "How good was your estimate in the end?"
+
+#### "Tell me about a decision you made without complete information"
+
+- **Probes:** risk bounding — whether you can act under uncertainty without pretending it isn't there.
+- **Pick a story where** you named the uncertainty out loud, chose something reversible, and set a checkpoint to find out whether you were right.
+- **Numbers to go find:** what waiting would have cost, when the checkpoint was, how large the damage could have been if you were wrong.
+- **Red flags:** "I gathered all the information first" — the question says you couldn't; gut feel with no checkpoint.
+- **Follow-ups to prepare:** "What would have made you reverse it?" · "What did you tell stakeholders about the uncertainty?" · "Were you right?"
+
+#### "Tell me about an incident you owned"
+
+- **Probes:** stabilise first, diagnose second; communication under pressure; a blameless follow-up ([Chapter 17, *blameless post-mortems*](#blameless-post-mortems); [Chapter 33's incident cheat-card](#the-incident-cheat-card)).
+- **Pick a story where** you were a responder or the incident commander, and the order of your actions shows mitigation before investigation.
+- **Numbers to go find:** time to detect, time to mitigate, impact (users, orders, minutes), recurrences after the action items shipped.
+- **Red flags:** you debugged while the site stayed down; blame; action items that were never done.
+- **Follow-ups to prepare:** "What was the first thing you did, and why that?" · "Who did you tell, what, and when?" · "Which action item actually shipped?"
+
+#### "Tell me about a time you influenced a decision without authority"
+
+- **Probes:** trust, data, bringing people along early (Chapter 17, *judgment and influence*).
+- **Pick a story where** people who did not report to you adopted a change — another team, a shared standard, a platform decision.
+- **Numbers to go find:** how many teams or services adopted it, and what it changed once they had.
+- **Red flags:** your manager forced it through; "they eventually agreed", with no account of how.
+- **Follow-ups to prepare:** "Who resisted, and why?" · "What did you change in your proposal because of them?" · "What if they had said no?"
+
+### The coverage matrix
+
+Five stories should cover nine questions, and the matrix is how you check that they do. Mark `●` where a story is your first choice and `○` where it is a backup.
+
+| Question | Deadlock | Pricing rewrite | New joiner | Retry storm | Outbox |
+|---|---|---|---|---|---|
+| A hard bug you solved | ● | | | ○ | |
+| A disagreement with a colleague | | ● | | | ○ |
+| A bad technical decision you made | | ○ | | ● | |
+| How you mentor | | | ● | | |
+| How you handle tech debt | | ● | | | ○ |
+| Pushing back on scope or a deadline | | ○ | | | ● |
+| A decision without complete information | ○ | | | | ● |
+| An incident you owned | | | | ● | |
+| Influencing without authority | | | ○ | | ● |
+
+The rules that make the matrix useful:
+
+- **Every row has a first choice**, and ideally a backup — interviewers often ask two questions that would both get your best story.
+- **No story carries more than three first choices.** The same story three times in one loop tells the panel you only have one.
+- **At least one story is a failure you caused.** "A bad decision you made" cannot be answered with a success in disguise.
+- **At least one story is about another person** — someone you taught, convinced or disagreed with.
+
+## The weekly brag doc
+
+The brag document is Julia Evans's idea: a running list of what you did, written down while you still remember it, so that when a review, a promotion case or an interview comes round you are not reconstructing a year from memory. The version here adds one discipline: **the number goes in the same week**, together with where it came from.
+
+```markdown
+**Week:** 2026-W39 (Sep 21 – Sep 27)
+
+**Shipped** — what reached users or teammates (link the PR or ticket)
+**Decided** — a choice you made or influenced, and the alternative you rejected
+**Measured** — a number that moved: before → after, and where it came from
+**Unblocked / taught** — someone who got further because of you
+**Got wrong / learned** — one line; it becomes a story's Reflection later
+**Story candidate?** — yes/no, and which question it would answer
+```
+
+Rules:
+
+- **Fifteen minutes, every Friday**, before you close the laptop. Most weeks you will write three lines. That is fine; the week you skip is the one with the number.
+- **Link, don't describe.** A PR link keeps the detail that a sentence loses.
+- **Private by default.** It names people and internal systems.
+- **"Got wrong" is not optional.** The bad-decision story is the one people have least material for.
+
+> **Best practice.** On the last Friday of the month, turn the month into three outcome bullets and send them to your manager. This is managing up ([Chapter 17](#disagreeing-productively-and-managing-up)): the person who argues for your promotion in a room you are not in can only use what they know. A manager with twelve monthly summaries argues from evidence; one without argues from memory.
+
+## From artifact to CV bullet
+
+A CV is read in seconds, and a CV bullet has two jobs: survive the skim, and invite the interview question you *want* to be asked. The shape that does both is:
+
+```
+<Verb> <the problem, in the reader's terms> by <your decision>,
+       <measured result> [<scope or proof>]
+```
+
+The order is deliberate. A skimming reader picks up the verb and the result. The *decision* in the middle is bait: it is specific enough that an interviewer asks about it, and you have already prepared that story. A bullet that says *what* you worked on ("worked on performance") gives them nothing to ask; a bullet that says *how* you decided lets you steer the conversation to your strongest material.
+
+| Weak | Strong |
+|---|---|
+| Responsible for performance of the orders service. | Cut p95 of the order-listing endpoint from [X] ms to [Y] ms by replacing a deep `OFFSET` scan with keyset pagination and a partial index; verified with `EXPLAIN (ANALYZE, BUFFERS)` before and after. |
+| Worked with RabbitMQ and microservices. | Removed a dual write that silently dropped [N] orders per quarter by introducing a transactional outbox and idempotent consumers; duplicate-delivery tests now run in CI. |
+| Mentored junior developers. | Onboarded [N] engineers onto the billing service through weekly pairing and a written runbook; one of them now leads its on-call rotation. |
+| Personal project: microservices shop. | Personal lab (public repo): reproduced [N] production failure modes in a .NET 10 service instrumented with OpenTelemetry, diagnosed each from telemetry alone, and wrote blameless post-mortems — [link]. |
+
+Lab work belongs on a CV — under **Projects** or **Practice**, labelled as a personal lab, with a link. A public repo containing before-and-after plans and a written post-mortem is stronger evidence than most job-history bullets, because the interviewer can read it before the interview.
+
+> **Pitfall.** The keyword wall — "C#, .NET, EF Core, Docker, Kubernetes, Kafka, RabbitMQ, Azure, AWS, Redis, gRPC…" — is not neutral. Every item is a question you may be asked, and a senior interviewer will pick the one you know least. List what you would happily be quizzed on for ten minutes, and nothing else.
+
+## Honesty rules
+
+Exaggeration is not only unethical, it is also bad strategy, and the mechanism is simple: an interviewer who catches one inflated claim discounts every other claim you made, including the true ones. Employment checks typically confirm dates and job titles; follow-up questions check everything else.
+
+| Rule | The honest version | Why it matters |
+|---|---|---|
+| **Calendar tenure** | Years of experience = the calendar span you actually worked in the stack. Overlapping jobs count once. | Employment checks compare dates, and "5 years" that turns out to be 3 is the easiest exaggeration to catch. |
+| **Titles as held** | Use the title on your contract. If your responsibilities exceeded it, *describe* them in a bullet ("led a 4-person team's migration"), don't claim the title. | Titles get checked; responsibilities get discussed, and those you can defend. |
+| **I vs. we** | "I" for what you did personally, "we" for the team. Be precise, not modest and not grandiose. | Too much "we" scores zero on ownership; claiming the team's work collapses at the first follow-up. |
+| **Lab ≠ production** | "In a personal lab I reproduced thread-pool starvation and…" — never "In production I…" for something you only did in a lab. | Said honestly, lab experience is a strong answer: "I haven't had this in production; I've reproduced it deliberately, and this is what I learned." |
+| **Numbers you can re-derive** | Only numbers for which you know the baseline, the window and how they were measured. Otherwise: "roughly halved", "from seconds to milliseconds". | The follow-up is always "how did you measure that?" |
+| **Confidentiality** | Relative changes and orders of magnitude instead of internal figures; no customer names. | A candidate who leaks a previous employer's numbers will leak yours; interviewers notice. |
+| **AI-polished text** | Use AI to tighten wording, then check that you can defend every line in your own words for five minutes. | Interviewers pick a line of your CV and dig. Words you did not choose are where you run out. |
+
+Calendar tenure is where most honest people get it wrong by accident, so here it is worked through:
+
+```
+Job A       2021-03 ████████████████████████████████████ 2024-03
+Contract B                             2023-06 ████████████ 2024-06
+Span        2021-03 ─────────────────────────────────────── 2024-06
+
+Sum of durations:  36 + 12            = 48 months = "4 years"  ✗
+Calendar span:     2021-03 → 2024-06  = 39 months = "3 years"  ✓
+```
+
+The overlap is real work, but it did not happen in extra years. "Three years" with two overlapping engagements is true; "four years" is not.
+
+## The mock-interview protocol
+
+An AI assistant makes a good sparring partner for interview practice: it is available at 11 p.m., it asks follow-ups without getting bored, and it costs you nothing socially to fail in front of it. It has two limits you must design around. It **cannot tell whether your story is true** — it grades delivery, not honesty, and honesty is on you. And it **tends to be generous**, so its scores are only useful after you have checked that it is strict.
+
+### The protocol
+
+1. **One question per session.** Choose it from the coverage matrix, weakest row first.
+2. **Timebox:** two to three minutes for the main answer. Set a timer.
+3. **Speak, don't type**, if your assistant has a voice mode. Typed answers can be edited; a real answer can't. If you must type, type straight through without going back.
+4. Paste the **behavioral interviewer** prompt (below), answer, take the follow-ups, then type `END` for the scores.
+5. **Log it** in the story's worksheet: date, question, the five scores.
+6. **Rewrite the worksheet, not the transcript**, aimed at your lowest score. Then re-take within a week.
+7. Once a story scores 3 or more everywhere, put it through the **bar raiser** prompt: hostile follow-ups, to test composure.
+
+### The rubric
+
+All the prompts in the kit score against the same five dimensions, so your scores are comparable across sessions:
+
+| Dimension | 1 | 2 | 3 | 4 |
+|---|---|---|---|---|
+| **Structure** | No discernible S/T/A/R, or the question went unanswered | STAR present, but Situation takes over half | Clear STAR, Action the largest part, 2–3 min | Result signposted early, tight, ends on reflection |
+| **Ownership** | "We" throughout; your part can't be found | Your part named, but thin | Your decisions and actions explicit | Your decisions explicit, *and* how you brought others along |
+| **Specificity** | No numbers or concrete detail | Numbers without baseline or method | Before → after, with how it was measured | Plus time window and an honest caveat |
+| **Trade-offs** | One option, presented as obvious | Alternatives named, not weighed | Alternatives weighed against named criteria | Plus what evidence would have changed the decision |
+| **Reflection** | None, or a humble-brag | A generic lesson | A specific lesson from this story | Plus evidence it changed what you did later |
+
+### Calibrate the judge first
+
+Before you trust the scorer with a real answer, give it one you *know* is bad. This is the same discipline [Chapter 25 applies to evaluating AI features](#testing-nondeterministic-systems-evals-for-ai-features): a judge you have not tested against a known answer is not measuring anything. Paste the **debrief scorer** prompt with this canary answer:
+
+```text
+Question: Tell me about a hard bug you solved.
+Answer: We had some performance issues in our system, so the team looked into
+it and we
+made a lot of improvements, and in the end everything was much faster and the
+client was
+happy. I learned that performance is really important.
+```
+
+It should score 1 on ownership, specificity and trade-offs, and no more than 2 anywhere. If it gives a 3 on anything, the scorer is flattering you. Tighten the prompt (remind it that a 3 must be earned and needs quoted evidence), or try a different assistant, and then run the canary again. Do this once per assistant, and again whenever the assistant's model changes.
+
+> **Pitfall.** AI scorers reward length. A four-minute answer full of detail often outscores a tight two-minute answer that a human interviewer would prefer. The *Structure* row and the timebox are your counterweight: if your score went up and your answer got longer, check the stopwatch before you celebrate.
+
+### The prompts
+
+Two are reproduced here in full. The kit's `prompts/` folder has these plus four more: a **story drill-down** for finding holes in a written worksheet, a **CV claim deep dive** that digs into one bullet until your knowledge runs out, the **bar raiser**, and a **system design interviewer** used again later in this Part.
+
+**Behavioral interviewer** — replace `{{QUESTION}}`, or leave it and let it choose:
+
+```text
+You are a senior engineering interviewer running the behavioral part of an
+interview loop for a Senior .NET Backend Engineer at a product company. I am
+the candidate.
+
+How you run the interview:
+- Ask ONE question at a time, then stop and wait for my answer. Never answer
+  for me, never hint at what a good answer would contain, never coach me
+  during the interview.
+- Open with this question: "{{QUESTION}}". If it still reads {{QUESTION}},
+  pick one yourself from: a hard bug I solved; a disagreement with a
+  colleague; a bad technical decision I made; how I mentor junior developers;
+  how I handle technical debt; pushing back on scope or a deadline; a decision
+  made without complete information; an incident I owned; influencing without
+  authority.
+- After each answer, ask 2 to 4 follow-up questions, one at a time, aimed at
+  what STAR answers usually hide:
+  * what I personally did, as opposed to the team;
+  * which alternatives I rejected, and why;
+  * how the result was measured: the baseline, the time window, the source of
+    the number;
+  * what the other person in any disagreement would say about it;
+  * what I would do differently now.
+- If I am vague ("we improved performance a lot"), ask for the specific
+  number, how it was measured, and over what period.
+- If I say "we" for a decision, ask who made it.
+- Stay neutral during the interview: short acknowledgements only ("OK.", "Go
+  on."). No praise, no reassurance.
+- Keep your own turns short, like a real interviewer.
+
+When I type END, stop interviewing and score my answers with this rubric. Give
+each dimension a score from 1 to 4, quote my own words as the evidence for
+each score, and be strict: a 3 must be earned, a 4 is rare.
+
+Structure: 1 = no discernible situation/task/action/result, or the question
+was not answered. 2 = STAR present but the situation took over half the
+answer. 3 = clear STAR, action is the largest part, 2-3 minutes long. 4 =
+result signposted early, tight, ends on reflection.
+Ownership: 1 = "we" throughout, my contribution cannot be identified. 2 = my
+part named but thin. 3 = my decisions and actions explicit. 4 = my decisions
+explicit AND how I brought other people along.
+Specificity: 1 = no numbers or concrete details. 2 = numbers without a
+baseline or a method. 3 = before and after, with how it was measured. 4 =
+before, after, time window, method, and an honest caveat.
+Trade-offs: 1 = one option presented as obvious. 2 = alternatives named but
+not weighed. 3 = alternatives weighed against named criteria. 4 = plus what
+evidence would have changed my decision.
+Reflection: 1 = none, or a humble-brag. 2 = a generic lesson. 3 = a specific
+lesson tied to this story. 4 = a specific lesson plus evidence that it changed
+what I did later.
+
+After the scores, list the three changes that would most raise my lowest
+scores, each as a concrete edit to the story, not general advice. Do not
+rewrite the answer for me.
+```
+
+**Debrief scorer** — for a transcript, and for the canary:
+
+```text
+You are scoring a candidate's answer from a behavioral interview for a Senior
+.NET Backend Engineer. Be strict and literal. Score only what is in the
+transcript, never what the candidate probably meant. A 3 must be earned; a 4
+is rare.
+
+For each dimension give a score from 1 to 4 and quote the candidate's exact
+words as evidence. If there is no evidence for a higher score, give the lower
+one.
+
+Structure: 1 = no discernible situation/task/action/result, or the question
+was not answered. 2 = STAR present but the situation took over half the
+answer. 3 = clear STAR, action is the largest part. 4 = result signposted
+early, tight, ends on reflection.
+Ownership: 1 = "we" throughout, the candidate's own contribution cannot be
+identified. 2 = own part named but thin. 3 = own decisions and actions
+explicit. 4 = own decisions explicit AND how they brought other people along.
+Specificity: 1 = no numbers or concrete details. 2 = numbers without a
+baseline or a method. 3 = before and after, with how it was measured. 4 =
+before, after, time window, method, and an honest caveat.
+Trade-offs: 1 = one option presented as obvious. 2 = alternatives named but
+not weighed. 3 = alternatives weighed against named criteria. 4 = plus what
+evidence would have changed the decision.
+Reflection: 1 = none, or a humble-brag. 2 = a generic lesson. 3 = a specific
+lesson tied to this story. 4 = a specific lesson plus evidence it changed
+later behaviour.
+
+Then give: the total out of 20; the single weakest moment in the answer,
+quoted; and three concrete edits, each naming the sentence to change. Do not
+rewrite the whole answer.
+
+The question: <<<[paste the question]>>>
+The transcript: <<<[paste the answer and any follow-ups]>>>
+```
+
+## Tasks
+
+### Level 1 — Build the bank
+
+- The private story bank and the public portfolio repo both exist.
+- `mine-git.sh` (or the manual queries) has been run over every repo you worked in during the last year, and the output is saved in the story bank.
+- Five STAR worksheets are drafted. Each has at least one number whose source you can name, and a depth-check line for WHAT, WHY and WHAT IF.
+- The coverage matrix has a first choice in every one of the nine rows; no story carries more than three; at least one story is a failure you caused.
+- The brag doc has entries for the last four weeks, reconstructed from commits, PRs and tickets.
+
+### Level 2 — Pressure-test it
+
+- You have calibrated the scorer: the canary answer scores no higher than 2 anywhere.
+- Every story has been through at least one mock interview, and the scores are logged in its worksheet.
+- Every story scores 3 or more on all five dimensions — or its worksheet states which dimension you cannot raise, and why (for example, confidential numbers).
+- Every main answer fits in three minutes when spoken, timed with a stopwatch.
+- Your two strongest stories have survived the bar raiser prompt.
+
+### Level 3 — Publish the evidence
+
+- The portfolio repo's README has an evidence index: competency → one-line falsifiable claim → link → type (lab, personal project, open source).
+- At least three CV bullets are in problem → decision → measured result form, each either linked to an artifact or backed by a story in the bank.
+- Every CV line passes the honesty checklist in `templates/cv-bullets.md`.
+- Every CV bullet has been through the CV claim deep dive, and any bullet whose answers went vague has been reworded.
+- The brag doc has four consecutive weekly entries written *in the week*, and one monthly summary has gone to your manager.
+
+## Break it
+
+Stress-test the stories before an interviewer does:
+
+- **The adjective test.** Delete every adjective and adverb from a story — "complex", "critical", "significantly", "huge". What remains has to be impressive on its own. If it isn't, the story is running on tone.
+- **The five whys, applied to yourself.** Ask "why?" about your main decision five times. If you run out before the third, that is the gap an interviewer will find.
+- **The stranger test.** Tell the Situation to someone outside your company in twenty seconds. If they ask what anything means, simplify it.
+- **The "we" count.** Transcribe one mock answer and highlight every "we". For each one, ask: was this a decision, and whose was it?
+- **The bar raiser.** Hostile follow-ups, for stories that already score well. Watch for three failure modes: getting defensive, getting vaguer, getting longer.
+
+## Evidence to keep
+
+| Artifact | Where | Visibility |
+|---|---|---|
+| STAR worksheets with the mock-interview log | Story bank | Private |
+| Coverage matrix | Story bank | Private |
+| Weekly brag doc and monthly summaries | Story bank | Private (summaries go to your manager) |
+| Mock transcripts and scores over time | Story bank | Private |
+| Evidence index (`README.md`) | Portfolio repo | Public |
+| CV with evidence-linked bullets | CV, portfolio repo | Public |
+| Artifacts from the labs in this Part | Portfolio repo | Public |
+
+## Interview hook
+
+Two things come out of this chapter for the interview itself.
+
+**"Tell me about yourself" in ninety seconds, built from the bank.** Present → proof → direction. What you do now, at what scale (two sentences). Two stories compressed to one line each, with their numbers — the ones you most want to be asked about. Why this role is the next step (one sentence). The two proof lines are bait, exactly like the decision in a CV bullet: they invite the interviewer to spend the next ten minutes on your best material.
+
+**"What have you done to grow in the last year?"** — as STAR:
+
+- **S:** [Mid-level role; feedback that your impact was hard to see beyond your own tickets.]
+- **T:** Make your impact visible and checkable, and close the gaps that feedback pointed to.
+- **A:** Kept a weekly brag doc with numbers sourced in the week; mined a year of PRs and incidents into five prepared stories; worked through practice labs on [query plans / messaging / incidents] and published the results; rehearsed with scored mock interviews, and rewrote each story against its weakest score.
+- **R:** [Concrete outcome: a promotion case written from the brag doc, an offer, a scope you now own] — and a portfolio repo the interviewer can open right now.
+
+Three likely follow-ups:
+
+1. "What's one thing from your brag doc that surprised you?" — have a real answer; it shows the habit is genuine.
+2. "Which of those labs was hardest, and what did you get wrong first?" — the Reflection from that lab's own interview hook.
+3. "How do you decide what's worth measuring?" — whatever changes a decision: latency on the path users feel, cost, lead time, incident count; not activity counts.
+
+## Hints and answers
+
+<details>
+<summary>"I don't have any interesting stories — my work is mostly CRUD."</summary>
+
+Interesting stories are rarely about interesting technology. They are about a decision under a constraint. CRUD systems still have slow queries, migrations that had to run with no downtime, a field that meant two different things to two teams, a deadline that came in half as long as the estimate, and a new joiner who needed onboarding. Run the mining script and look for the story triggers — a number that moved, a disagreement, something deleted. If a year of work produces no triggers at all, the finding is itself useful: it tells you what the labs in this Part need to give you.
+</details>
+
+<details>
+<summary>"My best story is an incident that was my fault. Won't that hurt me?"</summary>
+
+It is usually your best story, and it answers two questions at once: an incident you owned, and a bad technical decision. What interviewers probe is not whether you have ever caused an outage — every experienced engineer has — but what you did in the first ten minutes, whether you told people quickly, and whether the action items made the failure impossible rather than asking people to be more careful. Tell it blamelessly about the *system*, including the part where the system let you ship it. Avoid the two failure modes: minimising it ("it was only a few minutes") and self-flagellation (a Reflection that is all apology and no mechanism).
+</details>
+
+<details>
+<summary>"I can't share numbers — everything is under NDA."</summary>
+
+Use relative changes and orders of magnitude: "p95 from seconds to tens of milliseconds", "roughly a third fewer incidents over two quarters", "a job that ran for hours now runs in minutes". Name the *method* precisely even when the value is vague, because the method is what shows you really measured it: "compared p95 from the APM for the same weekday traffic, a week before and a week after the deploy". Say once, calmly, that you are keeping the exact figures confidential. That is a professional answer, and interviewers read it as one.
+</details>
+
+<details>
+<summary>"Everything we did was a team effort. I can't separate my part."</summary>
+
+You can; you just haven't written it down yet. Go back to the artifacts: which PRs did you author, which design doc did you write or comment on, which meeting did you call, which option did you argue for? Your part is usually a decision, an investigation, or getting people to agree — not the whole outcome. "The team shipped the migration; I designed the dual-write phase and wrote the reconciliation job that proved it was safe to cut over" is precise, generous to the team, and gives the interviewer an Action to score.
+</details>
+
+<details>
+<summary>"The AI interviewer gives me 3s and 4s on everything."</summary>
+
+Then you are not measuring anything yet. Run the canary answer through the debrief scorer. If it scores above 2 anywhere, the judge is miscalibrated: add "be strict; quote evidence for every score above 2" to the prompt, or try a different assistant, and re-run the canary until it fails as it should. Check your timing as well — if your answers run past three minutes, the scorer may be rewarding length. And have at least one mock with a human; a friend reading the follow-up ladder from the worksheet catches things no model will.
+</details>
+
+<details>
+<summary>"English is my second language. My stories sound flat when I say them aloud."</summary>
+
+Structure carries more of the weight than vocabulary. Open with a one-line headline ("This is about a deadlock that only happened on Fridays"), use signposts ("There were two options…", "The turning point was…", "What I'd do differently is…"), and keep sentences short. Record yourself, transcribe it, and compare it with the worksheet: the missing parts are usually the *because* clauses, not the words. The English lab later in this Part has a phrase bank and speaking drills built for exactly this.
+</details>
+
+## Further reading
+
+- **Julia Evans, "Get your work recognized: write a brag document"** (jvns.ca, 2019) — the original brag-document argument and template.
+- **Chapter 17: Soft Skills & Engineering Practices** — [career growth toward senior and staff](#1712-career-growth-toward-senior-and-staff), [written communication](#written-communication-as-async-leverage) and [blameless post-mortems](#blameless-post-mortems), the skills the stories in this chapter show off.
+- **Chapter 34: Interview Questions & How to Answer Them** — the [behavioral question bank](#behavioral-seniority) the worksheets are built around.
+
+
+---
+
+# Chapter 37: The Slow-Query Lab — Reading Execution Plans
+
+_⏱️ Estimated read time: ~40 min · 7060 words (study pace)_
+
+[Chapter 4](#chapter-4-data-access-databases) explains how to read a query plan. In this lab you read nine of them, on a dataset big enough for the difference to show: a million customers, five million orders and eighteen million order lines, with the skew real data has — one customer who places 5% of all orders, one product that appears in 8% of all lines. Every slow query comes from EF Core code that would pass a code review. For each one you find the mechanism in the plan, fix it at the right layer (the LINQ, the schema or the configuration), and prove the fix by running the same measurement again.
+
+You finish with the most convincing performance artifact there is: a table of before and after numbers, where every row links to two plans and a paragraph explaining *why*.
+
+```
+ run the rung ──► read the plan ──► name the mechanism ──► smallest fix ──► run it again
+      ▲                                                                          │
+      └──────── compare the work (statements, rows, buffers), not just time ◄────┘
+```
+
+> **The portfolio rule.** Nothing you produce here goes into the handbook's repository. Your fixed rungs, your before and after plans and your results table go into **your own public portfolio repo**, where an interviewer can read them. If you retell the lab as a story about a real employer's system, that version stays **private**.
+
+The kit is at [labs/37-execution-plans](https://github.com/malyna2/dotnet-handbook/tree/main/labs/37-execution-plans). It contains:
+
+- a Docker Compose stack running PostgreSQL 18 with `pg_stat_statements` and `auto_explain`;
+- a deterministic seed;
+- a .NET 10 harness that runs each query and captures the plan the server really used;
+- a starter project with nine slow implementations;
+- acceptance tests;
+- an optional SQL Server 2025 track.
+
+The numbers in this chapter come from the kit's `reference-runs/`. Each file there starts with the environment it was measured on: 4 vCPU, 16 GB RAM, PostgreSQL 18.6, a warm cache, the medium scale.
+
+## Goal and the senior signal it trains
+
+**Goal:** given a slow query, find the mechanism in its plan, choose the smallest fix at the right layer, and prove the change with numbers someone else can reproduce.
+
+**The senior signal: explaining *why*, and pricing the fix.** Most developers can make a query faster by adding an index and watching the time drop. The answers interviewers remember go one level deeper:
+
+- which node in the plan did the damage;
+- why the planner chose that node — it had nothing better, or it was misinformed;
+- what the fix costs: build time, disk, write overhead, a change users will notice;
+- how you know the improvement is real and not a warm cache.
+
+That chain — *measure → mechanism → minimal fix → proof* — is what you practise nine times here.
+
+**A second signal: knowing that the ORM decides the SQL.** Several rungs are not database problems at all. The plan is only where the evidence shows up; the fix is a line of C#.
+
+## Time budget
+
+| Activity | Time |
+|---|---|
+| Setup: compose up, seed at the medium scale, first run | 30 min (the seed takes about 4) |
+| Level 1: rungs 1–4 | 2 h |
+| Level 2: rungs 5–9 | 3 h |
+| Level 3: the server's view, pricing a trade-off, SQL Server | 2–3 h |
+| Break it | 1 h |
+| Write-up for your portfolio | 1 h |
+
+## Setup
+
+You need:
+
+- Docker with Compose v2;
+- about 6 GB of free RAM (8 GB with SQL Server) and about 5 GB of disk;
+- the .NET 10 SDK.
+
+The kit's README covers pull limits and port clashes.
+
+```bash
+cd labs/37-execution-plans
+docker compose up -d --wait
+./seed.sh medium                                      # about 4 minutes
+dotnet run --project src/QueryLab.Cli -- all          # every rung: numbers and plans
+dotnet run --project src/QueryLab.Cli -- 3 --no-plan  # one rung, numbers only
+dotnet test --project tests/QueryLab.Tests            # the acceptance tests
+```
+
+You work in `starter/QueryLab.Rungs/`. Each rung is one class:
+
+- **Inputs and result type are fixed.** A base class in `src/QueryLab.Core/Contracts.cs` fixes them, so you change *how* a rung gets its answer, never *what* it returns.
+- **DDL goes in `Fixes`.** A rung can list DDL there, and the harness runs it before the rung.
+- **Name what you create `lab_*`.** The harness drops every `lab_*` index and statistics object before each rung and after the last one. Rungs never depend on each other's fixes, and the database is back to its seeded state when a run ends.
+
+The acceptance tests start their own PostgreSQL in a container, seed it at the small scale, and hold each rung to two checks:
+
+1. **Correctness.** The rung returns exactly the rows a hand-written SQL reference returns.
+2. **Work.** It meets a limit on statements, rows, buffers or a plan node — never milliseconds, so a test passes or fails the same way on a laptop and in CI.
+
+A starter rung fails with a message that starts with `ACCEPTANCE:`. Any other failure means the code is broken, not just slow.
+
+### What the harness prints, and in what order to read it
+
+For each rung the CLI:
+
+1. applies the rung's fixes;
+2. runs the rung once to warm the cache;
+3. resets `pg_stat_statements`;
+4. measures five calls;
+5. prints what EF Core sent, the parameter values with their types, and the plan.
+
+The summary for rung 4 looks like this (the full line is wider):
+
+```
+fixes       : none
+wall time   : median 488.2 ms over 5 calls (min 458.7, max 547.6)
+per call    : 1 statement(s), 1 rows returned,
+              shared buffers 6,741 hit + 42,702 read, 501.6 ms server execution
+```
+
+Read it in this order:
+
+1. **`per call` first.** Statements, rows returned and buffers measure the *work*, and they should match ours closely on any machine; the milliseconds will not.
+   - A buffer is one 8 kB page.
+   - `hit` means the page was already in PostgreSQL's shared buffers.
+   - `read` means it was not. It may still have come from the operating system's page cache, so `read` does not always mean the disk.
+2. **Then the plan, inside out**, as in [Reading EXPLAIN](#reading-explain): estimated against actual rows, `loops`, buffers per node.
+3. **Wall time against server time.**
+   - Wall time is measured in .NET around the whole call.
+   - Server time is what `pg_stat_statements` recorded.
+   - The gap is round trips, the network and EF Core turning rows into objects. On one rung that gap is the whole problem.
+
+PostgreSQL 18 changed three things in the output that older articles won't show you:
+
+- **Buffers by default.** `EXPLAIN ANALYZE` prints buffer counts without being asked for `BUFFERS`.
+- **Two-decimal `rows=`.** `rows=` is now printed with two decimals, because it is an average per loop. `rows=72421.50 loops=2` means two parallel processes averaged 72,421.5 rows each.
+- **`Index Searches:`** is a new line that counts how many times an index was descended, in total across loops. It is 1 for an ordinary scan, one per outer row on the inner side of a nested loop, and more than 1 when PostgreSQL 18's new skip scan jumps between values of a leading column.
+
+## Tasks
+
+The rung titles describe the feature, not the bug; finding the bug is the exercise. Every rung has an acceptance criterion and a *look first at* pointer. Check your reasoning against *Hints and answers* only once your fix passes.
+
+### Level 1 — The code decides the SQL (rungs 1–4)
+
+| Rung | Scenario | Passes when |
+|---|---|---|
+| 1 | The order history page: key account 2's latest 50 orders, each with its lines. | at most 2 statements per call |
+| 2 | The quarterly delivery report: key account 2's shipped orders from the last 90 days, with their lines and shipments. | the server returns no more rows than there are orders, lines and shipments |
+| 3 | Signing in: find the customer for the email typed at sign-in, whatever its case. | no `Seq Scan` on `customers` |
+| 4 | The partner webhook: a delivery partner calls back with an order number, and the handler loads the order. | no `Seq Scan` on `orders` |
+
+Look first at:
+
+- **Rung 1:** the statement count, not the plan.
+- **Rung 2:** the `EF warning` line and the rows returned.
+- **Rung 3:** the `Filter` line.
+- **Rung 4:** the SQL EF Core generated, character by character.
+
+Done when:
+
+- the acceptance tests pass for rungs 1–4;
+- a `RESULTS.md` in your portfolio repo has one row per rung: the before and after wall time, statements, rows and buffers, and one sentence naming the mechanism;
+- the before and after plans for each rung are saved as text next to it.
+
+### Level 2 — The index decides the plan (rungs 5–9)
+
+| Rung | Scenario | Passes when |
+|---|---|---|
+| 5 | Product sales figures: lines, units and revenue for product 50 across all orders. | an `Index Only Scan` on `order_lines` |
+| 6 | The support screen: customer 33's orders from the last 365 days, newest first. | at most 50 buffers per call |
+| 7 | The admin order list, page 4,001 at 50 per page. The request also carries the last row of page 4,000. | at most 100 buffers per call |
+| 8 | Customer search: emails containing "tomasz.kowalski", ignoring case. | no `Seq Scan` on `customers` |
+| 9 | The "latest 20 sales" panel, with Npgsql automatic preparation on. Traffic warms it up with twelve popular products, then someone opens the bestseller. | at most 100 buffers per call |
+
+Look first at:
+
+- **Rung 5:** `Heap Blocks` against rows.
+- **Rung 6:** which column the index starts with.
+- **Rung 7:** `rows=` on the node under `Limit`.
+- **Rung 8:** `Rows Removed by Filter`, then the `ESCAPE` clause in the SQL.
+- **Rung 9:** the `parameters` line (generic plans against custom plans), `$1` in the plan, and estimated against actual rows.
+
+Done when:
+
+- all nine acceptance tests pass;
+- for every index you added, `RESULTS.md` records its build time and size (the CLI prints both) and one sentence on what it costs every insert;
+- for rung 9, a paragraph explains why the problem appears only after warm-up.
+
+### Level 3 — Beyond the harness
+
+1. **See N+1 from the server's side.** Run the starter's rung 1 on its own (`-- 1 --no-plan`). Then query `pg_stat_statements` yourself for calls, rows, total time and buffers per statement. What does the ratio between the entries tell you? Why can no single plan show this problem?
+2. **Catch rung 9 in the act.** The compose file loads `auto_explain` with a one-second threshold. Find the bestseller's executions in `docker compose logs postgres`, and prove from the log alone that the server ran a generic plan.
+3. **Price the alternative.** Fix rung 9 *without* an index: run the starter with `plan_cache_mode` set through the connection string (the command is below). Then write down what this fix costs compared with the index.
+4. **The SQL Server track.** Run `docker compose --profile sqlserver up -d` and `./sqlserver.sh seed`, then scripts 1 to 4. For each script, name the PostgreSQL rung it mirrors and where SQL Server behaves differently.
+
+The command for task 3:
+
+```bash
+dotnet run --project src/QueryLab.Cli -- 9 --connection \
+  "Host=localhost;Port=5433;Username=lab;Password=lab;Database=shop;Options=-c plan_cache_mode=force_custom_plan"
+```
+
+Done when `RESULTS.md` has:
+
+- a comparison table: script, PostgreSQL counterpart, what differs, logical reads before and after;
+- for tasks 1–3, the query result or log excerpt that proves each answer.
+
+## Break it
+
+The scripts in `postgres/` break something on purpose and put the database back afterwards. Run one with:
+
+```bash
+docker compose exec -T postgres psql -U lab -d shop -f /lab/break-it-stale-statistics.sql
+```
+
+### Stale statistics
+
+In `break-it-stale-statistics.sql`, customer 900,001, a consumer account with three orders, becomes a marketplace seller and bulk-loads 300,000 orders. The load runs inside a transaction that is rolled back at the end.
+
+| | Planner estimate for the new customer | Plan | Work |
+|---|---|---|---|
+| Before `ANALYZE` | 23 rows | Uses a plain `customer_id` index, fetches all 300,003 rows and sorts them to return 50 | 3,048 buffers, 80.5 ms |
+| After `ANALYZE` | 306,526 rows | Walks the `created_at` index backwards until 50 rows match | 12 buffers, 0.1 ms |
+
+Before you run it, predict the estimate. Afterwards, explain where 23 came from. The script prints what the planner knew.
+
+### The visibility map
+
+`break-it-visibility-map.sql` builds rung 5's covering index, then deletes every line of product 50 and rolls the delete back. No row has changed, yet:
+
+| State | Heap Fetches | Buffers | Time |
+|---|---|---|---|
+| Visibility map up to date | 0 | 101 | 5.0 ms |
+| After the rolled-back `DELETE` | 18,015 | 17,091 | 60.4 ms |
+| After `VACUUM` | 0 | 98 | 7.6 ms |
+
+Explain the middle row. What does this mean for index-only scans on a table that is written to all day?
+
+> **Gotcha.** `ROLLBACK` is not undo. Rolled-back rows remain as dead tuples in the table and in every index until `VACUUM` removes them. The pages that the inserts split in an index stay split even after that. Both scripts clean up for this reason. Before they did, a rolled-back bulk load left rungs 6 and 7 doing measurably more work until autovacuum came round. On a shared staging database, the next person's measurements would pay for your experiment.
+
+### Keyset pagination, written the other way
+
+`sidebar-keyset-forms.sql` fetches rung 7's page four ways. All four return the same 50 rows.
+
+| Form | Buffers | Time |
+|---|---|---|
+| `OFFSET 200000 LIMIT 50` | 2,791 | 68.2 ms |
+| Keyset, OR form: `created_at < x OR (created_at = x AND id < y)` | 2,791 | 23.0 ms |
+| Keyset, row value: `(created_at, id) < (x, y)` | 5 | 0.08 ms |
+| Row value, with an index on `(created_at, id)` | 5 | 0.08 ms |
+
+The OR form is correct keyset pagination, yet it does as much work as `OFFSET`. Find the line in its plan that explains why. Then say what the fourth plan gains over the third, since they read the same number of buffers.
+
+### A misestimate that doesn't matter
+
+`sidebar-correlated-columns.sql` counts last quarter's orders for customers in Berlin. The planner multiplies the selectivities of `country = 'DE'` and `city = 'Berlin'` as if they were independent, so it estimates **15,333** rows where there are **79,941** — about five times too few. `CREATE STATISTICS … (dependencies, mcv)` fixes the estimate (80,967).
+
+The plan does not change: the same parallel hash join over the same scans, reading the same 15,369 buffers. Execution time goes from 127.6 ms to 95.9 ms, and it is tempting to credit the statistics. But the first run read 72 pages that the second found in cache, and the plan was identical. Better statistics cannot speed up a plan they did not change.
+
+Two lessons:
+
+- **A misestimate matters only when it changes a decision.** Look for a different plan, not a different number.
+- **Compare warm runs with warm runs, and repeat them,** before you credit a change with a speed-up.
+
+## Evidence to keep
+
+| Artifact | Where | Visibility |
+|---|---|---|
+| `RESULTS.md`: rung, mechanism, fix, before and after wall time, statements, rows and buffers, and the fix's build time and size | Portfolio repo | Public |
+| The environment header of your runs (CPU, RAM, versions, scale, cache state), at the top of `RESULTS.md` | Portfolio repo | Public |
+| The before and after plan of every rung, as text | Portfolio repo, `plans/` | Public |
+| Your rung implementations and `Fixes` | Portfolio repo | Public |
+| Level 3: the `pg_stat_statements` and `auto_explain` excerpts, the rung 9 trade-off, the SQL Server comparison table | Portfolio repo | Public |
+| A STAR worksheet built from the interview hook below | Story bank | Private |
+
+## Interview hook
+
+"A page got slow — what do you do?" comes up in almost every senior .NET loop, in one form or another. [Chapter 34](#chapter-34-interview-questions-how-to-answer-them) covers the general method; this lab gives you nine concrete cases and a story. Be open about where it comes from: "In a practice lab on a five-million-order dataset…" is a strong opening, and passing a lab off as production is not (the honesty rules are in [Chapter 36](#chapter-36-the-story-bank-evidence-portfolio)).
+
+**"Tell me about a query you made faster"** — as STAR, built on rung 9, because it has the best follow-ups:
+
+- **S:** A product page's "latest sales" panel over an 18-million-row table was fast in testing. In the lab it took about a second for the bestseller, but only after the service had been running for a while. [Or your real-work version: the endpoint, the table size, how it was noticed.]
+- **T:** Find out why it happened only after warm-up, and fix it without slowing other products down.
+- **A:**
+  - Caught the slow execution in the `auto_explain` log. Its plan had `$1` in the index condition — a generic plan.
+  - Traced the cause: Npgsql's automatic preparation had turned the query into a server-side prepared statement. After five custom plans, PostgreSQL switched to a generic plan costed for an average product (463 rows estimated); the bestseller has 1.44 million.
+  - Priced two fixes:
+    - forcing custom plans: 7 buffers, but a planning cost on every execution of every statement on those connections;
+    - an index on `(product_id, id)` that makes one plan right for every product: 7 buffers, 11 seconds to build, 542 MB on disk.
+  - Chose the index.
+- **R:** In the lab, from 151,331 buffers and about a second to 7 buffers and 1.5 ms for the bestseller, with no change for other products. An acceptance test guards it. [Your real-work version: p95 before and after, from your APM.]
+
+Three likely follow-ups:
+
+1. **"Why only after warm-up?"** PostgreSQL's plan-cache rule. A prepared statement gets five custom plans; after that, the server uses a generic plan whenever its estimated cost is not much worse than the custom plans' average. Warm-up traffic with popular products made the custom plans look expensive, so the generic plan won.
+2. **"Why not just set `force_custom_plan`?"** It trades a one-off cost (an index) for a recurring one: planning on every execution of every statement on those connections. It also hides the next skew problem instead of removing this one. It is a good stopgap, or a per-role setting for a workload you know is skewed.
+3. **"What does the index cost on writes?"** Every insert into `order_lines` maintains one more index. Measure insert throughput before and after. The old `product_id` index is now redundant (it is the new index's leading column), so drop it once `pg_stat_user_indexes` confirms nothing else uses it. Then the number of indexes each insert updates is back where it started, though the index you kept is larger.
+
+## Hints and answers
+
+<details>
+<summary>Rung 1 — the order history page</summary>
+
+The plans are fine. The first statement reads 81 buffers, and each lines statement reads 4 and runs in 0.04 ms. The problem is how many statements there are: **51 per call**, one for the orders and then one per order for its lines. The starter calls a helper, `LinesForOrderAsync`, in a loop. The server did 2.0 ms of work per call, while the page took a median of 78.0 ms. Almost all of the time went on 51 round trips and 51 rounds of EF Core turning results into objects.
+
+The fix is one projection that includes the nested collection:
+
+```csharp
+.Select(o => new OrderHistoryRow(o.Id, o.CreatedAt, o.Status, o.Total,
+    o.Lines.OrderBy(l => l.Id)
+           .Select(l => new OrderLineRow(l.ProductId, l.Quantity, l.UnitPrice))
+           .ToList()))
+```
+
+EF Core turns it into a `LEFT JOIN` against a subquery that picks the 50 orders first. The result is 1 statement, the same 291 buffers, and 9.1 ms. `AsSplitQuery()` also passes: two statements. The database's work did not change at all; the round trips did. That is why N+1 is invisible in any single plan: the cost is in the round trips, as [Chapter 4](#the-n1-problem-seeing-it-and-killing-it) explains, and you find it by counting statements.
+</details>
+
+<details>
+<summary>Rung 2 — the quarterly delivery report</summary>
+
+The CLI prints EF Core's own warning, `MultipleCollectionIncludeWarning`. Two collection `Include`s in one query become two `LEFT JOIN`s, and every line of an order is repeated once for each of its shipments:
+
+```
+Nested Loop Left Join  (actual ... rows=72421.50 loops=2)
+  ->  Nested Loop Left Join  (actual ... rows=2895.00 loops=2)
+        ->  Parallel Index Scan ... on orders o  (actual ... rows=725.00 loops=2)
+        ->  Index Scan using ix_shipments_order_id ...  (actual ... rows=3.99 loops=1450)
+  ->  Index Scan using ix_order_lines_order_id ...  (actual ... rows=25.02 loops=5790)
+```
+
+Read the `loops`:
+
+- 1,450 orders, with about 4 shipments each, gives 5,790 order-and-shipment rows;
+- each of those rows then joins about 25 lines;
+- the result is 144,843 rows, although the report needs only 43,529 (orders, lines and shipments together).
+
+The sort above the join spilled to disk: `Sort Method: external merge  Disk: 16704kB`. The server spent 425.4 ms per call.
+
+`AsSplitQuery()` sends one statement per collection:
+
+- 3 statements, 43,529 rows, 86.3 ms on the server;
+- 308.4 ms wall time. What remains is transferring 43,529 rows and building objects from them; a projection of only the columns the file needs would cut that too.
+
+The price of a split query is consistency. The three statements are separate snapshots, so an order can gain a shipment between them. Wrap them in a snapshot or serializable transaction if the report must be internally consistent. For an account manager's download, it rarely has to be.
+</details>
+
+<details>
+<summary>Rung 3 — signing in by email</summary>
+
+```
+Seq Scan on customers c  (actual ... rows=1.00 loops=1)
+  Filter: (lower(email) = 'diego.larsen54321@corp.example'::text)
+  Rows Removed by Filter: 999999
+  Buffers: shared hit=13659
+```
+
+`c.Email.ToLower() == email.ToLower()` becomes `lower(c.email) = lower(@email)`. A B-tree on `email` stores `email`, not `lower(email)`, so it can't answer the question, and the server reads all 13,659 pages of the table to find one row. The whole table is in cache (`hit`), and it still costs 327.0 ms per call.
+
+Index the expression:
+
+```sql
+CREATE UNIQUE INDEX lab_customers_email_lower ON customers (lower(email));
+ANALYZE customers;
+```
+
+The result is 4 buffers and 1.9 ms. The index is `UNIQUE` on purpose: "one account per address, whatever the case" is a business rule, and now the database enforces it. `ANALYZE` gathers statistics on the new expression, which the planner otherwise has to guess. It took 3.3 s to build and takes 49 MB.
+
+The alternatives — `citext`, or a case-insensitive collation — are in [When the Plan Is Wrong](#when-the-plan-is-wrong).
+</details>
+
+<details>
+<summary>Rung 4 — the partner webhook</summary>
+
+```sql
+WHERE o.id::numeric = @payload_OrderNumber      -- @payload_OrderNumber = 424242 (numeric)
+```
+
+```
+Seq Scan on orders o  (actual ... rows=1.00 loops=1)
+  Filter: ((id)::numeric = '424242'::numeric)
+  Rows Removed by Filter: 4999999
+```
+
+The partner's DTO maps the order number to `decimal`. `o.Id == payload.OrderNumber` compiles because C# silently widens `long` to `decimal`, and EF Core translates that widening faithfully, as a cast on the *column*. A primary-key index on `bigint` cannot answer a `numeric` comparison, so a key lookup becomes a read of all 49,443 pages of `orders`.
+
+Most of those pages are `read`, not `hit`, on every call, even warm. PostgreSQL reads a table larger than a quarter of `shared_buffers` through a small ring of buffers, so a big sequential scan never pushes everything else out of the cache. `orders` is 386 MB against 512 MB of shared buffers; `customers` in rung 3 is 107 MB, and stayed cached.
+
+Convert — and validate — on the .NET side:
+
+```csharp
+if (payload.OrderNumber != decimal.Truncate(payload.OrderNumber)
+    || payload.OrderNumber < 1 || payload.OrderNumber > long.MaxValue)
+    return null;
+var orderId = (long)payload.OrderNumber;
+```
+
+The result is `Index Scan using orders_pkey`, 4 buffers, 1.6 ms, from a 488.2 ms median. No index was needed; the one that already existed can be used again. SQL Server's version of this bug is script 1 of the SQL Server track.
+</details>
+
+<details>
+<summary>Rung 5 — product sales figures</summary>
+
+```
+Bitmap Heap Scan on order_lines o  (actual ... rows=18015.00 loops=1)
+  Heap Blocks: exact=16993
+  ->  Bitmap Index Scan on ix_order_lines_product_id  (actual ... rows=18015.00 loops=1)
+        Buffers: shared hit=18
+```
+
+The index finds the product's 18,015 lines in 18 buffers. `quantity` and `unit_price`, though, live in the table, and the lines are spread across it — 16,993 different pages for 18,015 rows. The answer costs 17,011 buffers.
+
+Put the columns in the index:
+
+```sql
+CREATE INDEX lab_order_lines_product_id_covering
+    ON order_lines (product_id) INCLUDE (quantity, unit_price);
+```
+
+The result is `Index Only Scan`, `Heap Fetches: 0`, 98 buffers, 5.8 ms. `INCLUDE` columns are stored only in the leaf pages. They can't be searched or sorted by, but they don't make the upper levels of the tree bigger either.
+
+Now price it. It took 12.9 s to build and takes **697 MB**; the `product_id` index it replaces is 120 MB. That index is small because B-tree deduplication, which PostgreSQL has had since version 13, stores a repeated key once with a list of row pointers: 18 million entries for 50,000 products collapse well. An index with `INCLUDE` columns cannot be deduplicated. Whether 577 MB more disk and cache, and a bigger index write on every insert, is worth about 27 ms on an admin page is a product decision. Make it with those numbers in front of you.
+
+*Break it* shows the other cost: an index-only scan is only as good as the visibility map.
+</details>
+
+<details>
+<summary>Rung 6 — a customer's orders this year</summary>
+
+```
+Index Scan Backward using ix_orders_created_at_customer_id on orders o  (actual ... rows=3.00 loops=1)
+  Index Cond: ((created_at >= '2025-09-01 ...') AND (customer_id = '33'::bigint))
+  Buffers: shared hit=6386
+```
+
+Both columns appear in `Index Cond`, so it looks as if the index is used well. It isn't. The index is sorted by `created_at` first. Only the leading column can narrow the range, so the scan walks every order of the last year and checks `customer_id` on each one: 6,386 of the index's 19,228 pages — a third of it — for 3 rows.
+
+`Index Searches: 1` says PostgreSQL 18's skip scan did not step in either. Skip scan pays off when the leading column has few distinct values, and `created_at` has millions.
+
+Put the equality column first and the range column second:
+
+```sql
+CREATE INDEX lab_orders_customer_id_created_at ON orders (customer_id, created_at);
+```
+
+The result is 6 buffers and 1.5 ms. The rule: **equality columns first, then the range or sort column.** The same index also returns the customer's orders already in date order. It cost 2.2 s and 150 MB; check whether the old index still serves a query of its own before you keep both.
+</details>
+
+<details>
+<summary>Rung 7 — the admin order list, page 4,001</summary>
+
+```
+Limit  (actual ... rows=50.00 loops=1)
+  ->  Incremental Sort  (actual ... rows=200050.00 loops=1)
+        ->  Index Scan Backward using ix_orders_created_at_customer_id ...  (actual ... rows=200051.00 loops=1)
+```
+
+`OFFSET 200000` makes the server produce 200,050 rows and throw away all but the last 50. The cost grows linearly with the page number; page 4,001 costs 2,791 buffers.
+
+The request already carries the last row of the previous page, so start after it. That is keyset pagination. On PostgreSQL, write it as a row-value comparison, which the Npgsql provider translates from a `ValueTuple`:
+
+```csharp
+.Where(o => EF.Functions.LessThan(
+    ValueTuple.Create(o.CreatedAt, o.Id),
+    ValueTuple.Create(after.CreatedAt, after.Id)))
+.OrderByDescending(o => o.CreatedAt).ThenByDescending(o => o.Id)
+.Take(page.PageSize)
+```
+
+```
+Index Scan Backward using ix_orders_created_at_customer_id on orders o  (actual ... rows=51.00 loops=1)
+  Index Cond: (created_at <= '2026-07-19 03:50:41.811925+00'::timestamp with time zone)
+  Filter: (ROW(created_at, id) < ROW('2026-07-19 03:50:41.811925+00'::timestamp with time zone, '4800001'::bigint))
+  Rows Removed by Filter: 1
+```
+
+The result is 5 buffers and 1.7 ms. The planner derived an index boundary, `created_at <=`, from the row comparison. The OR form in *Break it* gives the same rows, but PostgreSQL treats it only as a `Filter`, so the scan still walks, and throws away, the 200,000 rows before the page (`Rows Removed by Filter: 200000`).
+
+With an index on `(created_at, id)`, the whole comparison becomes the `Index Cond`, and the `Incremental Sort` disappears, because the index already delivers the `ORDER BY`. It reads the same 5 buffers here; the gain is the sort that no longer runs.
+
+The costs belong to the product, not to the database:
+
+- there is no "jump to page 4,001" any more, only next and previous;
+- the sort needs a unique tiebreaker (`id`);
+- the cursor has to travel with the request.
+
+[Chapter 15](#chapter-15-performance-optimization) makes the same point for unbounded lists.
+</details>
+
+<details>
+<summary>Rung 8 — customer search</summary>
+
+```sql
+WHERE c.email ILIKE @p ESCAPE ''      -- @p = '%tomasz.kowalski%'
+```
+
+```
+Parallel Seq Scan on customers c  (actual ... rows=83.00 loops=3)
+  Filter: (email ~~* '%tomasz.kowalski%'::text)
+  Rows Removed by Filter: 333250
+```
+
+A B-tree can serve `'prefix%'`, but not a pattern that starts with a wildcard. Three processes each read a third of the table (`loops=3`, 333,250 rows removed per process): 13,735 buffers.
+
+A trigram index can serve it:
+
+```sql
+CREATE EXTENSION IF NOT EXISTS pg_trgm;
+CREATE INDEX lab_customers_email_trgm ON customers USING gin (email gin_trgm_ops);
+```
+
+`pg_trgm` indexes every three-character piece of the text, and the pattern's own trigrams narrow the candidates before any row is read. The result is a `Bitmap Index Scan on lab_customers_email_trgm`, 439 buffers, 9.0 ms. It took 4.6 s to build and takes 52 MB. GIN indexes are slower to update than B-trees, and a search term shorter than three characters has no trigram to narrow with, so give the search box a minimum length.
+
+> **Gotcha.** Look at `ESCAPE ''` in the starter's SQL. The Npgsql EF Core provider (10.0.3 here) emits it when you call `EF.Functions.ILike(match, pattern)` without an escape character: *no* escape character at all. A `_` typed into the search box then matches any character — and underscores are common in email addresses — and the user has no way to escape it. The solution passes a backslash as the escape character and escapes the input:
+>
+> ```csharp
+> var pattern = "%" + EscapeLike(term) + "%";
+> .Where(c => EF.Functions.ILike(c.Email, pattern, @"\"))
+>
+> static string EscapeLike(string s) =>
+>     s.Replace(@"\", @"\\").Replace("%", @"\%").Replace("_", @"\_");
+> ```
+</details>
+
+<details>
+<summary>Rung 9 — recent sales of a product</summary>
+
+The harness replays the statement the way the server really ran it: as a prepared statement, after the same warm-up. `pg_prepared_statements` reports **3 generic plans and 5 custom plans** so far:
+
+```
+Limit  (actual ... rows=20.00 loops=1)
+  Buffers: shared read=151331
+  ->  Sort  (actual ... rows=20.00 loops=1)
+        Sort Key: id DESC
+        Sort Method: top-N heapsort  Memory: 27kB
+        ->  Index Scan using ix_order_lines_product_id on order_lines o  (cost=0.44..518.89 rows=463 width=26) (actual ... rows=1441651.00 loops=1)
+              Index Cond: (product_id = $1)
+```
+
+`$1` in `Index Cond` means a generic plan: it was built without knowing the value. Here is how the server got there:
+
+1. **Automatic preparation.** The service sets `Max Auto Prepare=20`; the default, 0, turns it off. After a statement has run 5 times (`Auto Prepare Min Usages`), Npgsql makes it a server-side prepared statement.
+2. **The plan cache.** PostgreSQL gives a prepared statement five custom plans, then compares a generic plan's estimated cost with their average. The warm-up products are popular, so their custom plans looked expensive, and the generic plan won.
+3. **The generic estimate.** A generic plan is costed for an *average* product: 463 lines, so fetch them all and sort. That is right for most products. The bestseller has 1,441,651 lines. The scan touches 151,331 pages — nearly the whole 150,272-page table — and they do not stay cached, so every call reads them again: 1,014.2 ms on the server.
+
+The solution removes the choice:
+
+```sql
+CREATE INDEX lab_order_lines_product_id_id ON order_lines (product_id, id);
+```
+
+With this index one plan is right for every product: walk that product's entries backwards and stop after 20. `Index Scan Backward using lab_order_lines_product_id_id`, 7 buffers, 1.5 ms. The replay reports 0 generic and 8 custom plans; the custom plans are now so cheap that a generic one never wins. The cost is 11.0 s to build and 542 MB on disk, against 120 MB for the old index. `(product_id, id)` is unique per row, so deduplication has nothing to collapse.
+
+The alternatives, with their prices, are in the Level 3 answers.
+</details>
+
+<details>
+<summary>Level 3 — the server's view, auto_explain and the rung 9 trade-off</summary>
+
+**1. N+1 in `pg_stat_statements`**, after five calls of the starter's rung 1:
+
+```
+ calls | rows | total_ms | buffers | query
+-------+------+----------+---------+-------------------------------------------
+   250 | 5910 |     9.11 |    1050 | SELECT o.product_id, o.quantity, o.unit_price FROM order_lines ...
+     5 |  250 |     1.67 |     405 | SELECT o.id, o.created_at, o.currency, o.customer_id, ...
+```
+
+The signature is two statements whose call counts differ by exactly the page size (250 ÷ 5 = 50). Each statement is cheap, and no single plan looks wrong. The server's total for all five pages is under 11 ms; in the reference run a single page took a median of 78.0 ms of wall time. That gap is round trips. In production, sort `pg_stat_statements` by `calls` as well as by `total_exec_time`. [Finding the Queries Worth Looking At](#finding-the-queries-worth-looking-at) explains why the most expensive query in total is rarely the slowest one.
+
+**2. `auto_explain`** logged every execution over one second. There are six in the reference run: the slow measured calls and the harness's replays. Each looks like this:
+
+```
+LOG:  duration: 1085.995 ms  plan:
+  Query Text: SELECT o.id, o.order_id, o.quantity, o.unit_price FROM order_lines AS o
+              WHERE o.product_id = $1 ORDER BY o.id DESC LIMIT $2
+  Query Parameters: $1 = '1', $2 = '20'
+  Limit  (cost=539.39..539.51 rows=46 width=26)
+    ->  Sort  (cost=539.39..540.55 rows=463 width=26)
+          ->  Index Scan using ix_order_lines_product_id on order_lines o  (... rows=463 ...)
+                Index Cond: (product_id = $1)
+```
+
+Two clues prove it is a generic plan: `$1` in `Index Cond`, although the log also records the value `'1'`, and an estimate of 463 rows for a product with 1.44 million. The lab does not turn on `auto_explain.log_analyze`. The documentation warns that it instruments *every* statement, not only the slow ones, and that `auto_explain.log_timing = off` reduces the cost.
+
+**3. `force_custom_plan` through the connection string.** The starter's rung 9 runs unchanged, with no new index:
+
+| | Fix: index `(product_id, id)` | Fix: `plan_cache_mode = force_custom_plan` |
+|---|---|---|
+| Bestseller | 7 buffers, 1.5 ms | 7 buffers, 1.9 ms |
+| Plans | 0 generic, 8 custom | 0 generic, 8 custom |
+| The plan | walk the new index backwards | walk the *primary key* backwards and filter on `product_id` (225 rows removed) |
+| What it costs | 11.0 s to build, 542 MB, one more index to maintain on every insert | planning on every execution (0.114 ms here) of every statement on those connections |
+| What it depends on | nothing | the planner getting each value's custom plan right |
+
+Custom planning works here because the bestseller is spread evenly through the table, so walking the primary key backwards finds 20 of its lines within 245 rows. The planner re-decides for every value, and so it is only as good as its statistics.
+
+Other options:
+
+- setting `plan_cache_mode` per role or per database, instead of in the connection string;
+- turning automatic preparation off, which gives back its planning savings everywhere to fix one statement;
+- EXPLAIN (GENERIC_PLAN), available since PostgreSQL 16, which shows you the generic plan without a warm-up, as a check to run in review.
+
+For a skew you know about and a query you own, the index is the durable fix. `force_custom_plan` is the stopgap you can deploy in minutes, without a migration.
+</details>
+
+<details>
+<summary>Level 3 — the SQL Server track</summary>
+
+SQL Server 2025 (17.0, compatibility level 170), 200,000 customers and 2 million orders. Customer 1 has 100,353 orders. The counts are logical reads from `SET STATISTICS IO`.
+
+| Script | Mirrors | What SQL Server shows |
+|---|---|---|
+| 1. `nvarchar` parameter against a `varchar` column | Rung 4 | `CONVERT_IMPLICIT(nvarchar(254),[email])` on the *column* turns a seek into an `Index Scan`: 1,174 reads against 6 with a `varchar(254)` parameter. The database uses `SQL_Latin1_General_CP1_CI_AS`, a SQL collation. |
+| 2. Key lookups and the tipping point | Rung 5 | A typical customer: an index seek plus 11 key lookups, 36 reads. Customer 1: the optimizer ignores the index and scans the clustered index, 15,379 reads. Forcing the index costs 307,657 reads, so the optimizer was right. A covering index (`INCLUDE (created_at, status, total)`) costs 3 and 643 reads. |
+| 3. Parameter sniffing in a stored procedure | Rung 9 | The first caller decides. If a typical customer compiles the plan, customer 1 then runs 100,353 key lookups (301,335 reads). If customer 1 compiles it, a typical customer scans the whole table for 11 rows (15,379 reads). The Parameter Sensitive Plan optimization did not engage for this procedure (`psp_dispatcher: no`). The covering index is right for both: 613 reads for customer 1, on a plan compiled for a typical customer. |
+| 4. `OFFSET` against keyset | Rung 7 | `OFFSET 200000`: 613,192 reads, because every skipped row costs a key lookup. The OR-form keyset: 168 reads — SQL Server turns the OR into a seek over two ranges, which PostgreSQL does not. A redundant boundary (`created_at <= @c AND (…)`): 165 reads. |
+
+The .NET lessons:
+
+- **Script 1.** SqlClient and Dapper send a .NET `string` as `nvarchar` unless told otherwise. Use `DbString { IsAnsi = true }` in Dapper, or an explicit `SqlDbType.VarChar`. EF Core types the parameter from the column mapping, so map `varchar` columns as varchar (`IsUnicode(false)`, with a length).
+- **Scripts 2 and 3.** Both are the same lesson as rung 9: when a plan choice depends on the value, remove the choice with an index that is right for every value, rather than fight over which value gets to compile it.
+</details>
+
+<details>
+<summary>The reference numbers</summary>
+
+Medium scale, warm cache, 5 measured calls per rung; per-call work from `pg_stat_statements`. Wall time varies with your machine; the work should match closely.
+
+| Rung | Starter: wall · statements · buffers | Solution: wall · statements · buffers | Fix cost |
+|---|---|---|---|
+| 1 | 78.0 ms · 51 · 291 | 9.1 ms · 1 · 291 | none |
+| 2 | 616.7 ms · 1 · 33,435 (144,843 rows) | 308.4 ms · 3 · 21,711 (43,529 rows) | none |
+| 3 | 318.0 ms · 1 · 13,659 | 1.9 ms · 1 · 4 | 3.3 s, 49 MB |
+| 4 | 488.2 ms · 1 · 49,443 | 1.6 ms · 1 · 4 | none |
+| 5 | 32.5 ms · 1 · 17,011 | 5.8 ms · 1 · 98 | 12.9 s, 697 MB |
+| 6 | 37.8 ms · 1 · 6,386 | 1.5 ms · 1 · 6 | 2.2 s, 150 MB |
+| 7 | 44.4 ms · 1 · 2,791 | 1.7 ms · 1 · 5 | none |
+| 8 | 202.7 ms · 1 · 13,735 | 9.0 ms · 1 · 439 | 4.6 s, 52 MB |
+| 9 | 1,011.8 ms · 1 · 151,331 | 1.5 ms · 1 · 7 | 11.0 s, 542 MB |
+</details>
+
+<details>
+<summary>Break it — the answers</summary>
+
+**Stale statistics.** Customer 900,001 is not in the most-common-values list. For such a value the planner shares the rows the list doesn't cover evenly among the remaining distinct values: (1 − 0.0975) ÷ (210,578 − 11) × 5,000,396 ≈ 21.4 rows. It also scales row counts by the table's current size, which the load grew by 6%, so the estimate becomes 23.
+
+With 23 rows expected, "fetch them all through `customer_id` and sort" looks cheap. With 306,526 it is obviously not, and walking the date index backwards finds 50 matches almost at once. Two lessons:
+
+- **`ANALYZE` after a bulk load, explicitly.** Autovacuum's threshold is a fraction of the table (20% of rows for a vacuum, 10% for an analyze, by default), and 300,000 rows is 6% of this one.
+- **Worry about `LIMIT` plans.** A plan that looks cheap only because of a `LIMIT` is the kind to worry about when the estimate is wrong — see [When the Plan Is Wrong](#when-the-plan-is-wrong).
+
+**The visibility map.** An index-only scan still has to know that each row is visible to its transaction. The visibility map keeps one bit per table page meaning "every row here is visible to everyone". Any change to a page clears the bit, even a change that is later rolled back. Only `VACUUM` sets it again. With the bits cleared, all 18,015 index entries needed a trip to the table (`Heap Fetches: 18015`), and the covering index was no better than no covering index at all.
+
+On a table written to all day, an index-only scan is only as good as autovacuum's pace. Check `Heap Fetches` in production plans, and tune `autovacuum_vacuum_scale_factor` per table where it matters.
+
+**Keyset, the OR form.** Its plan has `Filter:` where the row-value form has `Index Cond:`, and `Rows Removed by Filter: 200000`. PostgreSQL does not turn this OR into an index boundary. The scan starts at the newest order and discards rows until the condition becomes true.
+
+The fourth form moves the whole row comparison into `Index Cond` and loses the `Incremental Sort`. The buffers are the same (5), because the old index was already close to ideal for this page.
+
+SQL Server handles the OR form (script 4 of the SQL Server track). It is a genuine difference between engines, and one reason why "it was fast on the other database" is not evidence.
+</details>
+
+## Further reading
+
+- **PostgreSQL documentation:** *Using EXPLAIN*, *Index-Only Scans and Covering Indexes*, *Statistics Used by the Planner* (extended statistics), the `PREPARE` page (the custom- and generic-plan rule) and `plan_cache_mode`, and the pages for `pg_stat_statements`, `auto_explain` and `pg_trgm`.
+- **Npgsql documentation:** *Prepared Statements*, including automatic preparation and its connection-string settings.
+- **EF Core documentation:** *Single vs. Split Queries* and *Pagination* (keyset pagination).
+- **Markus Winand, *Use The Index, Luke!*** — the clearest treatment of column order in multi-column indexes, and of the "seek method" for pagination.
+- **Erland Sommarskog, "Slow in the Application, Fast in SSMS?"** — the standard text on SQL Server parameter sniffing.
 
 
 ---
@@ -19851,6 +21090,20 @@ Native AOT (Ahead-Of-Time) compiles your app directly to a self-contained native
 # What's New
 
 This page is the handbook's changelog. When a new release lands, a popup announces it on your next visit. Under each release, **Site & functionality** items are plain notes, while **Content updates** link to every chapter that changed — a link is ticked off (✓, stored locally in your browser) once you visit it, so you can work through an update at your own pace and see what's still unread.
+
+## Release — September 24, 2026
+
+**🔧 Site & functionality**
+
+- A new part in the sidebar, **Part XI — The Practice Gym**, collects hands-on labs; each lab chapter links to a starter kit in the repository.
+- The Contents page now states reading time and practice time separately.
+
+**📖 Content updates**
+
+- [Chapter 36: The Story Bank & Evidence Portfolio](#chapter-36-the-story-bank-evidence-portfolio) — New lab chapter: turn your work into STAR stories that survive follow-up questions, keep a weekly brag doc, and rehearse with a scored AI mock interviewer.
+- [Chapter 34: Behavioral questions](#behavioral-seniority) — A pointer to Chapter 36's worksheet for each behavioral question.
+- [Preface & Contents](#the-middle-senior-net-developer-handbook) — Corrected study-time figures, and an introduction to Part XI.
+- [Chapter 37: The Slow-Query Lab](#chapter-37-the-slow-query-lab-reading-execution-plans) — New lab chapter: fix nine slow EF Core queries on a 5-million-order PostgreSQL database and prove each fix with before/after plans, with an optional SQL Server track.
 
 ## Release — August 28, 2026
 

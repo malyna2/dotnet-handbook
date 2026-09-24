@@ -1,0 +1,31 @@
+date        : 2026-09-24 12:35 UTC
+machine     : 4 vCPU (Intel(R) Xeon(R) Processor @ 2.10GHz), 16 GB RAM
+server      : PostgreSQL 18.6 (Debian 18.6-1.pgdg13+2) on x86_64-pc-linux-gnu, compiled by gcc (Debian 14.2.0-19) 14.2.0, 64-bit
+
+             relation             | kind  |    size    | pages  
+----------------------------------+-------+------------+--------
+ lab_clock                        | table | 8192 bytes |      1
+ customers                        | table | 107 MB     |  13659
+ customers_pkey                   | index | 21 MB      |   2745
+ ix_customers_country_city        | index | 6904 kB    |    863
+ uq_customers_email               | index | 49 MB      |   6330
+ products                         | table | 4120 kB    |    515
+ products_pkey                    | index | 1112 kB    |    139
+ uq_products_sku                  | index | 1552 kB    |    194
+ orders                           | table | 386 MB     |  49443
+ ix_orders_created_at_customer_id | index | 150 MB     |  19228
+ orders_pkey                      | index | 107 MB     |  13713
+ order_lines                      | table | 1174 MB    | 150272
+ ix_order_lines_order_id          | index | 228 MB     |  29215
+ ix_order_lines_product_id        | index | 120 MB     |  15326
+ order_lines_pkey                 | index | 386 MB     |  49397
+ shipments                        | table | 512 MB     |  65571
+ ix_shipments_order_id            | index | 104 MB     |  13354
+ shipments_pkey                   | index | 112 MB     |  14376
+(18 rows)
+
+ shared_buffers 
+----------------
+ 512MB
+(1 row)
+

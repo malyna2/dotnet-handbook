@@ -1,0 +1,47 @@
+date        : 2026-09-24 12:44 UTC
+machine     : 4 vCPU (Intel(R) Xeon(R) Processor @ 2.10GHz), 16 GB RAM
+server      : PostgreSQL 18.6 (Debian 18.6-1.pgdg13+2) on x86_64-pc-linux-gnu, compiled by gcc (Debian 14.2.0-19) 14.2.0, 64-bit
+
+=== what the planner knows about orders.customer_id
+ n_distinct | mcv_count | mcv_total_frequency | reltuples | rows_for_an_unseen_value 
+------------+-----------+---------------------+-----------+--------------------------
+     210578 |        11 |              0.0975 |   5000396 |                     21.4
+(1 row)
+
+=== 300,000 new orders, statistics not refreshed yet
+                                                                      QUERY PLAN                                                                       
+-------------------------------------------------------------------------------------------------------------------------------------------------------
+ Limit  (cost=27.75..27.81 rows=23 width=23) (actual time=80.505..80.514 rows=50.00 loops=1)
+   Buffers: shared hit=3047 read=1
+   I/O Timings: shared read=0.029
+   ->  Sort  (cost=27.75..27.81 rows=23 width=23) (actual time=80.503..80.507 rows=50.00 loops=1)
+         Sort Key: created_at DESC
+         Sort Method: top-N heapsort  Memory: 32kB
+         Buffers: shared hit=3047 read=1
+         I/O Timings: shared read=0.029
+         ->  Index Scan using lab_orders_customer_id on orders  (cost=0.43..27.23 rows=23 width=23) (actual time=0.058..36.202 rows=300003.00 loops=1)
+               Index Cond: (customer_id = 900001)
+               Index Searches: 1
+               Buffers: shared hit=3047 read=1
+               I/O Timings: shared read=0.029
+ Planning:
+   Buffers: shared hit=31
+ Planning Time: 0.183 ms
+ Execution Time: 80.539 ms
+(17 rows)
+
+=== after ANALYZE orders
+                                                                              QUERY PLAN                                                                              
+----------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ Limit  (cost=0.43..15.62 rows=50 width=22) (actual time=0.066..0.078 rows=50.00 loops=1)
+   Buffers: shared hit=12
+   ->  Index Scan Backward using ix_orders_created_at_customer_id on orders  (cost=0.43..93094.14 rows=306526 width=22) (actual time=0.065..0.073 rows=50.00 loops=1)
+         Index Cond: (customer_id = 900001)
+         Index Searches: 1
+         Buffers: shared hit=12
+ Planning:
+   Buffers: shared hit=31
+ Planning Time: 0.194 ms
+ Execution Time: 0.098 ms
+(10 rows)
+

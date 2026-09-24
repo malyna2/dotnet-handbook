@@ -1,0 +1,45 @@
+name: Labs
+
+# Keeps the Practice Gym kits honest: every lab's verify.sh must still prove that the starter
+# fails for the intended reason and the reference solution passes.
+on:
+  pull_request:
+    paths: ['labs/**', '.github/workflows/labs.yml']
+  push:
+    branches: [main]
+    paths: ['labs/**', '.github/workflows/labs.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  scripts:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0   # mine-git.sh needs history to have something to mine
+      - name: ShellCheck
+        run: shellcheck labs/36-evidence-portfolio/scripts/*.sh labs/37-execution-plans/*.sh labs/37-execution-plans/reference-runs/*.sh
+      - name: mine-git.sh smoke test
+        run: labs/36-evidence-portfolio/scripts/mine-git.sh --author "" --since "10 years ago" . | head -40
+
+  execution-plans:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: '10.0.x'
+      - name: verify.sh — starter fails as intended, solution passes
+        run: labs/37-execution-plans/verify.sh
+      - name: Keep the verify output
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: execution-plans-verify
+          path: labs/37-execution-plans/.verify/*.log
+          if-no-files-found: ignore

@@ -1,0 +1,53 @@
+date        : 2026-09-24 12:36 UTC
+machine     : 4 vCPU (Intel(R) Xeon(R) Processor @ 2.10GHz), 16 GB RAM
+server      : PostgreSQL 18.6 (Debian 18.6-1.pgdg13+2) on x86_64-pc-linux-gnu, compiled by gcc (Debian 14.2.0-19) 14.2.0, 64-bit
+
+=== index-only scan, visibility map up to date
+                                                                                QUERY PLAN                                                                                
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ Aggregate  (cost=724.84..724.85 rows=1 width=48) (actual time=4.948..4.950 rows=1.00 loops=1)
+   Buffers: shared hit=8 read=93
+   I/O Timings: shared read=0.520
+   ->  Index Only Scan using lab_order_lines_product_id_covering on order_lines  (cost=0.56..477.14 rows=19816 width=10) (actual time=0.066..2.340 rows=18015.00 loops=1)
+         Index Cond: (product_id = 50)
+         Heap Fetches: 0
+         Index Searches: 1
+         Buffers: shared hit=8 read=93
+         I/O Timings: shared read=0.520
+ Planning:
+   Buffers: shared hit=107 read=1 dirtied=2
+   I/O Timings: shared read=0.022
+ Planning Time: 0.529 ms
+ Execution Time: 5.028 ms
+(14 rows)
+
+=== after a rolled-back DELETE of the same lines
+                                                                                QUERY PLAN                                                                                 
+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ Aggregate  (cost=724.84..724.85 rows=1 width=48) (actual time=60.297..60.299 rows=1.00 loops=1)
+   Buffers: shared hit=17091
+   ->  Index Only Scan using lab_order_lines_product_id_covering on order_lines  (cost=0.56..477.14 rows=19816 width=10) (actual time=0.039..57.073 rows=18015.00 loops=1)
+         Index Cond: (product_id = 50)
+         Heap Fetches: 18015
+         Index Searches: 1
+         Buffers: shared hit=17091
+ Planning Time: 0.162 ms
+ Execution Time: 60.359 ms
+(9 rows)
+
+=== after VACUUM order_lines
+                                                                                QUERY PLAN                                                                                
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ Aggregate  (cost=724.78..724.79 rows=1 width=48) (actual time=7.551..7.553 rows=1.00 loops=1)
+   Buffers: shared hit=98
+   ->  Index Only Scan using lab_order_lines_product_id_covering on order_lines  (cost=0.56..477.11 rows=19814 width=10) (actual time=0.028..1.994 rows=18015.00 loops=1)
+         Index Cond: (product_id = 50)
+         Heap Fetches: 0
+         Index Searches: 1
+         Buffers: shared hit=98
+ Planning:
+   Buffers: shared hit=4
+ Planning Time: 0.137 ms
+ Execution Time: 7.596 ms
+(11 rows)
+
