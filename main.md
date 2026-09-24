@@ -20012,7 +20012,7 @@ That chain — *measure → mechanism → minimal fix → proof* — is what you
 
 | Activity | Time |
 |---|---|
-| Setup: compose up, seed at the medium scale, first run | 30 min (the seed takes about 5) |
+| Setup: compose up, seed at the medium scale, first run | 30 min (the seed takes about 4) |
 | Level 1: rungs 1–4 | 2 h |
 | Level 2: rungs 5–9 | 3 h |
 | Level 3: the server's view, pricing a trade-off, SQL Server | 2–3 h |
@@ -20032,7 +20032,7 @@ The kit's README covers pull limits and port clashes.
 ```bash
 cd labs/37-execution-plans
 docker compose up -d --wait
-./seed.sh medium                                      # about 5 minutes
+./seed.sh medium                                      # about 4 minutes
 dotnet run --project src/QueryLab.Cli -- all          # every rung: numbers and plans
 dotnet run --project src/QueryLab.Cli -- 3 --no-plan  # one rung, numbers only
 dotnet test --project tests/QueryLab.Tests            # the acceptance tests

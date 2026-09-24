@@ -14,7 +14,7 @@ Nine slow queries in a .NET 10 / EF Core service over PostgreSQL 18, seeded with
 
 ```bash
 docker compose up -d --wait        # PostgreSQL 18.6 with pg_stat_statements
-./seed.sh medium                   # ~5 minutes: 1 M customers, 5 M orders, 18 M order lines
+./seed.sh medium                   # ~4 minutes: 1 M customers, 5 M orders, 18 M order lines
 
 # Run every rung with your (starter) code: timings, server counts and the real plans.
 dotnet run --project src/QueryLab.Cli -- all
@@ -77,7 +77,7 @@ docker compose exec -T postgres psql -U lab -d shop -f /lab/sidebar-correlated-c
 
 ```bash
 docker compose --profile sqlserver up -d
-./sqlserver.sh seed                # ~5 minutes: 200 000 customers, 2 M orders
+./sqlserver.sh seed                # a few minutes: 200 000 customers, 2 M orders
 ./sqlserver.sh 1                   # then 2, 3, 4 — each script runs the slow and the fixed version
 ```
 
