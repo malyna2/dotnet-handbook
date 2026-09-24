@@ -142,7 +142,7 @@ Console.WriteLine($"Uploaded, ETag: {response.ETag}");
 
 ## Azure Core Services
 
-Azure is Microsoft's cloud and the natural home for .NET. The tooling, documentation, and identity model are built with .NET developers in mind. Here's the equivalent map.
+Azure is Microsoft's cloud and the natural home for .NET. The tooling, documentation, and identity model are built with .NET developers in mind. Here's the equivalent map. For the mechanisms behind it, and real incidents, see [Chapter 50](#chapter-50-azure-in-depth-for-net-developers) and [Chapter 51](#chapter-51-the-azure-casebook-real-incidents-real-fixes).
 
 ### Compute
 

@@ -34,7 +34,7 @@ How the feature works (for debugging): the site shows the **topmost** `## Releas
 - **Exercise verification.** Every C# *Find the bug* sample is compiled in `verify/exercises/ChNN/`, with a test that shows the defect on the buggy code and its absence on the fix (the suite stays green; a regression in either direction is visible). Non-C# samples are verified with the relevant tool where one runs; otherwise say so in the session report.
 - **Headings inside code fences still count.** `headingOwner` in `site/app.js` scans raw lines, so a `## Context` inside a fenced template registers as a heading and can make a real section slug ambiguous across chapters, which silently breaks cross-chapter links to it. In templates, use `**Label**` lines instead of `#` headings.
 
-## Practice Gym (Part XI, chapters 36+)
+## Practice Gym (Part XI, chapters 36–49)
 
 The plan and progress live in `PRACTICE_ROADMAP.md`; tick it at the end of every session and report what was verified and what was not.
 
@@ -45,3 +45,9 @@ The plan and progress live in `PRACTICE_ROADMAP.md`; tick it at the end of every
 - **Numbers.** Plans, timings and counts in the text come only from real runs on the seeded data, published with an environment header (CPU, RAM, engine version, scale, cache state). Career examples (CV bullets, STAR skeletons) use `[placeholders]`, never invented metrics.
 - **What's New for lab chapters** links the *chapter* slug: lab chapters share section headings ("Time budget", "Evidence to keep"), and a shared slug does not resolve across chapters.
 - **Cloud sessions** start without a .NET SDK or a running Docker daemon: install `dotnet-sdk-10.0` from apt (the dotnet-install hosts are blocked) and start `dockerd`. `learn.microsoft.com` is blocked too; verify facts against the source repos it is built from (`dotnet/docs`, `dotnet/AspNetCore.Docs`, `dotnet/EntityFramework.Docs`, `dotnet/core` release notes on `raw.githubusercontent.com`), and leave a `TODO(verify)` for the user when no reachable official source confirms a fact.
+
+## Cloud in Depth (Part XII, chapters 50+)
+
+- Chapter 50 (Azure in depth) and Chapter 51 (Azure casebook). Chapter numbers 38–49 stay free for Practice Gym labs.
+- **Code verification.** `verify/snippets/Azure/verify.sh` extracts every ```` ```csharp ```` block from these chapters and compiles it against the SDK versions pinned in `verify/Directory.Packages.props`; a new block without an entry in `BLOCKS` in `extract.py` fails the check. *Find the bug* blocks must match the code in `verify/exercises/Ch51/` token for token; `ACCEPT_EULA=Y verify/exercises/Ch51/verify.sh` runs those against Azurite and the Service Bus emulator. Bicep blocks are built and linted when the Bicep CLI is on `PATH` (download it from the `Azure/bicep` GitHub releases; it is not in apt).
+- Limits, defaults and dates quoted in these chapters were checked against the docs source repos (`MicrosoftDocs/azure-docs`, `azure-monitor-docs`, `azure-security-docs`, `sql-docs`) and the SDK source. Cosmos DB's docs repo is not public; its limits were confirmed only through search snippets of Learn pages. Certification facts come from third-party summaries (Learn is blocked) and are flagged in the text.
