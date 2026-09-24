@@ -42,7 +42,8 @@ PART_RANGES = [
     (26,  31,  "Part VII — Foundations, Governance & Specializations"),
     (32,  32,  "Part VIII — Capstone"),
     (33,  34,  "Part IX — The War Room: Scenarios & Interviews"),
-    (35,  98,  "Part X — Trust, Supply Chain & Provenance"),
+    (35,  35,  "Part X — Trust, Supply Chain & Provenance"),
+    (36,  98,  "Part XI — The Practice Gym"),
     (99,  100, "Appendices"),
     (101, 10**9, "What's New"),
 ]
