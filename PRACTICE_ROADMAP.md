@@ -1,6 +1,6 @@
 # Practice Roadmap — Part XI "The Practice Gym"
 
-> **Status: APPROVED 2026-09-24** (all recommendations in §7 accepted). **M1 done** — see the session log in §8. Next: **M2**.
+> **Status: APPROVED 2026-09-24** (all recommendations in §7 accepted). **M1 and M2 done** — see the session log in §8. Next: **M3**.
 > One milestone per session, finished end to end and verified. At the end of each session: tick the boxes below, and report what was verified and what was not.
 
 **Why this exists.** The book is broad on theory and thin on practice: only Chapters 4, 8 and 17 end with `## Exercises`, and nothing asks the reader to produce evidence. The middle→senior gap is rarely knowledge; it is *proof*: incidents handled, decisions defended, systems measured, things written in English. Every addition below must make the reader **do** something and leave an **artifact** they could show in an interview.
@@ -51,7 +51,7 @@ Read in full: `CLAUDE.md`, `build_site.py`, chapters 4, 8, 17, 32, 33, 34, 99 (A
 | Ch | File | Title | Lab kit | Milestone |
 |---|---|---|---|---|
 | 36 | `chapters/36-evidence-portfolio.md` | Chapter 36: The Story Bank & Evidence Portfolio | `labs/36-evidence-portfolio/` (templates, prompts) | M1 |
-| 37 | `chapters/37-lab-execution-plans.md` | Chapter 37: Lab — Reading Execution Plans | `labs/37-execution-plans/` | M2 |
+| 37 | `chapters/37-lab-execution-plans.md` | Chapter 37: The Slow-Query Lab — Reading Execution Plans | `labs/37-execution-plans/` | M2 |
 | 38 | `chapters/38-lab-idempotent-messaging.md` | Chapter 38: Lab — Idempotent Messaging End to End | `labs/38-idempotent-messaging/` | M3 |
 | 39 | `chapters/39-lab-incident-gym.md` | Chapter 39: Lab — The Incident Gym | `labs/39-incident-gym/` | M4 |
 | 40 | `chapters/40-lab-code-review.md` | Chapter 40: Lab — The Code Review Gym | `labs/40-code-review-gym/` | M5 |
@@ -122,32 +122,29 @@ Outline:
 - **Tasks:** L1: 5 STAR drafts and a coverage matrix with no empty row. L2: each story survives an AI mock with ≥3/4 on every rubric line. L3: public portfolio repo with an evidence index, and 3 CV bullets that each link to an artifact.
 - **Verification:** templates render on the site; prompts tested by one real run each (transcript kept locally, not committed).
 
-### M2 — Lab: reading execution plans (Ch 37)
+### M2 — Lab: reading execution plans (Ch 37) — `[~]` done; verification gaps in §8
 
-- [ ] `labs/37-execution-plans/`: compose (PostgreSQL main; SQL Server behind a compose profile), pinned tags, `pg_stat_statements` and `auto_explain` preloaded
-- [ ] Deterministic seed (`setseed`, `generate_series`), `SCALE=small|medium|large`; medium ≈ 1 M customers / 5 M orders / 15 M order lines. Skew is deliberate: a "whale" customer, 5% open orders, and correlated country/city columns
-- [ ] `QueryLab` .NET 10 console app (EF Core + Npgsql, and Dapper where needed): `run <rung> --variant slow|fast` prints elapsed time, query count (command interceptor) and the plan
-- [ ] `chapters/37-lab-execution-plans.md` with plans and timings **from real runs** (raw output in `reference-runs/`)
+- [x] `labs/37-execution-plans/`: compose with PostgreSQL 18.6 (`pg_stat_statements` + `auto_explain` preloaded) and SQL Server 2025 CU9 behind the `sqlserver` profile; pinned tags
+- [x] Deterministic seed (hash-based, no `random()`), `small | medium | large`; medium = 1 M customers / 5 M orders / ~18 M order lines / 50 k products. Skew: customer 1 has 5% of orders, key accounts 2–11 have 10–40 lines per order, product 1 is in 8% of lines, recent orders are mostly open or paid
+- [x] `QueryLab` .NET 10 harness (EF Core 10 + Npgsql 10). Per rung it prints fix cost (build time and index size), median wall time, per-call statements, rows and buffers from `pg_stat_statements`, EF Core warnings, the SQL with typed parameters, and the real plan (rung 9 replays the prepared statement). `starter/` and `solution/` share the harness; `--property:Rungs=solution` switches
+- [x] Acceptance tests (xunit.v3 on Microsoft.Testing.Platform, Testcontainers, small scale). Each rung is checked for correct rows against a raw-SQL reference and for a *work* criterion, never time. `verify.sh`: starter 9/9 fail with `ACCEPTANCE:`, solution 9/9 pass
+- [x] SQL Server track: four scripts (`nvarchar` vs `varchar`, key lookups and the tipping point, sniffing in a procedure plus a PSP check, `OFFSET` vs keyset) with a formatter for `STATISTICS PROFILE/IO`
+- [x] Break-it and sidebar scripts that restore the seeded state (stale statistics, the visibility map, four keyset forms, correlated columns)
+- [x] `reference-runs/`: `capture.sh` regenerates every file behind a number in the chapter, each with an environment header
+- [x] `chapters/37-lab-execution-plans.md` in the lab shape; `labs/README.md` row; front-matter study and practice time
+- [x] `.github/workflows/labs.yml` (D3): ShellCheck + `mine-git.sh` smoke test, and `verify.sh` for this lab
+- [~] Runs on macOS/Windows/ARM64, and the CI workflow on GitHub — **not verified** (§8)
 
-The ladder: 10 candidates. The final 8–10 are the ones that show a clear before/after on the seeded data.
+**How the plan changed on contact with real runs**
 
-| # | Rung | Engine focus |
+| Planned | What shipped | Why |
 |---|---|---|
-| 1 | N+1 from an EF Core loop → projection | EF-generated; measured by query count + total time |
-| 2 | Cartesian explosion from two collection `Include`s → `AsSplitQuery` | EF-generated; row count, bytes, time |
-| 3 | Non-SARGable predicate (`ToLower()`, a function on a date column) → expression index / range rewrite | PG; SQL Server contrast |
-| 4 | Implicit conversion. PG: a `numeric` parameter against a `bigint` column (to be proven on real runs). SQL Server: an `nvarchar` parameter against a `varchar` column → `CONVERT_IMPLICIT` | both |
-| 5 | Covering: PG `Index Scan` + heap fetches → `INCLUDE` / index-only scan (visibility map); SQL Server **key lookup** | both |
-| 6 | Wrong composite-index column order (range column first) | both |
-| 7 | Deep `OFFSET` → keyset pagination | both |
-| 8 | **Parameter sniffing.** PG: generic vs custom plans on skewed data, `plan_cache_mode`, Npgsql auto-prepare. SQL Server: `sp_executesql` sniffing, `OPTION (RECOMPILE)` / `OPTIMIZE FOR`. Each mechanism is explained and verified before any claim | both |
-| 9 | Correlated predicates misestimated → `CREATE STATISTICS … (dependencies)` | PG |
-| 10 | Leading-wildcard search → `pg_trgm` GIN | PG |
-
-- **Tasks:** L1: rungs 1–4 with a results table (before/after ms, buffers, rows, and the plan node that changed). L2: all rungs, each fix justified by a plan line. L3: the SQL Server track, plus finding the worst query with `pg_stat_statements` in a mixed workload **without being told which rung it is**.
-- **Break it:** bulk-load without `ANALYZE` and watch the estimates go wrong.
-- **Evidence:** a results table and before/after plans in the portfolio repo; one ADR-style note on the best fix.
-- **Verification:** the compose file comes up; the seed completes at `small` and `medium` (times recorded); every rung reproduces its "slow" plan and its "fast" plan; `dotnet build` passes. The SQL Server track is marked verified only if `mssql` runs in this container.
+| 10 candidate rungs | 9 rungs | Correlated columns (planned rung 9) became a sidebar: on this data a 5× misestimate did **not** change the plan, which is a better lesson as "a misestimate matters only under a decision" than as a rung with no fix to measure |
+| `run <rung> --variant slow\|fast` | `starter/` vs `solution/` implementations of fixed contracts, and acceptance tests | The reader edits real code; the tests hold the starter to "right rows, too much work" |
+| SARGability via a function on a date column | `ToLower()` on email (rung 3) | One clear case; the date variant added nothing new to the plan reading |
+| PG implicit conversion "to be proven" | Proven: C# widens `long` to `decimal`, and EF Core emits `o.id::numeric = @p` → Seq Scan (rung 4) | |
+| L3: find the worst query with `pg_stat_statements` in a mixed workload | L3: N+1 as seen in `pg_stat_statements` (a 50:1 calls ratio), rung 9 caught by `auto_explain`, pricing `force_custom_plan` against the index, and the SQL Server track | The harness resets `pg_stat_statements` per rung, so a "mixed workload" needed a separate driver; these three tasks train the same skill on artifacts the kit already produces |
+| One ADR-style note | Evidence table in the chapter (`RESULTS.md`, plans, fix costs, Level 3 excerpts, STAR worksheet) | |
 
 ### M3 — Lab: idempotent messaging end to end (Ch 38)
 
@@ -256,6 +253,8 @@ Planned as one session per batch:
 - [ ] Verify against `dotnet/core` release notes and the Learn **source** repos (E5); check tool flags by **running the tool's `--help` here**; check package versions via the NuGet API
 - [ ] Appendix B: add the .NET 11 row marked **RC (go-live), GA expected November 2026**, refresh 8/9 end-of-support wording, and bump "Last verified"
 - [ ] Never invent an API or flag. Anything that can't be confirmed from a reachable official source becomes `TODO(verify)` in the report, for you
+- [ ] Found during M2: Ch 4 *The .NET Side* says Npgsql "promotes a statement to a server-side prepared statement after it has been executed a few times (`Max Auto Prepare`)", which reads as on by default. The default is `Max Auto Prepare=0` (off) and `Auto Prepare Min Usages=5` (checked in `npgsql/doc`). Reword the sentence
+- [ ] Found during M2: Ch 4 overflows 22 px at a 390 px viewport: an inline code span (`ctx.Orders.Where(o => o.Status == OrderStatus.Abandoned).Exe…`) that cannot wrap. Move it into a code block
 
 ---
 
@@ -324,4 +323,58 @@ Planned as one session per batch:
 - The hook's effect on a *new* cloud session is untested until it is merged into `main`.
 
 **Carried into M2:** add `labs/Directory.Build.props`, `labs/Directory.Packages.props` and the labs CI workflow (D3) with the first .NET code; check `ghcr.io`/`quay.io` reachability (E4) at the start of M3/M4.
+
+### Session 2 — 2026-09-24 — M2
+
+**Commits** (local, not pushed): `668af2d` lab 37 kit + shared labs build settings + Labs CI · `bc7c510` Ch 37 + front matter · `e5a3ba2` seed time as measured · this roadmap update.
+
+**What's New bullets owed at the next release** (lab chapters link the chapter slug `#chapter-37-the-slow-query-lab-reading-execution-plans`):
+- Site & functionality: nothing reader-facing (the Labs CI workflow is repo-only).
+- `bc7c510` → Chapter 37 (new): The Slow-Query Lab — nine slow EF Core queries on a 5-million-order PostgreSQL dataset, with before/after plans, fix costs and a SQL Server track.
+- `bc7c510` → Preface & Contents: study time is now ~26 h, and practice time includes the lab's ~10 h (may be merged into the Ch 37 bullet).
+- `e5a3ba2` is trivial; skip it.
+
+**Verified**
+- `verify.sh` on the final code: the starter's 9 acceptance tests fail, each with an `ACCEPTANCE:` message (right rows, too much work); the solution's 9 pass. Small scale, in Testcontainers.
+- Every number in Ch 37 was re-read from `reference-runs/`. Those files come from one `capture.sh` run at 12:35–12:36 UTC; two self-restoring scripts were re-captured at 12:44 after a fix.
+  - Environment: 4 vCPU Xeon 2.1 GHz, 16 GB, PostgreSQL 18.6, SQL Server 2025 CU9 (17.0.5005.3), .NET 10.0.12 / SDK 10.0.112, EF Core 10.0.12, Npgsql 10.0.3.
+  - The medium database was freshly restored. Buffer counts reproduce exactly between captures: rungs 6 and 7 read 6,386 and 2,791 again after the layout was restored.
+- The medium seed completed in 3.8 min of statement time; the data directory is 4.5 GB. The SQL Server track ran end to end.
+- The site build plus a link check (mirroring `site/app.js`) found **0 broken links** in the whole book.
+- Headless Chromium render of Ch 37: 13 `<details>`, 10 tables, 26 code blocks, no raw-HTML leak, the Part XI sidebar present. The cross-chapter link to Ch 4 `#reading-explain` lands on its target, and there is **no horizontal scroll** at 390 px (after moving one long connection string from inline code into a code block). No JS errors.
+- actionlint 1.7 on `labs.yml` and ShellCheck on every lab script: clean.
+- Behaviour claims were checked on the running systems:
+  - PG 18 `EXPLAIN ANALYZE` includes buffers by default, prints fractional `rows=`, and adds `Index Searches:`.
+  - `EXPLAIN (GENERIC_PLAN)` works.
+  - Npgsql `Options=-c plan_cache_mode=…` works.
+  - EF Core's `ILike` without an escape character emits `ESCAPE ''`.
+  - `EF.Functions.LessThan` over `ValueTuple`s becomes a row comparison.
+  - An index on `(created_at, id)` turns that row comparison into the `Index Cond`.
+  - An `INCLUDE` index is 697 MB against 120 MB for the deduplicated one.
+  - A rolled-back `UPDATE` leaves page splits behind in every index (which is why the visibility-map script uses `DELETE`).
+  - Tiny `VACUUM`s skip index cleanup, so dead index entries survive — which is why the stale-statistics script now loads orders for an existing customer instead of inserting one.
+- Documentation-based claims were checked against primary sources (all reachable via `raw.githubusercontent.com`):
+  - the ring-buffer threshold (`NBuffers / 4` in `heapam.c`);
+  - "INCLUDE indexes can never use deduplication" (`btree.sgml`);
+  - BUFFERS on by default with ANALYZE (`explain.sgml`);
+  - `GENERIC_PLAN` added in PG 16 (`release-16.sgml`);
+  - skip scan wording and when it pays off (`release-18.sgml`, `indices.sgml`);
+  - the five-custom-plans rule (`prepare.sgml`);
+  - autovacuum scale factors 0.2 / 0.1 (`config.sgml`);
+  - the `log_analyze` overhead warning (`auto-explain.sgml`);
+  - pg_trgm with no extractable trigrams (`pgtrgm.sgml`);
+  - split-query consistency (`dotnet/EntityFramework.Docs`);
+  - `DbString { IsAnsi = true }` (Dapper README);
+  - the Npgsql auto-prepare defaults (`npgsql/doc`).
+
+  No `TODO(verify)` was needed.
+
+**Not verified**
+- **The Labs CI workflow has never run on GitHub.** It runs on the first push or PR that touches `labs/**`. Watch the `execution-plans` job, which needs Docker on `ubuntu-latest` and takes about 10 minutes here.
+- **macOS, Windows and ARM64** were not run. Docker Desktop's default memory limit may be too small for the medium scale; the README asks for ~6 GB.
+- **The `large` scale seed** (2 M customers / 20 M orders) was not run; only `small` (tests) and `medium` (reference runs).
+- The **"about 10 hours" practice time** is the chapter's time budget, not a timed walkthrough by a reader.
+- The SQL Server **PSP optimization** did not engage here (`psp_dispatcher: no`); the chapter reports that observation without explaining why.
+
+**Carried into M3:** check `ghcr.io`/`quay.io` reachability (E4), and whether the Azure Service Bus emulator runs in compose here (D-decision for the broker). Reuse `labs/Directory.*.props` and extend `labs.yml` with the new kit's `verify.sh`.
 
