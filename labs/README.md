@@ -5,6 +5,7 @@ Starter kits for **Part XI — The Practice Gym** of *The Middle → Senior .NET
 | Kit | Chapter | What you produce |
 |---|---|---|
 | [`36-evidence-portfolio/`](36-evidence-portfolio/) | Chapter 36: The Story Bank & Evidence Portfolio | A private story bank, a weekly brag doc, a public portfolio repo, and scored mock interviews |
+| [`37-execution-plans/`](37-execution-plans/) | Chapter 37: The Slow-Query Lab — Reading Execution Plans | Nine slow EF Core queries fixed and proven: a before/after results table with plans, fix costs, and an optional SQL Server comparison |
 
 More kits land here as their chapters are written.
 

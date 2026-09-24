@@ -1,0 +1,22 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- Acceptance tests: a throwaway PostgreSQL 18.6 in Docker (Testcontainers), seeded at the
+       small scale, then one test per rung. Tests your starter by default; build property
+       Rungs=solution tests the reference solution. The commands are in the lab README.
+       (labs/global.json opts dotnet test into Microsoft.Testing.Platform, which xUnit v3 uses.) -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <IsPackable>false</IsPackable>
+    <Rungs Condition="'$(Rungs)' == ''">starter</Rungs>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="xunit.v3" />
+    <PackageReference Include="Testcontainers.PostgreSql" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="../../src/QueryLab.Core/QueryLab.Core.csproj" />
+    <ProjectReference Include="../../$(Rungs)/QueryLab.Rungs/QueryLab.Rungs.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="../../postgres/seed.sql" Link="seed.sql" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+</Project>

@@ -1,0 +1,12 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- Runs rungs against the compose database and prints plans and numbers.
+       Default: your starter rungs.  -p:Rungs=solution runs the reference solution instead. -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <Rungs Condition="'$(Rungs)' == ''">starter</Rungs>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="../QueryLab.Core/QueryLab.Core.csproj" />
+    <ProjectReference Include="../../$(Rungs)/QueryLab.Rungs/QueryLab.Rungs.csproj" />
+  </ItemGroup>
+</Project>

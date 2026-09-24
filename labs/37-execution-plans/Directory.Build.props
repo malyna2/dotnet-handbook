@@ -1,0 +1,13 @@
+<Project>
+  <Import Project="$([MSBuild]::GetPathOfFileAbove('Directory.Build.props', '$(MSBuildThisFileDirectory)../'))" />
+  <!-- The CLI and the tests reference either starter/ or solution/ QueryLab.Rungs — two assemblies
+       with the same name. Separate bin/ and obj/ per implementation, so a build of one can never
+       pick up a stale copy of the other. -->
+  <PropertyGroup Condition="'$(MSBuildProjectName)' == 'QueryLab.Cli' Or '$(MSBuildProjectName)' == 'QueryLab.Tests'">
+    <Rungs Condition="'$(Rungs)' == ''">starter</Rungs>
+    <BaseIntermediateOutputPath>obj/$(Rungs)/</BaseIntermediateOutputPath>
+    <BaseOutputPath>bin/$(Rungs)/</BaseOutputPath>
+    <!-- The SDK excludes only the current build's obj/ from its **/*.cs glob; exclude both. -->
+    <DefaultItemExcludes>$(DefaultItemExcludes);bin/**;obj/**</DefaultItemExcludes>
+  </PropertyGroup>
+</Project>

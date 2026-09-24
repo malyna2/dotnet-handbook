@@ -1,0 +1,10 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- YOUR WORK GOES HERE. Each file is one rung: change the query, add DDL to Fixes, or both.
+       Solutions belong in your own portfolio repo — see the lab README. -->
+  <ItemGroup>
+    <AssemblyMetadata Include="Implementation" Value="starter" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="../../src/QueryLab.Core/QueryLab.Core.csproj" />
+  </ItemGroup>
+</Project>

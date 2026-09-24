@@ -1,0 +1,10 @@
+date        : 2026-09-24 12:36 UTC
+machine     : 4 vCPU (Intel(R) Xeon(R) Processor @ 2.10GHz), 16 GB RAM
+server      : PostgreSQL 18.6 (Debian 18.6-1.pgdg13+2) on x86_64-pc-linux-gnu, compiled by gcc (Debian 14.2.0-19) 14.2.0, 64-bit
+
+ calls | rows | total_ms | buffers |                                 query                                  
+-------+------+----------+---------+------------------------------------------------------------------------
+   250 | 5910 |     9.11 |    1050 | SELECT o.product_id, o.quantity, o.unit_price FROM order_lines AS o WH
+     5 |  250 |     1.67 |     405 | SELECT o.id, o.created_at, o.currency, o.customer_id, o.shipping_note,
+(2 rows)
+

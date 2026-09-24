@@ -1,0 +1,43 @@
+date        : 2026-09-24 12:36 UTC
+machine     : 4 vCPU (Intel(R) Xeon(R) Processor @ 2.10GHz), 16 GB RAM
+server      : Microsoft SQL Server 2025 (RTM-CU9) (KB5122048) - 17.0.5005.3 (X64) 
+
+=== 4a: OFFSET 200000 ROWS
+id | customer_id | status | created_at | total
+1800000 | 186452 | shipped | 2026-05-14 09:35:59.000 | 51.44
+1799999 | 89635 | shipped | 2026-05-14 09:35:02.000 | 652.09
+1799998 | 180846 | shipped | 2026-05-14 09:34:05.000 | 962.28
+... (50 rows)
+Table 'orders': scan count 1, logical reads 613192
+   actual  execs  estimated  operator
+       50      1       50.0  SELECT id, customer_id, status, created_at, total FROM dbo.orders ORDER BY created_at DESC, id DESC OFFSET @skip ROWS FETCH NEXT 50 ROWS ONLY
+       50      1       50.0    |--Top(OFFSET EXPRESSION:(CONVERT_IMPLICIT(bigint,[@skip],0)),TOP EXPRESSION:((50)))
+   200050      1   200050.0         |--Nested Loops(Inner Join, OUTER REFERENCES:([orders].[id], [Expr1003]) WITH ORDERED PREFETCH)
+   200050      1   200050.0              |--Index Scan(OBJECT:([orders].[ix_orders_created_at]), ORDERED BACKWARD)
+   200050 200050        1.0              |--Clustered Index Seek(OBJECT:([orders].[pk_orders]), SEEK:([orders].[id]=[orders].[id]) LOOKUP ORDERED FORWARD)
+=== 4b: keyset, written as (created_at < @c) OR (created_at = @c AND id < @id)
+id | customer_id | status | created_at | total
+1800000 | 186452 | shipped | 2026-05-14 09:35:59.000 | 51.44
+1799999 | 89635 | shipped | 2026-05-14 09:35:02.000 | 652.09
+1799998 | 180846 | shipped | 2026-05-14 09:34:05.000 | 962.28
+... (50 rows)
+Table 'orders': scan count 2, logical reads 168
+   actual  execs  estimated  operator
+       50      1       50.0  SELECT TOP (50) id, customer_id, status, created_at, total FROM dbo.orders WHERE created_at < @c OR (created_at = @c AND id < @id) ORDER BY created_at DESC, id DESC
+       50      1       50.0    |--Top(TOP EXPRESSION:((50)))
+       50      1       50.0         |--Nested Loops(Inner Join, OUTER REFERENCES:([orders].[id], [Expr1002]) WITH ORDERED PREFETCH)
+       50      1       50.0              |--Index Seek(OBJECT:([orders].[ix_orders_created_at]), SEEK:([orders].[created_at] < [@c] OR [orders].[created_at]=[@c] AND [orders].[id] < [@id]) ORDERED BACKWARD)
+       50     50        1.0              |--Clustered Index Seek(OBJECT:([orders].[pk_orders]), SEEK:([orders].[id]=[orders].[id]) LOOKUP ORDERED FORWARD)
+=== 4c: keyset with a redundant boundary: created_at <= @c AND (created_at < @c OR id < @id)
+id | customer_id | status | created_at | total
+1800000 | 186452 | shipped | 2026-05-14 09:35:59.000 | 51.44
+1799999 | 89635 | shipped | 2026-05-14 09:35:02.000 | 652.09
+1799998 | 180846 | shipped | 2026-05-14 09:34:05.000 | 962.28
+... (50 rows)
+Table 'orders': scan count 1, logical reads 165
+   actual  execs  estimated  operator
+       50      1       50.0  SELECT TOP (50) id, customer_id, status, created_at, total FROM dbo.orders WHERE created_at <= @c AND (created_at < @c OR id < @id) ORDER BY created_at DESC, id DESC
+       50      1       50.0    |--Top(TOP EXPRESSION:((50)))
+       50      1       50.0         |--Nested Loops(Inner Join, OUTER REFERENCES:([orders].[id], [Expr1002]) WITH ORDERED PREFETCH)
+       50      1       50.0              |--Index Seek(OBJECT:([orders].[ix_orders_created_at]), SEEK:([orders].[created_at] <= [@c]),  WHERE:([orders].[created_at]<[@c] OR [orders].[id]<[@id]) ORDERED BACKWARD)
+       50     50        1.0              |--Clustered Index Seek(OBJECT:([orders].[pk_orders]), SEEK:([orders].[id]=[orders].[id]) LOOKUP ORDERED FORWARD)
