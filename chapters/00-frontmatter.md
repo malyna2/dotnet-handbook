@@ -24,9 +24,9 @@ Let's begin.
 
 ## Contents
 
-> **Total study time: ~25 hours** (reading prose at ~200 wpm and parsing every code sample at ~60 wpm — the pace behind each chapter's own estimate under its heading). A straight cover-to-cover read (prose at ~250 wpm, code at ~100) is closer to **18 hours**; a quick skim (~300 and ~200 wpm), **~14 hours**.
+> **Total study time: ~26 hours** (reading prose at ~200 wpm and parsing every code sample at ~60 wpm — the pace behind each chapter's own estimate under its heading). A straight cover-to-cover read (prose at ~250 wpm, code at ~100) is closer to **19 hours**; a quick skim (~300 and ~200 wpm), **~15 hours**.
 >
-> **Practice time comes on top.** The labs in Part XI are measured in hours of hands-on work, not reading: so far about **5–6 hours** to build your story bank and portfolio (Chapter 36), then about 45 minutes a week to keep them going.
+> **Practice time comes on top.** The labs in Part XI are measured in hours of hands-on work, not reading: so far about **5–6 hours** to build your story bank and portfolio (Chapter 36), then about 45 minutes a week to keep them going, and about **10 hours** for the slow-query lab (Chapter 37).
 
 Use the **sidebar** on the left (or the **Browse chapters** cards below) to jump to any chapter.
 
