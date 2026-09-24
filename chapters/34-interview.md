@@ -467,6 +467,8 @@ Use one structure for every design prompt: **Requirements → Scale estimate →
 
 Answer these with **STAR** and keep the spotlight on *your* actions and a concrete result. Have three or four real stories prepared that you can flex to different questions.
 
+> **Practice it.** [Chapter 36](#chapter-36-the-story-bank-evidence-portfolio) has a worksheet for each question below, a way to mine your own work for the stories, and a scored mock-interview protocol to rehearse them.
+
 **Tell me about a hard bug you solved.**
 Pick a genuinely tricky one — intermittent, distributed, or a heisenbug. Emphasize *method*: how you reproduced it, formed and tested hypotheses, used tooling (logs, profiler, dump), found root cause, and prevented recurrence (a test, a monitor). Result: the metric that improved. The story sells your debugging process, not luck.
 

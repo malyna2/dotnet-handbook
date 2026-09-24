@@ -18496,7 +18496,7 @@ Traffic is up roughly 4×. Signups are flat.
 
 # Chapter 34: Interview Questions & How to Answer Them
 
-_⏱️ Estimated read time: ~40 min · 7458 words (study pace)_
+_⏱️ Estimated read time: ~40 min · 7488 words (study pace)_
 
 This chapter is a recall-and-rehearse bank. Every topic here is taught in depth earlier in the book; the goal now is to turn that knowledge into crisp spoken answers under pressure. Read a question, cover the answer, and say your version out loud. If it comes out rambling, tighten it. Each section starts with a *Revise* pointer to the chapter(s) that teach the material. **Red flag** lines show the wrong answer interviewers hear from juniors — if your spoken version sounds like one, go back and re-read.
 
@@ -18962,6 +18962,8 @@ Use one structure for every design prompt: **Requirements → Scale estimate →
 *Revise: Ch. 17 — Soft Skills & Engineering Practices*
 
 Answer these with **STAR** and keep the spotlight on *your* actions and a concrete result. Have three or four real stories prepared that you can flex to different questions.
+
+> **Practice it.** [Chapter 36](#chapter-36-the-story-bank-evidence-portfolio) has a worksheet for each question below, a way to mine your own work for the stories, and a scored mock-interview protocol to rehearse them.
 
 **Tell me about a hard bug you solved.**
 Pick a genuinely tricky one — intermittent, distributed, or a heisenbug. Emphasize *method*: how you reproduced it, formed and tested hypotheses, used tooling (logs, profiler, dump), found root cause, and prevented recurrence (a test, a monitor). Result: the metric that improved. The story sells your debugging process, not luck.
