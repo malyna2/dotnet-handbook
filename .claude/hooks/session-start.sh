@@ -29,6 +29,13 @@ fi
 
 # --- Docker daemon (processes are not cached, so start it every session) -----
 if command -v dockerd >/dev/null 2>&1 && ! docker info >/dev/null 2>&1; then
+  # After a container restart the pid files survive but the processes don't; dockerd then waits
+  # for a "still running" containerd that isn't there and gives up. Remove pid files of dead processes.
+  for pidfile in /var/run/docker/containerd/containerd.pid /var/run/docker.pid; do
+    if [ -f "$pidfile" ] && ! kill -0 "$(cat "$pidfile" 2>/dev/null)" 2>/dev/null; then
+      rm -f "$pidfile"
+    fi
+  done
   setsid nohup dockerd >/var/log/dockerd.log 2>&1 < /dev/null &
   for _ in $(seq 1 30); do
     if docker info >/dev/null 2>&1; then break; fi
