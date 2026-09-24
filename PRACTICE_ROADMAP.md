@@ -1,6 +1,6 @@
 # Practice Roadmap — Part XI "The Practice Gym"
 
-> **Status: DRAFT — awaiting approval.** No chapter edits happen until this plan is approved.
+> **Status: APPROVED 2026-09-24** (all recommendations in §7 accepted). **M1 done** — see the session log in §8. Next: **M2**.
 > One milestone per session, finished end to end and verified. At the end of each session: tick the boxes below, and report what was verified and what was not.
 
 **Why this exists.** The book is broad on theory and thin on practice: only Chapters 4, 8 and 17 end with `## Exercises`, and nothing asks the reader to produce evidence. The middle→senior gap is rarely knowledge; it is *proof*: incidents handled, decisions defended, systems measured, things written in English. Every addition below must make the reader **do** something and leave an **artifact** they could show in an interview.
@@ -27,8 +27,8 @@ Read in full: `CLAUDE.md`, `build_site.py`, chapters 4, 8, 17, 32, 33, 34, 99 (A
 
 | # | Item | Status | Consequence |
 |---|---|---|---|
-| E1 | Docker 29.3.1 + Compose v5.1.1 | ✅ Works after starting the daemon manually (`dockerd &`). Pulled and ran `postgres:17-alpine` (17.11). | Every session must start `dockerd` first. Optional: a SessionStart hook (Decision D4). |
-| E2 | .NET SDK | ❌ Not installed. `builds.dotnet.microsoft.com` / `dotnetcli.azureedge.net` are **blocked** (403), so `dotnet-install.sh` fails. ✅ Ubuntu 24.04 apt has `dotnet-sdk-10.0` **10.0.112**. | Install via apt at the start of each code session. |
+| E1 | Docker 29.3.1 + Compose v5.1.1 | ✅ Works once the daemon is started. Pulled and ran `postgres:17-alpine` (17.11). | The SessionStart hook (`.claude/hooks/session-start.sh`, D4) starts `dockerd` in every cloud session. |
+| E2 | .NET SDK | `builds.dotnet.microsoft.com` / `dotnetcli.azureedge.net` are **blocked** (403), so `dotnet-install.sh` fails. ✅ Ubuntu 24.04 apt has `dotnet-sdk-10.0` **10.0.112**; the SessionStart hook installs it (28 s cold, 0.2 s warm). | ✅ Verified end to end: `dotnet new xunit` + NuGet restore through the proxy + a Testcontainers PostgreSQL test passed (Testcontainers.PostgreSql 4.15.0, Npgsql 10.0.3). |
 | E3 | NuGet (`api.nuget.org`), MCR (`mcr.microsoft.com`), Docker Hub | ✅ Reachable | Restores and image pulls work. |
 | E4 | `ghcr.io` (Toxiproxy), `quay.io` (Debezium) | ⚠️ Not yet tested | Test at the start of M3 and M4. Fallbacks are listed in Risks. |
 | E5 | `learn.microsoft.com`, `devblogs.microsoft.com` | ❌ Blocked for both curl and WebFetch | M10 uses the **GitHub source repos that Learn is built from**: `dotnet/docs`, `dotnet/AspNetCore.Docs`, `dotnet/EntityFramework.Docs`, `dotnet/core` release notes (all ✅ via `raw.githubusercontent.com`). A fact only confirmable on Learn → TODO for you. |
@@ -100,13 +100,15 @@ Update the Contents blurb to introduce Part XI. Recompute the reading-time total
 
 Legend: `[ ]` open · `[x]` done and verified · `[~]` done with stated verification gaps (listed in the session report).
 
-### M1 — Story bank & evidence portfolio (Ch 36)
+### M1 — Story bank & evidence portfolio (Ch 36) — `[~]` done; one verification gap (§8)
 
-- [ ] `CLAUDE.md`: Practice Gym conventions (§3.4)
-- [ ] `build_site.py`: `PART_RANGES` change (§3.1)
-- [ ] `chapters/36-evidence-portfolio.md`
-- [ ] `labs/36-evidence-portfolio/`: `templates/` (STAR worksheet, weekly brag doc, CV-bullet worksheet, portfolio `README` evidence index) and `prompts/` (AI interviewer prompts as plain files for copy-paste)
-- [ ] `00-frontmatter.md`: Contents blurb and study-time lines (§3.5)
+- [x] `CLAUDE.md`: Practice Gym conventions (§3.4)
+- [x] `build_site.py`: `PART_RANGES` change (§3.1)
+- [x] `chapters/36-evidence-portfolio.md`
+- [x] `labs/36-evidence-portfolio/`: `templates/` (STAR worksheet, weekly brag doc, CV-bullet worksheet, portfolio `README` evidence index) and `prompts/` (AI interviewer prompts as plain files for copy-paste)
+- [x] `00-frontmatter.md`: Contents blurb and study-time lines (§3.5)
+- [x] Added beyond the plan: `scripts/mine-git.sh` (story candidates from local git history), and the D7 cross-link from Ch 34's Behavioral section
+- [~] Prompts tested against a real model — **not done** (§8)
 
 Outline:
 - **Goal / senior signal:** turning experience into specific, defensible, measured stories. *Proof over knowledge.*
@@ -282,15 +284,44 @@ Planned as one session per batch:
 | Readers presenting lab work as production experience | An explicit honesty rule in Ch 36, repeated in every lab's "Evidence to keep". |
 | Unpushed work lost when this container is reclaimed | Your call: I push only when you ask (a feature-branch push does not deploy Pages; only `main` does). |
 
-## 7. Decisions I need from you
+## 7. Decisions (all approved 2026-09-24, as recommended)
 
 | # | Question | My recommendation |
 |---|---|---|
 | D1 | Approve the chapter numbers and titles in §3.2 (story bank first, as Ch 36)? | Yes, as listed. |
 | D2 | Ship reference solutions in `labs/<NN>/solution/`? | **Yes.** Without them `verify.sh` can't prove the tests are passable. The READMEs say "don't open until done", the same contract as `<details>`. |
-| D3 | Add `.github/workflows/labs.yml` (build + test `verify/` and lab solutions on PRs touching `labs/**` or `verify/**`; `SCALE=small`)? | **Yes.** It is cheap, and the only real defence against lab rot. |
-| D4 | Add a SessionStart hook (`.claude/`) that installs the SDK and starts `dockerd` in cloud sessions? | Yes. It saves setup time in every session. |
+| D3 | Add `.github/workflows/labs.yml` (build + test `verify/` and lab solutions on PRs touching `labs/**` or `verify/**`; `SCALE=small`)? | **Yes.** It is cheap, and the only real defence against lab rot. Lands with the first .NET code (M2). |
+| D4 | Add a SessionStart hook (`.claude/`) that installs the SDK and starts `dockerd` in cloud sessions? | Yes. ✅ Done in the M1 session (commit `7f682f3`); takes effect for new sessions once merged to `main`. |
 | D5 | Appendix A: add the evidence matrix **alongside** the topic checklist, or **replace** it? | **Alongside**: the matrix goes first, and the topic lists stay below as "what to know". Replacing would drop content, and its existing heading anchors are linked. |
 | D6 | Give Ch 33 (scenarios) and Ch 34 (interview bank) an `## Exercises` block too? | Yes, but adapted. Ch 33: *Find the bug* is the code behind a scenario. Ch 34: a flawed live-coding answer to diagnose. |
-| D7 | Allow one-line cross-links **added** (not rewrites) to existing chapters: Ch 34 Behavioral → Ch 36; Ch 32 intro → Part XI; Ch 17 (review, writing) → Ch 40/41; Ch 33 intro → Ch 39? | Yes. Without them the new Part stays invisible from the chapters readers already use. |
-| D8 | Is the repo public? Chapters will link lab kits by absolute GitHub URL (F4). | Please confirm. If it's private, the links would 404 for site readers and I'd need another route (e.g., publishing the kits as downloadable archives under `site/`). |
+| D7 | Allow one-line cross-links **added** (not rewrites) to existing chapters: Ch 34 Behavioral → Ch 36; Ch 32 intro → Part XI; Ch 17 (review, writing) → Ch 40/41; Ch 33 intro → Ch 39? | Yes. Ch 34 → Ch 36 ✅ done. The others land with their target chapters (Ch 32's in M9). |
+| D8 | Is the repo public? Chapters will link lab kits by absolute GitHub URL (F4). | ✅ **Confirmed public** (GitHub API, `visibility: public`). Absolute links are in use from Ch 36. |
+
+## 8. Session log
+
+### Session 1 — 2026-09-24 — plan + M1
+
+**Commits** (local, not pushed): `ddcd158` roadmap · `2396d58` CLAUDE.md conventions · `8c88f70` Ch 36 + kit + `PART_RANGES` · `935497b` Ch 34 cross-link · `52dc89d` front matter · `7f682f3` SessionStart hook · this roadmap update.
+
+**What's New bullets owed at the next release** (per `CLAUDE.md`; lab chapters link the chapter slug):
+- Site & functionality: the sidebar has a new *Part XI — The Practice Gym*; the Contents page states reading and practice time separately.
+- `8c88f70` → Chapter 36 (new): The Story Bank & Evidence Portfolio.
+- `935497b` → Chapter 34: a pointer from the behavioral questions to Chapter 36's worksheets (may be skipped as trivial).
+- `52dc89d` → Preface & Contents: corrected study-time figures (the old ~18 h is now ~25 h) and the Part XI intro.
+
+**Verified**
+- `python3 build_site.py` after every change; `main.md` and `site/content.js` committed with each source change.
+- Link check mirroring `site/app.js` resolution (chapter slugs, same-page ids, unique cross-chapter ids): **0 broken links** in the whole book before and after. The checker was itself tested: it flags a missing target and a duplicated slug.
+- Headless Chromium render of Ch 36: 6 `<details>` blocks, 8 tables, 11 code blocks, no raw-HTML leak, Part XI in the sidebar, cross-chapter links land on their targets (Ch 36 → Ch 34 and Ch 34 → Ch 36), **no horizontal scroll** at 390 px and no code block overflowing at 1280 px, no JS errors. Diagrams inspected visually from screenshots.
+- `mine-git.sh`: run on this repo and on a 124-commit fixture (reverts, weekend and late-night commits, keyword false positives, `--author` as a name, a non-repo path, no args, `--help`); passes ShellCheck 0.11. Found and fixed a real bug on the way: `head` truncation under `pipefail` killed the script with SIGPIPE (exit 141) on repos with many matches.
+- Front matter figures recomputed from the build's formula; the cover-to-cover/skim method was reverse-engineered from the old figures (it reproduces 13.6 h / 10.2 h on the text they were written for) and is now stated in the line.
+- SessionStart hook: cold run 28 s (installs SDK, starts `dockerd`), warm run 0.2 s, no-op outside cloud sessions; ShellCheck clean; `dotnet test` with Testcontainers + PostgreSQL passes; `dotnet format` runs.
+
+**Not verified**
+- **The six AI interviewer prompts were not run against a model.** Running them needs an AI assistant session; I did not spawn one. Suggested check for you: paste `debrief-scorer.md` with the canary answer from Ch 36 into your assistant — it should score ≤ 2 everywhere.
+- `mine-git.sh` was not run on macOS (bash 3.2 / BSD awk). It avoids bash-4 features and gawk extensions, but that is by construction, not by test.
+- The Jira JQL and GitHub search qualifiers in Ch 36's mining table were written from knowledge of those tools, not executed.
+- The hook's effect on a *new* cloud session is untested until it is merged into `main`.
+
+**Carried into M2:** add `labs/Directory.Build.props`, `labs/Directory.Packages.props` and the labs CI workflow (D3) with the first .NET code; check `ghcr.io`/`quay.io` reachability (E4) at the start of M3/M4.
+
