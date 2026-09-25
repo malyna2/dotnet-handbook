@@ -318,6 +318,8 @@ Calendar span:     2021-03 → 2024-06  = 39 months = "3 years"  ✓
 
 The overlap is real work, but it did not happen in extra years. "Three years" with two overlapping engagements is true; "four years" is not.
 
+> **Beyond interviews.** The same bank feeds client-facing proof: anonymized case studies, a public health-check report and articles that defend a position. The honesty rules above apply unchanged, with a stricter confidentiality line, since a client's name or numbers need their written permission. [Chapter 65](#chapter-65-positioning-and-public-proof) builds on this chapter for clients rather than interviewers.
+
 ## The mock-interview protocol
 
 An AI assistant makes a good sparring partner for interview practice: it is available at 11 p.m., it asks follow-ups without getting bored, and it costs you nothing socially to fail in front of it. It has two limits you must design around. It **cannot tell whether your story is true** — it grades delivery, not honesty, and honesty is on you. And it **tends to be generous**, so its scores are only useful after you have checked that it is strict.

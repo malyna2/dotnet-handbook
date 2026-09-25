@@ -337,6 +337,16 @@ Driving decisions **without authority** is the staff-engineer skill. You can't o
 
 > **Reputation is your real currency, and it compounds. Be the person whose estimates are honest, whose reviews are fair, whose commitments land, and who says "I was wrong" when they were. That reputation, built over years, is what lets you move a decision with a single Slack message.**
 
+### From colleague to advisor
+
+Everything above assumes you sit inside the team. As a contractor, consultant or outstaffed engineer you sit next to it, and the client measures you differently. An employer pays for output; a client increasingly pays for **judgment** — the reduced risk of a decision they cannot evaluate themselves. Three shifts follow:
+
+- **From answering to framing.** "How do we build X?" becomes "Should we build X, and what does it cost us not to?" You diagnose before you prescribe.
+- **From neutral to committed.** Listing trade-offs is where the job starts. The client wants a recommendation with the conditions under which it would change.
+- **From tasks to outcomes.** Report in the client's units: money, time and risk, not tickets closed.
+
+Your influence comes from the same sources as inside a team (trust, data and bringing people along early), with one extra hazard: **self-orientation**. The moment advice sounds like it serves your next contract, it stops being advice. Part XIII, starting with [Chapter 60](#chapter-60-having-a-point-of-view), turns this stance into skills you can practise.
+
 ## 17.11 Ownership & Professionalism
 
 The single word that most separates senior from mid-level is **ownership**.
