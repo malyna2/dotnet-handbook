@@ -1,0 +1,29 @@
+# Local stand-ins for the Azure services used by Chapter 51's exercises.
+# Development and test only. ACCEPT_EULA=Y accepts the Service Bus emulator and SQL Server EULAs
+# (verify.sh sets it; set it yourself if you run compose by hand).
+name: ch51-exercises
+
+services:
+  azurite:
+    image: mcr.microsoft.com/azure-storage/azurite:3.37.0
+    command: azurite-blob --blobHost 0.0.0.0 --skipApiVersionCheck --loose
+    ports:
+      - "10000:10000"
+
+  mssql:
+    image: mcr.microsoft.com/mssql/server:2022-CU27-ubuntu-22.04
+    environment:
+      ACCEPT_EULA: ${ACCEPT_EULA:?set ACCEPT_EULA=Y to accept the SQL Server and Service Bus emulator EULAs}
+      MSSQL_SA_PASSWORD: "Emulator-Only-Passw0rd!"
+
+  servicebus:
+    image: mcr.microsoft.com/azure-messaging/servicebus-emulator:2.0.1
+    depends_on:
+      - mssql
+    environment:
+      SQL_SERVER: mssql
+      MSSQL_SA_PASSWORD: "Emulator-Only-Passw0rd!"
+      ACCEPT_EULA: ${ACCEPT_EULA:?set ACCEPT_EULA=Y}
+    ports:
+      - "5672:5672"
+      - "5300:5300"

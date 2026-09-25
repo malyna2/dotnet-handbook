@@ -24,12 +24,14 @@ Let's begin.
 
 ## Contents
 
-> **Total study time: ~26 hours** (reading prose at ~200 wpm and parsing every code sample at ~60 wpm — the pace behind each chapter's own estimate under its heading). A straight cover-to-cover read (prose at ~250 wpm, code at ~100) is closer to **19 hours**; a quick skim (~300 and ~200 wpm), **~15 hours**.
+> **Total study time: ~28 hours** (reading prose at ~200 wpm and parsing every code sample at ~60 wpm — the pace behind each chapter's own estimate under its heading). A straight cover-to-cover read (prose at ~250 wpm, code at ~100) is closer to **21 hours**; a quick skim (~300 and ~200 wpm), **~16 hours**.
 >
 > **Practice time comes on top.** The labs in Part XI are measured in hours of hands-on work, not reading: so far about **5–6 hours** to build your story bank and portfolio (Chapter 36), then about 45 minutes a week to keep them going, and about **10 hours** for the slow-query lab (Chapter 37).
 
 Use the **sidebar** on the left (or the **Browse chapters** cards below) to jump to any chapter.
 
 **Parts I–X teach; Part XI makes you practise.** The chapters in *Part XI — The Practice Gym* are labs. Each has a goal, a time budget, tasks in three levels with checkable acceptance criteria, and a list of the evidence to keep in your own public portfolio repo — because the gap between middle and senior is rarely knowledge, and almost always proof. Start with [Chapter 36](#chapter-36-the-story-bank-evidence-portfolio), which builds the story bank the other labs feed.
+
+**Part XII goes deep on one cloud.** [Chapter 50](#chapter-50-azure-in-depth-for-net-developers) takes the Azure services from Chapter 10's map down to their mechanisms: identity, compute, storage, Cosmos DB, Azure SQL, messaging, networking and observability, at the depth a strong middle developer needs and far past what the AZ-900 exam asks. [Chapter 51](#chapter-51-the-azure-casebook-real-incidents-real-fixes) is a casebook of real Azure incidents, each with the diagnosis and the fix. (Chapter numbers 38–49 are kept free for the Practice Gym labs still to come.)
 
 ---

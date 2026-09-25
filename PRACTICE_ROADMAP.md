@@ -46,6 +46,8 @@ Read in full: `CLAUDE.md`, `build_site.py`, chapters 4, 8, 17, 32, 33, 34, 99 (A
 +    (36,  98,  "Part XI — The Practice Gym"),
 ```
 
+*Later change (2026-09-24, outside this roadmap):* Part XI was narrowed to **36–49** when *Part XII — Cloud in Depth: Azure* (Chapters 50–51) was added. Chapters 38–49 remain free for the labs below.
+
 ### 3.2 New chapters and lab kits
 
 | Ch | File | Title | Lab kit | Milestone |
