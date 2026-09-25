@@ -22938,6 +22938,18 @@ Native AOT (Ahead-Of-Time) compiles your app directly to a self-contained native
 
 This page is the handbook's changelog. When a new release lands, a popup announces it on your next visit. Under each release, **Site & functionality** items are plain notes, while **Content updates** link to every chapter that changed — a link is ticked off (✓, stored locally in your browser) once you visit it, so you can work through an update at your own pace and see what's still unread.
 
+## Release — September 25, 2026
+
+**🔧 Site & functionality**
+
+- A new part in the sidebar, **Part XII — Cloud in Depth: Azure**, holds the Azure deep-dive chapters.
+
+**📖 Content updates**
+
+- [Chapter 50: Azure in Depth for .NET Developers](#chapter-50-azure-in-depth-for-net-developers) — New chapter: identity, compute, storage, Cosmos DB, Azure SQL, messaging, networking and observability explained down to the mechanism, with 15 exam-style self-check questions.
+- [Chapter 51: The Azure Casebook](#chapter-51-the-azure-casebook-real-incidents-real-fixes) — New chapter: sixteen real Azure incidents, each with symptoms, cause, how to confirm it and the fix, plus emulator-verified exercises.
+- [Preface & Contents](#the-middle-senior-net-developer-handbook) — An introduction to Part XII, updated study-time figures, and a link from Chapter 10 to the new Azure chapters.
+
 ## Release — September 24, 2026
 
 **🔧 Site & functionality**
