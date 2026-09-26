@@ -34,6 +34,8 @@ Use the **sidebar** on the left (or the **Browse chapters** cards below) to jump
 
 **Part XII goes deep on one cloud.** [Chapter 50](#chapter-50-azure-in-depth-for-net-developers) takes the Azure services from Chapter 10's map down to their mechanisms: identity, compute, storage, Cosmos DB, Azure SQL, messaging, networking and observability, at the depth a strong middle developer needs and far past what the AZ-900 exam asks. [Chapter 51](#chapter-51-the-azure-casebook-real-incidents-real-fixes) is a casebook of real Azure incidents, each with the diagnosis and the fix. (Chapter numbers 38–49 are kept free for the Practice Gym labs still to come.)
 
+**Part XIII turns expertise into advice.** Clients pay for judgment, not knowledge: a point of view you can defend, a diagnosis before a prescription, and proof they can read. [Chapter 60](#chapter-60-having-a-point-of-view) builds your written positions, [Chapter 61](#chapter-61-discovery-and-diagnosis) the first client conversation, and [Chapter 62](#chapter-62-lab-the-net-health-check) is a lab in which you assess a real open-source .NET codebase and write a client-ready report. [Chapter 63](#chapter-63-recommendations-proposals-and-estimates) covers options memos, proposals and estimates, [Chapter 64](#chapter-64-the-advisory-casebook) is a casebook of hard client situations, and [Chapter 65](#chapter-65-positioning-and-public-proof) turns all of it into positioning and public proof.
+
 ---
 
 
@@ -10400,7 +10402,7 @@ The senior mindset: **the AI drafts, you own.** Treat generated code exactly lik
 
 # Chapter 17: Soft Skills & Engineering Practices
 
-_⏱️ Estimated read time: ~35 min · 5850 words (study pace)_
+_⏱️ Estimated read time: ~35 min · 6027 words (study pace)_
 
 You already know how to write good C#. You can wire up dependency injection, reason about `async`/`await`, tune an EF Core query, and design a clean bounded context. That is the price of admission to being a *middle* engineer. It is not what makes you a senior one.
 
@@ -10736,6 +10738,16 @@ Driving decisions **without authority** is the staff-engineer skill. You can't o
 - **Framing in others' interests:** show how your proposal helps *their* goals, not just that it's technically superior.
 
 > **Reputation is your real currency, and it compounds. Be the person whose estimates are honest, whose reviews are fair, whose commitments land, and who says "I was wrong" when they were. That reputation, built over years, is what lets you move a decision with a single Slack message.**
+
+### From colleague to advisor
+
+Everything above assumes you sit inside the team. As a contractor, consultant or outstaffed engineer you sit next to it, and the client measures you differently. An employer pays for output; a client increasingly pays for **judgment** — the reduced risk of a decision they cannot evaluate themselves. Three shifts follow:
+
+- **From answering to framing.** "How do we build X?" becomes "Should we build X, and what does it cost us not to?" You diagnose before you prescribe.
+- **From neutral to committed.** Listing trade-offs is where the job starts. The client wants a recommendation with the conditions under which it would change.
+- **From tasks to outcomes.** Report in the client's units: money, time and risk, not tickets closed.
+
+Your influence comes from the same sources as inside a team (trust, data and bringing people along early), with one extra hazard: **self-orientation**. The moment advice sounds like it serves your next contract, it stops being advice. Part XIII, starting with [Chapter 60](#chapter-60-having-a-point-of-view), turns this stance into skills you can practise.
 
 ## 17.11 Ownership & Professionalism
 
@@ -15541,7 +15553,7 @@ Senior engineers aren't the ones who memorized the most algorithms. They're the 
 
 # Chapter 28: Compliance, Data Privacy & Cloud Cost (FinOps)
 
-_⏱️ Estimated read time: ~30 min · 5307 words (study pace)_
+_⏱️ Estimated read time: ~30 min · 5380 words (study pace)_
 
 For most of your early career, "the requirements" arrive from a product owner as user stories. Somewhere on the road to senior engineer, a second and third set of requirements appear that nobody writes on a sticky note but everybody expects you to honor: the law, and the invoice. A feature that leaks personal data or quietly triples the cloud bill is not "done," no matter how green the tests are. This chapter is about those invisible stakeholders — the regulator, the CFO, and increasingly the sustainability report — and the concrete engineering decisions that keep all of them satisfied. The third turns out to want mostly what the second wants, which is the most useful fact in the chapter.
 
@@ -15850,6 +15862,8 @@ Apply this on every non-trivial change:
 - [ ] **Caching** applied where read-heavy and staleness-tolerant.
 - [ ] A **budget + alert** exists for the resources I own.
 - [ ] I hunt and delete **idle/zombie** resources I created.
+
+> **Best practice.** Cost is the easiest door into an advisory conversation. Every client understands a bill, and "your non-prod environments cost [X] a month while idle" is a finding an executive acts on without a lesson in architecture. Running this checklist against a client's subscription and reporting in money is a small, bounded engagement that earns the right to discuss the bigger design questions. [Chapter 62](#chapter-62-lab-the-net-health-check) turns this into a full assessment.
 
 ---
 
@@ -18502,7 +18516,7 @@ Traffic is up roughly 4×. Signups are flat.
 
 # Chapter 34: Interview Questions & How to Answer Them
 
-_⏱️ Estimated read time: ~40 min · 7488 words (study pace)_
+_⏱️ Estimated read time: ~40 min · 7763 words (study pace)_
 
 This chapter is a recall-and-rehearse bank. Every topic here is taught in depth earlier in the book; the goal now is to turn that knowledge into crisp spoken answers under pressure. Read a question, cover the answer, and say your version out loud. If it comes out rambling, tighten it. Each section starts with a *Revise* pointer to the chapter(s) that teach the material. **Red flag** lines show the wrong answer interviewers hear from juniors — if your spoken version sounds like one, go back and re-read.
 
@@ -18991,6 +19005,26 @@ Bring data, not complaints: present the estimate, the trade-offs, and options (c
 
 > **Follow-up:** *Tell me about a time you had to make a decision without complete information.* Show how you bounded the risk: made a reversible choice, shipped small to learn, set a checkpoint to re-evaluate, and communicated the uncertainty rather than pretending certainty.
 
+## When the Client Interviews You
+
+*Revise: Part XIII — Chapters 60–65*
+
+Contractors and outstaffed engineers are often interviewed a second time, by the **end client**. That conversation tests judgment more than trivia. The client wants to know whether they can trust you with their system and their budget.
+
+**"Here's our situation — what would you do?"**
+Don't prescribe on the first sentence. Ask two or three diagnostic questions (the goal behind it, constraints, what's been tried), play back what you heard, then give a recommendation with its conditions: "If X, I'd start with A; if Y, B — and here is what I'd check in week one." That order is itself the signal. [Chapter 61](#chapter-61-discovery-and-diagnosis) has the question bank.
+
+**"What's your opinion on [technology or approach]?"**
+Commit to a position, say what it depends on and what would change your mind. "It depends", with nothing named, reads as not knowing. [Chapter 60](#chapter-60-having-a-point-of-view) shows how to build these positions in advance.
+
+**"How long will it take?"**
+Give a range, the assumptions behind it, and how you would narrow it (a short, paid discovery or spike). A confident single number to someone who hasn't seen the code is the red flag, not the range. See [Chapter 63](#chapter-63-recommendations-proposals-and-estimates).
+
+**"Tell me about a time you disagreed with a client."**
+STAR, with the emphasis on how you made the risk visible, let the client decide, and wrote the decision down, not on being right.
+
+> **Follow-up:** *What do you not know?* Name one real gap and how you'd close it on their project. A candidate with no gaps is less credible than one who knows where the edge is.
+
 ---
 
 ## Sources & Further Reading
@@ -19394,7 +19428,7 @@ None of this makes an untrusted dependency trustworthy. That is not the goal. Th
 
 # Chapter 36: The Story Bank & Evidence Portfolio
 
-_⏱️ Estimated read time: ~50 min · 7428 words (study pace)_
+_⏱️ Estimated read time: ~50 min · 7482 words (study pace)_
 
 Part XI is the practice gym. The thirty-five chapters before it explain how things work; the chapters in this Part make you *do* them and leave something behind that you can show. That second half is the one people skip, and it is the one that decides interviews and promotions. The gap between a middle and a senior engineer is rarely knowledge — plenty of middle engineers could pass a written exam on this book. The gap is **proof**: incidents you handled, decisions you defended, systems you measured, things you wrote that other people acted on.
 
@@ -19711,6 +19745,8 @@ Calendar span:     2021-03 → 2024-06  = 39 months = "3 years"  ✓
 ```
 
 The overlap is real work, but it did not happen in extra years. "Three years" with two overlapping engagements is true; "four years" is not.
+
+> **Beyond interviews.** The same bank feeds client-facing proof: anonymized case studies, a public health-check report and articles that defend a position. The honesty rules above apply unchanged, with a stricter confidentiality line, since a client's name or numbers need their written permission. [Chapter 65](#chapter-65-positioning-and-public-proof) builds on this chapter for clients rather than interviewers.
 
 ## The mock-interview protocol
 
@@ -22466,6 +22502,3241 @@ Each "I don't know" is a candidate for a small, measurable improvement, and for 
 The Azure incidents that cost the most time are rarely exotic. They come from a handful of mechanisms: **control plane versus data plane** permissions and their propagation delay; a **credential chain** that picks an unexpected identity; **SNAT ports** and connections that are not reused; the **slot swap sequence** and settings that move with it; **peek-lock** semantics, lock expiry and dead-letter queues nobody watches; **elastic compute in front of inelastic databases**; **hot partitions** in Cosmos DB; **private endpoints without DNS**; the **230-second** request limit; **replay** in Durable Functions; **secret rotation** without overlap; **transient SQL faults**; **telemetry caps**; and **multi-region diagrams** that stop at the compute tier.
 
 Each case follows the same discipline: read the symptom, name the mechanism, confirm it with a specific check, fix the cause rather than the symptom, and add the guardrail that keeps it fixed. That discipline, more than any service name, is what an interviewer is listening for, and what your team relies on at 3 a.m.
+
+
+---
+
+# Chapter 60: Having a Point of View
+
+_⏱️ Estimated read time: ~1 h 5 min · 11159 words (study pace)_
+
+Part XIII is about a shift that no certification measures: going from being the person a client hands tickets to, to being the person a client *asks*. For a .NET engineer placed through an outsourcing or outstaffing firm, that shift decides a lot. It decides whether you are renewed or rotated, whether you are invited to the architecture meeting or told its outcome, and whether the client's CTO asks for you by name when the next contract is signed. The vendor sells your hours. What the client comes to value, or fails to find, is your judgment.
+
+This chapter is about the first ingredient of that judgment: **having a point of view**. That means positions you hold on purpose, can defend with a mechanism, and would drop for a stated reason. The next chapters build on it. [Chapter 61](#chapter-61-discovery-and-diagnosis) turns a point of view into a diagnosis of a specific client's system, [Chapter 62](#chapter-62-lab-the-net-health-check) practises that diagnosis on a real codebase, [Chapter 63](#chapter-63-recommendations-proposals-and-estimates) turns it into written recommendations and estimates, [Chapter 64](#chapter-64-the-advisory-casebook) walks through worked engagements, and [Chapter 65](#chapter-65-positioning-and-public-proof) makes all of it visible.
+
+What this chapter does **not** repeat is [Chapter 17](#chapter-17-soft-skills-engineering-practices): stakeholder communication, disagreeing productively, ADRs and influence without authority are covered there. Chapter 17 is about how to move a decision. This chapter is about having something worth moving.
+
+```
+                  what the client sees
+                  ────────────────────
+  "a pair of hands"  ──►  "someone who knows .NET"  ──►  "someone whose opinion we want"
+        tickets              answers questions              is asked before deciding
+           │                        │                                │
+      throughput               knowledge                 point of view + diagnosis
+                                                         + proof + visibility
+```
+
+## Why Clients Pay for Judgment, Not Knowledge
+
+Start with an uncomfortable observation. Almost everything you know about .NET, the client can get somewhere else, and most of it for free. The documentation is public. The GitHub issues are public. A model will explain the difference between `IQueryable` and `IEnumerable` faster than you can open your mouth. A contractor who competes on *knowing things* competes with the documentation, with every other contractor on the vendor's bench, and with a chat window. That is a race to the lowest rate.
+
+What the client cannot get for free is **knowledge applied to their situation, with someone accountable for it**. Three properties make judgment worth paying for:
+
+1. **It is contextual.** "EF Core is slower than Dapper" is knowledge. "On *your* order-history endpoint, EF's change tracking and materialisation cost you about what we measured, and on the other 140 endpoints it costs nothing that matters, so move this one query and leave the rest alone" is judgment. The second sentence needs your system, your numbers and a decision about what matters.
+2. **It closes options.** A client with a problem already has too many options. Every blog post offers another one. Judgment is valuable because it *removes* options: it says which three of the twelve are real candidates and which one to try first. A list of options hands the hard part back to the client.
+3. **It carries risk.** Someone who commits to a position can be wrong, and the client knows it. That is exactly why a committed position means something: you are putting your credibility behind it. An advisor who never commits can never be shown to be wrong, so their advice carries no information.
+
+David Maister, Charles Green and Robert Galford, in *The Trusted Advisor*, put trust into a well-known formula: trust = (credibility + reliability + intimacy) / self-orientation. The denominator is the part engineers tend to forget. A contractor whose recommendations always happen to need more contractor hours, or whose opinions follow whatever the client's CTO said last week, has high self-orientation. Clients discount it heavily, even when they can't say why. A point of view you hold *regardless* of whom it pleases is the most direct way to push that denominator down.
+
+> **Pitfall.** Treating "the client is always right" as a professional stance. The client is always right about *what they want*. Their business goals, budget, risk appetite and deadlines are theirs to set. They are not automatically right about *how to get it*, and they did not hire a senior engineer so that someone would type up their own guesses. Deferring on the "how" feels polite. What it tells the client is that there is nobody home.
+
+### The outstaffing trap
+
+An outstaffed engineer sits inside the client's team and follows the client's process. Nothing about that setup asks you for an opinion. Tickets arrive already specified, the architecture is "already decided", and the vendor's account manager would prefer that you didn't cause friction. The result is a stable equilibrium in which you are billed as a senior and used as a middle.
+
+Nobody breaks that equilibrium for you. You break it by offering a *small*, well-reasoned, correct opinion at the right moment. "Before we build the export on top of that query, I'd check its plan; I think it scans the whole table" is enough. Then you repeat that. Each correct call raises the credibility term. Each call you make without spin lowers self-orientation. After enough of them the client starts asking before deciding. There is no shortcut that skips the repetitions.
+
+## The Five Layers of Client-Perceived Expertise
+
+A client does not see "expertise" directly. They infer it from things they can observe. It helps to separate those observable things into five layers, because each one fails in its own way and needs its own fix.
+
+```
+        ┌──────────────────────────┐
+        │        VISIBILITY        │  they know you exist and what you stand for     (Ch 65)
+        ├──────────────────────────┤
+        │          PROOF           │  evidence you've been right before              (Ch 36, 65)
+        ├──────────────────────────┤
+        │        DIAGNOSIS         │  you can apply it to THEIR system               (Ch 61, 62)
+        ├──────────────────────────┤
+        │      POINT OF VIEW       │  you have positions, not just facts             (this chapter)
+        ├──────────────────────────┤
+        │        KNOWLEDGE         │  you know how the platform works                (Ch 1–35, 50–51)
+        └──────────────────────────┘
+          each layer rests on the ones below it; a gap anywhere reads as a gap in all of them
+```
+
+| Layer | What the client observes | How it fails | What it sounds like when it's missing |
+|---|---|---|---|
+| **Knowledge** | You answer technical questions correctly and quickly | Shallow knowledge falls apart after the second "why?" | "I'd have to look that up" on a core topic, repeatedly |
+| **Point of view** | You recommend; you don't just list | Neutral trade-off lists, or opinions held for the wrong reasons | "There are pros and cons to both approaches" |
+| **Diagnosis** | You find *their* real problem, which is often not the one they reported | Pattern-matching a generic solution onto a specific system | "You should use microservices" before reading the code |
+| **Proof** | Past results, write-ups, numbers from real runs | Claims with no artefacts, or artefacts nobody can check | "Trust me, I've done this before" |
+| **Visibility** | People who haven't worked with you already know what you think | Good work only the immediate team ever sees | Being introduced as "one of the vendor's developers" |
+
+Two properties of this stack matter in practice.
+
+**The layers are inferred from the top down but built from the bottom up.** A prospective client meets your visibility first: a talk, a post, a colleague's recommendation. Then they check it against your proof, then against how you diagnose their system in the first week. If they find a gap, it spreads to every layer. One confident, wrong diagnosis in week one will make them discount a strong portfolio. So you build from the bottom and are judged from the top.
+
+**Point of view is the hinge.** Knowledge without a point of view is a reference book. Diagnosis without one has nothing to diagnose *against*, and visibility without one is just aggregating news.
+
+## Trade-off Lists vs. Committed Positions
+
+Every engineer has written the neutral trade-off list. The client asks "should we use Azure Service Bus or RabbitMQ?", and the reply is a balanced table: managed vs self-hosted, sessions vs quorum queues, pricing tiers vs ops cost, feature for feature. It is accurate and fair, and it leaves the client exactly where they started, now holding a table.
+
+The list is not wrong. It is **incomplete**. It does the knowledge half of the work and skips the judgment half. The missing step is the one where you weigh the rows *for this client* and say which way the balance tips.
+
+| | Neutral trade-off list | Committed position |
+|---|---|---|
+| Answers | "What are the options?" | "What should we do?" |
+| Work done for the client | Research | Research **and** the decision |
+| Risk carried by the advisor | None; it can't be wrong | Real; it can be wrong |
+| Information content | Low; the client could have searched for it | High; it encodes your weighting |
+| Failure mode | Paralysis, or the client picks for the wrong reason | Overconfidence, if held without a mechanism |
+| When it's right | Early exploration; the client explicitly wants to decide | Almost every time a client asks "what would you do?" |
+
+The committed position does not throw the trade-offs away. It **ranks** them. Here is the same Service Bus vs RabbitMQ question, answered both ways:
+
+```
+NEUTRAL
+  Both are mature brokers. Service Bus is fully managed and supports sessions,
+  scheduled messages and dead-lettering. RabbitMQ is open source, very flexible,
+  and can run anywhere. Service Bus costs money per operation; RabbitMQ costs
+  operational effort. It depends on your requirements.
+
+COMMITTED
+  Service Bus. You're Azure-only, the team is four developers with no one on call
+  for infrastructure, and your ordering requirement is per-customer, which is
+  exactly what Service Bus sessions give you. RabbitMQ would be my pick if you
+  needed to run on-prem or across clouds, or had a platform team to operate it;
+  you have neither. I'd change my mind if the throughput estimate from the
+  capacity exercise lands well above what the Standard tier handles, because
+  then we're comparing Premium pricing against running RabbitMQ ourselves,
+  and that's a different conversation.
+```
+
+The committed answer is only a little longer. It names the decision, the two or three facts about *this client* that decide it, the case where the other option wins, and the condition that would reverse it. That is the shape the next section formalises.
+
+> **Best practice.** When a client asks an either/or question, the first sentence of your answer is the recommendation. Reasoning comes second and trade-offs third. Engineers habitually build up to the conclusion, and a busy reader stops before reaching it. [Chapter 17](#chapter-17-soft-skills-engineering-practices) makes the same point about written communication in general: put the ask first.
+
+> **Gotcha.** "I'll lay out the options and let you decide" can be the right answer, when the decision truly turns on something only the client can weigh, such as their risk appetite, a political constraint, or a budget line you can't see. Then say *that*: "This comes down to how much you value X over Y; that's your call. If X matters more, A; if Y, B." That is still a position: a position on *what the decision turns on*. What you don't do is hand over a table and walk away.
+
+## The Anatomy of a Defensible Opinion
+
+"Defensible" doesn't mean "correct". It means the opinion survives a skeptical, intelligent person pushing on it. That happens not because you win the argument, but because every push lands on something you have already thought through. A defensible opinion has five parts.
+
+```
+  ┌─────────────┐   ┌──────────────┐   ┌────────────┐   ┌─────────────┐   ┌──────────────────┐
+  │   CLAIM     │──►│  MECHANISM   │──►│  CONTEXT   │──►│ COUNTER-CASE│──►│ I'D CHANGE MY    │
+  │ what to do  │   │ why it works │   │ when it    │   │ where the   │   │ MIND IF…         │
+  │             │   │ (causal)     │   │ holds      │   │ opposite    │   │ (observable)     │
+  │             │   │              │   │            │   │ wins        │   │                  │
+  └─────────────┘   └──────────────┘   └────────────┘   └─────────────┘   └──────────────────┘
+     answers           answers            answers          answers            answers
+    "so what?"         "why?"          "always?"        "what about…?"     "are you sure?"
+```
+
+Each part answers one predictable challenge. When a part is missing, that challenge turns into an argument.
+
+**1. The claim.** One sentence, specific enough to act on. "Use the outbox pattern" is a claim. "Think carefully about consistency" is not, because nobody could disagree with it. That is the test: *could a competent engineer reasonably hold the opposite view?* If not, you have a platitude, not an opinion.
+
+**2. The mechanism.** The causal story of *why* the claim is true, told in terms of how the system actually behaves. It is the most important part and the one most often missing. "Because it's best practice" is not a mechanism. "Because the database commit and the broker publish are two separate operations, and a crash between them loses or duplicates the event; putting the event in the same transaction as the data makes the pair atomic" is a mechanism. It lets the listener check your reasoning instead of trusting your authority. It also lets you work out the context and counter-case yourself, because once you know *why* something works you know when it stops working.
+
+**3. The context.** The conditions under which the mechanism applies. Every engineering claim has them, and experts state them without being asked. "For systems where the message and the data change live in the same relational database" is context. Leave it out and the claim sounds universal, and universal claims are easy to refute with a single counterexample.
+
+**4. The counter-case.** The situation where the opposite choice wins, stated honestly and before anyone raises it. Naming it first does two things. It shows you have looked at the alternative seriously. And it takes away the skeptic's best move, because the counterexample they were about to produce is already on the table, together with why it doesn't apply here.
+
+**5. "I'd change my mind if…"** An observable condition that would reverse the claim. Not "if someone gives me a good argument"; that is unfalsifiable. It has to be something you could measure or see: "if the relay's lag p99 exceeds the business's freshness requirement under realistic load" or "if we find the broker and the database need to stay consistent across different storage engines." This clause is what separates an opinion held on evidence from one held out of identity. If you can't write it, you don't hold the opinion. The opinion holds you.
+
+Here is the template. Use it for every entry in the canon that follows.
+
+```
+**Position**
+One sentence. Specific enough that a competent engineer could disagree.
+
+**Mechanism**
+Why it's true, in terms of how the system behaves. No appeals to authority.
+
+**Holds when**
+The conditions the mechanism depends on.
+
+**Counter-case**
+Where the opposite choice wins, and why that isn't this situation.
+
+**I'd change my mind if**
+Observable, measurable conditions. Not "a better argument".
+
+**Evidence / where the mechanism lives**
+Links: book chapter, your own measurement, an ADR, a post-mortem.
+
+**Held since / last revised**
+Dates. Positions have a history.
+```
+
+> **Best practice.** Say the mechanism out loud even to clients who "don't need the details". A non-technical stakeholder can't check an EF Core query plan, but they can tell whether you explained *why* or simply asserted *what*. The mechanism is how they learn that your confidence rests on something. You pitch it in their vocabulary ("two separate saves that can fail independently"), not yours, but you don't leave it out.
+
+## Strong Opinions, Loosely Held, and How It Slides into Dogma
+
+The futurist Paul Saffo popularised the maxim "strong opinions, weakly held" in a 2008 essay on forecasting. His method was to force yourself to a tentative conclusion early, then set about proving it wrong, using each failed version to steer the search for better information. It is often quoted as "strong opinions, loosely held", and in software culture it has drifted a long way from what he meant.
+
+The original is a **process**. You form a view quickly so that you have something concrete to attack, then you attack it. The strength is there to make the view testable. The looseness is how you run the test.
+
+The drifted version is a **personality**: be loud and confident, and if someone pushes back hard enough, fold gracefully. That keeps the confident delivery and drops the self-attack. Nothing in it says what would make you let go, so in practice the opinion is held exactly as loosely as the social pressure in the room allows. Critics have pointed out that this rewards confident people for being confident, not for being right. Cedric Chin's essay "Strong Opinions, Weakly Held Doesn't Work That Well" at Commoncog is a good read on this.
+
+There are two ways it goes wrong, and they point in opposite directions:
+
+```
+   DOGMA                      CALIBRATED POSITION                    WEATHERVANE
+   ─────                      ───────────────────                    ───────────
+   strong, never updated      strong, updated on evidence            weak, updated on pressure
+   "always use X"             "X, because M; unless C"               "X… or Y, whatever you prefer"
+   the mind-changer           the mind-changer is written            the mind-changer is
+   doesn't exist              down in advance                        whoever spoke last
+
+   client learns:             client learns:                         client learns:
+   your answer is fixed       your answer carries information        your answer carries none
+```
+
+**How positions harden into dogma.** It rarely happens all at once. It builds up through a few steps you can recognise:
+
+1. **The mechanism falls out.** You say "modular monolith first" so often that you stop saying *why*. Once the mechanism is gone, you can't tell when it stops applying.
+2. **The context falls out.** "For a team of this size" quietly becomes "always".
+3. **The position becomes identity.** You're known as "the monolith person". Now changing your mind costs you something socially, so you stop looking for reasons to.
+4. **Counterevidence gets explained away.** When a client's microservices work fine, it's "because they have an unusually good platform team", and you never ask whether that is common.
+
+The fix is structural, not a matter of willpower. Write the "I'd change my mind if" clause **before** you are in an argument, date it, and review it on a schedule (see [the calibration section](#calibration-keeping-score-on-yourself) below). A written clause is hard to quietly move. In the middle of a disagreement you can't redraw the line, because you drew it last spring.
+
+> **Pitfall.** Confusing *confidence of delivery* with *strength of opinion*. You can state a position calmly, with an explicit probability, and still hold it strongly: "I'm fairly sure, call it 80%, that the lock contention is in the outbox relay, not the API." Clients don't need you to sound certain. They need you to be *accurate about how certain you are*. That is the whole calibration section in one sentence.
+
+> **Gotcha.** Philip Tetlock's research on expert political judgment (the "foxes and hedgehogs" distinction he borrowed from Isaiah Berlin) found that experts organised around one big idea tended to forecast worse than experts who drew on many small models and updated often. Engineers with a signature position — "everything should be event-driven", "ORMs are always a mistake" — are hedgehogs. The trap is that hedgehogs make better *content*: a single strong thesis is more quotable. [Chapter 65](#chapter-65-positioning-and-public-proof) deals with how to be visible without turning into a hedgehog.
+
+## Building Your Opinion Canon
+
+An **opinion canon** is a written set of 15–20 positions on recurring decisions in your field. Each one is in the five-part format above, dated, and linked to the evidence behind it. It is the reference you consult before a client asks, so that when they do, you give a considered answer instead of an improvised one.
+
+Why write it down rather than "just know" your opinions?
+
+- **Writing exposes missing mechanisms.** Many positions that feel solid in your head turn out to be "because everyone says so" once you try to write the mechanism paragraph. Better to find that at your desk than in front of a client's architect.
+- **It makes you consistent.** A client who hears one position in week one and a contradictory one in week six, both stated confidently, will stop trusting both. The canon keeps you consistent with yourself, and when you do change, the change is deliberate and explained.
+- **It is proof as well as preparation.** A public canon is evidence of judgment that a CV cannot provide (see [Chapter 36](#chapter-36-the-story-bank-evidence-portfolio) and [Chapter 65](#chapter-65-positioning-and-public-proof)).
+- **It gives you a baseline for [diagnosis](#chapter-61-discovery-and-diagnosis).** A health check measures a system against a view of what healthy looks like. Your canon *is* that view, written down.
+
+> **The portfolio rule.** Your canon and your radar go in **your own public portfolio repo**, not in this handbook's repository. Stories that back them up must be anonymised. A position may rest on "a payments client in 2025", but not on a named company, and not on anything covered by an NDA without permission. When in doubt, the evidence you cite is your own lab run (Part XI), a public benchmark, or a book chapter. Real-client stories stay in your private story bank.
+
+What follows are eight worked positions. Each is grounded in a chapter of this book that holds the full mechanism. They are *examples of the format*, and reasonable positions in their own right, but a canon you copy is worth nothing. Rewrite each one in your own words, check its mechanism against your own experience, and change it where you disagree. **Where you disagree with this book is where your canon gets interesting.**
+
+### Canon #1: Modular monolith first; services earn their way out
+
+**Position.** A new system, or a new team's system, starts as a modular monolith: one deployable unit, strict internal module boundaries, ideally a schema per module. A module is extracted into a service only when there is a specific, named reason.
+
+**Mechanism.** Microservices trade in-process calls and local transactions for network calls and eventual consistency. That buys independent deployment and independent scaling. The cost is paid immediately and on every request: latency, partial failure, distributed tracing, contract versioning, data duplication. The benefit only shows up once you have teams that need to deploy independently, or components with very different scaling profiles. A modular monolith keeps the boundaries, which are the expensive part to get right, without paying the network tax, and a clean boundary is what makes a later extraction cheap. Get the boundaries wrong inside a monolith and you move some code. Get them wrong across services and you get a distributed monolith.
+
+**Holds when.** One team or a few; boundaries not yet proven by real change patterns; no module with scaling needs orders of magnitude apart from the rest.
+
+**Counter-case.** Several teams that already block each other's releases; a component with very different runtime needs (a GPU-bound inference worker, a burst-scaling ingestion endpoint); a regulatory requirement to isolate a component's data and deployment.
+
+**I'd change my mind if.** Deploy-coordination cost becomes measurable: releases held up waiting on other modules, merge queues backing up across module boundaries. Or a module's resource profile shows up in the metrics as the thing driving the whole app's scaling.
+
+**Mechanism lives in.** [Chapter 6: Architecture & Application Design](#chapter-6-architecture-application-design) (monolith vs microservices vs modular monolith); [Chapter 32](#chapter-32-putting-it-all-together-a-capstone-learning-path) (the capstone's "split into microservices" step, and what it costs); [Chapter 21](#chapter-21-distributed-systems-theory-reliability-engineering) (the fallacies of distributed computing you sign up for).
+
+### Canon #2: EF Core by default; Dapper on measured hot paths
+
+**Position.** Data access defaults to EF Core. A specific query moves to Dapper, or to hand-written SQL through EF, when a measurement shows EF's overhead matters on that path. Not before, and not across the whole codebase.
+
+**Mechanism.** EF Core's cost is expression translation, change tracking and materialisation. Its benefit is migrations, LINQ composition, the unit of work, and a domain model that changes safely. On most endpoints, the database round-trip and the query plan dominate latency, and EF's overhead is small in comparison. On a small number of hot, read-heavy paths the overhead becomes a real share. You can only find those paths by measuring. Replacing EF wholesale pays the Dapper cost (hand-owned SQL, no change tracking, no migrations) everywhere in order to collect the benefit in a few places. `AsNoTracking`, projections and compiled queries also close much of the gap without leaving EF.
+
+**Holds when.** A typical line-of-business app with a relational store; a team that isn't made up of SQL specialists; a write side with real domain rules.
+
+**Counter-case.** Reporting and analytics services that are mostly complex read SQL; a team of strong SQL developers who will own every query anyway; tight latency budgets across the board, not just on a few paths.
+
+**I'd change my mind if.** Profiling shows EF overhead (not the query plan, not N+1) as a large part of latency on *many* endpoints, or the SQL EF generates keeps defeating tuning on the queries that matter most.
+
+**Mechanism lives in.** [Chapter 4: Data Access & Databases](#chapter-4-data-access-databases) (EF Core internals, Dapper, mixing both in one transaction); [Chapter 15: Performance & Optimization](#chapter-15-performance-optimization) (how to measure before changing); [Chapter 37](#chapter-37-the-slow-query-lab-reading-execution-plans) (reading the plan, which is usually where the time actually goes).
+
+### Canon #3: The outbox over distributed transactions
+
+**Position.** When a service must change its database *and* publish an event, it writes the event to an outbox table in the same local transaction, and a relay publishes it. Not a distributed transaction (2PC) across database and broker, and not "save then publish and hope".
+
+**Mechanism.** The database commit and the broker publish are two separate operations with separate failure modes. A crash between them either loses the event or publishes one for data that was never saved. 2PC can make them atomic, but it needs both resources to take part in a coordinator protocol. Many cloud brokers don't, and where it is supported it holds locks across the network and makes the coordinator a failure point. The outbox turns a cross-resource problem into a single-resource one: one local ACID transaction covers both the data and the *intent* to publish. The price is at-least-once delivery, so consumers must be idempotent, plus a relay you have to run and monitor, plus some publish latency.
+
+**Holds when.** The data and the outbox can live in the same transactional store; consumers can be made idempotent; a publish delay of seconds is acceptable to the business.
+
+**Counter-case.** Very high-volume streams where change data capture (CDC) from the transaction log is cheaper than polling an outbox table; workflows that really are long-running across services, where a saga with compensations is the right shape and the outbox is only one piece of it.
+
+**I'd change my mind if.** Relay lag under realistic load exceeds the business's freshness requirement and tuning doesn't fix it (then look at CDC), or the outbox table's write amplification shows up as a bottleneck in the database's own metrics.
+
+**Mechanism lives in.** [Chapter 9: Messaging & Distributed Systems](#chapter-9-messaging-distributed-systems) (the outbox pattern and idempotent consumers); [Chapter 23](#chapter-23-data-at-scale-multi-tenancy) (outbox vs CDC); [Chapter 21](#chapter-21-distributed-systems-theory-reliability-engineering) (idempotency as the antidote to "did that happen?"). [Chapter 17](#chapter-17-soft-skills-engineering-practices) has a worked ADR for exactly this decision.
+
+### Canon #4: Long-lived systems stay on LTS
+
+**Position.** Production systems with a multi-year maintenance horizon target the current LTS release of .NET. An STS release is chosen only for a specific feature you need now, with an upgrade already planned. Upgrades are scheduled well before end of support, never in the month it runs out.
+
+**Mechanism.** LTS and STS builds get the same quality of fixes while they are supported; the only difference is how long support lasts. LTS releases get three years, STS releases a shorter window (extended to 24 months starting with .NET 9). Every major upgrade costs something: breaking changes, re-testing, dependency bumps. LTS lets you pay that cost less often, on a calendar you can plan. Running past end of support means no security patches, which is both a vulnerability and an audit finding. The calendar can also surprise you: .NET 8 (LTS) and .NET 9 (STS) both reach end of support on November 10, 2026, while .NET 10 (LTS) is supported until November 14, 2028. A team that moved to .NET 9 "to be ahead" gained no extra runway.
+
+**Holds when.** The product outlives a single release cycle; the team has limited capacity for platform work; compliance requires supported runtimes.
+
+**Counter-case.** Short-lived services, internal tools, or teams with strong automated upgrade pipelines for whom yearly upgrades are routine; a specific STS feature that removes real pain now (a performance win on a measured bottleneck, a platform capability you need).
+
+**I'd change my mind if.** The team's measured upgrade cost falls to routine, for example a major version bump handled in days, with tests catching the breaks. Then the argument for LTS weakens, and staying current gets you performance improvements sooner.
+
+**Mechanism lives in.** [Chapter 2: .NET Runtime & Internals](#chapter-2-net-runtime-internals) (release cadence, LTS vs STS); [Appendix B](#appendix-b-net-version-comparison-cheat-sheet) (dates and support windows); [Chapter 30](#chapter-30-working-with-legacy-brownfield-code) (the end-of-life treadmill).
+
+### Canon #5: Managed identity over secrets
+
+**Position.** Workloads authenticate to cloud resources (databases, Key Vault, storage, Service Bus) through a managed identity or workload identity. A stored secret is the exception, documented and on a rotation schedule. Moving a secret into Key Vault is not the goal. The goal is not having the secret at all.
+
+**Mechanism.** A secret is a bearer credential. Whoever holds it *is* the service, from anywhere, until it is rotated. Every copy (config file, CI variable, a developer's laptop, a log line) is another way to leak it, and rotation is a coordinated change that teams tend to put off. A managed identity replaces "something the app knows" with "something the platform vouches for". The platform issues short-lived tokens to the workload, there is nothing long-lived to copy, and access is granted and revoked through RBAC on the identity. Key Vault on its own still needs the app to authenticate *to the vault*, and with managed identity that last secret disappears too.
+
+**Holds when.** The workload runs on a platform that issues identities (App Service, Functions, AKS with workload identity, VMs, Container Apps) and the target resource accepts Entra ID authentication.
+
+**Counter-case.** Third-party APIs that accept only API keys (store the key in Key Vault, fetch it using the managed identity); on-premises or other-cloud workloads, where workload identity federation is the equivalent move; local development, where developer credentials take the managed identity's place.
+
+**I'd change my mind if.** A target service in the client's stack doesn't support Entra authentication. That case is a documented exception, not a reversal. Or if the RBAC model becomes so sprawling that nobody can say which identity has access to what. That is a governance problem, but a real one.
+
+**Mechanism lives in.** [Chapter 14: Security](#chapter-14-security) (secrets management; zero trust and workload identity); [Chapter 50: Azure in Depth](#chapter-50-azure-in-depth-for-net-developers) (Entra ID, managed identity and RBAC, mechanically); [Chapter 51](#chapter-51-the-azure-casebook-real-incidents-real-fixes) (what goes wrong when the app uses a different principal than you think).
+
+### Canon #6: Observability before microservices
+
+**Position.** A team doesn't split a system into services until it can answer "why is this request slow?" and "what happened to this order?" in the system it *already* has: structured logs, metrics, and distributed traces with correlation IDs, all working. Observability comes first. It is a prerequisite, not a follow-up task.
+
+**Mechanism.** In a monolith, a stack trace and a profiler reach most problems, because the whole request happens in one process. Split it, and a single user action becomes a chain of network hops across processes, each with its own logs and its own clock. Without trace context carried across those hops, diagnosis turns into manual log archaeology across services, and outages last longer because nobody can *find* the problem, not because it is hard to *fix*. Distribution multiplies the number of failure points and cuts your ability to see them. Only observability built beforehand restores that ability. A team that can't debug its monolith from telemetry will do worse with twelve services.
+
+**Holds when.** Any move towards more processes: services, background workers, queues, serverless functions.
+
+**Counter-case.** Honestly, I don't know a strong one. The nearest is a very small, well-understood integration (one worker, one queue) where log correlation by message ID is enough. Even there, OpenTelemetry costs little to add.
+
+**I'd change my mind if.** Hard to see it happening. This is one of the positions where the "change my mind" clause is weak, and you should say so: a position you can't imagine being wrong about deserves *more* scrutiny, not less. Review it anyway.
+
+**Mechanism lives in.** [Chapter 13: Observability](#chapter-13-observability) (the three signals, correlation across services, and the 3 a.m. walk); [Chapter 21](#chapter-21-distributed-systems-theory-reliability-engineering) (SLOs and error budgets as what the telemetry is *for*).
+
+### Canon #7: Test against the engine you run in production
+
+**Position.** Anything that touches SQL (queries, migrations, constraints, concurrency behaviour) is tested against the same database engine as production, in a container. The EF Core in-memory provider is not used as a stand-in for a relational database.
+
+**Mechanism.** A test is only worth as much as its fidelity to the behaviour it claims to check. The in-memory provider isn't relational: it doesn't enforce constraints the way the real engine does, doesn't support transactions or raw SQL, and translates queries differently. So a test can pass against it and the same code can fail in production, which is a green suite giving false confidence. Testcontainers makes the real engine about as cheap to run as a fake, so the fidelity argument now costs little.
+
+**Holds when.** There is a relational store and the code does anything beyond trivial CRUD against it.
+
+**Counter-case.** Pure domain logic with no persistence, which should be tested without any database at all; teams whose CI truly can't run containers (then invest in making it able to, and meanwhile accept the gap knowingly).
+
+**I'd change my mind if.** Container start-up and image pulls make the suite slow enough that people stop running it locally. The fix is usually reusing containers and caching images, but if it doesn't work, a faster lower-fidelity tier plus a smaller real-engine tier is a reasonable compromise.
+
+**Mechanism lives in.** [Chapter 7: Testing](#chapter-7-testing) (the in-memory provider trap, Testcontainers); [Chapter 25](#chapter-25-advanced-specialized-testing) for the specialised tiers.
+
+### Canon #8: Strangle; don't rewrite
+
+**Position.** Modernising a legacy .NET Framework system (or any large running system) happens incrementally behind a routing façade, one slice at a time, with the old system still serving the rest. A big-bang rewrite is not on the table unless the case against incremental migration is specific and written down.
+
+**Mechanism.** A running system encodes years of edge cases that nobody has written down, and a rewrite rediscovers them one production incident at a time. The business doesn't stop while you rewrite, so the target keeps moving and you maintain two systems. Value only arrives at cutover, which makes the project easy to cancel, and cutover is all-or-nothing. The strangler fig reverses each of these: value arrives slice by slice, each slice is verified against the live system's actual behaviour, and each step can be rolled back.
+
+**Holds when.** The system is in use, its behaviour is only partly specified, and the business can't freeze feature work.
+
+**Counter-case.** A small system whose behaviour is fully covered by characterisation tests; a platform so hostile to change (unsupported runtime, no seams at all, no way to route traffic) that the façade itself would cost more than a careful rewrite of a *small* scope.
+
+**I'd change my mind if.** The cost of keeping the old and new systems running side by side (duplicate data sync, a routing layer, two deploy pipelines) grows beyond the pace of migration for more than a couple of quarters. That means the strangling has stalled and needs a different plan.
+
+**Mechanism lives in.** [Chapter 30: Working with Legacy & Brownfield Code](#chapter-30-working-with-legacy-brownfield-code) (strangler fig vs big rewrite, .NET Framework to modern .NET).
+
+### Filling out the rest of the canon
+
+Eight positions are a start; twelve more make a working canon. Some prompts, plus others you'll recognise from your own client work (coverage targets, dependency pinning, schema registries):
+
+- Where resilience lives: in every HTTP client through the standard handlers, or in a mesh? ([Chapter 21](#chapter-21-distributed-systems-theory-reliability-engineering))
+- Clean Architecture's layers: when they pay for themselves and when they are ceremony. ([Chapter 5](#chapter-5-design-patterns-principles-clean-code), [Chapter 6](#chapter-6-architecture-application-design))
+- Background work: `BackgroundService`, Hangfire/Quartz, or a queue plus workers? ([Chapter 22](#chapter-22-background-processing-scheduling-the-actor-model))
+- Multi-tenancy: shared schema with a tenant column, schema per tenant, or database per tenant? ([Chapter 23](#chapter-23-data-at-scale-multi-tenancy))
+- Kubernetes for a team of five: yes, no, or "use the managed container platform one step down"? ([Chapter 11](#chapter-11-containers-orchestration))
+- How much AI assistance in the codebase, and under which review rules? ([Chapter 18](#chapter-18-the-ai-native-developer-thriving-in-the-ai-era))
+
+> **Best practice.** Include at least two positions where you disagree with the mainstream, or with this book. A canon that agrees with every conference talk is a summary, not a point of view. The disagreements are what a client remembers, and what shows that you think instead of repeat, as long as each one has a mechanism behind it.
+
+> **Pitfall.** A canon made entirely of "should" statements about *other people's* code. A good canon also includes positions about *process*: when to write an ADR, when to spike, how you estimate, when you refuse to give a number. Clients experience your process every week and your architecture opinions only occasionally.
+
+## A Personal Tech Radar
+
+The canon holds *positions* on decisions. A **tech radar** holds *stances* on specific technologies, techniques, tools and platforms, and it tracks how those stances move over time. The format was made popular by Thoughtworks' Technology Radar: items ("blips") placed on four rings, in four quadrants. Thoughtworks also publishes a "Build Your Own Radar" tool, and many companies keep internal radars in the same format.
+
+The four rings, as Thoughtworks defines them in substance:
+
+| Ring | Meaning | What it commits you to | .NET-flavoured example (yours will differ) |
+|---|---|---|---|
+| **Adopt** | Proven and mature; you'd seriously consider it the default | Recommending it without much caveat | OpenTelemetry for traces and metrics; Testcontainers for data-access tests; .NET 10 for new long-lived services |
+| **Trial** | Ready to use, not as fully proven; use on a project that can absorb risk | Having used it for real, or being willing to on a bounded project | Aspire for local multi-service orchestration |
+| **Assess** | Worth exploring to understand how it would affect you | Having looked closely enough to say what it's *for* | Native AOT for a latency-sensitive API; a new data-access library you haven't shipped |
+| **Hold** | Getting attention, but proceed with caution, or stop using it for new work | Being ready to explain *why* in one breath | EF Core in-memory provider as a relational test double; starting a greenfield system as microservices; new code on .NET 8 or 9 this late in their support window |
+
+Thoughtworks' quadrants are *Techniques*, *Tools*, *Platforms*, and *Languages & Frameworks*. For a personal radar they work fine as they are. Use your own if they fit your practice better, for example *Architecture*, *Data*, *Delivery* and *Cloud*.
+
+The example column is illustrative. It shows the *shape* of an entry, not a recommendation to copy. Your radar is only worth something if it reflects **your** hands-on experience. An item in Adopt that you have never shipped is borrowed opinion.
+
+The canon changes rarely; the radar's most useful property is **movement**. An item that went from Assess to Trial to Adopt over two years, with a dated note at each step, shows that you evaluate technology in stages instead of jumping on trends. An item that moved from Adopt to Hold, with the reason, shows you are willing to update, and that is worth more to a client than any number of blips that never moved.
+
+### Keeping the radar honest
+
+- **Publish editions, not a live document.** Date each edition (quarterly or twice a year) and keep old ones. The diff between editions is the point.
+- **Every blip gets a rationale** of two to four sentences: what you've done with it, where it fits, the one thing to watch out for. An entry with no rationale is just a logo.
+- **Mark hands-on vs read-about.** A simple marker, such as "(used in production)", "(lab only)" or "(reading)", keeps you honest and tells the reader how much weight to give it.
+- **Hold is not an insult.** Put things in Hold with care and a specific reason. "Hold: overhyped" says nothing. "Hold for new work: this replaces a problem you don't have with a platform you'd have to operate" says something.
+- **Keep it small.** A personal radar with 80 blips is a list of everything you've heard of. Twenty to forty items you can actually speak to is plenty.
+
+A minimal edition in Markdown, for your portfolio repo:
+
+```
+**Radar — edition [YYYY-MM]**
+
+**Adopt**
+- OpenTelemetry (.NET) — Techniques/Tools — used in production at [anonymised client type].
+  Traces + metrics via OTLP; logs still via [provider]. Watch: cardinality of custom attributes.
+  Moved from Trial in edition [YYYY-MM] after [evidence].
+
+**Trial**
+- [item] — [quadrant] — (lab only). What it's for, where it fits, what I'm watching.
+
+**Assess**
+- [item] — [quadrant] — (reading). What question I'm trying to answer about it.
+
+**Hold**
+- [item] — [quadrant] — the specific reason, and what I recommend instead.
+
+**Moved since last edition**
+- [item]: [old ring] → [new ring], because [evidence].
+```
+
+## Saying "It Depends" Like an Expert
+
+"It depends" is the most mocked answer in software, and also the most honest one. It is mocked because it usually ends the answer. It is honest because almost every engineering answer really does depend on something. The expert's version keeps the honesty and removes the evasion: **name what it depends on, say which way each value points, and say how to find out which value applies.**
+
+```
+  NOVICE                 "It depends."
+                                │
+  INTERMEDIATE           "It depends on your requirements."        ← names a category, not a variable
+                                │
+  EXPERT                 "It depends on two things: A and B.
+                          If A is ___, do X, because ___.
+                          If A is ___, do Y.
+                          B only matters if ___.
+                          We can find out A by ___ this week.
+                          My bet, from what I've seen so far, is X."
+```
+
+That last line matters. An expert "it depends" usually ends with a *provisional* call: "I'd bet X, and here is what would tell us otherwise." You have conditioned the answer on the variables. You have not avoided giving one.
+
+Here it is applied to a question clients really do ask: *"Should we add a Redis cache in front of the product catalogue?"*
+
+| It depends on… | If… | Then… | Because (mechanism) |
+|---|---|---|---|
+| **Read/write ratio** of the data | Reads vastly outnumber writes | Caching is a candidate | Each hit saves a round-trip; each write costs an invalidation |
+| | Writes are frequent | Probably not | Invalidation traffic and staleness cancel out the gains |
+| **Where the latency actually is** | The DB query is the slow part and can't be tuned further | Cache helps | You skip the slow part |
+| | The query is slow because of a missing index or an N+1 | Fix the query first | A cache hides a defect that will come back on the next cache miss |
+| **Staleness tolerance** | Seconds of staleness are fine | Simple TTL cache | No invalidation logic needed |
+| | Must be fresh (prices, stock) | Cache with explicit invalidation, or don't cache | Stale price = wrong charge |
+| **Operational capacity** | Team can run and monitor Redis | Distributed cache is viable | It's another stateful dependency with its own failure modes |
+| | It can't | In-memory `HybridCache`/`IMemoryCache` per instance first | Gets most of the win with no new infrastructure |
+
+And the answer that goes with the table: *"It depends mostly on where the latency is. My bet is the catalogue query itself; I saw an N+1 in the product-list endpoint last week. Give me a day to profile it. If the query is the problem, we fix it and probably don't need a cache. If the query is already tight and reads dominate, an in-process cache with a short TTL gets most of the win before we add Redis."*
+
+This is a small version of what [Chapter 61](#chapter-61-discovery-and-diagnosis) does at the scale of a whole system: turning "it depends" into a short list of variables and a cheap way to measure each one.
+
+> **Best practice.** Keep it to *two or three* variables. If you list seven, you are reciting the whole problem space, which is the neutral trade-off list again with extra steps. Part of the expertise is knowing which two variables actually decide the answer in most cases.
+
+> **Gotcha.** Sometimes the honest variable is political, not technical: "It depends on whether the platform team will support Redis in production." Say so. It's still a real variable, and naming it early saves a month of technical work on an option that was never going to be allowed.
+
+## What You Know, What You Believe, and What You'd Need to Test
+
+Advisors lose credibility less often by being wrong than by being wrong **at the wrong level of confidence**, presenting a guess as a fact. The discipline that prevents it is simple to describe and hard to keep up: every claim you make to a client sits in one of three buckets, and you say which.
+
+| Bucket | What it means | How you phrase it | Example |
+|---|---|---|---|
+| **Know** | Verified: measured on this system, confirmed in source or official documentation, reproduced | Plain statement, with the source | "The order-list endpoint issues [N] queries per request. Here's the SQL log from staging." |
+| **Believe** | Reasoned from mechanism and experience, not yet verified *here* | "I think… because…", ideally with a probability | "I think most of the p95 is those queries, because the endpoint does little else. Call it 80%." |
+| **Need to test** | Plausible, but you don't have the information to lean either way | "I don't know yet. Here's how we'd find out, and what it costs" | "Whether batching fixes it depends on how the ORM translates the include. A one-day spike tells us." |
+
+The mechanism behind why this works: a client can't audit most of what you say, so they audit the *few* things they can check and generalise from those. If one confident "know" claim turns out to be a "believe", everything else you said gets marked down, including the things you really did know. If you flagged it as a belief with 80% and it turned out wrong, you were right about your uncertainty, and your credibility holds. Labelling protects your credibility where it is most exposed.
+
+> **Pitfall.** "Know" claims borrowed from memory of an older version. .NET changes a lot from release to release: a default changes, an API is obsoleted, the performance characteristics of something you "know" shift completely. "EF Core can't do X" might have been true two majors ago. Unless you checked it against the current version, a remembered platform fact is a *belief*. Treat it as one.
+
+> **Best practice.** In written recommendations, make the buckets visible. A findings table with a column for evidence ("measured", "inferred", "to verify") costs one column and tells the reader exactly how much weight each row can take. [Chapter 63](#chapter-63-recommendations-proposals-and-estimates) builds this into the proposal format.
+
+## Calibration: Keeping Score on Yourself
+
+**Calibration** is how well your stated confidence matches your actual hit rate. If you're calibrated, the things you call 80% likely happen about 80% of the time. That is different from being *right*. An advisor who says "50/50" about everything is never embarrassed and never useful. An advisor who says "certain" about everything is useful until the first miss, and after that the client can't tell which of their "certain"s to believe.
+
+Philip Tetlock and Dan Gardner's *Superforecasting* is the accessible account of the research here. It describes the Good Judgment Project's forecasting tournaments and the habits of the forecasters who did best: breaking questions down, starting from base rates, updating often and in small steps, and above all *keeping score*. The scoring rule it uses is the **Brier score**. For a single yes/no prediction it is the squared difference between the probability you gave and the outcome (1 if it happened, 0 if not), averaged over all your predictions. Lower is better: 0 is perfect, and always saying 50% scores 0.25. The mechanism matters more than the formula. The squared penalty punishes confident misses far more than hedged ones, while hedging everything to 50% caps how good your score can get. The only way to score well is to be confident when you should be and uncertain when you should be.
+
+You don't need a tournament. You need a **prediction log**: a private file where you write down engineering predictions as you make them, with a probability and a date to check.
+
+```
+**Prediction log — [YYYY]**
+
+| # | Date       | Prediction                                                    | P    | Resolve by  | Outcome | Notes / what I learned |
+|---|------------|---------------------------------------------------------------|------|-------------|---------|------------------------|
+| 1 | [YYYY-MM-DD] | The .NET 10 upgrade of [service] lands within the 2-sprint estimate | 0.70 | [date] |        |                        |
+| 2 | [YYYY-MM-DD] | Lock contention, not CPU, explains the p99 spikes on [endpoint]       | 0.80 | [date] |        |                        |
+| 3 | [YYYY-MM-DD] | Moving [query] to Dapper cuts its p95 by at least half                | 0.40 | [date] |        |                        |
+| 4 | [YYYY-MM-DD] | The client picks option B in the architecture review                  | 0.60 | [date] |        |                        |
+```
+
+The rules that make it work:
+
+- **Predictions must resolve.** "The migration will go well" can't be scored. "The migration finishes by [date] with no rollback" can.
+- **Write the probability *before* you know the outcome.** Hindsight will otherwise recalibrate you for free, and wrongly.
+- **Include the ones you'd rather not.** Estimates, diagnoses, "the client will accept this", "this library will still be maintained in a year". These are exactly the calls clients are paying for.
+- **Review every quarter.** Bucket the predictions by stated probability (say 50–60%, 60–70%, and so on up to 90–100%) and compare each bucket's hit rate with its stated confidence. You need a few dozen predictions before the buckets mean much, so read early results as a direction, not a measurement.
+
+What the review usually shows is a **pattern**, not a verdict. Engineers are often overconfident in particular categories: estimates, "this is definitely the root cause", "the vendor will fix that bug soon". They are often underconfident in others. The pattern tells you which of your "80%"s to quietly treat as "60%" when advising, until your record says otherwise.
+
+> **Gotcha.** Logging only the predictions you're sure about makes your calibration look perfect and tells you nothing. And an advisor who stops committing in front of clients to protect a score has missed the point of keeping one.
+
+> **The portfolio rule, again.** The prediction log is **private**: it names clients, colleagues and internal dates. What can go public, in anonymised form, is the *method* and the *aggregate*: "I keep a prediction log; last year my estimates were systematically optimistic in [category], and here is what I changed". That is strong evidence of judgment in an interview ([Chapter 36](#chapter-36-the-story-bank-evidence-portfolio)).
+
+## Updating in Public Without Losing Credibility
+
+Sooner or later you'll have to reverse a position in front of the people who heard you state it. Many engineers dread this more than being wrong in private, and so they defend the position past the point where the evidence supports it. That is the most expensive way to handle it. Clients don't remember that you were wrong. They remember **how you behaved** once the evidence turned.
+
+Here is the mechanism. A reversal is evidence *about your process*. Done well, it proves the thing clients most need to believe about an advisor: that your positions follow the evidence, so your *current* position is worth something. Done badly, whether hidden, blamed on someone else, or dragged out, it proves the opposite, and it makes the client wonder what else you are defending for the sake of your ego.
+
+A reversal done well has four parts, and they mirror the anatomy of the opinion itself:
+
+```
+**What I said**
+The original position, stated fairly — not a weakened version of it.
+
+**What changed**
+The specific new evidence. Ideally, it's the "I'd change my mind if…" condition firing.
+
+**What I now recommend**
+The new position, with its mechanism.
+
+**What doesn't change**
+The parts of the earlier advice that still stand, and the cost of the switch.
+```
+
+An example, in the voice you'd use in the team channel:
+
+> *Two weeks ago I recommended we keep the catalogue reads on EF Core and tune them. I said I'd change my mind if profiling showed EF overhead, not the query plan, dominating the endpoint. The profile from Tuesday's load test shows that: the plan is fine and most of the time is materialisation of the wide projection. So I now recommend moving that one query to Dapper; I've put a PR up. Everything else stays on EF, and the tuning we already did still applies to the other endpoints.*
+
+Notice what it does *not* contain: no apology spiral, no hedge about how the first call was "sort of right", and no hint that someone else's data misled you. It is short. It points back to the clause you wrote in advance, which turns the reversal from "I was wrong" into "the process worked". This is the payoff for writing the clause down: **a pre-registered mind-changer turns a climb-down into a demonstration.**
+
+The distinction to protect is between **updating on evidence** and **caving to pressure**. Both change your stated position. Only one should.
+
+| | Updating on evidence | Caving to pressure |
+|---|---|---|
+| Trigger | New data, a mechanism you missed, the pre-written condition firing | A senior person disagreeing, a deadline, fatigue |
+| What you can say | "This changed my mind: [evidence]" | "OK, let's do it your way" (with no new reason) |
+| Effect on credibility | Goes up: your positions track reality | Goes down: your positions track the org chart |
+| What to do instead of caving | — | "I still think X, for reason M. It's your call, and I'll help make Y work. Can we write down what we'd watch for?" |
+
+That last cell is the professional move when the client decides against your advice: *disagree and commit*, with the disagreement **written down** where it can be seen, for example in an ADR's alternatives section ([Chapter 17](#chapter-17-soft-skills-engineering-practices)). You are not trying to win later. You are making sure that if the risk you named materialises, the team recognises it early, because someone already described what it would look like.
+
+> **Pitfall.** Revising the canon quietly. If a published position changes, the change is a *new dated entry*, with the old version kept and marked superseded, just as an ADR is never edited to reverse it but superseded by a new one. A canon with no revision history in it looks like it has never been tested.
+
+> **Gotcha.** The contractor's version of this has a commercial twist. If your earlier advice created billable work for your firm and the new evidence says that work isn't needed, say so. It will cost your employer hours this month. It is also the most powerful trust signal you can send to the client, because it is visibly against your own interest. That is the self-orientation denominator from the start of the chapter, in action. Tell your account manager first, so they don't hear about it from the client.
+
+## Exercises
+
+These exercises don't have a compiler, which is why they're here. Each one practises a move from this chapter on a realistic artefact or situation.
+
+### Find the bug: the canon entry
+
+A colleague shares the first entry of their opinion canon and asks for review:
+
+```
+**Position**
+Microservices are the modern way to build scalable .NET systems and should be
+the default for any serious project.
+
+**Mechanism**
+Industry leaders like Netflix and Amazon use microservices, and it is widely
+considered best practice for cloud-native development.
+
+**Holds when**
+Always, for production systems.
+
+**Counter-case**
+Some people argue monoliths are simpler, but this is an outdated view.
+
+**I'd change my mind if**
+Someone showed me a better architecture.
+```
+
+<details>
+<summary>What's wrong with it</summary>
+
+Every one of the five parts fails, each in its own way:
+
+- **Position.** It is not specific enough to act on ("serious project" is undefined), and it states a belief about the industry instead of a recommendation for a situation. A competent engineer *could* disagree, which is good, but the claim is too vague to test.
+- **Mechanism.** An appeal to authority ("Netflix does it") and to consensus ("widely considered"). It says nothing about *why* services produce scalability: independent scaling of components with different load, independent deployment for independent teams. Without that, the author can't tell that the mechanism needs conditions (many teams, divergent scaling needs) that most "serious projects" don't have.
+- **Holds when.** "Always" isn't a context. A universal claim can be knocked down by a single counterexample, and there are plenty.
+- **Counter-case.** It is a strawman ("simpler"), dismissed by labelling it ("outdated") instead of engaging with it. The real counter-case is the network tax plus the distributed-data costs paid on every request by a team that doesn't need independent deployment. It isn't mentioned.
+- **I'd change my mind if.** It can't be falsified. "A better architecture" can always be rejected as not better. An observable condition would look like "…if we find deploy coordination isn't a bottleneck and the modules share a scaling profile".
+
+The underlying bug: **the position came first and the justification was filled in afterwards**. Start again from the mechanism and see what position it supports; for most teams, that is Canon #1.
+</details>
+
+### Find the bug: the reply to the client
+
+The client's CTO asks in a shared channel: *"We're starting the new booking service next sprint. Postgres or Cosmos DB? We need to decide by Friday."* A contractor replies:
+
+```
+Great question! Both are excellent choices and it really depends on your use case.
+Postgres is a mature relational database with strong consistency, rich SQL, and a
+great EF Core provider. Cosmos DB is a globally distributed NoSQL database with
+elastic scale and multiple consistency levels, though it can get expensive. There
+are lots of factors to consider such as scalability, cost, team skills, data model,
+consistency requirements and future growth. Happy to discuss further on a call!
+```
+
+<details>
+<summary>What's wrong with it</summary>
+
+Everything in it is true, and none of it helps. The specific defects:
+
+- **No recommendation.** The CTO has a Friday deadline and asked an either/or question. The reply hands back a neutral trade-off list and schedules a meeting. The work of deciding has been passed back to the person who asked.
+- **"It depends" with six unnamed variables.** "Scalability, cost, team skills, data model, consistency requirements and future growth" covers the whole problem space. An expert picks the two that decide it here and says which way they point.
+- **No knowledge/belief separation.** "Can get expensive" is neither a measurement nor a stated belief with a reason. It's a vague warning.
+- **No provisional call, no way to find out.** Nothing says what the contractor would bet on, or what would settle the question before Friday.
+- **Self-orientation leak.** "Happy to discuss further on a call!" turns a written question with a deadline into a meeting. It isn't malicious, but it reads as protecting yourself instead of helping.
+
+A stronger reply, recommendation first:
+
+> *Postgres, unless one of two things is true. A booking service is relational at its core (slots, reservations, a hard no-double-booking constraint), and Postgres enforces that constraint in one transaction; in Cosmos you'd be building it yourself with partition design and optimistic concurrency. The team already runs EF Core against Postgres, so there's no new operational skill to learn. The two things that would change my answer: (1) if bookings must be written in multiple regions with low latency (not just read), Cosmos's multi-region writes become the deciding factor; (2) if the access pattern is mostly single-document lookups by a natural key at very high volume. From the spec I think (1) isn't a requirement, maybe 80% sure. Can someone confirm the multi-region-write question by Wednesday? If it's "no", I'd go ahead with Postgres.*
+
+It names the two variables, gives the mechanism, makes a provisional call with a stated confidence, and turns the remaining uncertainty into one question with a deadline.
+</details>
+
+### What would you do: the decision that's already made
+
+You're three weeks into an outstaffing engagement. In a planning meeting, the client's head of engineering announces that the team will split the monolith into eight microservices over the next two quarters. The slide deck is ready and the vendor's account manager is visibly pleased: it means more headcount. From what you've seen, the team has no distributed tracing, one person who understands the deployment pipeline, and module boundaries that change every sprint. Your canon says observability before microservices, and modular monolith first. Someone turns to you: "You've done this before. Anything we should watch out for?"
+
+<details>
+<summary>How a senior engineer reasons about it</summary>
+
+Three forces are pulling here. There is the evidence, which says the plan is premature. There is social pressure, since the decision was announced, not proposed. And there is commercial interest, since your employer benefits from the plan. That third force is exactly why your answer matters: if you nod along, you are showing high self-orientation in front of the client's leadership.
+
+What doesn't work: a public "this is a mistake" three weeks in. You don't have the diagnosis yet ([Chapter 61](#chapter-61-discovery-and-diagnosis)). You'd be applying a canon position before checking whether its context holds. And a head of engineering who is contradicted in their own planning meeting has every reason to dig in.
+
+What does work: answer the question you were actually asked ("anything to watch out for?") with *conditions*, not a verdict, and make the conditions checkable:
+
+- "Two things I'd want in place before the first extraction: request tracing across service boundaries, so we can debug the first incident, and a clear owner for the pipeline, because eight services means eight deploy paths. Both are cheap now and expensive afterwards."
+- "And I'd pick the first service by how stable its boundary is. If a module's interface has changed in each of the last few sprints, extracting it turns every one of those changes into a cross-service contract change."
+
+Then, in a smaller conversation that week, give your actual position with its mechanism, framed around the client's goal (they want independent delivery and scale), and propose a cheap test: "Let's extract one service first, with tracing in place, and measure what it costs us. If it goes smoothly, the plan stands and we've de-risked it. If not, we've learned that for the price of one service, not eight."
+
+Log it as a prediction ("the first extraction will take longer than planned, 70%"). Tell your account manager what you told the client and why, before they hear it elsewhere. If the client goes ahead anyway, make sure the risks you named are written into the ADR's consequences, and then help make it work. That is disagree-and-commit, with the disagreement on record.
+</details>
+
+### Go check
+
+- **Write five canon entries** in the five-part template, in your own portfolio repo. Start with the positions you state most often at work. For each one, time how long it takes to write the "I'd change my mind if" clause. Where you can't write one, you've found a position that is holding you.
+- **Find where you disagree with this book.** Go through the eight canon entries above and find the one you'd argue with hardest. Write your version, mechanism first. If you can't produce a mechanism for your disagreement, that tells you something too.
+- **Draft your first radar edition**: 15–25 blips across four quadrants, each marked as used in production, lab only, or reading. Count how many Adopt items you have actually shipped. Move the rest.
+- **Start a prediction log today** with three predictions about current work: an estimate, a diagnosis and a decision outcome. Put a calendar reminder at the resolve date. Review your calibration after the first quarter.
+- **Audit your last five written technical answers** (PR comments, Slack replies, emails to a client). For each one: did the first sentence contain a recommendation? Did you name what "it depends" on? Did you mark what you knew versus believed? Count, don't judge, then pick one habit to change.
+- **Check for the drifted maxim in yourself.** Think of the last technical position you gave up in a meeting. Was it new evidence, or the seniority of the person disagreeing? Write down which, privately and honestly.
+
+## Sources & Further Reading
+
+- David H. Maister, Charles H. Green and Robert M. Galford, *The Trusted Advisor* — the trust equation (credibility, reliability, intimacy over self-orientation) and the advisor's role compared with the expert's.
+- Gerald M. Weinberg, *The Secrets of Consulting: A Guide to Giving and Getting Advice Successfully* — among much else, the "Rule of Three": if you can't think of three things that might go wrong with your plans, there's something wrong with your thinking. A good check on any canon entry's counter-case.
+- Gregor Hohpe, *The Software Architect Elevator* — moving between the engine room and the boardroom, and why architects sell options and decisions instead of diagrams.
+- Philip E. Tetlock and Dan Gardner, *Superforecasting: The Art and Science of Prediction* — calibration, the Brier score, and the habits of well-calibrated forecasters.
+- Philip E. Tetlock, *Expert Political Judgment: How Good Is It? How Can We Know?* — the foxes-and-hedgehogs finding referred to above.
+- Paul Saffo, "Strong Opinions, Weakly Held" (saffo.com, July 2008) — the original, process-oriented statement of the maxim.
+- Cedric Chin, "'Strong Opinions, Weakly Held' Doesn't Work That Well" (commoncog.com) — the critique of how the maxim is used in practice.
+- Thoughtworks, *Technology Radar* and "Build Your Own Technology Radar" (thoughtworks.com/radar) — the Adopt/Trial/Assess/Hold rings and the quadrant format.
+- .NET support dates in Canon #4: `dotnet/core` `releases.md` (github.com/dotnet/core), checked September 2026. See also [Appendix B](#appendix-b-net-version-comparison-cheat-sheet).
+- Within this book: [Chapter 17](#chapter-17-soft-skills-engineering-practices) for communication, ADRs and influence; [Chapter 36](#chapter-36-the-story-bank-evidence-portfolio) for turning positions and predictions into interview evidence; [Chapters 61](#chapter-61-discovery-and-diagnosis)–[65](#chapter-65-positioning-and-public-proof) for the rest of the advisory practice.
+
+
+---
+
+# Chapter 61: Discovery and Diagnosis
+
+_⏱️ Estimated read time: ~55 min · 9194 words (study pace)_
+
+A client says "we want microservices." A middle engineer hears a specification and starts sketching service boundaries. A senior engineer hears a *symptom*, and asks what hurts. Six weeks later the first engineer is splitting a monolith that was never the problem, and the second has found out that three teams share a single release train, that every deploy needs a Friday change board, and that what the client wanted all along was to ship on a Tuesday without asking permission. That can be fixed with a pipeline and a module boundary. A network doesn't have to come into it.
+
+This chapter is about the work that comes before advice: finding out what the problem actually is. [Chapter 60](#chapter-60-having-a-point-of-view) argued that clients hire an expert for a point of view. This chapter is about earning the right to give one. A point of view given before diagnosis is just an opinion, and clients can tell the difference. What the doctor does before prescribing, the consultant has to do too, for the same reason: a correct treatment for the wrong disease is still malpractice.
+
+```
+   the request            discovery                    diagnosis              advice
+ "we want X"   ──►  questions, data, system   ──►  problem statement  ──►  options + a
+                    reading, stakeholders          (one page, agreed)      recommendation
+                          ▲                               │                (Ch 63)
+                          └──── "that's not quite it" ────┘
+```
+
+The loop in the middle matters. A diagnosis that the client has not recognised as their own is not finished. The rest of this chapter is the toolkit for getting round that loop quickly and without making the client feel interrogated.
+
+## The Request Is Not the Need
+
+Clients arrive with solutions because solutions are what they can name. Someone who feels slow delivery, rising cloud bills and nervous releases has no word for that combination. They do have words for what they read about at a conference, so the pain arrives already dressed as a solution. Consultants call this the **presenting problem**: the thing the client brings to the first meeting, which is real but usually one step removed from what needs to change.
+
+The mechanism is worth understanding, because it tells you where to look. A request is a *hypothesis* the client has already formed about their own situation, filtered through three things:
+
+1. **What they can see.** A VP sees missed dates, not a test suite that takes forty minutes.
+2. **What they can fund.** "Rewrite" gets a budget line and "stop doing three things badly" doesn't, so requests drift toward whatever is fundable.
+3. **What is safe to say.** "Our platform team and our product team don't talk" is politically expensive. "We need an API gateway" costs nothing.
+
+The table below lists common requests and the needs that tend to sit under them. It gives you hypotheses to test, not answers.
+
+| The request | What it often means underneath | The question that tells them apart |
+|---|---|---|
+| "We want microservices" | Deploy coupling: one change needs everyone's release. Or team contention over one codebase. Or a scaling hot spot in one module. | "Walk me through the last time a small change took too long to reach production. Where did it wait?" |
+| "Make it faster" | One slow report, one slow page, or one slow batch job. Or perceived slowness from a UI that blocks. | "Which screen, for whom, and when did they last complain?" |
+| "Move us to the cloud" | A data-centre contract ending, a hardware refresh, an acquirer's requirement, or a cost story someone promised the board. | "What date is driving this, and what happens on that date?" |
+| "Upgrade to .NET 10" | An auditor or customer questionnaire flagging an unsupported runtime ([Chapter 30](#the-eol-treadmill-legacy-is-a-verb)). Or hiring pain. Or a genuine performance need. | "Who asked for this, and what did they say?" |
+| "We need better code quality" | Too many production incidents, or one bad incident with an executive watching. Or onboarding that takes months. | "What happened recently that made this urgent now?" |
+
+> **Best practice.** Treat the request with respect and hold it loosely. "That might well be the right answer. Before I agree, let me understand what's pushing you toward it" takes the client seriously and still keeps diagnosis open. Contradicting the request in the first meeting does neither.
+
+> **Pitfall.** Taking the request literally because it is billable. "We want microservices" can be months of work for your firm, and nobody on your side has a reason to question it until, a year later, the system is harder to change and your name is on the design. Trusted advisors are remembered for the cheaper fix they pointed out.
+
+The opposite failure is deciding the client is wrong before you have evidence. Sometimes "we want microservices" really does mean eight autonomous teams with a genuine need to deploy independently. Diagnosis means finding out.
+
+## Preparing for the First Conversation
+
+Most of a first conversation's quality is decided before it starts. Preparation is cheap and visible: a question you could have answered from their website tells them you didn't do the reading.
+
+**Before the call, gather:**
+
+- **What they sent.** The brief, the RFP, the ticket, the email chain. Read it twice. On the second pass mark every noun that is a solution ("Kubernetes", "event-driven", "rewrite") and every sentence that states a problem. If the list of solutions is longer than the list of problems, that is your first finding.
+- **What is public.** Their product, customers, recent news (funding, an acquisition, a new regulation), job postings (they list the stack), engineering blog posts.
+- **Who will be in the room,** and each person's role. If you only know names, ask the intermediary (see [Working Through an Intermediary](#working-through-an-intermediary-to-the-decision-makers)).
+- **What the intermediary knows.** Your account manager has often already had one conversation. Ask what was said, what was promised, and what the client is nervous about.
+
+**Then write down three to five hypotheses.** For example: "the slowness is one report hitting an unindexed table," "the release process is the bottleneck, not the architecture," "this is a new CTO who needs an early win." Writing them down has two uses. It gives your questions direction, and it lets you notice afterwards which ones you dropped. A hypothesis you never wrote down can quietly steer every question you ask.
+
+> **Gotcha.** Hypotheses make you ask better questions, and they also make you hear selectively. Once you believe "it's the database," every sentence sounds like evidence. Give each hypothesis a line saying *what answer would disprove it*, and listen for that answer in particular.
+
+**Send a three-line agenda ahead:** what you want to understand, how long, and what they get afterwards (a written summary within [N] working days).
+
+**Decide what you want to leave with:** the business driver in one sentence, the constraint that will most shape the answer, the name of the person who decides, and permission to look at the system.
+
+## Running the First Conversation
+
+A discovery conversation has a shape. You won't follow it rigidly, but knowing it means you notice when you have skipped a part.
+
+```
+ 0 ─────── 5 ──────────────────────── 30 ──────────────────── 45 ───── 55 ── 60 min
+ │ frame   │   their story             │   dig                 │ play    │ next │
+ │ the     │   (open questions,        │   (the question bank, │ back    │ steps│
+ │ meeting │    mostly listening)      │    follow the energy) │         │      │
+```
+
+**Frame (about five minutes).** Say why you are there, how long it will take, and what happens afterwards. "I'd like to understand the problem before anyone talks about solutions. I'll ask a lot of questions, some of them naive. At the end I'll play back what I heard so you can correct me." That last sentence tells them the meeting has a structure, and it gives them permission to correct you.
+
+**Their story (the largest block).** Open with a question they can't answer in one word: "Tell me how this came up. What happened that made now the time?" Then mostly stay quiet. Their order of events, what they dwell on and what they skip are all data. Take notes in their words, not yours: if they say "the nightly job," don't write "the ETL pipeline."
+
+**Dig.** Now use the [question bank](#the-discovery-question-bank). Follow the energy. When someone's tone changes, or they start saying "honestly…" or glance at a colleague, you are near the real problem. "Say more about that" is the most productive sentence in discovery.
+
+**Play back.** Summarise what you heard in a few sentences and ask what you got wrong. This is [a technique in its own right](#playing-back-your-understanding), covered below.
+
+**Next steps.** Agree what happens next: access to the system, a follow-up with the person who decides, the date of your written summary. Then send the summary on time.
+
+### Listening versus pitching
+
+The strongest pull in a first conversation, especially for someone good at their craft, is to show expertise by proposing solutions. It cuts diagnosis short in three ways. It **anchors** the client: once you've said "you probably need a read replica," the meeting is about read replicas. It **stops them talking**, because people stop explaining once they think you understand, and the important information tends to come late. And it **stakes your credibility on a guess** you may have to retract.
+
+When you catch yourself describing a solution in the first half of the meeting, write it down as a hypothesis and ask a question instead. You can still show expertise without prescribing: **ask the question only an expert would think to ask.** "Is the report slow for every date range, or only at month-end?" demonstrates more competence than a pitch, and the answer is useful.
+
+> **Best practice.** Ask about specific past events, not opinions or hypotheticals. "Would a faster pipeline help?" gets a polite yes. "Tell me about the last release that slipped. What happened on the day?" gets facts. Rob Fitzpatrick's *The Mom Test* makes this argument for product interviews, and it applies just as well to technical discovery: people are poor predictors of their own future behaviour and much better at describing what already happened.
+
+## The Discovery Question Bank
+
+These questions are grouped by area. You won't ask them all in one meeting. Use them as a checklist afterwards, to see which areas you left blank. An empty area is a risk you haven't priced yet.
+
+Each question comes with what you are listening for. The literal answer matters less than what it tells you about how the organisation works.
+
+### Business driver and cost of delay
+
+| Question | What you are listening for |
+|---|---|
+| "Why now? What changed?" | A trigger event (incident, audit, contract, new executive, competitor). If nothing changed, urgency may be low whatever they say. |
+| "What does this problem cost you per week or month?" | Whether anyone has quantified it. "We don't know" is fine. "We lost [customer] over it" is a strong driver. |
+| "What happens if we do nothing for six months?" | The real cost of delay. See [the technique below](#what-happens-if-we-do-nothing). |
+| "Who is feeling the pain most sharply?" | The person whose problem this really is, often not the person in the meeting. |
+| "Is there a date that matters?" | A hard deadline (contract end, regulatory date, runtime end of support) versus a wish. |
+
+### Users
+
+| Question | What you are listening for |
+|---|---|
+| "Who uses this, and what are they trying to get done?" | Whether the team knows its users or only its tickets. |
+| "What do users complain about? Can I see the actual complaints?" | Raw support tickets beat summaries. Summaries filter. |
+| "How do users work around the problem today?" | Workarounds (spreadsheets, manual exports, "we run it overnight") show both the pain and what a minimum fix would have to replace. |
+
+### Constraints: budget, deadline, skills, compliance
+
+| Question | What you are listening for |
+|---|---|
+| "What budget range are we working within?" | Whether one exists. If they won't say, ask for a range between two numbers you name. |
+| "What's the deadline, and what's behind it?" | Fixed versus negotiable. A board meeting is movable, a regulator usually isn't. |
+| "Who will own and run this after we leave?" | The team's skills decide which solutions are viable. A Kubernetes design handed to a team that has never run a container is a liability. |
+| "What compliance or contractual constraints apply?" | GDPR, PCI DSS, SOC 2, data residency, customer contracts that name a cloud or region ([Chapter 28](#chapter-28-compliance-data-privacy-cloud-cost-finops)). These are hard walls. |
+| "What's off the table?" | Vendor mandates, "we are a Microsoft shop," a technology the CTO won't accept. Better to hear it now than in the review. |
+
+### Current system
+
+| Question | What you are listening for |
+|---|---|
+| "Can you draw the system for me, roughly?" | Which boxes they draw first and largest, and which they forget. What they forget is often where the incidents come from. |
+| "How does a change get from a developer's machine to production?" | Lead time, manual steps, approvals, and who is on the critical path. |
+| "What breaks most often? What woke someone up last?" | The real reliability picture, which is usually different from the architecture diagram. |
+| "Which part does nobody want to touch?" | Your first hotspot candidate. Verify it with data ([Chapter 30](#finding-hotspots-churn-complexity)). |
+
+### Failed past attempts
+
+This area is the one most often skipped, and among the most useful. Almost every problem worth hiring a consultant for has been attacked before.
+
+| Question | What you are listening for |
+|---|---|
+| "Has anyone tried to fix this before? What happened?" | The approach, why it stopped, and who was blamed. The last one tells you what is politically dangerous. |
+| "Is anyone from that attempt still here?" | A potential ally, or a potential opponent who will read your proposal as criticism of theirs. |
+| "What would make this attempt different?" | If the honest answer is "nothing," the conditions that killed the last attempt are still there, and those conditions are your real problem. |
+
+> **Pitfall.** Proposing, with enthusiasm, the approach that failed last year, to a room that includes the person who led it. You find this out from their silence. Ask about past attempts early, before you have said anything they could hear as criticism.
+
+### Decision makers and politics
+
+| Question | What you are listening for |
+|---|---|
+| "Who will make the final decision on this?" | A name. "The committee" or "we'll decide together" means you need the next question. |
+| "Who else needs to agree, or could stop it?" | Veto holders: security, architecture review boards, finance, a key customer. |
+| "Who has an opinion about this that we haven't heard yet?" | Absent stakeholders. Their views will arrive later, less charitably. |
+| "What would make this a win for you personally?" | The interests of the person in front of you. They are allowed to have them, and knowing them makes you more useful. |
+
+### What success looks like, in measurable terms
+
+| Question | What you are listening for |
+|---|---|
+| "Six months from now, how would you know this worked?" | An observable change. "It's better" isn't one. |
+| "What number would move?" | p95 latency on [page], deploys per week, incidents per month, hours of manual work, cloud spend. Any of these, with a baseline. |
+| "What's that number today?" | Whether a baseline exists. If not, measuring it becomes step one of the engagement. |
+| "What would 'good enough' look like, as opposed to perfect?" | The stopping point. Without one, the engagement never ends, or ends with the client feeling short-changed. |
+
+> **Best practice.** Turn every success criterion into *metric, baseline, target, date, measured by*. "Faster reports" becomes "p95 generation time for the month-end [report], from [baseline] to under [target], by [date], measured from the existing [APM tool] traces." If you can't fill in the baseline, you have found the first task. It is also the first evidence you will be able to show later ([Chapter 36](#chapter-36-the-story-bank-evidence-portfolio)).
+
+## Diagnostic Techniques
+
+Questions gather information. These four techniques turn it into a diagnosis. Each has a failure mode, and a senior engineer knows those as well as the techniques.
+
+### The five whys
+
+Ask "why?" of a problem, then of the answer, and keep going until you reach something that can be changed and would prevent the problem. The technique comes from the Toyota Production System, and Taiichi Ohno's book of that name describes it. The number five is a rule of thumb, not a quota.
+
+```
+"Month-end report times out"
+  why? ─► the query scans 40M rows
+    why? ─► it filters on a column with no index
+      why? ─► the column was added last year for a new customer tier
+        why? ─► schema changes ship without a query review
+          why? ─► the DBA role was cut, and nobody owns data performance
+                                              ▲
+                        a cause you can act on, and it will produce the next slow report too
+```
+
+The value is in the last step. Adding the index fixes this report. Only the answer to the fifth why stops the next one. Clients often want only the index, and that is a legitimate choice. Your job is to make sure they are choosing it knowingly.
+
+**How it fails:**
+
+- **It follows one chain.** Real problems usually have several contributing causes. Ask "and what else?" at each level, and you get a tree rather than a line.
+- **It stops at a person.** "Why? Because [developer] didn't add the index." That is the end of learning and the start of blame. When the chain reaches a person, ask what made their action reasonable given what they knew. That is the blameless post-mortem rule from [Chapter 17](#blameless-post-mortems), applied before the incident instead of after.
+- **It becomes an interrogation.** Five literal "why?"s feel hostile, especially across cultures. Vary it: "What led to that?", "What was going on at the time?"
+- **It invents causes.** Each answer is a hypothesis. Check the important ones against data (the query plan, the commit history, the org chart) before you build a recommendation on them.
+
+### What happens if we do nothing?
+
+This is the most useful single question in discovery. It **prices the problem**: if the honest answer is "not much," the engagement may not be worth doing, and saying so builds more trust than taking the money. It **exposes the real deadline**: "our biggest customer renews in March and has complained twice" is a driver, "the architecture will get worse" is not yet. And it makes the client **state the stakes in their own words**, which you can refer back to when they hesitate at the cost of the fix.
+
+Ask it neutrally, as a real question rather than a sales tactic. If the answer is "it limps on and we're fine with that," a trusted advisor accepts it.
+
+> **Gotcha.** "Nothing" is rarely really an option for runtime and dependency upkeep. A system nobody changes still decays ([Chapter 30](#the-eol-treadmill-legacy-is-a-verb)): the runtime reaches end of support, the base image stops getting patches, and the next customer security questionnaire flags it. When a client says "we'll leave it alone," check the end-of-support dates before you agree that doing nothing is free.
+
+### Playing back your understanding
+
+Play back what you heard, in your own words, as a short structured summary, and ask what you got wrong:
+
+> "Let me check I've got this. Month-end reporting takes up to [N] hours and sometimes times out. Finance works around it by exporting to Excel on the 28th. It got worse after the [new customer tier] launch. You'd like it under [target] before the [date] audit. Nobody has looked at it since [person] left. What have I got wrong or missed?"
+
+It works because a misunderstanding corrected in minute fifty costs nothing and one corrected in week six costs a sprint; because being accurately heard builds more trust than any display of expertise; and because corrections reveal priorities ("actually, the audit matters less than the CFO being annoyed") that a direct question wouldn't. Keep their vocabulary: "the nightly job," not "your ETL."
+
+End with a question that invites correction ("what have I got wrong?"), not agreement ("does that sound right?"). People agree out of politeness and correct only when asked. Then repeat it in writing: the summary you send afterwards is the play-back in a form they can forward.
+
+### Separating symptoms from causes
+
+A symptom is what someone observes. A cause is what, if changed, would stop the symptom. Clients report symptoms, often in the vocabulary of a guessed cause ("the database is slow").
+
+This is the same discipline as incident response, applied to a business problem. [Chapter 33's incident cheat-card](#the-incident-cheat-card) puts *symptom* and *root cause* in separate columns for a reason: at 3 a.m. the symptom is "p99 climbs and health checks flap," and the cause is a connection pool exhausted by a missing timeout. The method in [Chapter 17.6](#176-methodical-debugging-problem-solving) carries over unchanged: reproduce, read the actual evidence, form one falsifiable hypothesis, test it, and bisect.
+
+| The client says (symptom, often with a guessed cause) | Ask for the evidence | Candidate causes to test |
+|---|---|---|
+| "The database is slow" | Which queries, when, and the query plan | Missing index, parameter sniffing, lock contention, an N+1 in one endpoint, an undersized tier |
+| "Releases keep breaking things" | The last five failed releases and what broke | No integration tests on one boundary, config drift between environments, a shared database schema |
+| "The team is too slow" | Where the last three features spent their time | Review queues, environment contention, unclear requirements, one person as a bottleneck |
+| "The cloud bill is out of control" | The cost breakdown by service and tag | One oversized resource, idle non-production environments, egress, log ingestion ([Chapter 28](#chapter-28-compliance-data-privacy-cloud-cost-finops)) |
+| "The system is unstable" | Incident list, timestamps, and what changed before each | A deploy pattern, a batch job, a noisy tenant, a dependency with no timeout |
+
+> **Best practice.** Write symptoms and causes in separate columns in your notes, and don't move anything into the cause column without evidence. The discipline feels slow, and it is what stops you from confidently fixing the wrong thing.
+
+## Reading an Existing .NET System in a Day
+
+Talking gets you the story. The system tells you whether the story is true. On day one of access, before you form opinions, build a **first-day map**: a quick, broad survey that turns "we have some tech debt" into specific facts.
+
+The aim is breadth: finding where to spend day two. [Chapter 62](#chapter-62-lab-the-net-health-check) turns this into a full lab with a structured health-check report. What follows is the fast version you can do in a first session.
+
+```
+   ┌──────────┐   ┌───────────┐   ┌────────────┐   ┌──────────────┐   ┌────────┐
+   │   repo   │──►│ pipelines │──►│ dashboards │──►│ dependencies │──►│  EOL   │
+   │ shape,   │   │ lead time,│   │ what's     │   │ packages,    │   │ runtime│
+   │ churn    │   │ manual    │   │ measured,  │   │ services,    │   │ images,│
+   │ hotspots │   │ steps     │   │ what isn't │   │ vulns        │   │ SDKs   │
+   └──────────┘   └───────────┘   └────────────┘   └──────────────┘   └────────┘
+```
+
+**The repo.** How many solutions and projects are there, and how do they reference each other? What does `global.json` pin? Are there tests, and do they run? Where is the churn? Churn crossed with complexity gives you hotspots ([Chapter 30](#finding-hotspots-churn-complexity)),, and they usually overlap with "the part nobody wants to touch." When they don't, ask why.
+
+```bash
+# Target frameworks across the repo: one line per project
+grep -rho '<TargetFrameworks\?>[^<]*' --include='*.csproj' . | sort | uniq -c
+
+# Pinned SDK, if any
+cat global.json 2>/dev/null
+
+# Churn: files touched most in the last 12 months (Chapter 30)
+git log --since="12 months ago" --name-only --pretty=format: \
+  | grep '\.cs$' | sort | uniq -c | sort -rn | head -20
+
+# Known-vulnerable and outdated packages, including transitive ones
+dotnet list package --vulnerable --include-transitive
+dotnet list package --outdated
+```
+
+**The pipelines.** Find the pipeline definitions and read one end to end. How long does a build take, and how long a deploy? Which steps are manual? Where are the approval gates, and who holds them? The gap between "merged" and "in production" is often the real answer to "we want microservices" ([Chapter 12](#chapter-12-devops-cicd)).
+
+**The dashboards.** Ask to see what the team looks at. If nobody looks at anything, that is a finding. What is measured: request rates, error rates, latency percentiles, queue depths? What isn't? Is anything alerting on user-visible symptoms, or only on CPU? ([Chapter 13](#chapter-13-observability).)
+
+**The dependencies.** Databases, queues, caches, third-party APIs, the shared SSO, the one SOAP service nobody can find the owner of. For each one, note whether calls have a timeout and whether anyone would notice if it went down.
+
+**The EOL picture.** Runtime versions against their end-of-support dates ([Appendix B](#appendix-b-net-version-comparison-cheat-sheet) has the table), base images, the database engine version, and any .NET Framework projects. An unsupported runtime is the finding most likely to turn "we'll think about it" into "we need to do this now," because it has a date and an auditor attached ([Chapter 30](#the-eol-treadmill-legacy-is-a-verb)).
+
+Capture it as a one-page map:
+
+```text
+**First-day map: [client/system codename]**   date: [date]   access: [what you could and couldn't see]
+
+**Repo**
+  solutions/projects: [n] / [n]      target frameworks: [list with counts]
+  tests: [exist? run? pass? how long?]
+  top hotspots (churn × complexity): [3 files/folders]
+  knowledge concentration: [folders with one active author]
+
+**Delivery**
+  build time: [n min]   deploy time: [n min]   manual steps: [list]
+  merge → production: [typical duration, and where it waits]
+
+**Observability**
+  measured: [...]   not measured: [...]   alerts on symptoms? [y/n]
+
+**Dependencies**
+  [name] - [sync/async] - [timeout? y/n] - [owner]
+
+**Lifecycle**
+  runtimes vs end of support: [...]   base images: [...]   known vulns: [count by severity]
+
+**Matches the client's story?**
+  confirms: [...]
+  contradicts: [...]
+  open questions for day two: [...]
+```
+
+The last section is the one that matters. The map exists to test what you were told. When the data contradicts the story ("the database is slow," but the traces show most of the request time in an outbound HTTP call), you have your most valuable finding. Present a contradiction as a question, not a gotcha: "I expected to see the time in the database, and I'm seeing it in the call to [service]. Does that match what you've seen?"
+
+> **Pitfall.** Treating the first-day map as the diagnosis. It shows you where to look. The worst version of this is a thirty-page static-analysis dump handed to a client who asked why month-end is slow. Findings that don't connect to their problem are noise, however correct they are.
+
+> **Gotcha.** Access is itself a finding. If it takes a week to get read access to the repo and nobody can grant access to production logs, the developers probably live with the same friction every day. Write down how long access took and what you had to ask for.
+
+## Stakeholder Mapping
+
+Every engagement has more stakeholders than the people who show up to meetings. A stakeholder map makes them visible so you can plan who to talk to, how often, and about what. [Chapter 17](#tailoring-the-message-to-the-audience) covers how to tailor a message to each audience. This section is about knowing who the audiences are.
+
+The standard tool is the **power/interest grid**, usually attributed to Aubrey Mendelow. Place each stakeholder by how much power they have over the outcome and how much they care about it:
+
+```
+            high │  KEEP SATISFIED            │  MANAGE CLOSELY
+                 │  CFO (funds it, busy)       │  CTO (sponsor)
+                 │  CISO (can veto)            │  Head of Platform
+      power      │                             │  (owns what you'll change)
+                 ├─────────────────────────────┼──────────────────────────────
+                 │  MONITOR                    │  KEEP INFORMED
+                 │  other product teams        │  developers on the team
+                 │                             │  finance users of the report
+            low  │                             │  your account manager
+                 └─────────────────────────────┴──────────────────────────────
+                            low            interest            high
+```
+
+*Manage closely* means regular direct contact, so nothing in the diagnosis surprises them in a meeting. *Keep satisfied* means short, infrequent updates in their terms (cost, risk, dates). These are the people who can stop the work late without having followed any of it. *Keep informed* are the people who know the system and feel the pain: your best source of information, and later your best advocates. Positions move. A CISO jumps to "manage closely" the moment your recommendation sends customer data to another region, so redraw the map as the recommendation takes shape.
+
+Alongside the grid, note each person's role in the decision. The labels vary between sources; these four are enough:
+
+| Role | Who they are | What they need from you |
+|---|---|---|
+| **Economic buyer** | Controls the budget and signs off | Cost, risk, and what they get, in a page |
+| **Sponsor / champion** | Wants this to happen and argues for it internally | Material they can reuse in rooms you aren't in |
+| **Veto holder** | Security, architecture board, compliance, a key customer | Their concern addressed early and in writing |
+| **Operator** | Will run it after you leave | A design they can actually operate, and a voice in it |
+
+> **Best practice.** For each "manage closely" stakeholder, write one line: what they need to be true for this to count as a success *for them*. When the lines conflict (the CFO wants spend down, the head of platform wants headcount), you have found the political shape of the problem, and your recommendation has to address it.
+
+> **Pitfall.** Leaving the stakeholder map lying around. A document that says "CISO: can veto, low interest, cautious" is harmless in your notes and damaging on a shared screen. Keep it private and describe roles, not personalities.
+
+## Spotting the Unstated Problem
+
+Some problems never get stated because nobody in the room can say them. Most of these are **organisational problems presented as technical ones**, and engineers are well placed to spot them because the technology is where they show up.
+
+Conway's law, from Melvin Conway's 1968 paper "How Do Committees Invent?", says roughly that a system's design ends up mirroring the communication structure of the organisation that builds it. [Chapter 6](#when-to-split-and-conways-law) covers it as an architecture constraint. In discovery you use it the other way round: **read the system's shape to find the organisation's problems.**
+
+Two chatty services that should be one often sit on the boundary between two teams that don't talk. A "shared" library nobody owns often marks a function that was reorganised away. A module with one active author in a year is a person the organisation depends on.
+
+| Stated as a technical problem | Often actually | Signals in the system or the conversation |
+|---|---|---|
+| "We need microservices so teams can move independently" | Teams lack ownership or authority. A central change board approves everything. | Deploys need a meeting. The pipeline is fine but the calendar isn't. |
+| "The codebase is too hard to work in" | Knowledge is concentrated in one or two people who are a bottleneck or have left | Churn by author shows one name on the core. "Ask [person]" comes up in every answer. |
+| "We need a new architecture" | Two leaders disagree about direction, and a consultant's recommendation is expected to settle it | Different people describe different goals. Someone asks "which option would you pick?" before you have seen anything. |
+| "Our velocity is too low" | Priorities change weekly, and work in progress piles up | Many open branches, many half-finished features, and roadmap churn. |
+| "Quality is bad" | Nobody is allowed to say no to a deadline | Incident timing lines up with release dates. Tests are skipped "temporarily." |
+| "We need to rewrite it in [new stack]" | Hiring and retention trouble, or a new leader who wants a visible programme | Job postings, recent leadership change, "nobody wants to work on this." |
+
+**What to do when you spot one.** You weren't hired to redesign their org chart, but a technical fix for an organisational problem will fail with your name on it, so don't pretend you didn't see it:
+
+1. **Check it privately, as a question,** with the sponsor: "Every deploy seems to wait for [board] approval, and that looks like where the time goes. Could that change, or is it fixed?"
+2. **Describe it as a constraint on the technical options, not a judgement of people:** "With the current approval process, microservices will deploy no faster than the monolith does now." That is a technical statement they can take upstairs.
+3. **Put it in the problem statement,** naming the process, not the people.
+
+> **Gotcha.** Sometimes you are hired *because* of the unstated problem: to be the outside voice that says what insiders can't, or to provide cover for a decision already made. The first is a legitimate and valuable role. The second is a trap if you don't notice it. If someone asks "which option would you pick?" before you have looked at anything, ask yourself which of the two you are being hired for.
+
+## The One-Page Problem Statement
+
+Discovery ends with a written problem statement that the client agrees with. It is the most leveraged page in the engagement: every estimate, recommendation and success check afterwards points back to it. [Chapter 63](#chapter-63-recommendations-proposals-and-estimates) builds recommendations on top of it, and a recommendation without one has nothing to stand on.
+
+The mechanism: a problem statement turns a conversation, which everyone remembers differently, into a document that can be corrected, signed off and cited. Where a play-back checks your understanding in the moment, the problem statement fixes it in writing.
+
+```text
+**Problem statement: [engagement/codename]**   version [n], [date], agreed by [name, role] on [date]
+
+**Situation** (2-3 sentences, their words where possible)
+  What exists today and who depends on it.
+
+**Problem** (symptoms, observed and measured)
+  - [symptom] - evidence: [trace/ticket/log/metric] - baseline: [number, date measured]
+  - [symptom] - evidence: [...]
+
+**Likely causes** (hypotheses, each with its evidence and confidence)
+  - [cause] - supported by: [...] - confidence: [high/med/low] - how we would confirm: [...]
+
+**Why now / cost of delay**
+  What happens if nothing changes, and by when. [date, driver]
+
+**Constraints**
+  Budget: [range]   Deadline: [date + what drives it]   Team: [who operates it after]
+  Compliance/contractual: [...]   Off the table: [...]
+
+**Out of scope**
+  [things discussed that this engagement will NOT address]
+
+**Success looks like**
+  [metric] from [baseline] to [target] by [date], measured by [source]
+
+**Open questions / risks**
+  [what we still don't know, and who can answer]
+
+**Stakeholders**
+  Decides: [name]   Must agree: [names]   Operates: [team]
+```
+
+Rules that keep it honest:
+
+- **One page.** If it doesn't fit, you haven't finished diagnosing. You have gathered material. The one-page limit forces you to choose what matters.
+- **Symptoms have evidence and causes have confidence levels.** A problem statement that states causes as facts is a recommendation in disguise.
+- **No solutions.** Not even "consider Redis." The moment a solution appears, the reader stops reading the problem.
+- **Out of scope is as important as scope.** It is what protects you and the client when the conversation later drifts to "while you're in there…"
+- **It is agreed, not just delivered.** Walk through it live, invite corrections, and revise it. "Agreed by [name] on [date]" is a line you will point to in month three.
+
+> **Best practice.** Keep a blank copy of this template, and one filled in for an invented or open-source system, in your own public portfolio repo. It shows a prospective client or employer how you think before they ever meet you ([Chapter 65](#chapter-65-positioning-and-public-proof)). Real client problem statements are confidential and usually covered by an NDA. Never publish one. If you want to use a real engagement as a case study, anonymise it thoroughly and get the client's written permission first.
+
+## Pushing Back on the Brief
+
+Sometimes diagnosis shows the brief is wrong: the requested solution won't solve the problem, will make it worse, or solves a problem nobody has. Delivering a brief you know is wrong isn't professionalism; it is complicity, and the bill arrives later. But not every disagreement is worth raising ([Chapter 17](#picking-battles-and-influencing-without-authority) covers picking battles), and with a client your relationship is newer and your authority borrowed.
+
+| The brief… | Push back? | How hard |
+|---|---|---|
+| Is a slightly different solution from the one you'd pick, and both would work | No. Note your preference once, then deliver theirs well. | Mention, then let go |
+| Will work but costs noticeably more than an alternative | Yes. Show the alternative with its costs. | Clear recommendation, their call |
+| Solves a different problem from the one the evidence shows | Yes, before work starts | Firm, with evidence, in writing |
+| Won't work given a constraint they've told you about (skills, budget, compliance) | Yes, as soon as you see it | Firm, in writing, repeated if ignored |
+| Creates a security, data-loss or legal risk | Yes, always | Non-negotiable. Escalate if needed. |
+
+**How to do it without losing the client.** Pushing back well usually strengthens the relationship. What loses clients is pushing back publicly, vaguely, or in a way that makes someone look foolish.
+
+1. **Acknowledge what the request gets right.** "Independent deploys for the payments team is the right goal."
+2. **Show the evidence, not your opinion.** "Here's what I found: the last [N] releases each waited [N] days for the change board, and the build itself takes [N] minutes."
+3. **State the consequence in their terms.** "If we split services and keep the change board, you'll have more deployables waiting in the same queue. You'd pay for the split without getting the independence."
+4. **Offer an alternative that serves the underlying need.** "If we make the payments module deployable on its own inside the monolith and agree a lighter approval path for it, you get most of the benefit in [timeframe]. If that proves insufficient, the module boundary is the first step toward a split anyway."
+5. **Leave the decision with them, and mean it.** "It's your call. I wanted you to have this before we commit." If they choose the original brief, [disagree and commit](#disagreeing-productively-and-managing-up): deliver it well, keep a written record of the concern, and don't bring it up again unless new evidence appears.
+
+Do it **privately first**: nobody should hear their idea challenged for the first time in front of peers. Do it **early**: pushback in discovery costs a conversation, and after signature it costs a change request. And confirm it **in writing**: a short email with the concern, the alternative and the decision protects everyone.
+
+> **Gotcha.** On a fixed-scope contract, the brief is also the statement of work. "This is the wrong solution" may mean "this contract needs to change," and that is a commercial conversation your firm has to be part of. Raise it with your account manager and the client sponsor together, framed as protecting the client's outcome. Don't unilaterally deliver something other than what was signed.
+
+## Working Through an Intermediary to the Decision Makers
+
+Much outsourcing and outstaffing work runs through an intermediary: an account manager, delivery manager or PM, on your firm's side or the client's. Part of their job is protecting the relationship by controlling who talks to whom. That is reasonable, and it means information reaches you filtered, and your diagnosis reaches the decision maker filtered, if at all.
+
+```
+   client decision maker ◄──── the real problem lives here
+            │  ▲
+            ▼  │   (filtered both ways: softened, summarised, delayed)
+   intermediary (account manager / PM)
+            │  ▲
+            ▼  │
+          you   ◄──── the diagnosis lives here
+```
+
+**Why intermediaries filter.** Usually not obstruction: they worry that an engineer will alarm the client, promise scope, or criticise the client's team. Address the worry and the filter loosens.
+
+**How to get access:**
+
+1. **Make it safe for them.** Tell them in advance what you want to ask and why: "I'd like thirty minutes with [the CTO] to confirm what success looks like. Here are the four questions. I won't discuss scope or pricing." A specific, bounded request with a stated purpose is far easier to approve than "can I talk to the client?"
+2. **Include them.** Invite them to the meeting. They hear what you hear, they can step in on commercial matters, and they stop being a bottleneck because they aren't being bypassed.
+3. **Make them look good.** Send your discovery summary through them, or with them in copy, and credit the access they arranged. An intermediary who looks good for bringing you in will bring you in again.
+4. **Explain the risk of not having access.** "If I can't confirm the success criteria with the person who'll judge them, we're estimating against a guess. That risk lands on the delivery, and on your account." You are putting your need in terms of their interest.
+
+**What not to do:** go around them. Contacting a client executive without your account manager's knowledge can end your place on the account, however good your insight. If access still doesn't come, write the risk down ("success criteria unconfirmed with [role]; estimate assumes [X]") and send it to the intermediary, so the gap is visible and has an owner.
+
+> **Best practice.** Ask the intermediary the stakeholder questions directly: "Who decides? What are they nervous about? What happened on this account before I joined?" They often know things the client would never say to you, and asking shows you understand the commercial context.
+
+## Remote and Cross-Cultural Discovery
+
+A lot of discovery now happens over video, across time zones, and in English as a second language on one or both sides. Diagnosis still works, but you lose signals and gain risks, and both need planning.
+
+**What you lose remotely** is the hallway conversation, most body language, and the moment when someone important goes quiet. Compensate deliberately:
+
+- **Cameras on for discovery,** where the culture allows. A frown during a play-back is information.
+- **Book the one-to-ones a hallway would have given you:** fifteen minutes each with the people who held back in the group call.
+- **Ask for written input before the call.** Many people, often the most knowledgeable engineers and often non-native speakers, say more in writing than on a call.
+- **Share your screen while you take notes.** People correct misunderstandings they can see.
+
+**Working in a second language.** For many readers of this book English isn't their first language, and often it isn't the client's either. That is normal in international delivery. What reduces the risk:
+
+- **Confirm numbers, dates and names in writing, always.** "Fifteen" and "fifty" sound alike on a bad line. Type them in the chat during the call and repeat them in the summary.
+- **Paraphrase instead of saying "yes, understood."** For many speakers "yes" means "I heard you," not "I agree." A paraphrase tests understanding in both directions.
+- **Rehearse your key phrases:** the framing sentence, the play-back opener, and a polite way to disagree ("I see it a little differently. Can I show you why?"). Rehearsed phrases free your attention for listening.
+- **Use plain words.** Idioms such as "boil the ocean" or "let's table this" travel badly. "Table" means opposite things in British and American English.
+- **Let silences run.** Comfortable pause lengths differ between cultures, and the useful answer often comes after the pause.
+
+**Culture also shapes how problems get reported.** In some business cultures criticism is direct. In others "that could be challenging" means "that will not work," and juniors won't contradict a manager in a group call. Erin Meyer's *The Culture Map* is a practical introduction. For discovery, the consequence is that a group video call is the worst place to surface problems in those settings. One-to-ones, written input and questions about past events get past the reticence, and "what's wrong with the architecture?" usually doesn't.
+
+> **Gotcha.** If you only meet the client at the end of their working day, you meet tired people who want the call to end, and you get short, cautious answers. Take at least one early-morning slot, in their time zone, for the conversations that matter.
+
+> **Best practice.** End every remote discovery call with a written summary within a day: what we heard, what we agreed, open questions, next steps, with names and dates. In a remote, second-language engagement that summary *is* the shared memory, so write it as carefully as a contract clause.
+
+## Exercises
+
+These exercises have no compiler to check them against. They exercise judgment, which is the skill this chapter is about. Put your worked answers, your own question bank and your own problem-statement template in your public portfolio repo. Anything drawn from a real client stays private.
+
+### Find the bug: the discovery call
+
+Here is part of a transcript from a first discovery call. The client is [Client], a logistics company. You are the contractor.
+
+```text
+CLIENT (CTO): Thanks for joining. So, we want to move our order platform to microservices.
+              The board has approved a modernisation budget.
+YOU:          Great, that's a good call. We did a similar migration at [previous client]
+              and it went well. I'd suggest starting with an API gateway and splitting
+              out the order service first, since that's usually the biggest domain.
+CLIENT (CTO): Makes sense. How long would that take?
+YOU:          For a first service, probably [N] months with a team of four.
+              We'd use Kubernetes and a service bus for events.
+CLIENT (CTO): Our team hasn't used Kubernetes, but I suppose they can learn.
+YOU:          Absolutely, it's pretty standard now. Do you have any questions for me?
+CLIENT (CTO): Not really. Oh, one thing: our last attempt at this stalled
+              after the platform lead left, so we want to get it right this time.
+YOU:          Understood. With the right architecture it'll go much more smoothly.
+              I'll send over a proposal by Friday.
+```
+
+List everything wrong with this conversation. There are at least six distinct defects.
+
+<details>
+<summary>Answer</summary>
+
+1. **Endorsed the solution before any diagnosis.** "Great, that's a good call" commits you to microservices before you know what problem they are meant to solve.
+2. **Never asked why now.** A board-approved budget is a trigger, not a driver. What pain made the board approve it?
+3. **Pitched from another client's context.** "[Previous client]" had a different problem. Their diagnosis doesn't transfer.
+4. **Gave a design and an estimate with no information.** Gateway, Kubernetes, a service bus and "[N] months with four people", all before seeing the system or the team. That estimate will now anchor every later conversation.
+5. **Dismissed a team-skills constraint.** "Our team hasn't used Kubernetes" is a major finding about who will operate the result, and "they can learn" skipped past it.
+6. **Asked no questions of the client.** "Any questions for me?" turned discovery into a pitch. Nothing about users, the current system, constraints, decision makers or success criteria.
+7. **Brushed past the most important sentence.** "Our last attempt stalled after the platform lead left" points to an ownership and knowledge-concentration problem that no architecture fixes. The right response: "Tell me more. What happened, and what would be different this time?"
+8. **Skipped from one call to a proposal.** No play-back, no request for system access, no problem statement.
+
+A better version of the second line: "Before I say whether that's the right call, can you tell me what's driving it? What would be different for the business if it were done?"
+</details>
+
+### Find the bug: the problem statement
+
+A colleague has drafted this problem statement after two discovery calls:
+
+```text
+**Problem statement: order platform**
+
+**Problem**
+  The system is a legacy monolith with poor architecture and a lot of technical debt.
+  The database is too slow and the code quality is bad.
+
+**Cause**
+  The original developers didn't follow SOLID principles or clean architecture.
+
+**Solution**
+  Migrate to microservices on Kubernetes with an event-driven architecture,
+  starting with the order service.
+
+**Success**
+  A modern, scalable, maintainable platform.
+```
+
+What is wrong with it, and what would you ask to fix each problem?
+
+<details>
+<summary>Answer</summary>
+
+- **The problem is opinion, not observation.** "Poor architecture," "a lot of technical debt," "code quality is bad" are judgements with no evidence. Which symptoms does the business feel? Ask for the incidents, slow pages, missed dates and complaints that led to the engagement.
+- **"The database is too slow" has no evidence or baseline.** Which queries, for whom, how slow, measured how? Ask for traces or query plans and record a baseline figure with a date.
+- **The cause blames people and isn't falsifiable.** "Didn't follow SOLID" blames absent developers and can't be tested. It also antagonises anyone in the room who wrote the code. Causes should be specific, evidence-backed hypotheses with confidence levels.
+- **It contains a solution.** A problem statement with a solution section is a proposal, and it tells the reader you decided before you diagnosed.
+- **The success criterion can't be measured.** "Modern, scalable, maintainable" can't be checked. Ask: what number would move, from what baseline, by when, and who judges?
+- **Missing sections:** why now and the cost of delay, constraints (budget, deadline, team skills, compliance), out of scope, open questions, stakeholders, and any record that the client agreed to it.
+- **It ignores what discovery found.** If this is the client from the previous exercise, the stalled attempt and the departed platform lead aren't mentioned, and they are the most likely reason a second attempt would fail too.
+</details>
+
+### What would you do: the account manager's rule
+
+You are a senior .NET contractor placed with [Client] through your firm. Before your first discovery call, your account manager tells you: "The client wants a proposal for moving to Azure Kubernetes Service. Don't ask about budget, and don't question the AKS decision. The CTO chose it personally, and this is a big account for us." In the call, the head of engineering mentions that the team is four developers, nobody has run containers in production, and the main pain is "releases take all weekend."
+
+<details>
+<summary>How a senior engineer reasons about it</summary>
+
+Two things are true at once, and they need different handling.
+
+**The account manager's worry is legitimate.** They are protecting a relationship, and "the CTO chose it personally" is real stakeholder data: the economic buyer has a strong opinion and doesn't want it challenged in public.
+
+**The evidence points elsewhere.** "Releases take all weekend" is a delivery-pipeline symptom. AKS doesn't fix a manual release process; it moves it somewhere more complicated. Four developers with no container experience is an operability constraint no proposal can ignore.
+
+So:
+
+1. **Don't challenge AKS in the group call.** Ask diagnostic questions instead: "Walk me through last weekend's release." "Who will operate the platform?"
+2. **Take it to the account manager first, privately,** in terms of the account's health: "AKS alone won't fix their main pain, and this team will struggle to run it. If we propose it without addressing that, delivery goes badly and it comes back on us. How do we raise it?"
+3. **Frame the proposal around the CTO's goal, not against the CTO's choice.** Automate the release pipeline first (it fixes the weekend problem visibly), containerise as part of that, and keep AKS as the target with an explicit operability plan. That keeps the CTO's decision and makes it succeed. If the evidence says AKS is wrong rather than premature, that is a private conversation with the CTO, arranged with the account manager.
+4. **Get a budget range from the account manager** if you may not ask the client. You can't design without one.
+5. **Write the risk down** with an owner: "Main stated pain (weekend releases) not addressed by AKS alone. Team has no container operations experience."
+
+What you don't do is quietly deliver a proposal you believe won't work. The account manager's rule covers what you say in the call. It doesn't cover staying silent about a failure you can see coming.
+</details>
+
+### Go check
+
+- **Rewrite a request you received recently.** Take the last ticket or brief that arrived as a solution ("add caching," "move to [X]"). Write the underlying problem you think it points to and the three questions that would confirm it. If you can, ask those questions for real.
+- **Build your first-day map on a system you know.** Use your current codebase or an open-source .NET project. Run the commands above and fill in the template. Notice what you could not answer, and how long it took to find out who would know.
+- **Draw a stakeholder map for your current project.** Place everyone who could stop or change it on the power/interest grid. Is there anyone in "keep satisfied" who hasn't heard from the team in a month? Keep this one private.
+- **Practise the play-back.** In your next meeting where someone explains a problem, summarise it back in three sentences and ask "what did I get wrong?" Count how often the correction contains something important.
+- **Write a one-page problem statement for a public system.** Pick an open-source .NET project with an active issue tracker, choose a recurring complaint, and write the problem statement from issues, discussions and code. Put it in your portfolio repo. It shows discovery skill without breaking anyone's NDA.
+
+## Sources & Further Reading
+
+- **Peter Block, *Flawless Consulting*.** The standard text on the consulting relationship, including how to handle a client's resistance to a diagnosis.
+- **Donald C. Gause and Gerald M. Weinberg, *Are Your Lights On? How to Figure Out What the Problem Really Is*.** A short book on problem definition: the antidote to solving the request instead of the problem.
+- **Gerald M. Weinberg, *The Secrets of Consulting*.** Rules of thumb for giving advice and getting it taken.
+- **David H. Maister, Charles H. Green and Robert M. Galford, *The Trusted Advisor*.** How trust in advisory relationships is built and lost; the frame for Part XIII.
+- **Rob Fitzpatrick, *The Mom Test*.** Asking about past behaviour, not opinions or hypotheticals.
+- **Taiichi Ohno, *Toyota Production System*.** The origin of the five whys as a working method.
+- **Melvin E. Conway, "How Do Committees Invent?"** (1968). The original paper behind Conway's law.
+- **Matthew Skelton and Manuel Pais, *Team Topologies*.** Using Conway's law deliberately, for when the unstated problem is team structure.
+- **Erin Meyer, *The Culture Map*.** How cultures differ in communicating, criticising and deciding.
+- **Adam Tornhill, *Your Code as a Crime Scene*.** Churn, hotspots and knowledge maps from version control.
+- **Within this book:** [Chapter 17](#chapter-17-soft-skills-engineering-practices) (communication, disagreement, post-mortems), [Chapter 30](#chapter-30-working-with-legacy-brownfield-code) (hotspots and EOL), [Chapter 33](#chapter-33-real-world-scenarios-architectural-decisions) (symptom-to-cause under pressure), and the rest of Part XIII: [Chapter 60](#chapter-60-having-a-point-of-view), [Chapter 62](#chapter-62-lab-the-net-health-check), [Chapter 63](#chapter-63-recommendations-proposals-and-estimates), [Chapter 64](#chapter-64-the-advisory-casebook), [Chapter 65](#chapter-65-positioning-and-public-proof).
+
+
+---
+
+# Chapter 63: Recommendations, Proposals and Estimates
+
+_⏱️ Estimated read time: ~1 h · 9965 words (study pace)_
+
+Clients don't hire a senior contractor for answers they could find themselves. They hire one to turn partial information into a decision they can act on and defend to the people above them. [Chapter 61](#chapter-61-discovery-and-diagnosis) covered finding out what is wrong. This chapter covers what comes after: saying what to do about it, writing it so a busy executive can act, putting a shape and a price on the work, and keeping that shape intact once delivery starts.
+
+These are four skills, but they form one pipeline, and a weak link breaks the rest:
+
+```
+ diagnosis ──► options memo ──► decision ──► ADR / decision log
+ (Ch 61, 62)   (what to do)     (theirs)     (what was chosen, and why)
+                                   │
+                                   ▼
+                  proposal ──► estimate ──► SOW ──► delivery ──► change requests
+                  (the shape)  (the range)  (the     (the work)  (keeping the shape
+                                            contract)            honest as it moves)
+```
+
+A good recommendation with a vague SOW turns into a dispute. A careful SOW built on a point estimate nobody believed turns into a death march. A perfect estimate for the wrong option wastes the client's money efficiently.
+
+[Chapter 17](#chapter-17-soft-skills-engineering-practices) covered the basics: bottom line up front, trade-offs for a product manager, ADRs, and estimation within a team (17.4). The audience here is a client who pays by the day, can end the engagement, and may have been burned by the last vendor. The habits are the same, but the stakes and the incentives are different.
+
+## 63.1 Why "It Depends" Is Not Advice
+
+Most architecture questions really do depend on circumstances. The mistake is stopping at "it depends", because that hands the uncertainty back to the person who paid you to deal with it.
+
+Uncertainty has a cost whether or not anyone names it. If you don't recommend, the client still decides. They decide with less information than you had, or they decide by default, which usually means doing nothing while the problem compounds. Declining to commit doesn't avoid the risk. It moves the risk onto the person least able to judge it.
+
+There are three honest ways to recommend under uncertainty. There is also a dishonest way that can pass for a fourth:
+
+| Posture | What you say | When it is right |
+|---|---|---|
+| **Recommend** | "Do B. Here's why, and here's what would change my mind." | More research probably wouldn't change the answer. |
+| **Recommend a step** | "Run a two-week spike on X. Its result picks between A and B." | The options differ a lot and one cheap experiment would settle it. |
+| **Recommend a reversible start** | "Start with A. It keeps B open, and we'll know more in a month." | You can't settle it cheaply, but one option doesn't close off the others. |
+| *Hedge* | "Both have merits; it's really a business decision." | Never, as a conclusion. Every decision is a business decision, and your job is to make this one easier. |
+
+> **Pitfall.** A hedge can look like humility ("I'd hate to push you either way"). The client hears that you don't know. They will go to someone who sounds as if they do, and that person may be worse at the job than you.
+
+Recommending doesn't mean claiming more confidence than you have. State your confidence and the reason for it: "Fairly confident. The three riskiest modules have no System.Web dependencies." [Chapter 60](#chapter-60-having-a-point-of-view) covers where a point of view comes from. This chapter covers how to deliver it.
+
+## 63.2 The Options Memo
+
+The options memo is the advisor's core document: two to four pages in a fixed shape. The shape matters because each part answers a question the decision-maker will ask. Any part you leave out comes up in the meeting, where you'll answer it less well.
+
+1. **The decision.** What is being decided, by whom, by when.
+2. **The recommendation.** One sentence, at the top.
+3. **Context.** Only what is needed to judge the options: the forcing function, the constraints, and the diagnosis.
+4. **Options: two or three real ones, plus "do nothing".** Each described the same way: cost (a range), time, risk, reversibility, and what it lets you do next.
+5. **Comparison.** One table, with the same criteria for every option.
+6. **Why the recommendation wins.** The two or three reasons that decide it, not a list of every advantage.
+7. **What would change the recommendation.** The specific facts that would flip it.
+8. **What we need to learn next.** Open questions, how to answer them, who owns each, and by when.
+9. **The ask.** What you need from the reader, and by when.
+
+Three rules keep the memo honest:
+
+- **"Do nothing" is always an option, and it's never free.** Its cost is the problem growing: incidents continue, the hiring pool shrinks, a contract auto-renews. Stating that cost is often the most persuasive part of the memo, because the client may never have seen it written down. Sometimes doing nothing is the right answer. An advisor who says so and loses the work earns more trust than one who always finds something to sell.
+- **Every option must be one a reasonable person would pick.** One real option next to two strawmen is a sales pitch, and experienced readers notice. If you can't make the strongest case for an option, you don't understand it well enough to reject it.
+- **Same criteria, same depth.** If the favoured option gets a cost breakdown and the others get "expensive", the comparison is rigged, even if you didn't mean it to be.
+
+```markdown
+**Options memo: [decision in one line]**
+Author: [name] · Date: [date] · Decision owner: [name, role] · Decide by: [date]
+
+**Recommendation**
+[One sentence: do X.] [One sentence: the main reason.]
+
+**Context**
+[Forcing function: why now.] [Constraints: budget, dates, team, compliance.]
+[What the diagnosis found: 3–5 bullets, with links to the evidence.]
+
+**Options**
+Option 0 — Do nothing: [what that means concretely]
+Option A — [name]: [2–3 sentences]
+Option B — [name]: [2–3 sentences]
+
+**Comparison**
+| | Do nothing | A | B |
+| Cost (range) | | | |
+| Time to first value | | | |
+| Main risks | | | |
+| Reversibility | | | |
+| Leaves us able to | | | |
+
+**Why [recommended option]**
+[2–3 decisive reasons.]
+
+**What would change this recommendation**
+- If [fact], then [other option] wins, because [mechanism].
+
+**What we need to learn next**
+| Question | How we find out | Owner | By |
+
+**Ask**
+[Decision / approval / access needed, from whom, by when.]
+```
+
+> **Best practice.** Write "What would change this recommendation" *before* "Why". Doing it first makes you find the assumptions your recommendation depends on, and those are exactly what a sharp reader will test. It also shows that you reached the recommendation from evidence and will change it if the evidence changes.
+
+## 63.3 A Worked Example: The .NET Framework 4.8 Monolith
+
+All names, figures and dates in this example are **illustrative**. They show the reasoning. They are not benchmarks.
+
+**The situation.** A mid-sized distributor's order platform is a .NET Framework 4.8 monolith: ASP.NET MVC 5 customer portal, a Web Forms back office, WCF services used by the warehouse system, EF6, and SQL Server. It runs on two Windows Server VMs in a co-location facility whose contract renews, for several years, in nine months. It has about 400k lines of C#, few tests, and three in-house developers. The CTO asks for "a plan to get us to the cloud and off old .NET".
+
+**The diagnosis** (discovery, as in [Chapter 61](#chapter-61-discovery-and-diagnosis)):
+
+- .NET Framework 4.8.x is still serviced, but it gets no new features, and its support follows the Windows versions it runs on. Check Microsoft's current lifecycle page before you quote a date. The runtime itself isn't urgent. The ecosystem around it is: libraries are dropping Framework targets, and fewer engineers want to work on Web Forms.
+- The Web Forms back office is the most tangled part. The MVC portal is fairly clean. Two WCF services use `netTcpBinding`.
+- Uploads are written to a local disk path, and a nightly job runs as a Windows Scheduled Task.
+- **The business's real problems are release risk (manual deploys, weekends only) and the co-location renewal.** The framework version is not one of them.
+
+The last point decides the recommendation. The CTO asked about the cloud and old .NET. What the business needs is to leave the co-location facility before the renewal and to be able to ship without fear. A plan that answers the question as asked, and misses the real need, gets accepted and later regretted.
+
+**The options.**
+
+- **Option 0: do nothing.** Renew the contract and keep the VMs. There's no migration spend, but the renewal commits the client for years, which makes "do nothing" the *least* reversible option on the table. Release risk stays as it is, and every change gets a little more expensive each year.
+- **Option A: move to Azure App Service (Windows) as-is.** App Service runs .NET Framework 4.8 apps on Windows plans. The work is mostly environmental: uploads move to Blob Storage, the scheduled task becomes a WebJob or Function, the `netTcpBinding` services switch to HTTP bindings or move to a VM, the database moves to Azure SQL or SQL Managed Instance, and CI/CD with deployment slots is added. Anything that assumes a full Windows server (COM components, MSMQ, Windows services, local file shares) needs a new home, and finding all of those is the main risk. This option exits the co-location contract and fixes weekend deploys. It does nothing about the framework. [Chapter 50](#chapter-50-azure-in-depth-for-net-developers) covers App Service slots, managed identity and configuration.
+- **Option B: strangler fig to .NET 10.** A .NET 10 facade (YARP) sits in front of the monolith, and capabilities move behind it one at a time: portal first, WCF surfaces next, back office last or replaced. The System.Web adapters (`Microsoft.AspNetCore.SystemWebAdapters`) let the old and new apps share session state and authentication while both run. [Chapter 30](#chapter-30-working-with-legacy-brownfield-code) covers the mechanics. Each slice ships on its own, and you can stop at any slice and still have a working system. .NET 10 is an LTS release supported until November 2028.
+- **Option C: rewrite on .NET 10.** This is the cleanest target on paper. In practice it means maintaining two systems during the build, rediscovering edge cases as production incidents, delivering no value until cutover, and then a large cutover that's hard to reverse. Chapter 30 explains why big-bang rewrites fail. Flyvbjerg and Gardner's *How Big Things Get Done* shows the same pattern in large projects across many industries.
+
+**Comparison.** Effort is in person-months. The figures are illustrative, from before any discovery narrowed them.
+
+| | 0: Do nothing | A: Move to App Service | B: Strangler to .NET 10 | C: Rewrite |
+|---|---|---|---|---|
+| Effort | ~0 + renewal | 3–6 | 12–30, spread out | 25–60+, up front |
+| First value | — | 2–4 months | 3–5 months | At cutover, 12+ months |
+| Main risks | Lock-in; release risk unchanged | Hidden server dependencies; still on Framework | Old/new coupling; slow if under-staffed | Rediscovering scope; running two systems; cutover |
+| Reversibility | **Low** (multi-year contract) | High (VMs stay as fallback) | High per slice | Low once committed |
+| Leaves us able to | Nothing new | Start B from Azure, with CI/CD in place | Stop at any slice | Only finish |
+
+**Recommendation: A, then B.** Move the monolith to App Service within four months. That exits the co-location contract and fixes deploys. Then strangle it to .NET 10 one slice at a time, starting with the portal, with a review after each slice. This is one recommendation: a sequence with decision points, not a hedge between two options. It wins for three reasons:
+
+1. **It meets the deadline with the cheapest reversible move.** None of the other options gets out of the co-location contract within nine months without taking on the most risk.
+2. **A makes B cheaper.** B needs CI/CD, slots, Blob Storage and managed identity anyway. Building them against the running monolith means the strangler starts on proven ground.
+3. **Value arrives early and keeps arriving**, which keeps the budget alive through the long part.
+
+**What would change it:**
+
+- *Discovery finds server dependencies App Service can't host.* The first move goes to Azure VMs instead. The sequence stays the same.
+- *A SaaS replacement is planned within two years.* Do A only. Spending on B would be modernizing something about to be retired.
+- *The co-location contract can go month-to-month.* The deadline disappears, so go straight to B and skip the intermediate hosting move.
+- *The back office turns out to be thin CRUD.* Replacing it becomes a small, contained rewrite inside B, not a rewrite of the whole system.
+
+**What we need to learn next** (a two-week paid discovery, 63.11):
+
+| Question | How | Owner | By |
+|---|---|---|---|
+| What assumes a full Windows server? | Dependency inventory, Upgrade Assistant analysis, a trial deploy to App Service | Advisor + senior dev | Week 1 |
+| Can the contract go month-to-month? | Ask the provider | Client ops lead | Week 1 |
+| How coupled is auth between the portal and the back office? | Read the code; spike with the System.Web adapters | Advisor | Week 2 |
+| Is a SaaS replacement on the roadmap? | Ask the COO | CTO | Week 1 |
+
+Notice what the memo doesn't do. It doesn't pretend the ranges are precise. It doesn't recommend the most interesting technical work. And it doesn't bury the renewal, which is the fact that makes "do nothing" a one-way door.
+
+## 63.4 Writing for Executives
+
+The CTO will read the whole memo. Above the CTO is someone (a CFO, a CEO, a board) who will read one page, and maybe only its first paragraph. A large share of your influence depends on that page.
+
+### Bottom line up front, and why it works
+
+Executives read to decide *whether to get involved*, not to understand everything. The opening tells them whether this is a decision they must make, a risk they must know about, or something to delegate. If the answer is in paragraph four, they have delegated it before reaching it, often to the person least able to decide. A strong first sentence gives the recommendation, the cost, and what happens if they don't act:
+
+> *We recommend moving the order platform to Azure over the next four months (€[X]–[Y]) and modernizing it in stages after that. Renewing the co-location contract instead commits us to [N] more years on a platform that already limits how safely we can release.*
+
+### The pyramid
+
+Barbara Minto's *The Pyramid Principle* gives BLUF a structure you can repeat. A governing thought goes at the top. Beneath it are a few key points that together support it fully, and beneath each of those is its evidence.
+
+```
+                 ┌──────────────────────────────────────────┐
+                 │ Move to Azure now, modernize in stages    │
+                 └──────────────────────────────────────────┘
+                     │                 │                  │
+      ┌──────────────┴───┐  ┌──────────┴────────┐  ┌──────┴──────────────┐
+      │ Avoids multi-year │  │ Cuts release risk │  │ Keeps every later    │
+      │ lock-in           │  │ within a quarter  │  │ option open          │
+      └──────────────────┘  └───────────────────┘  └──────────────────────┘
+        renewal terms         weekend deploys,       each step can stop
+                              incident history       with a working system
+```
+
+- **Vertical logic.** Each level answers the question raised by the level above it. "Move now" raises "why?", and the three points answer it. "Avoids lock-in" raises "how much?", and the evidence answers that. A box that answers nothing doesn't belong in the pyramid.
+- **Horizontal logic: MECE.** The key points should be *mutually exclusive* (they don't overlap) and *collectively exhaustive* (nothing that matters is missing). Overlapping points read as padding. A missing one will be raised by the reader, and you'll be on the defensive.
+
+For the introduction, Minto uses **SCQA**: *Situation*, *Complication*, *Question*, *Answer*. "Our order platform runs on two co-located servers (S). The contract renews in nine months, for [N] years (C). Should we renew or move? (Q) Move, in two stages (A)."
+
+### The one-page executive summary
+
+```markdown
+**[Decision] — executive summary**                      [date] · [author]
+
+**Recommendation.** [What, cost range, timeframe — one or two sentences.]
+**Why now.** [The forcing function, in business terms.]
+**What it buys us.**
+- [Business outcome, with a range or before/after]
+- [Business outcome]
+**What it costs.** [Range, spread over time; internal time needed.]
+**Main risks and how we contain them.**
+- [Risk in business terms] → [containment]
+**Alternatives considered.** [One line each, and why not.]
+**Decision needed.** [What, from whom, by when; what happens if no decision.]
+
+Detail: [link to the options memo]
+```
+
+> **Best practice.** Read the one-pager aloud as the CFO and cross out every term they'd have to ask about. "App Service", "strangler" and "YARP" belong in the memo. If you can't state the recommendation without jargon, you haven't translated it yet.
+
+### Translating technical risk into business terms
+
+Executives think in three currencies: **money**, **time**, and **risk to the business** (revenue, customers, compliance, reputation). A technical risk that isn't converted into one of them gets treated as zero, because the reader can't weigh it against everything else competing for the budget.
+
+| What you'd tell an engineer | What the executive needs to hear |
+|---|---|
+| "No automated tests on order intake." | "Any release can break order-taking, and we find out from customers. That happened [N] times last quarter, at about [€ per hour of lost orders × hours]." |
+| "We're on .NET Framework 4.8." | "Each year fewer engineers and libraries support this platform, so hiring gets slower and changes get more expensive. It's a slow cost, not a sudden one." |
+| "Deploys are manual and weekend-only." | "We can release safely about once a month, which limits how fast we can respond. Each release also costs [N] staff weekends." |
+| "Two WCF services use a legacy binding." | Usually nothing. It's an implementation detail inside one option's cost. |
+
+The translation rests on **expected cost**: likelihood × impact, stated as a range. "About one release in [N] causes an order-intake outage of [hours], at roughly €[X] per hour" is something a CFO can weigh against a migration budget. "The code is fragile" is not.
+
+- **Use the client's own numbers.** Revenue per hour, incident history and time-to-hire exist somewhere in their organization. A number they recognize is worth more than ten you estimated.
+- **Give ranges, not false precision.** "€40–90k" is honest. "€63,450" suggests precision you don't have, and the first time one such figure turns out wrong, they stop trusting the rest.
+- **Don't inflate the downside.** Scaring executives into approving work works once. After that, they discount everything you say.
+
+> **Gotcha.** For many CFOs the real constraint is *when* the cash goes out, not the total. A plan that costs a bit more but spreads the spend across four quarters, with value from the first, can beat a cheaper plan that needs everything up front. Ask how the client budgets (capex versus opex, annual cycles, approval thresholds) before you design the phases. [Chapter 28](#chapter-28-compliance-data-privacy-cloud-cost-finops) covers the cloud-cost side.
+
+## 63.5 Reversibility: Matching Rigor to the Door
+
+Not every decision deserves a memo. In his 2015 letter to Amazon shareholders, Jeff Bezos separated **Type 1** decisions, which are one-way doors (irreversible or nearly so) and deserve slow, careful thought, from **Type 2** decisions, which are two-way doors and should be made quickly by small groups. He warned about getting it wrong in both directions. Treating two-way doors like one-way doors makes an organization slow. Treating one-way doors casually is how it gets trapped.
+
+For an advisor, that becomes a rule for how much analysis to spend on a decision:
+
+| Door | Examples | Rigor | Record |
+|---|---|---|---|
+| **Two-way, cheap** | A logging library; a strangler's first slice; a feature flag | Decide in the meeting; set a review date | A line in the decision log |
+| **Two-way, expensive** | Hosting move; ORM for new code; team structure | Short written comparison; name the rollback path | One-page ADR |
+| **One-way** | Multi-year contracts; a rewrite; destructive data-model changes; public API contracts | Full options memo, discovery first, explicit sign-off | Memo + ADR + executive summary |
+
+Reversibility can be designed, and designing it is often the most useful thing an advisor does:
+
+- **Slicing.** A rewrite is one one-way door. A strangler is a series of two-way doors, so each commitment stays small even if the total work is similar.
+- **Keeping the fallback running.** During a hosting move, keep the old VMs warm and the DNS switch ready for [N] weeks.
+- **Expand/contract data changes** ([Chapter 30](#chapter-30-working-with-legacy-brownfield-code)). Add the new structure, write to both, and remove the old one only once the new one has been proven.
+- **Shorter commitments.** Month-to-month at a premium is often worth paying for, because you're buying an option.
+
+> **Pitfall.** "Do nothing" looks like the ultimate two-way door, but it often isn't. Contracts auto-renew, support windows close, key people leave, and data grows until migrating it is no longer simple. Before treating inaction as the safe default, ask which doors will close on their own.
+
+The opposite mistake is just as common: putting a small decision through a heavy process because a memo looks diligent. If the client can undo it next sprint in a day, recommend it in one sentence, log it, and move on.
+
+## 63.6 Presenting a Recommendation and Handling Pushback
+
+Most decisions are made in meetings, and meetings go the way they were prepared.
+
+**Pre-wire it.** Before the group meeting, go through the recommendation one-on-one with the key people: the CTO, the finance contact, and whoever's team will do the work. In private, people raise their real objections. In a group, they defend positions. Each objection you hear beforehand is one you can answer in writing, and nobody hears your recommendation for the first time in a room where disagreeing might embarrass them.
+
+**Know who signs.** In outsourcing, the person you work with every day is often not the one who approves the budget. Find out who does and what they care about before you write the one-pager.
+
+**In a 30-minute decision meeting:** state the decision and your recommendation (2 minutes). Explain why now (3 minutes). Walk through the comparison table and the deciding reasons (10 minutes). Cover the risks and what would change your recommendation, before anyone asks (5 minutes). Leave the rest for discussion. Close by stating what was decided, who owns what, and when you'll send the write-up. If nothing was decided, state what's needed to decide.
+
+Pushback falls into a few recurring types:
+
+| What you hear | What it often is | Response |
+|---|---|---|
+| "Too expensive." | A budget limit, or doubt about the value | Ask which. For budget, show the cheapest option that still meets the deadline and what it gives up. For value, go back to the cost of doing nothing. |
+| "Why not just rewrite it properly?" | A preferred solution, often from someone senior | Put it in the same comparison table, against the same criteria. If it loses, it loses in the open. |
+| "The last vendor said three months." | Anchoring | Ask what that estimate included and what happened to it. Don't match a number just because it exists. |
+| "Can't it be faster?" | Schedule pressure | Name the real levers: less scope, more people (with the ramp-up cost from Brooks's *The Mythical Man-Month*), or more risk. Ask which one they want. |
+| "We need certainty first." | Fear of a one-way door | Offer a staged commitment: fund discovery now and decide the rest at the gate. |
+| "Let us think about it." | An unspoken objection, or the decision-maker isn't in the room | "What would need to be true for this to be an easy yes?" Follow up in writing within a day. |
+
+The rule behind the table: **update on evidence, not on pressure.** When pushback brings new information (a constraint, a cost you got wrong, a strategy nobody mentioned), change your recommendation and say so plainly: "That changes my view. Given the SaaS plans, I'd do A only." That isn't losing the argument. It's what your "What would change this" section promised. When pushback is only repetition or seniority, restate your reasoning once, politely, and ask what would change their mind.
+
+> **Best practice.** The client is entitled to decide against you, and they often have reasons you can't see. You've done your job if they decide *knowing* the trade-off, whatever they choose.
+
+**If you're overruled,** disagree once, clearly and in writing, then commit (Chapter 17's *disagree and commit*). Put your effort into making the chosen path succeed, including making it more reversible: slice it, keep the old system able to take traffic, and agree on review checkpoints. The one exception is an ethical or legal line, such as unsafe practices or misleading customers or regulators. That belongs with your firm's leadership. It isn't a design disagreement.
+
+## 63.7 After the Decision: Writing It Down
+
+A decision that isn't written down gets made again six months later, by someone who wasn't there and has less information. For a contractor there's a second reason: the engagement ends, and the client's memory of *why* shouldn't leave with you.
+
+Use the ADR format from [Chapter 17](#chapter-17-soft-skills-engineering-practices) (17.5), and add four things for client work:
+
+- **Who decided, and where.** "Approved by [CTO] at the steering meeting, [date]." Not to assign blame: when circumstances change, the first question is who can reopen the decision.
+- **A link to the options memo.** The ADR records the choice, and the memo records the reasoning.
+- **Revisit triggers.** Copy in "What would change this recommendation". It defines when reopening the decision is legitimate rather than disruptive.
+- **Dissent, if any.** "The back-office team preferred a full rewrite; see [link]." Recording dissent respects it, and it lets people who disagreed raise the question again later without looking like sore losers.
+
+For two-way-door decisions, a one-line **decision log** (date, decision, owner, link) is enough.
+
+> **Gotcha.** Store decision records where the *client* owns them: their repo or wiki, not your firm's tracker. When the contract ends, neither of you can reach the tracker.
+
+## 63.8 Proposals That Survive Contact
+
+A proposal turns an agreed direction into work someone can buy, and it often becomes the basis of the SOW. Write every sentence as if it will be quoted back to you in a dispute. *This section and the next give engineering advice about what proposals and SOWs contain. They are not legal advice. Contract law varies by jurisdiction, and your firm's legal and commercial people own the final wording.*
+
+| Section | What it answers | What goes wrong without it |
+|---|---|---|
+| **Problem** | What the client is fixing, in their terms | You solve a different problem well |
+| **Approach** | How, and why this way (link the memo) | Indistinguishable from a cheaper bid |
+| **Phases** | The work in stages, each ending at a gate | One large commitment with no place to stop |
+| **Deliverables** | What they receive, each with acceptance criteria | "Done" means whatever they need it to mean |
+| **Assumptions** | What must be true for the plan and price to hold | You carry risks you never agreed to |
+| **Client dependencies** | What the client provides, and by when | Your schedule quietly depends on theirs |
+| **Exclusions** | What is *not* included, by name | Everything adjacent is assumed to be included |
+| **Risks** | What could go wrong, who carries it, and how it's contained | Surprises become disputes |
+| **Commercial model** | How you're paid, and how change is handled | Every change is negotiated from scratch |
+
+**An assumption is a risk you've handed to the client, but only if it can be checked.** "Assumes a test environment with production-like data by week 2" means a week-6 environment is a documented reason for a change request, not an argument. "Assumes reasonable cooperation" transfers nothing. **Exclusions** work the same way: list what a reasonable reader might assume is included ("Excludes: the Web Forms back office; performance testing beyond section 5; 24/7 support after go-live"). Each one is a conversation held now, cheaply, instead of later, expensively.
+
+```markdown
+**Proposal: Order platform — Phase 1, move to Azure**
+[Client] · [Your firm] · Version [n] · [date]
+
+**Problem**
+Two co-located servers; contract renews [date]; manual weekend releases.
+[Link: options memo, ADR-001]
+
+**Approach**
+Move the existing application to App Service with minimal code change, add
+automated deployment, keep the current servers as fallback for [N] weeks.
+
+**Phases and gates**
+P1a Discovery (2 weeks, fixed fee) → gate: go/no-go, confirmed P1b estimate
+P1b Migration (est. [range] weeks) → gate: production cutover sign-off
+P1c Stabilization ([N] weeks)      → gate: fallback servers decommissioned
+
+**Deliverables and acceptance**
+D1 Discovery report — accepted after walkthrough; comments within 5 business days.
+D2 Azure environments as IaC — accepted when [named checks] pass and test is
+   recreated from code.
+D3 Pipeline (build, test, deploy to slot, swap) — accepted after [N] production
+   releases through it.
+D4 Cutover — accepted when [named business smoke tests] pass and [N] days
+   without Sev-1.
+
+**Assumptions** · **Client dependencies** (what / who / by) · **Exclusions**
+**Risks** (risk / likelihood / impact / carried by / containment)
+**Commercial model and change control** (63.9, 63.12)
+```
+
+> **Best practice.** End every phase at a gate where the price of the next phase is confirmed. That makes the proposal easier to buy (the first commitment is small), more honest (each phase is priced using what the last one taught), and safer (either side can stop cleanly).
+
+## 63.9 Commercial Models and Who Carries the Risk
+
+Every commercial model answers one question: **when the work turns out bigger or smaller than expected, who pays?** How both sides behave follows from the answer.
+
+| Model | How it works | Client carries | Vendor carries | Behaviour it encourages |
+|---|---|---|---|---|
+| **Time and materials (T&M)** | Pay for time worked at agreed rates | Effort risk | Utilization; reputation | Flexibility, but nobody is accountable for the total |
+| **T&M with a cap** | T&M up to a not-to-exceed amount | Effort up to the cap | Overrun beyond it (per terms) | Shared discipline |
+| **Fixed price** | One price for defined scope | Scope fit: they get what was written, not necessarily what they need | Effort risk, priced in as a premium | The vendor defends scope, and change requests become the battleground |
+| **Retainer** | Monthly fee for defined capacity or availability | Paying for unused capacity | Demand beyond the retained capacity | An ongoing relationship; suits advisory and support work |
+| **Value-based** | Price tied to the value delivered, not the effort | Paying more when the value is high | Effort, *and* whether the value is realized | Focus on outcomes; needs measurable value and trust |
+
+**Fixing the price doesn't remove the uncertainty. It moves it to the vendor, who charges for carrying it.** A well-run vendor estimates the work and adds a margin that grows with the uncertainty. A client who demands a fixed price before any discovery is buying insurance at its most expensive. The fair thing to say is: "We can fix a price now, but it will carry a large risk margin. Fund two weeks of discovery first and the build price will be lower, because we'll be pricing less uncertainty."
+
+Each model also shapes behaviour. Under fixed price, every ambiguity is money: the vendor wants the narrow reading and the client wants the broad one. That's why fixed price needs the tightest SOW (63.10) and the most formal change control (63.12). Under T&M, the risk runs the other way: nobody on the vendor side owns the total. Good T&M relationships make up for it with forecasts, burn-down reporting, and an advisor who treats the client's budget as finite.
+
+**Value-based pricing** (Alan Weiss's *Value-Based Fees*; Blair Enns's *Pricing Creativity*) suits advisory work with a clear, measurable outcome and a buyer who can judge it. It rarely suits outstaffed delivery, where you're capacity inside someone else's plan.
+
+**If you work through an outsourcing or outstaffing firm,** the account manager and the client negotiate the model, and you're usually billed T&M within it. You still have influence:
+
+- **Your estimates become the price.** Under fixed price, your range and assumptions set how much risk your firm takes on. Give them honestly and in writing.
+- **You're often the first to spot out-of-scope work.** How you raise it (63.12) decides whether it becomes a paid change or unpaid work nobody sees.
+- **Commercial conversations go through your firm.** When a client asks you for a price, a discount, or "a small extra, no need to mention it", the answer is friendly and always the same: "Good idea. Let me bring [account manager] in so we do it properly." Negotiating directly can commit your firm to things it hasn't agreed.
+
+> **Pitfall.** Quietly absorbing out-of-scope work feels generous. It teaches the client that scope is negotiable, costs your firm margin, and leaves no record to justify the next change request. If you want to do the favour, make it visible: "Happy to include this. I'll log it as a goodwill change so we both know it's outside the SOW."
+
+## 63.10 Scope Traps in Statements of Work
+
+Some SOW phrases look harmless but carry large amounts of unpriced work. (As before: engineering advice about content, not legal advice.)
+
+| Phrase | What the client can reasonably read into it | Rewrite |
+|---|---|---|
+| "Accepted upon client satisfaction." / No acceptance section | Done is whenever they say so | Acceptance criteria for each deliverable; an [N]-business-day acceptance window; severity definitions, where only [named severities] block acceptance; deemed accepted if no written defects arrive in the window |
+| "...including integrations with existing systems." | Every system, in every direction | A named list: system, direction, protocol, data, who provides the sandbox and documentation. Anything else goes through change requests |
+| "Migrate existing data." | All of it, with full history, cleaned, reconciled, no downtime | Named entities, volumes and history depth; who owns cleansing; reconciliation method and tolerance; number of rehearsals; cutover window |
+| "Feature parity with the current system." | Every behaviour, including the undocumented bugs someone relies on | A named feature list from discovery; anything off the list is excluded or priced as a change |
+| "Secure, fast, scalable, highly available." | Whatever the worst day needs | Numbers: p95 latency at [N] RPS on named operations; an availability target and how it's measured; the security standard, who runs the pen test, and whether fixing its findings is in scope |
+| "Support during go-live." | Around the clock, indefinitely | Duration, hours, response times by severity, and the support channel |
+| "Client will provide access as needed." | Your schedule depends on theirs, invisibly | A dependency table with dates, and what happens when a date slips |
+
+**Data migration is where estimates fail most quietly.** Moving the data is the small part. The large parts are finding out what the data really contains (as opposed to what the schema says), deciding what to do with records that don't fit the new model, reconciling counts and totals until the business trusts the result, rehearsing until the cutover fits its window, and handling changes made during the migration. Each of those needs a business owner, and "migrate the data" assigns none.
+
+**Hidden non-functional requirements** are the other trap: the client expects them without writing them down, because to them they're obvious. Ask before signing:
+
+- **Performance:** what load, on which operations, and what's the current baseline? "No slower than today" is a real requirement.
+- **Availability and recovery:** what does an hour of downtime cost? A day? What are the RPO and RTO?
+- **Security and compliance:** which standards apply? Who pen-tests, and who fixes what they find? Where may personal data live ([Chapter 28](#chapter-28-compliance-data-privacy-cloud-cost-finops))?
+- **Operability:** who runs the system after handover, and what monitoring and runbooks do they need?
+- **Accessibility, localization, browsers and devices, audit logging and retention.**
+
+Each answer goes into the SOW as a measurable criterion or into the exclusions. The dangerous NFR is the one that ends up in neither.
+
+> **Best practice.** Read the SOW once as the client's most demanding stakeholder would read it on the project's worst day. Any sentence that could mean more work than you estimated is a trap. Fix it while it's still about wording, not money.
+
+## 63.11 Estimating for Clients
+
+Section 17.4 covered thin slices, spikes, ranges and buffers. With a client, the estimate often becomes a *price*, the listener may not be technical, and your competitors have every reason to be optimistic.
+
+### Estimate, target, commitment
+
+Steve McConnell's *Software Estimation: Demystifying the Black Art* separates three things that often get confused. An **estimate** is a prediction with an honest range. A **target** is what the business wants. A **commitment** is a promise to deliver defined scope by a date. Much of what goes wrong happens when a target is presented as an estimate, or an estimate turns into a commitment without anyone deciding it should. Name which one you're giving: "The estimate is 4–7 months. Your target is 5. We can commit to 5 if we drop [scope] or accept [risk]. Which do you prefer?"
+
+### Ranges, confidence and calibration
+
+A range without a confidence level is only half an estimate. **P50** (equally likely to come in over or under) is a reasonable internal planning number, but a dangerous external commitment, because you'll miss it half the time. **P80 or P90** is what you commit to. The gap between P50 and P90 is the price of certainty, and showing both makes that price visible.
+
+People are overconfident when they give ranges: their "90% sure" intervals contain the true answer much less often than 90% of the time. Douglas Hubbard's *How to Measure Anything* covers calibration training. The practical fix is to keep a log of your ranges and the actual outcomes, and widen your ranges until they contain the actual as often as you claim.
+
+### The cone of uncertainty
+
+McConnell, building on Barry Boehm's data, calls it the **cone of uncertainty**: the range of plausible outcomes is widest at the start, and it narrows as decisions are made. In McConnell's version, an estimate at the initial-concept stage can be off by a factor of about four in either direction.
+
+```
+ multiplier
+   4x │╲
+   2x │  ╲____
+   1x ├────────────────────────────────── (actual)
+ 0.5x │  ╱‾‾‾‾
+0.25x │╱
+      └──┬────────┬──────────┬─────────►
+       initial  approved   requirements,   decisions made
+       concept  concept    then design
+```
+
+Two properties of the cone matter most with clients:
+
+- **It narrows only as decisions get made.** Time passing doesn't narrow it. If requirements are still open at month three, the uncertainty is where it was on day one. The cone shows the *best* case.
+- **It tells you when a fixed price is sensible.** A fixed price given at the wide end of the cone is either heavily padded or wrong. That is the case for paid discovery (below).
+
+### Reference-class estimates: the outside view
+
+Bottom-up estimates come in low for a structural reason: work you can't see yet isn't in the sum. Daniel Kahneman (*Thinking, Fast and Slow*) calls this the **inside view**. The **outside view** starts by asking how long projects *like this one* actually took. That is **reference-class forecasting**, the core of Flyvbjerg and Gardner's *How Big Things Get Done*.
+
+For a contractor, the reference class is usually your firm's own history: "our last four Framework-to-App-Service moves took [range]". Choose a class that's honestly similar. Get the *distribution* of outcomes, not just the average. Start from that distribution and adjust carefully for real differences, because most people over-adjust ("we're special") and end up back at the inside view. If your bottom-up number is well below the reference class, the likeliest explanation is missing work, not an unusual project.
+
+> **Best practice.** Build your own reference class starting now. For every engagement, record the initial estimate, the final effort, and the main reason for the gap. After a few years, that private log will beat any technique. Keep the client details private (63.13).
+
+### Three-point estimates and PERT
+
+For bottom-up estimates, give each task an **optimistic (O)**, **most likely (M)** and **pessimistic (P)** value. PERT (the Program Evaluation and Review Technique, from the 1950s) combines them:
+
+```
+ Expected   E = (O + 4M + P) / 6
+ Std. dev.  σ ≈ (P − O) / 6
+ Total      E_total = ΣE        σ_total = √(Σσ²)   (assumes independent tasks)
+```
+
+Here is Phase 1b from the worked example, in person-days (**illustrative**):
+
+| Task | O | M | P | E | σ |
+|---|---|---|---|---|---|
+| Facade, IaC, pipeline | 8 | 12 | 20 | 12.7 | 2.0 |
+| Auth and session bridging | 5 | 10 | 25 | 11.7 | 3.3 |
+| Uploads and scheduled job | 3 | 6 | 15 | 7.0 | 2.0 |
+| Characterization tests, critical paths | 10 | 15 | 25 | 15.8 | 2.5 |
+| First slice cutover (portal) | 15 | 25 | 50 | 27.5 | 5.8 |
+| **Total** | 41 | 68 | 135 | **74.7** | **7.7** |
+
+What the numbers show:
+
+- **E (≈75) is higher than the sum of the most-likely values (68).** Tasks can overrun by far more than they can underrun, so adding up the most-likely values hides that skew.
+- **The sum of the pessimistic values (135) isn't a useful ceiling,** because it assumes everything goes wrong at once. If the tasks are independent, P90 ≈ E + 1.28σ ≈ 85 days.
+- **The independence assumption is the weak point.** The root-sum-of-squares formula assumes overruns partly cancel out. These tasks share causes, though: the same unfamiliar codebase, the same thin tests, the same client team. Correlated overruns don't cancel, so the true spread is wider than 7.7. Treat the PERT spread as a floor and cross-check it against the reference class.
+- **The biggest error is usually a missing row, not a wrong one.** McConnell names omitted activities as a major source of underestimation. Check the list for environments, access and onboarding, data, deployment, documentation and handover, stabilization, and project management.
+
+> **Gotcha.** If the client sees "E = 74.7", they'll remember "75 days" as a promise. Present "65–90 days; we'd commit to 85" and keep the decimals in your spreadsheet.
+
+### Paid discovery before a fixed price
+
+The cone and the risk premium point to the same practice: **don't fix a price for work you don't understand yet. Sell the understanding first.** A short, fixed-fee discovery moves the estimate down the cone before anyone commits to the build. Its deliverables should be worth having even if the client then hires someone else: an evidence-based dependency and risk inventory, an options memo, an estimated backlog with a reference-class check, a fixed or capped price for the next phase, and answers to the "learn next" questions.
+
+The pitch is honest: "You can buy a large, uncertain commitment now, with a risk premium, or a small, certain one that makes the large one cheaper and safer. Either way, you own the report."
+
+> **Pitfall.** A discovery that always recommends what the client first asked for, at the size they hoped, looks like a sales step. Its credibility comes from sometimes delivering unwelcome findings: a smaller project, a different option, or "not yet".
+
+### Saying "I don't know yet" credibly
+
+"I don't know" damages credibility only when nothing comes after it. Presented as the start of a plan, it shows competence:
+
+1. **What I know.** "The portal is clean. I've read the controllers, and only the auth module touches System.Web."
+2. **What I don't know, and why it matters.** "How much session state the back office shares with the portal. That could swing the estimate by a month."
+3. **What it depends on.** "Whether the back office writes objects to session that the portal then reads."
+4. **How and when I'll find out.** "Two days of reading and a spike with the adapters. I'll have an answer Thursday."
+5. **What I can commit to now.** "3–6 months for the phase today, narrower on Thursday."
+
+The estimate is vague, but nothing else in that answer is. It compares well with a confident single number that falls apart in week three.
+
+## 63.12 Change Requests Without the Fight
+
+Scope will change, and it should, because the client learns during delivery. Change control isn't there to prevent change. It's there to make change *visible and priced*, so the client decides it knowingly and doesn't find out through a late date or a surprise invoice.
+
+The SOW sets a **baseline**, and each request is classified against it:
+
+| Class | Example | Handling |
+|---|---|---|
+| **Clarification** | "By export we meant CSV." The SOW didn't specify | Absorb it; record the interpretation |
+| **Defect** | The export drops a column that the acceptance criteria require | Fix at your cost |
+| **Change** | "Can the export also push to the BI tool?" | Impact assessment → client decision → SOW amendment |
+| **Grey area** | Ambiguous wording, and you wrote it | Discuss it; lean generous |
+
+The impact assessment is short and gives the client choices:
+
+```markdown
+**CR-007: Push order export to the BI tool**
+Raised by [name], [date] · Assessed by [name], [date]
+
+**Impact**
+Effort 6–10 days (BI API auth, mapping, retries, monitoring).
+Schedule: portal cutover moves ~2 weeks if added to this phase.
+Risk: needs BI sandbox access, not yet provided.
+
+**Options**
+1. Add to this phase: +[cost range], cutover moves to [date].
+2. Swap for [equal-sized backlog item]: no cost or date change.
+3. Defer to Phase 2.
+
+**Recommendation**
+Option 3: the BI tool goes live in [quarter]; building now integrates
+against a system that isn't live yet.
+
+**Decision**
+[option] · [name] · [date]
+```
+
+There's no "out of scope" and no "not in the contract" in it. The message is *yes, and here's what it costs*, and the decision stays with the client, who is the right person to make it. Three habits keep this from turning adversarial:
+
+- **Raise it early and lightly.** "Quick flag: this sounds like a change. I'll send a short impact note tomorrow." Raised in the moment, a change request is routine. Saved up until week ten, it feels like an ambush.
+- **Offer swaps.** Under fixed price, trading for an item of equal size keeps the budget and the date and lets the scope follow what the client has learned.
+- **Agree a small-change allowance.** A pool of [N] days, tracked visibly and reported weekly, takes the paperwork out of trivial requests without hiding them.
+
+> **Best practice.** When an ambiguity comes from your own drafting, resolve it in the client's favour and say so. It costs a few days and shows you argue in good faith, which makes it easier to hold firm on the next request that really is a change.
+
+> **Pitfall.** Unlogged "small" changes. None is big enough to discuss, but together they explain why the project is six weeks late with nothing written down. If a change takes more than an hour, log it, even if you then absorb it.
+
+## 63.13 Your Portfolio and the NDA Line
+
+Options memos, one-pagers, proposals and estimates show senior judgment directly, and they're usually covered by confidentiality agreements. The Part XI rule applies:
+
+- **Practice work goes in your own public portfolio repo, not this handbook's repo.** Write a memo, an executive one-pager and a phased proposal with a three-point estimate for a *fictional* or *public* scenario: the monolith in 63.3, or an open-source project's modernization.
+- **Real client documents stay private.** That includes their structure, prices and estimates, and any "anonymized" version in which the client can still be identified from its industry, stack and numbers. When in doubt, leave it out.
+- **Stories about real engagements** go in your private story bank ([Chapter 36](#chapter-36-the-story-bank-evidence-portfolio)), with metrics as [placeholders] until they're verified and you're allowed to use them.
+
+[Chapter 64](#chapter-64-the-advisory-casebook) walks through advisory situations end to end. [Chapter 65](#chapter-65-positioning-and-public-proof) turns artifacts like these into public proof.
+
+## Exercises
+
+No compiler checks these. The *Find the bug* samples are documents, and their defects are in the reasoning.
+
+### Find the bug — the options memo
+
+A contractor sent this to a client's CTO and CFO. The CFO replied: "What happens if we don't do any of these?" Find everything wrong with it, not just what the CFO spotted.
+
+```markdown
+**Options memo: Modernizing the billing service**
+
+**Background**
+The billing service is a .NET Framework 4.7.2 WCF app with EF6 and a
+shared SQL Server. It has 12% test coverage, uses synchronous I/O
+throughout, and the DI container is an unmaintained fork of Unity.
+
+**Option A — Rewrite as .NET 10 microservices on AKS**
+Event-sourced, CQRS, with Dapr sidecars. Cost: €412,350. Duration: 9 months.
+Modern, scalable, cloud-native, future-proof.
+
+**Option B — Upgrade in place**
+Probably quite hard given the state of the code. Cost: unclear.
+
+**Option C — Leave it**
+Not recommended.
+
+**Recommendation**
+Both A and B have merits and the right choice depends on business
+priorities. We'd be happy to discuss further. Option A is the more
+modern approach.
+```
+
+<details>
+<summary>The defects</summary>
+
+1. **No bottom line up front and no real recommendation.** It hedges, then hints at a preference ("more modern"). Fix: open with one sentence that says what to do and why.
+2. **"Do nothing" is dismissed, not analysed.** The CFO asked exactly the question the memo avoids. Fix: give C the same treatment as the other options, including its cost and any deadlines.
+3. **B is a strawman.** "Probably quite hard. Cost: unclear" isn't a choice anyone could make. Fix: estimate it (Upgrade Assistant analysis, a CoreWCF or HTTP path for the WCF surface), or say what would make it estimable.
+4. **False precision.** "€412,350" for a rewrite before any discovery. Fix: a range with a confidence level and assumptions.
+5. **A is a technology wish list.** Nothing in the background points to event sourcing, CQRS, Dapr or AKS. No scaling or consistency problem is mentioned. Fix: start from the business problem.
+6. **No forcing function and no business translation.** Test coverage, sync I/O and the DI container are engineering observations. The memo never says what they cost the business or why the decision is needed now.
+7. **Unequal criteria, and no reversibility.** There's no comparison table and no risks, and a billing rewrite is a one-way door that goes unmentioned.
+8. **Missing sections:** what would change the recommendation, what needs to be learned next, and the ask.
+9. **Jargon for a CFO.** The executive version has to be in money, time and risk.
+</details>
+
+### Find the bug — the SOW excerpt
+
+Your firm is about to sign this fixed-price SOW, and you've been asked to "sanity-check the technical bits". List the scope traps and propose better wording. (This is an engineering review, not a legal one.)
+
+```markdown
+**3. Scope of work**
+3.1 Vendor will migrate the client's order management system to a
+    modern cloud-native platform on Azure.
+3.2 Vendor will migrate all existing data to the new platform.
+3.3 The new platform will integrate with the client's ERP and other
+    systems as required.
+3.4 The platform will be secure, performant and highly available.
+3.5 Vendor will provide support during go-live.
+
+**4. Acceptance**
+4.1 The deliverables will be accepted when the client confirms that the
+    solution meets its needs.
+
+**5. Timeline and fees**
+5.1 Fixed fee: €[X]. Delivery within 16 weeks of signature.
+5.2 Client will provide access to systems and staff as needed.
+```
+
+<details>
+<summary>The traps and rewrites</summary>
+
+- **3.1 "modern cloud-native platform":** the target is undefined (rehost? re-platform? rewrite?). Name the target architecture and link the document that defines it.
+- **3.2 "all existing data":** no entities, volumes, history depth, cleansing owner, reconciliation method or cutover window. Specify each, plus [N] rehearsal runs.
+- **3.3 "ERP and other systems as required":** unlimited integration scope. Use a named list (system, direction, protocol, data, sandbox provider), and route anything else through change requests.
+- **3.4 "secure, performant and highly available":** three hidden NFRs with no numbers. Add p95 targets on named operations and loads, an availability target with its measurement, and the security standard, including who pen-tests and whether remediation is in scope.
+- **3.5 "support during go-live":** no limit on duration or hours. Specify [N] weeks, business hours, response times by severity, and the channel.
+- **4.1 acceptance "when the client confirms that the solution meets its needs":** undefined acceptance, which under a fixed fee means unlimited rework. Add per-deliverable criteria, an acceptance window, severity definitions, and deemed acceptance.
+- **5.1 a fixed fee and a date with no discovery:** a fixed price at the wide end of the cone. Split it into fixed-fee discovery, then a fixed or capped build price confirmed at the gate.
+- **5.2 "access ... as needed":** a hidden schedule dependency. Use a dependency table with dates, and say that slipped dependencies move the schedule and may trigger a change request.
+- **Missing entirely:** assumptions, exclusions, risks and change control, which are the sections that protect both sides under a fixed fee.
+
+Send this to your account manager as engineering risks with suggested wording. The contract drafting belongs to the people who own it.
+</details>
+
+### What would you do — the fixed price in the room
+
+You're an outstaffed senior engineer, three weeks into a T&M engagement. In a steering meeting, with the CEO present, the CTO says: "You know the codebase best now. Give us a fixed price for the whole Framework-to-.NET 10 migration. We need it for next week's board." Your account manager isn't there.
+
+<details>
+<summary>How a senior advisor reasons about it</summary>
+
+There are two problems here: a commercial one and an estimation one.
+
+**Commercial:** a price commits your firm, not you, and anything you say in that room will be remembered as a quote. Be friendly and open about it: "I'll give you an honest range for the board, and I'll bring [account manager] in so the commercial side is done properly. You'll have both by [day]."
+
+**Estimation:** three weeks in, you're still near the wide end of the cone. What the board needs is a decision it can make responsibly, and a fixed price isn't that. Offer three things: a range with its confidence level and assumptions, grounded in the reference class; a staged commitment (fund a fixed-fee discovery now, get a fixed or capped phase-one price at its gate); and the expected cost of doing nothing, so the board isn't weighing a big number against zero.
+
+Don't give whatever number makes the meeting end smoothly. It will go onto the board slide, then into the SOW, and then into your team's overtime. Send the written version to the CTO and your account manager the same day. That document is what the board will see, so make sure you wrote it.
+</details>
+
+### What would you do — overruled
+
+You recommended the A-then-B path from 63.3. The CEO chose a full rewrite: "We're not paying twice. Do it properly once." The CTO privately agrees with you but didn't speak up.
+
+<details>
+<summary>How a senior advisor reasons about it</summary>
+
+First, check whether the decision contained information you didn't have. "Not paying twice" might reflect a real constraint, such as a funding round, a capital budget that can't be split, or an acquisition. If it does, update your view openly. If it rests on a misunderstanding, correct it once, briefly, in writing: "For the record: the pipeline, IaC, storage and identity work in Phase A is reused by any later path, including a rewrite." Then stop. The decision is the CEO's.
+
+**Record it:** write an ADR with the decision, who made it, the alternatives, your dissent, and the revisit triggers. This protects everyone, including the CEO.
+
+**Commit, and reduce the risk of the chosen path.** A rewrite doesn't have to be a big bang. Propose delivering it in slices behind a facade, keeping the old system able to take traffic until each slice has been proven, with review checkpoints. That fits "do it properly once" and turns one irreversible decision into several reversible ones. You're helping the decision succeed, not reopening it.
+
+Avoid lobbying the CTO to reverse it, and avoid quietly steering the rewrite back towards a strangler. Either would damage trust more than being overruled did.
+</details>
+
+### Go check
+
+- Rewrite your last significant technical recommendation as an options memo using the 63.2 template, including "do nothing" and "what would change this". Where was the original weakest? Put a fictionalized version in your portfolio repo.
+- If you're allowed to, read your current engagement's SOW as its most demanding stakeholder would. List every phrase that could cover more work than planned, and check which of them have already caused friction.
+- Compare your last three estimates with the actual outcomes. Were the actuals inside your ranges? Start a private estimation log today: estimate, range, confidence, actual, and the reason for any gap.
+- Write the executive translation of one technical risk in your system: likelihood, impact in money or time, as a range, using the client's own numbers. Show it to someone non-technical and ask what they'd decide.
+- Classify your project's open decisions as one-way or two-way doors. Is your analysis time going to the right ones?
+
+## Sources & Further Reading
+
+- **Barbara Minto, *The Pyramid Principle: Logic in Writing and Thinking*** — the pyramid structure, vertical and horizontal logic, MECE, and SCQA.
+- **Steve McConnell, *Software Estimation: Demystifying the Black Art*** — estimates versus targets versus commitments, the cone of uncertainty, and omitted activities.
+- **Barry Boehm, *Software Engineering Economics*** — the early empirical work behind the cone of uncertainty.
+- **Bent Flyvbjerg and Dan Gardner, *How Big Things Get Done*** — reference-class forecasting, and why big projects overrun.
+- **Daniel Kahneman, *Thinking, Fast and Slow*** — the inside and outside views, and the planning fallacy.
+- **Douglas W. Hubbard, *How to Measure Anything*** — calibrated estimates and confidence intervals.
+- **Frederick P. Brooks Jr., *The Mythical Man-Month*** — the limits of adding people to compress a schedule.
+- **Alan Weiss, *Value-Based Fees*** and **Blair Enns, *Pricing Creativity*** — pricing advisory work by value.
+- **David H. Maister, Charles H. Green and Robert M. Galford, *The Trusted Advisor*** — the relationship side of advisory work that gives this Part its name.
+- **Tom DeMarco and Timothy Lister, *Waltzing with Bears*** — managing risk explicitly in software commitments.
+- **Donald G. Reinertsen, *The Principles of Product Development Flow*** — cost of delay.
+- **Jeff Bezos, 2015 Letter to Amazon Shareholders** — Type 1 and Type 2 decisions.
+- **Michael Nygard, "Documenting Architecture Decisions"** (2011) — the original ADR format.
+- **Martin Fowler, "StranglerFigApplication"** (martinfowler.com) — the pattern behind Option B.
+- **dotnet/systemweb-adapters** (GitHub) — adapters for incremental ASP.NET to ASP.NET Core migration.
+- **dotnet/core release notes** (GitHub, `releases-index.json`) — .NET 10's LTS status and its November 2028 end of support.
+
+
+---
+
+# Chapter 64: The Advisory Casebook
+
+_⏱️ Estimated read time: ~1 h · 11554 words (study pace)_
+
+[Chapter 33](#chapter-33-real-world-scenarios-architectural-decisions) and [Chapter 51](#chapter-51-the-azure-casebook-real-incidents-real-fixes) are casebooks about systems: a database that falls over, a lock that expires, a private endpoint without DNS. This chapter is a casebook about the people who pay for those systems. The incidents here don't show up in a dashboard. A client asks for something that won't solve their problem, a CTO contradicts you in front of the team, an account manager has sold a feature that can't exist, or you broke production yourself.
+
+The technical answer is usually the easy part. You know that a big-bang rewrite is risky ([Chapter 30](#chapter-30-working-with-legacy-brownfield-code)) and that microservices have a price ([Chapter 6](#chapter-6-architecture-application-design)). What decides whether the client *acts* on that knowledge is how you say it, when, to whom, and whether they trust you enough to hear it. That's the gap between a mid-level engineer, who is right, and an advisor, who is right *and listened to*.
+
+The reader this chapter has in mind is a middle-to-senior .NET engineer who often works through an outsourcing or outstaffing company. That adds a third party to every conversation: the vendor, with its account manager, its contract and its commercial interests. Several cases are about that triangle, because it's where most contractors get stuck.
+
+Every case is a **composite**. Each one blends patterns that recur across many engagements, and none describes a real client, vendor or person. Where a number would matter, it appears as a `[placeholder]` or is labelled illustrative. Each case has the same seven parts:
+
+- **Situation**: the engagement and what just happened.
+- **What the client says**, and what's really going on underneath it.
+- **What a mid-level engineer does**: the tempting move, and why it backfires.
+- **What an advisor does**: the reasoning, step by step.
+- **Words you could use**: a short script in plain English. Adapt it, don't recite it.
+- **Technical backing**: the chapter that holds the mechanism, so your advice rests on something.
+- **Story angle**: how the case becomes a portfolio piece or an interview answer.
+
+Read a case's *Situation* and *What the client says*, then stop and write down your own first move before reading on. Your first instinct is what you're training. The scripts only help if that instinct is already pointing in the right direction.
+
+> **Pitfall.** The scripts are not magic words. A client can tell when someone is reading from a playbook, and it raises exactly the thing the trust equation below says to minimise: the sense that you're managing them. Take the *reasoning* from each case and use your own words.
+
+## The Trust Equation as a Mechanism
+
+David Maister, Charles Green and Robert Galford's *The Trusted Advisor* offers a model that works well as a debugging tool for client relationships:
+
+```
+                credibility + reliability + intimacy
+   trust  =  ─────────────────────────────────────────
+                        self-orientation
+```
+
+The authors are clear that this isn't arithmetic you compute. It's a model of which levers move trust and how they interact. Each term has a mechanism behind it:
+
+| Term | What the client is really asking | What builds it | What destroys it |
+|---|---|---|---|
+| **Credibility** | "Do they know what they're talking about?" | Accurate, specific statements; saying "I don't know" when you don't; showing your evidence | One exposed bluff, which discounts everything else you said |
+| **Reliability** | "Do they do what they say?" | Many small promises kept: the note sent when you said, the estimate that held | A missed commitment with no warning; silence |
+| **Intimacy** | "Is it safe to tell them the real problem?" | Discretion; not punishing bad news; remembering what matters to *them* | Repeating a confidence; judging the client's past decisions |
+| **Self-orientation** (the divisor) | "Whose interests are they serving right now?" | Focusing on the client's problem, even when the answer is less work for you | Selling, defending yourself, showing off, steering toward your favourite technology |
+
+Two properties of the model explain most of the cases below.
+
+**The divisor is multiplicative.** You can be brilliant, punctual and discreet, and one visible moment of self-interest shrinks all three at once. For a contractor this is structural: you bill by the hour or by the head, so the client *expects* your self-orientation to be high. A recommendation that means more work for your vendor (a rewrite, a migration, microservices) gets discounted before you finish the sentence. A recommendation that means *less* work for you ("you don't need this; here is the two-day version") is the most credible thing you can say, because it's expensive to fake.
+
+**The numerator terms build at different speeds.** Credibility can jump in one meeting when you diagnose something nobody else could. Reliability builds only over time, from a history of kept promises, so it can't be rushed. Intimacy builds slowly and collapses fast. This is why a new engineer on an account should chase reliability first: small commitments, kept visibly. It's the one term that nothing else can substitute for.
+
+Two other books give you vocabulary the cases rely on. Peter Block's *Flawless Consulting* separates the **presenting problem** (what the client asks you to fix) from the **underlying problem** (what's actually producing the pain), and treats the client's **resistance** as information about their concerns rather than an obstacle. Gerald Weinberg's *The Secrets of Consulting* states it more bluntly in his second law of consulting: no matter how it looks at first, it's always a people problem. Most of the cases below arrive looking like a technology decision and turn out to be about fear, status, budget or blame.
+
+> **Best practice.** When a client conversation goes badly, debug it with the equation. Did you lose credibility (you were wrong or vague), reliability (you missed something), intimacy (they didn't feel safe) or raise self-orientation (you looked like you were protecting yourself or selling)? The fix differs for each, so name the term before you try to repair it.
+
+## Outsourcing, Outstaffing and Who You Are Speaking For
+
+Before the cases, get one structural fact right, because it changes the correct move in several of them.
+
+```
+   OUTSTAFFING                               OUTSOURCING
+   ───────────                               ───────────
+   Client ──directs──► You                   Client ──contract──► Vendor
+     ▲                  │                      ▲                    │
+     │   payroll,       │                      │  account/delivery  │ directs
+     └── admin only ── Vendor                  └──── manager ◄───── You
+                                              (you rarely talk commercials)
+   You sit in the client's team.             The vendor owns delivery and scope.
+   The client sets priorities.               The vendor sets priorities with the client.
+```
+
+In **outstaffing** you're effectively a member of the client's team. Advice goes straight to the client's leads, and the vendor mostly handles payroll. In **outsourcing** the vendor owns delivery, scope and the commercial relationship. An engineer who negotiates scope directly with the client can undercut a contract they have never read.
+
+Most real engagements are a blend of the two, so find out early: **who may commit to scope, dates and money on this engagement, and who must hear bad news first?** Ask your delivery manager in week one. It's also a good reliability move, because it shows you intend to keep promises you're allowed to make.
+
+> **Pitfall.** "The truth belongs to the client" and "the relationship belongs to the vendor" are both true, and several cases below turn on that tension. The resolution is almost never to hide the truth. It's about *sequence*: align privately with your own side first and quickly, then tell the client together. Hiding a material technical risk from the client to protect a sale is a line you don't cross. If your vendor asks you to, that's a conversation for your own manager, and possibly for your career.
+
+## The Advisory Triage Card
+
+When a client situation is getting hot, find the row and make its first move. Everything else can wait an hour.
+
+| Situation | First move | Avoid |
+|---|---|---|
+| Client wants a full rewrite (A1) | Ask what the rewrite would *fix*; list the pains with their cost | Agreeing because it's interesting work; arguing that rewrites always fail |
+| "We need microservices" (A2) | Find the actual constraint: deploy coupling, team scaling, scaling a hot path | A lecture on distributed systems; mocking the trend |
+| Cloud bill doubled (A3) | Break the bill down by service and tag before touching anything | Cutting resources blind; blaming the platform |
+| Previous vendor left a mess, "confirm it's their fault" (A4) | Describe the *state* and its *risk*, not the author | Blame, which the client will later hear as blame of *them* |
+| Fixed deadline, scope doesn't fit (A5) | Make scope the variable, in writing, with a ranked list | Silently cutting quality to hit the date |
+| CTO disagrees with you in front of the team (A6) | Acknowledge, ask one question, move the debate to a private follow-up | Winning the argument in public |
+| "Skip testing / security to go faster" (A7) | Split what is negotiable from what isn't; price the risk | Yes to all; no to all |
+| You caused an outage (A8) | Tell your lead and the client early, in facts; fix first | Waiting until you have the full story; hedging |
+| "Competitor has AI, we need it" (A9) | Find the user job; propose a small evaluated spike | Building a chatbot to tick the box; a flat no |
+| Account manager sold something impossible (A10) | Align privately with the AM before the client hears it | Contradicting the AM in the client meeting |
+| Incident on a system you inherited (A11) | Stabilise; set a comms rhythm; report what you know and don't | Speculating about root cause; blaming the last owner |
+| Asked about a technology you don't know (A12) | "I don't know yet; I'll come back by [day] with [what]" | Bluffing; a flat "no idea" with no follow-up |
+
+## Case A1: "Let's just rewrite it" — the client wants a full rewrite
+
+**Situation.** A logistics client runs a ten-year-old ASP.NET MVC 5 application on .NET Framework 4.x. Feature work is slow, the last three releases each broke something, and the one engineer who understood the pricing module left. The client's head of product has read about modern .NET and asks your vendor for a proposal: "a clean rewrite, in .NET 10, microservices, the works". Your vendor's sales team is enthusiastic: it's a large, long engagement.
+
+**What the client says.** "The code is a mess. Nobody wants to touch it. Let's start again and do it properly this time."
+
+**What's really going on.** The presenting problem is "old code". The underlying problems are usually narrower and measurable: slow lead time, fear of change because there are no tests, one or two modules that nobody understands, and a platform approaching end of support. A rewrite is a proposed *solution* dressed up as the problem. There's also an emotional component: the client is tired of being embarrassed by the system and wants a fresh start.
+
+**What a mid-level engineer does.** One of two things. Either they say yes, because greenfield work is fun and the vendor wants the deal, or they argue on principle ("rewrites always fail, read Spolsky") and come across as someone defending the status quo. The first ignores the mechanism of why rewrites fail. The second is right but unpersuasive, because it dismisses the pain the client actually feels.
+
+**What an advisor does.**
+
+1. **Separates the goal from the method.** Ask what would be true in a year if the rewrite succeeded. The answers ("we ship weekly without breaking things", "we can change pricing without fear", "we're on a supported runtime") are the real requirements, and each can be met in more than one way.
+2. **Explains the mechanism of rewrite risk, not the slogan.** The old system encodes years of requirements that exist nowhere else: edge cases, customer-specific rules, fixes for incidents nobody remembers. A rewrite has to rediscover all of them, usually in production. Meanwhile the old system still needs maintenance, so the team runs two systems, and the new one has to hit a moving target. Joel Spolsky's "Things You Should Never Do, Part I" tells the Netscape version of this story. Fred Brooks's *second-system effect* explains why the replacement tends to be over-designed.
+3. **Makes the alternative concrete.** An incremental path: characterisation tests around the scary modules, a strangler-fig facade in front of the old app, and new or rewritten slices that move to modern .NET one route at a time ([Chapter 30](#chapter-30-working-with-legacy-brownfield-code)). Each slice delivers value and can be stopped without waste.
+4. **Doesn't rule out a rewrite of a *part*.** Sometimes a module really should be rebuilt: the pricing engine, say, behind a well-tested contract. Advising against a big-bang rewrite isn't the same as advising against change.
+5. **Handles the self-orientation problem openly.** The incremental plan may be a smaller engagement for your vendor. Say so to your delivery manager before you say anything to the client, and frame it commercially as well: a client who gets value every month renews, while a client stuck two years into a stalled rewrite leaves, and tells people why.
+
+**Words you could use.**
+
+> "I understand why a clean start is attractive. This codebase has been painful for a long time. Before we pick *how*, can we agree on *what* has to be true in a year? I've heard three things: releases that don't break, confidence to change pricing, and a supported runtime. I think we can get all three without stopping feature work, by replacing the system piece by piece, starting with the part that hurts most. If after two slices that isn't working, we'll have learned it cheaply, and a bigger rebuild is still an option."
+
+**Technical backing.** [Chapter 30](#chapter-30-working-with-legacy-brownfield-code) (strangler fig versus the big rewrite, characterisation tests, .NET Framework to modern .NET), [Chapter 7](#chapter-7-testing) (the safety net), and [Chapter 61](#chapter-61-discovery-and-diagnosis) for turning "the code is a mess" into a list of measured pains.
+
+**Story angle.** "I talked a client out of a [N]-month rewrite and into an incremental migration that shipped the first modernised slice in [N] weeks." The senior signal isn't that you said no. It's that you *reframed the goal* and gave the client a reversible first step. Keep the client unnamed. In a portfolio, write the anonymised decision record, not the client's code.
+
+## Case A2: "We need microservices" — the architecture as a status symbol
+
+**Situation.** A mid-size SaaS client runs a single ASP.NET Core application with one SQL Server database and one team of six developers. A new CTO arrives from a large tech company and announces that the platform will move to microservices on Kubernetes. You're asked to "draw the target architecture".
+
+**What the client says.** "We need to be able to scale. Microservices are the industry standard. Netflix does it."
+
+**What's really going on.** "Scale" can mean at least three different things, and microservices solve only some of them:
+
+- **Load.** One endpoint is hot. That's usually solved by scaling out a stateless monolith, caching, or tuning a query, well before anything needs splitting.
+- **Teams.** Many teams step on each other in one codebase and one release train. This is the case microservices actually address: they let teams deploy independently (Conway's law, in reverse).
+- **Change isolation.** One area changes far more often than the rest, and every change needs a full regression pass.
+
+With one team of six, the organisational problem microservices solve doesn't exist yet. Martin Fowler calls this the *microservice premium*: the cost in operations, distributed data, network failure and debugging that you pay before you get the benefit. There may also be a status element. The new CTO wants to make a mark, and "we modernised the architecture" is a visible one.
+
+**What a mid-level engineer does.** Either draws the boxes as asked, splitting by entity (an Orders service, a Customers service) with a shared database, which gives the client the costs of distribution with none of the independence, or lectures the CTO on the fallacies of distributed computing in the first meeting and gets labelled "resistant to change".
+
+**What an advisor does.**
+
+1. **Takes the goal seriously and asks what problem it solves.** "Which pain would microservices remove first?" If the answer is "deploys are scary", that's a CI/CD and testing problem. If it's "the reporting queries slow down checkout", that's a data-access problem.
+2. **Proposes a modular monolith as the first step, and frames it as the path toward microservices, not away from them.** Enforce module boundaries inside the one deployable: separate schemas per module, no cross-module table access, communication through defined interfaces or in-process events. If a module later needs to deploy or scale on its own, it already has a clean seam. This is the "monolith first" argument (Fowler), and it keeps both doors open.
+3. **Names the one or two places where extraction pays now.** Often there's a real candidate: a CPU-heavy document renderer, or a webhook ingester with a different scaling profile. Extracting that one service gives the CTO a visible win and teaches the team the operational cost on a small surface.
+4. **Puts the operational bill on the table.** Distributed tracing, per-service pipelines, contract versioning, eventual consistency, and on-call for more moving parts. Ask who in the six-person team will own each.
+
+**Words you could use.**
+
+> "I'm not against splitting the system. I want the split to buy us something. The benefit of microservices is independent deployment for independent teams, and right now there's one team. What I'd suggest is carving the monolith into strict modules this quarter, so each one *could* become a service, and extracting the document renderer now, because it has a genuinely different load. That gives us a first service in production and real data on what running services costs us, before we commit the whole platform."
+
+**Technical backing.** [Chapter 6](#chapter-6-architecture-application-design) (monolith versus microservices versus modular monolith), [Chapter 21](#chapter-21-distributed-systems-theory-reliability-engineering) (why the network changes everything), [Chapter 9](#chapter-9-messaging-distributed-systems) (the messaging you'll need), and [Chapter 60](#chapter-60-having-a-point-of-view) on holding a position without being dogmatic.
+
+**Story angle.** Interviewers ask "tell me about a time you pushed back on an architecture decision" constantly. The strong version shows you *found the constraint* (one team, one hot path) and gave the decision-maker a win on their terms. The weak version is "I told them microservices were wrong". Keep the story about the reasoning, not about the CTO.
+
+## Case A3: The cloud bill doubled
+
+**Situation.** An e-commerce client on Azure gets a monthly invoice of roughly twice the usual amount: [€X] became [€2X]. The finance director emails the CEO, the CEO forwards it to the vendor, and your delivery manager forwards it to you with "can you look at this today?"
+
+**What the client says.** "Cloud is supposed to be cheaper. Who approved this? Can we just turn things down?"
+
+**What's really going on.** A cloud bill is a sum of *rate × quantity* over hundreds of meters. It doubles for a small number of reasons: something scaled out and never scaled back, a new feature multiplied a per-request cost (egress, RU/s, log ingestion), a test environment was left running, a reservation expired, or traffic genuinely grew. The emotional reality matters as much: finance feels blindsided, and someone is looking for a person to blame. Until there's a cause, the vacuum fills with guesses.
+
+**What a mid-level engineer does.** Starts cutting: scales down App Service plans, lowers Cosmos DB throughput, deletes "unused" resources. Some of those were the reason the Black Friday sale worked, and one was a disaster-recovery replica. Or they reply defensively ("the architecture was approved by your team") before anyone knows the cause.
+
+**What an advisor does.**
+
+1. **Acknowledges fast, and gives a time for the answer.** Within the hour: "We're on it. You'll have the cause by [time] tomorrow, and nothing will be turned off without your approval." That buys reliability while you work.
+2. **Decomposes before changing anything.** Cost Management grouped by service, then by resource, then by meter, over daily granularity for the last two months. A doubling almost always shows up as one or two lines with a visible step on a specific day. Line that day up with the deployment history and the change log.
+3. **Finds the driver, not just the resource.** "Log Analytics went from [X] to [Y]" isn't a cause. "The [date] release set the log level to Debug in production, and ingestion is billed per GB" is. The mechanism tells you both the fix and the guardrail.
+4. **Separates waste from growth.** If orders grew too, some of the increase is the business working. Express cost per unit of business value (per order, per active tenant). That's the number finance can reason about.
+5. **Proposes fixes with their risk,** and lets the client decide: "revert log level: saves [X]/month, no risk", "cap Functions scale-out: saves [Y], risk of slower peaks", "delete the DR replica: saves [Z], and here is what we lose".
+6. **Adds the guardrail.** Budgets with alerts at [50/80/100]% of forecast, anomaly alerts, tags that map resources to owners, and a monthly cost review. This is what stops the next surprise, and it's usually the most valuable deliverable.
+
+**Words you could use.**
+
+> "Here's what happened. On [date] we released a change that increased [driver]. That accounts for about [share] of the increase. The rest is [growth / the test environment left running]. We've already reverted the first part, which brings next month back to roughly [amount]. To make sure you hear about this before the invoice next time, I'd like to set up budget alerts and a short monthly review. It takes about an hour a month."
+
+Note what the script doesn't do: it doesn't blame the platform, the finance team, or a named colleague. The mistake is "we released a change", in the first person plural.
+
+**Technical backing.** [Chapter 28](#chapter-28-compliance-data-privacy-cloud-cost-finops) (FinOps: rate versus usage, tagging, unit economics), [Chapter 51](#chapter-51-the-azure-casebook-real-incidents-real-fixes) (Case 9, a Cosmos DB bill that doubled after a small feature), and [Chapter 13](#chapter-13-observability) (the cost of telemetry itself).
+
+**Story angle.** A cost investigation is one of the best portfolio stories available to a mid-level engineer, because it has a clear before and after and it crosses into business language. In interviews, lead with the diagnosis method and the guardrail. Publish the method as a write-up. The client's figures stay private; relative changes ("roughly halved") are enough.
+
+## Case A4: The previous vendor left a mess, and the client wants you to say so
+
+**Situation.** Your vendor takes over a .NET platform from another outsourcing company that the client fired. The code has no tests, secrets in `appsettings.json` committed to Git, a hand-rolled authentication scheme, and copy-pasted data access. In the first steering meeting the client's COO asks you directly: "Be honest: how bad is it? Did they do a terrible job?"
+
+**What the client says.** "We paid them a lot of money. I need to know whether we were cheated."
+
+**What's really going on.** The client may be building a case for a dispute, or trying to justify the switch to their board, or simply looking for reassurance that they made the right call. Underneath all of these is something awkward: *the client chose that vendor, approved its work and paid its invoices for years.* Criticism of the previous vendor is also, indirectly, criticism of the client's own judgement and oversight. You also lack context. The shortcuts may have been forced by budget cuts, requirement churn or deadlines the client set.
+
+**What a mid-level engineer does.** Enjoys the invitation. "Honestly, this is some of the worst code I've seen. No tests, secrets in Git, they rolled their own auth..." It feels like honesty and it builds instant rapport. Three months later, when your own team ships a bug, the client remembers that your standard for other people's work was contempt, and they apply it to you. Worse, if the dispute goes legal, your offhand words may end up quoted.
+
+**What an advisor does.**
+
+1. **Describes the state, not the author.** Findings, evidence and risk, in neutral language: "authentication is custom and doesn't validate token expiry, so a stolen token stays valid indefinitely" rather than "they didn't know what they were doing".
+2. **Separates the urgent from the ugly.** Committed secrets and broken authentication are *risks* and get fixed now (rotate the secrets, purge them from history, replace the auth with the platform's). Copy-pasted data access is *cost*: it slows change, and it goes on the roadmap.
+3. **Declines to judge intent, explicitly and kindly.** "I can tell you what the code does. I can't tell you why. I don't know what constraints they were working under."
+4. **Offers the client what they actually need.** If they need a factual assessment for a dispute, offer to write one: findings, evidence, severity, and remediation effort, reviewed by your vendor. That's a professional document. If they need reassurance, give it through the plan: "here's how we get this to a safe state in [N] weeks."
+
+**Words you could use.**
+
+> "I'd rather not grade the previous team, because I don't know what they were asked to do or under what constraints. What I can tell you is where the platform stands. There are two things we need to fix this week, because they're security risks: the committed credentials and the login token handling. Then there are several things that make changes slow and risky, and I'd like to put those into a plan. If you need a written technical assessment for your own purposes, we can prepare one that sticks to evidence."
+
+**Technical backing.** [Chapter 14](#chapter-14-security) (secrets, token validation), [Chapter 35](#chapter-35-software-supply-chain-security) (removing secrets from history is not enough: rotate them), [Chapter 30](#chapter-30-working-with-legacy-brownfield-code) (living with a big ball of mud), and the lab in [Chapter 62](#chapter-62-lab-the-net-health-check) for running the assessment itself.
+
+**Story angle.** "I inherited a codebase with [issues] and produced a risk-ranked assessment within [N] days" is a strong story. Tell it with no contempt for the previous team: interviewers are listening for how you'd talk about *their* code. The assessment template is portfolio material. The client's findings aren't.
+
+> **Pitfall.** "Blameless" doesn't mean "findings-free". You still write down, precisely, that the token isn't validated. What you leave out is the adjective and the guess about motive.
+
+## Case A5: A fixed deadline and scope that won't fit
+
+**Situation.** A fintech client has a regulatory go-live date fixed by an external body. The feature list agreed at kickoff is, by your team's honest estimate, [1.5–2]× what fits before that date. The client's product owner treats every item as mandatory. Your delivery manager's instinct is to "find a way".
+
+**What the client says.** "The date can't move and we need all of it. Can you add more people?"
+
+**What's really going on.** Time, scope, cost and quality are coupled, the familiar iron triangle with quality as the hidden fourth side. When date and scope are both fixed, and cost can't buy time quickly, the only remaining variable is quality. Nobody chooses to cut it, so it gets cut *silently*: tests skipped, reviews rushed, error handling left for "later". Adding people late usually makes it worse, because onboarding and coordination eat the capacity they add. That's Brooks's law, from *The Mythical Man-Month*: adding people to a late software project makes it later. It's a heuristic, not a law of physics, but its mechanism (ramp-up plus communication overhead) is real.
+
+**What a mid-level engineer does.** Says "we'll try", works evenings, and quietly drops tests to go faster. The date is hit with a system that fails in its first month. Or they give a flat "impossible", which is an opinion, not an option, and it hands the problem back without help.
+
+**What an advisor does.**
+
+1. **Confirms which constraint is truly fixed.** A regulatory date usually is. "All of it" usually isn't: the regulator requires a specific *capability*, not the product owner's full backlog. Ask for the rule text, and find the minimum that satisfies it.
+2. **Makes scope the variable, visibly.** A ranked list, with a line drawn at your capacity: must-have for compliance, should-have for launch, and after launch. The client does the ranking. You supply the costs and the dependencies.
+3. **Estimates in ranges and says what drives the range.** "Between [N] and [M] weeks; the width comes from the unknown partner API." Then work to shrink the biggest unknown first ([Chapter 63](#chapter-63-recommendations-proposals-and-estimates)).
+4. **Treats adding people as a specific proposal, not a hope.** Say who, when, onboarding to which self-contained piece, and what it costs the existing team this week.
+5. **Writes it down.** A one-page note: date, scope above the line, scope below it, assumptions, and what happens if an assumption breaks. When the partner API arrives late, you point at the assumption instead of re-arguing the whole plan.
+
+**Words you could use.**
+
+> "The date is fixed, so let's treat it as fixed. With the team we have, we can deliver everything above this line with the quality a regulated launch needs. The items below it are real, and we'll do them next. If something below the line is actually required by the regulation, let's swap it in, and tell me what comes out. What I'm not willing to do is promise all of it and then cut testing quietly to make it fit, because that's the version that fails in front of the regulator."
+
+**Technical backing.** [Chapter 17](#chapter-17-soft-skills-engineering-practices) (estimation and planning), [Chapter 63](#chapter-63-recommendations-proposals-and-estimates) (ranges, assumptions, the written proposal), and [Chapter 7](#chapter-7-testing) (what you give up when tests go).
+
+**Story angle.** "We hit a fixed regulatory date by renegotiating scope, not quality" is an excellent STAR story, because the *Action* is visibly senior: you made a trade-off explicit and got a decision from the right person. Keep the ranked list format (with placeholders) as a portfolio template.
+
+## Case A6: The CTO disagrees with you in front of the team
+
+**Situation.** In a design review with the client's engineers, you recommend moving a slow synchronous integration behind a queue. The client's CTO interrupts: "No. Queues add complexity we don't need. We tried that at my last company and it was a nightmare." Eight people are watching to see what you do.
+
+**What the client says.** "I've seen this fail. We're not doing it."
+
+**What's really going on.** Two conversations are happening at once. The technical one is legitimate: queues *do* add complexity (poison messages, idempotency, observability). The social one is about status. A public contradiction puts the CTO in a position where backing down costs face in front of their own team. The more convincingly you argue now, the harder it becomes for them to agree. Their past experience is also real data, not just stubbornness. Something went wrong last time, and you don't yet know what.
+
+**What a mid-level engineer does.** Wins the argument. They cite the numbers, the diagrams and the failure modes of the synchronous design, and may well be right on every point. The CTO loses in front of the team, and from then on every recommendation you make is quietly resisted. Or the engineer folds completely and never raises it again, and the timeout incidents continue.
+
+**What an advisor does.**
+
+1. **Acknowledges the concern as valid, because it is.** Queues do add failure modes. Saying so costs you nothing and lowers the temperature.
+2. **Asks one genuine question, not a trap.** "What went wrong last time?" The answer often reveals a specific failure (no dead-letter handling, no idempotency) that your design already covers, or one it doesn't.
+3. **Moves the decision out of the room.** "Could we take this offline? I'll write up both options, with the failure modes of each, and we can decide on Thursday." That gives the CTO a way to change their mind in private.
+4. **Writes a fair options note.** Both options, honestly, including the costs of your own. Make the decision criteria explicit: timeout rate, recovery from partner outages, operational load.
+5. **If they still decide against you, commits.** Record the decision and its rationale in an ADR, implement it well, and add the monitoring that would show whether the risk you raised materialises. "Disagree and commit" only works if the commit is real. Your job is to make the decision informed, not to make it yours.
+
+**Words you could use.**
+
+> In the room: "That's fair. A queue brings its own failure modes, and I'd like to hear what went wrong last time, because I want to make sure we're not repeating it. Rather than decide it here, can I write up both options side by side and bring them to Thursday's review?"
+>
+> In private, afterwards: "I didn't want to argue it out in front of the team. I've put both options in the note, including the risks of mine. It's your call, and I'll implement whichever you choose properly."
+
+**Technical backing.** [Chapter 9](#chapter-9-messaging-distributed-systems) (what a queue actually costs and buys), [Chapter 17](#chapter-17-soft-skills-engineering-practices) (ADRs, judgement and influence), and [Chapter 60](#chapter-60-having-a-point-of-view) (strong opinions, and the evidence that would change them).
+
+**Story angle.** "Tell me about a time you disagreed with a senior stakeholder" is among the most common behavioural questions. The strongest answers show you protected the other person's standing *and* the quality of the decision, and that you committed properly when overruled. An answer that ends "and in the end they admitted I was right" is weaker than it sounds.
+
+> **Best practice.** Praise in public, disagree in private. When you must disagree in public, disagree with the *option*, never with the *person*, and give them a way to change their mind without an audience.
+
+## Case A7: "Can we skip the tests and the security stuff for now?"
+
+**Situation.** A startup client is two weeks from a demo to investors. The founder asks your team to "skip the tests and the security review this sprint, we'll come back to it". The product stores customer names, emails and payment references.
+
+**What the client says.** "Speed is everything right now. We'll fix it after the round closes."
+
+**What's really going on.** The founder is making a rational trade: certain cost now against uncertain cost later. The problem is that the two halves of the request carry very different risks, and they're bundled together. Deferring some test coverage is *technical debt*: it costs you later, internally, and you can repay it. Shipping personal data without basic security is *risk to other people*: customers whose data leaks, and possibly legal obligations under GDPR or similar laws. That isn't the founder's alone to waive. And "we'll come back to it" loses to the next deadline almost every time, because after the round there's a bigger one.
+
+**What a mid-level engineer does.** Either agrees to everything, so the demo ships with an unauthenticated admin endpoint, or refuses everything on principle, which makes them look like they don't understand startups. Both treat the request as one decision when it's several.
+
+**What an advisor does.**
+
+1. **Unbundles the request.** Some tests can be deferred: broad unit coverage of UI glue, edge-case tests for features that may not survive the demo. Other things can't: authentication and authorisation on every endpoint that touches customer data, secrets out of the code, HTTPS, parameterised queries. Those are cheap when done now and very expensive after a breach.
+2. **Shows the cost of the non-negotiables.** Often it's much smaller than the founder imagines: "[N] hours, not the sprint." Much of the pushback comes from picturing "security" as a months-long audit.
+3. **Keeps the tests that buy speed.** A few integration tests around the demo path make the next two weeks *faster*, because they catch regressions before the demo rather than during it.
+4. **Makes the deferral real.** Deferred items go on the backlog with an owner and a date. The client signs off on the risk in writing, in plain words, one line per item.
+5. **Holds the line on the non-negotiables.** If the client insists on shipping personal data without authentication, escalate it to your delivery manager. That's a professional-liability question for your vendor, not a sprint-planning detail.
+
+**Words you could use.**
+
+> "I agree that speed matters most right now, so let's cut everything we can cut. Most of the test suite can wait until after the demo, and I'll list what we're deferring so it doesn't get lost. There are a few things I won't skip, because they protect your customers' data rather than our code: login on every endpoint, no secrets in the code, and safe database queries. Together that's about [N] hours. If an investor's technical advisor looks at the product, those are the first things they'll check."
+
+**Technical backing.** [Chapter 14](#chapter-14-security) (the OWASP Top 10 and what's cheap to get right), [Chapter 28](#chapter-28-compliance-data-privacy-cloud-cost-finops) (personal data obligations), [Chapter 7](#chapter-7-testing) (which tests pay back fastest), and [Chapter 33](#chapter-33-real-world-scenarios-architectural-decisions) (Scenario 8, the security measures that actually matter before a ship date).
+
+**Story angle.** "I negotiated a faster path that kept the security floor" shows judgement under commercial pressure, which is exactly what senior interviews probe. Say what you gave up as well as what you kept. The deferral list format is a good portfolio template.
+
+## Case A8: You caused the outage
+
+**Situation.** You deployed a migration that added an index on a large table during business hours. It locked the table, checkout failed for [N] minutes, and the client's support line lit up. You worked out what happened within ten minutes, and the rollback is done. Now you have to tell the client.
+
+**What the client says.** Nothing yet. In an hour they'll ask "what happened?", and the true answer is "I did".
+
+**What's really going on.** This is the situation that tests the trust equation hardest, because your reliability has just taken a hit and you can't undo it. What you control is the other three terms. Concealment destroys intimacy the moment it's discovered, and incidents are almost always discovered. Hedging ("there was an issue with the database") raises self-orientation, because the client can tell you're protecting yourself. Fast, factual disclosure plus a real prevention plan is the only path that *adds* credibility at the moment you lost reliability. Clients often come out of a well-handled incident trusting the team more than before, because they've seen how it behaves under pressure.
+
+**What a mid-level engineer does.** Waits until they have the full picture before saying anything, which from the client's side looks like silence during an outage. Or they write a vague note that blames "the database", which the client's own DBA will quietly contradict.
+
+**What an advisor does.**
+
+1. **Stops the bleeding first,** and tells their own lead and delivery manager immediately. Your vendor must not hear about this from the client.
+2. **Sends a short holding note fast.** Impact, current status and when the next update comes. It doesn't need the cause yet.
+3. **Owns it in the first person, once, without theatre.** "A migration I deployed locked the orders table." Don't repeat the apology five times: over-apologising makes the note about your feelings rather than the client's system, which is self-orientation again.
+4. **Explains the mechanism plainly.** Creating an index takes locks on the table, and on a large, busy table that blocks writes for the duration. Then say why the process let it through: the migration ran in business hours, it wasn't reviewed for lock impact, and there was no staging table of production size.
+5. **Proposes prevention in the system, not a promise to "be more careful".** Online index creation where the edition supports it, a migration review checklist, a deployment window for schema changes, and a staging dataset of realistic size. Then run a blameless post-incident review. "Blameless" applies to you too: the point is the process gap, not self-punishment.
+
+The written follow-up can use a fixed template:
+
+```text
+**Incident summary** — [date, time window, timezone]
+**Impact** — [who was affected, what they could not do, for how long]
+**Status** — resolved at [time]; monitoring since
+**What happened** — [one paragraph, mechanism in plain language; "I/we" not "an issue"]
+**Why it got through** — [the process gap, not the person]
+**What we changed already** — [done items]
+**What we will change** — [item — owner — date]
+**Next update / review meeting** — [date]
+```
+
+**Words you could use.**
+
+> "Between [time] and [time], checkout failed for your customers. The cause was a database change I deployed: it locked the orders table while it ran. It's been rolled back, and checkout has been working normally since [time]. I'll send a full write-up by [time] tomorrow, covering why our process let this through and what we're changing so a schema change can't do this again. I'm sorry for the disruption to your customers."
+
+**Technical backing.** [Chapter 4](#chapter-4-data-access-databases) (migrations, indexes and locking), [Chapter 21](#chapter-21-distributed-systems-theory-reliability-engineering) (blameless post-mortems and SRE practice), [Chapter 12](#chapter-12-devops-cicd) (deployment gates), and [Chapter 33](#chapter-33-real-world-scenarios-architectural-decisions) for the incident-response pattern.
+
+**Story angle.** "Tell me about a mistake you made" is guaranteed in senior interviews. This is the best possible material, *if* the story ends with a systemic fix rather than "I learned to be careful". Tell it in the first person, keep the client anonymous, and put the post-incident template (not the incident) in your portfolio.
+
+> **Pitfall.** Don't invent a precise outage length or revenue figure to make the story vivid, in the client note or in an interview. Use what you measured, or say "about". A figure someone can check and contradict costs you more credibility than the incident did.
+
+## Case A9: "Our competitor launched an AI feature. We need one."
+
+**Situation.** A B2B client's main competitor has announced an "AI assistant". The client's CEO sends the vendor a link with one line: "We need this by next quarter. What will it cost?"
+
+**What the client says.** "We can't be the only ones without AI."
+
+**What's really going on.** The presenting problem is competitive anxiety. The underlying question, which nobody has asked yet, is what job a user would hand to an AI feature in *this* product, and whether an LLM does that job better than a simpler solution. The competitor's feature may be a demo, a press release or genuinely useful. Nobody in the room knows yet. Behind that are the real engineering questions: cost per call at your volume, latency, data privacy (customer data sent to a model provider), prompt injection, and how you'll tell whether the feature works at all.
+
+**What a mid-level engineer does.** Wires a chat window to a model API in a week, because it's exciting and quick. It demos well and fails on real data: it hallucinates figures, costs more per user than expected, and nobody can say whether an answer is right. Or the engineer dismisses the whole thing as hype, and the client finds a vendor who says yes.
+
+**What an advisor does.**
+
+1. **Turns "AI" into a user job.** Interview two or three real users, or read the support tickets. Candidates in B2B .NET products are often concrete: summarising a long case history, drafting a reply from a knowledge base, pulling fields out of uploaded documents, or searching in natural language.
+2. **Picks one job with a measurable outcome.** "Support agents draft replies [N]% faster" or "field extraction accuracy is at least [X]% on our documents", measured against a baseline.
+3. **Proposes a time-boxed, evaluated spike.** A small evaluation set of real (anonymised) examples, the simplest workable design (often retrieval plus one model call, not an agent), the cost per call measured, and a go or no-go at the end. The evaluation set is the most valuable output. It turns "is it good?" from an opinion into a measurement.
+4. **Surfaces the non-functional questions early.** Where the data goes and under which terms, what happens when the model is wrong (a human in the loop for anything consequential), and the injection risks of feeding user content to a model that can call tools.
+5. **Is honest about the competitor.** "We don't know yet whether their feature works. We'll know whether ours does."
+
+**Words you could use.**
+
+> "I think there's a real opportunity here, and I'd rather find the right one than copy theirs. Let's pick one task your users spend real time on, maybe drafting support replies, and run a [N]-week experiment on real examples. At the end you'll know three things: whether it's good enough, what it costs per user, and what we'd need to do about your customers' data. If the answer is yes, we build it properly. If it's no, you've spent a few weeks rather than a quarter."
+
+**Technical backing.** [Chapter 19](#chapter-19-building-ai-powered-systems) (RAG, evaluation, cost mechanics, securing AI features), [Chapter 18](#chapter-18-the-ai-native-developer-thriving-in-the-ai-era) (judgement in the AI era), and [Chapter 28](#chapter-28-compliance-data-privacy-cloud-cost-finops) (data leaving your boundary).
+
+**Story angle.** "I turned a 'we need AI' request into an evaluated experiment with a go/no-go decision" is exactly the kind of story hiring managers are looking for right now, because it shows you can use the technology *and* resist it. A go/no-go based on an eval set is a better story than a feature that shipped because the CEO wanted one. Build a public version of the evaluation harness on open data for your portfolio.
+
+## Case A10: The account manager promised something technically wrong
+
+**Situation.** In a renewal call you weren't in, your vendor's account manager told the client that the platform would "support real-time sync with their ERP, with zero data loss and no changes to the ERP". The ERP exposes only a nightly batch export. The client now expects the feature in the next release, and the AM forwards you the email: "Can you confirm this is fine?"
+
+**What the client says.** "Your team said this was straightforward."
+
+**What's really going on.** The AM isn't lying on purpose. They translated "we've integrated with ERPs before" into a promise without knowing the constraint. There are now three parties with different interests: the client (who needs the truth), the AM (who needs to avoid looking incompetent at renewal) and you (who have to deliver whatever was promised). The technical facts are fixed: a nightly export can't give you real-time sync, and "zero data loss" needs defining before anyone can promise it. The social question is how the correction reaches the client.
+
+**What a mid-level engineer does.** Replies to the client directly, possibly with the AM in copy: "That isn't possible, the ERP only exports nightly." It's accurate, and it's a disaster. The AM is humiliated in front of their customer, the vendor looks disorganised, and the client now wonders what *else* they were told. Or the engineer stays silent, tries to build the impossible, and the gap surfaces at the demo.
+
+**What an advisor does.**
+
+1. **Replies to the AM only, quickly, with facts and options.** Not "you were wrong" but "here's what the ERP allows, and here's what we can actually offer".
+2. **Finds the options that meet the client's real need.** Why does the client want "real-time"? Usually so a salesperson sees current stock. Options might be: near-real-time via the ERP's change-notification API if it has one (which may need an ERP module the client must license), reading the ERP's database via change data capture (with the ERP vendor's support policy checked first), or nightly sync plus a clear "as of" timestamp in the UI. For each: latency, cost, and what it asks of the client.
+3. **Agrees with the AM on who tells the client, and presents it together.** Ideally the AM re-opens it ("our technical lead has looked at your ERP in detail"), and you explain the options. The correction then reads as diligence, not as a contradiction.
+4. **Sets a deadline for the alignment.** If the client expects the feature next release, the correction must reach them *this week*. "Let's align privately" can't turn into "let's hope it goes away". If the AM won't correct it, escalate to your delivery manager. Delivering on a promise that everyone knows is false isn't an option.
+5. **Fixes the process afterwards.** Offer to join pre-sales calls, or to review technical claims before they go into proposals. Most AMs welcome it once they've been burned.
+
+**Words you could use.**
+
+> To the AM, privately: "I've looked at their ERP. It only exposes a nightly export, so real-time sync isn't possible without them licensing [module], and 'no changes to the ERP' rules that out. The good news is that we have options that meet what they probably need, which is current stock for sales. I've written three up with costs. Can we get on a call with them this week, and I'll walk through them? The sooner they hear it, the easier it is."
+>
+> To the client, together: "We've looked at your ERP's integration options in detail. There are three ways to get the data across, and the difference is how fresh it is and what it needs on your side. Here they are."
+
+**Technical backing.** [Chapter 9](#chapter-9-messaging-distributed-systems) and [Chapter 23](#chapter-23-data-at-scale-multi-tenancy) (sync, change data capture, what "zero data loss" means in practice), [Chapter 21](#chapter-21-distributed-systems-theory-reliability-engineering) (delivery guarantees), and [Chapter 63](#chapter-63-recommendations-proposals-and-estimates) (writing options with costs).
+
+**Story angle.** This is a strong "stakeholder management" story, but it involves a named colleague's mistake, so tell it with care. The AM is a well-meaning person without the technical context, and your role is the one who turned a problem into options and fixed the process. Never share the real email thread.
+
+## Case A11: A production incident on a system you inherited last week
+
+**Situation.** You joined an outstaffed engagement five days ago. On Friday evening the client's order-processing API starts returning 500s. The engineer who built it left the client months ago, the runbook is a two-line README, and the client's head of operations is on the call asking you what's going on.
+
+**What the client says.** "You're the .NET expert now. What's wrong, and when will it be fixed?"
+
+**What's really going on.** The client needs two things, and only one of them is a fix: they need to feel that someone competent is in control. In the first minutes, the second need is the more urgent, because it decides whether they panic, escalate, or start making changes in production themselves. You can't give them a root cause yet, but you can give them a process, a rhythm, and honesty about what's known.
+
+**What a mid-level engineer does.** Starts reading code while the client waits in silence. Or they guess out loud ("it's probably the database") to seem in control, and the client repeats the guess to their CEO. When it turns out to be a certificate expiry, the guess is what everyone remembers. The other failure is to say "I've only been here five days, I didn't build this", which is true and completely unhelpful.
+
+**What an advisor does.**
+
+1. **Separates the roles.** Say it out loud: one person drives the fix, one person talks to stakeholders. If you're alone, say you'll update them every [30] minutes, and stop being interrupted in between.
+2. **Stabilises before diagnosing.** What changed recently? Deployments, config changes, certificate dates, dependency status pages. A rollback of the most recent change is often the fastest mitigation even before you know why it helps. Check the obvious in order: health endpoints, logs for the first error, dependencies ([Chapter 33](#chapter-33-real-world-scenarios-architectural-decisions) for the generic playbook).
+3. **Reports in three buckets.** What we know, what we don't know yet, and what we're doing next. That structure keeps you honest and keeps the client calm, because it shows method.
+4. **Doesn't speculate about cause, and doesn't blame the previous owner.** "The system has little documentation" is a finding for the post-incident review. It doesn't help during the incident.
+5. **Turns the incident into the onboarding you didn't get.** Afterwards: a real runbook, dashboards and alerts for the failure you just found, and a short list of the next most likely failures. That's reliability made visible, and it's a gift to whoever inherits the system after you.
+
+**Words you could use.**
+
+> "Here's where we are. We know the order API is returning errors since about [time], and that it started [before/after] the [deployment/change]. We don't know the cause yet. What we're doing now is [rolling back / checking the payment dependency]. I'll update you at [time] even if nothing has changed. If you need something for your customers, the safest message right now is that orders are delayed and we're working on it, without an estimate."
+
+**Technical backing.** [Chapter 13](#chapter-13-observability) (logs, traces and metrics you'll wish you had), [Chapter 33](#chapter-33-real-world-scenarios-architectural-decisions) (incident response), [Chapter 21](#chapter-21-distributed-systems-theory-reliability-engineering) (SRE practice), and [Chapter 61](#chapter-61-discovery-and-diagnosis) (mapping an unfamiliar system quickly).
+
+**Story angle.** "In my first week on an engagement I led the response to a production incident on a system I'd never seen" is a memorable opening. The substance is the method (roles, rhythm, the three buckets) and the runbook you left behind. Keep the client and system anonymous. The runbook template, with the specifics stripped out, is portfolio-ready.
+
+## Case A12: "What do you think of [technology you don't know]?"
+
+**Situation.** In a planning meeting, the client's architect asks you: "We're considering [a technology you've never used, say an event-streaming platform, a specific workflow engine or a niche database]. What's your view?" Everyone turns to you. You've read one blog post about it.
+
+**What the client says.** "You're the expert. Should we use it?"
+
+**What's really going on.** The client is asking for judgement, not for a product review. They may already have half-decided and want confirmation, or want a sanity check against a vendor pitch. The credibility term of the trust equation is the one at stake, and it's asymmetric: an honest "I don't know" costs a little credibility for a moment, while a bluff that's later exposed discounts *every* claim you've ever made to this client.
+
+**What a mid-level engineer does.** Bluffs, repackaging the blog post as an opinion. Or they say "no idea", full stop, which is honest but leaves the client with nothing, and wastes the fact that you *do* know how to evaluate a technology even if you don't know this one.
+
+**What an advisor does.**
+
+1. **Says clearly what they know and don't.** "I haven't used it in production. I know it's in the [category] space."
+2. **Offers what transfers: evaluation criteria.** Every technology in a category answers the same questions. What problem does it solve that you have today? What are its failure modes and operational burden? What does the .NET client library look like, and who maintains it? What's the licence and pricing model? Who else on the team will be able to run it at 3 a.m.? What does exit look like if it doesn't work out? Asking these in the meeting shows more expertise than a verdict would.
+3. **Commits to a specific follow-up.** "By [day] I'll come back with a one-page view: how it compares with [what you already use], a small spike on the .NET client, and the questions to ask the vendor." Then deliver exactly that, on that day. The kept promise builds reliability, and it more than repays the credibility you "spent" by saying "I don't know".
+4. **Brings in someone who knows, if that's faster.** A colleague at your vendor who has run it in production is often the best answer, and introducing them makes your vendor look good.
+
+**Words you could use.**
+
+> "I haven't used it in production, so I don't want to give you a verdict off the top of my head. What I'd want to know before recommending it is what problem we'd use it for that our current setup can't handle, what it takes to operate, and how mature the .NET client is. Give me until [Thursday] and I'll come back with a one-page comparison and a small working spike, so we're deciding on evidence."
+
+**Technical backing.** [Chapter 16](#chapter-16-tooling-productivity) (evaluating tools), [Chapter 35](#chapter-35-software-supply-chain-security) (assessing a dependency's maintenance and provenance), and [Chapter 60](#chapter-60-having-a-point-of-view) (forming a view quickly and stating its confidence).
+
+**Story angle.** "How do you evaluate a technology you haven't used?" is a common senior interview question, and this is the answer: the criteria, the time-boxed spike, the written comparison. Publishing a few of these one-page evaluations, on technologies you've spiked on your own time, is some of the most transferable portfolio content you can create ([Chapter 65](#chapter-65-positioning-and-public-proof)).
+
+## Quick Advisory Cases
+
+Short situations, one move each. Use them as flashcards.
+
+- **"Just give me a number."** The client wants a single estimate for a vague feature. Give a range, name the largest unknown, and offer to narrow the range after a [N]-day spike. A single number becomes a promise the moment it's said ([Chapter 63](#chapter-63-recommendations-proposals-and-estimates)).
+- **The client's developer keeps pushing straight to main.** It isn't your team to manage. Raise it as a risk with evidence (the last two incidents traced to unreviewed pushes) and propose branch protection as a team rule, not a personal rebuke.
+- **Your vendor wants you to recommend its partner product.** Recommend it only if you would anyway, and disclose the relationship if you do. Undisclosed incentives are the purest form of self-orientation, and clients find out.
+- **The client asks you to stay late for the third week running.** Reliability includes being able to keep the pace you've set. Surface the workload as a capacity issue with a plan, before it shows up as mistakes.
+- **A client engineer asks you, privately, whether their architecture choice was bad.** It's an intimacy moment. Answer honestly and kindly, in private, and never repeat it to their manager.
+
+## Exercises
+
+### Find the bug: the outage email
+
+You deployed a configuration change that pointed the payment service at a sandbox endpoint for [N] minutes, so card payments failed. Here's the email you drafted to the client's operations director. Find everything wrong with it before opening the answer.
+
+```text
+Subject: Payments issue
+
+Hi Maria,
+
+Apologies for any inconvenience earlier. There was an issue with the payment
+provider's configuration which caused some transactions to not go through for a
+short while. It's resolved now. Honestly the config setup we inherited is pretty
+fragile and error-prone, so this kind of thing was bound to happen sooner or later.
+
+We're going to be more careful with deployments going forward. Around 5,000
+customers may have been affected but it's probably fewer. Let me know if you have
+any questions!
+
+Best,
+Alex
+```
+
+<details>
+<summary>Answer</summary>
+
+At least eight defects, grouped by the trust-equation term they damage:
+
+- **Self-orientation.** "Issue with the payment provider's configuration" suggests the *provider* was at fault. It was our configuration change. The passive voice ("there was an issue") hides who acted. The swipe at the inherited setup shifts blame to the previous team, and the client will hear it as an excuse.
+- **Credibility.** "Around 5,000 customers ... but it's probably fewer" is an invented, self-contradicting number. Either state a measured figure with its source or say it's being counted and when you'll have it. "A short while" instead of the actual window invites the client to find the real figure themselves.
+- **Reliability.** "More careful going forward" isn't a change anyone can check. Name the concrete prevention (configuration validation at startup that fails fast on a sandbox URL in production, a deployment check) with an owner and a date.
+- **Intimacy and tone.** "Apologies for any inconvenience" is the non-apology template, and "Let me know if you have any questions!" puts the work back on the client. The subject line "Payments issue" is vague for an incident note.
+- **Missing entirely:** the impact window with times and timezone, what customers saw, whether any payment was *taken* incorrectly (the client's first question), and when the full write-up is coming.
+
+A repaired version follows the template from Case A8: first person, mechanism in one sentence, measured impact (or "counting, figure by [time]"), done and planned changes with owners, and the date of the next update. Get your own lead to read it before you send it.
+</details>
+
+### Find the bug: the reply to "can we skip security?"
+
+The founder from Case A7 asked to skip the security review before the demo. An engineer replied:
+
+```text
+Hi Tom,
+
+Skipping security is a really bad idea and frankly irresponsible given you're
+storing customer data. Industry best practice is clear on this. I can't in good
+conscience agree to it. We need the full OWASP review and 80% test coverage
+before any release, no exceptions.
+
+Thanks,
+Sam
+```
+
+<details>
+<summary>Answer</summary>
+
+The engineer is right about the underlying risk and wrong about almost everything else:
+
+- **It judges the person** ("frankly irresponsible"). The founder is making a rational trade-off under pressure. Calling it irresponsible makes them defend it instead of reconsidering it.
+- **It bundles negotiable and non-negotiable items.** "Full OWASP review and 80% coverage, no exceptions" treats a coverage target, which can be deferred, the same as authentication on customer data, which can't. It gives the founder nothing to say yes to.
+- **It argues from authority** ("industry best practice is clear") instead of from mechanism and cost. What's the specific risk? What does fixing it cost in hours?
+- **It offers no option.** A good reply keeps the security floor, defers the rest in a written list with a date, and gives the cost of the floor in hours ([N], not "the sprint").
+- **A metric presented as a rule.** "80% coverage" is not a security control, and making it a release gate here is the engineer's preference, not the client's need. That's self-orientation of a different kind: optimising for the engineer's own comfort.
+
+A better reply is the script in Case A7: agree on speed, list the deferrals, name the three or four non-negotiables with their cost, and explain *why* in terms of customer data and investor due diligence.
+</details>
+
+### What would you do
+
+**1.** You're outstaffed into a client's team. In a one-to-one, the client's engineering manager asks you to "keep an eye on" one of their own developers and report back on their performance. You've noticed that developer struggling.
+
+<details>
+<summary>How a senior engineer reasons about it</summary>
+
+Start with whose trust is at stake, and in which direction. The manager is asking you to take on a role (evaluating their staff) that isn't in your engagement, and that would make you, in the team's eyes, the manager's informant. Once the team suspects that, intimacy with every engineer on it is gone, and those are the people whose candour you depend on to do your job.
+
+So decline the *role* without declining to help. Offer what is legitimately yours to give: pairing with the developer, reviewing their code with the same care as anyone's, and flagging *work* risks (a module that's behind or fragile) through the normal channels, as you would for any teammate. If you believe the developer is struggling, the kindest effective thing is often to help them directly, and to encourage them to ask their manager for support themselves.
+
+If the manager presses, be plain: "I'm happy to help them grow, and to raise delivery risks as I would for anyone. Assessing people isn't something I can do well from my position, and it would change how the team works with me." Then tell your own delivery manager about the request, in case it's a pattern. The underlying mechanism is the trust equation's intimacy term: it's slow to build, fast to lose, and it's lost with a whole group at once.
+</details>
+
+**2.** Three months after you advised against it (Case A2), the CTO pushes ahead with splitting the monolith into eight services. Two months in, deployments are slower and incidents have increased. The CTO asks you, privately, "Was I wrong?"
+
+<details>
+<summary>How a senior engineer reasons about it</summary>
+
+This isn't the moment for "I told you so", even implied. It's a moment of maximum intimacy: the CTO is showing vulnerability in private, and how you respond decides whether they ever do it again.
+
+First, answer the real question, which is "what now?" rather than "who was right?". Diagnose with them. Which services are chatty with each other, sharing data or always deployed together? Those are candidates to merge back, which is a normal outcome and not a failure. Which one or two services have genuinely independent load or release cadence? Those were worth splitting. Is part of the pain simply missing platform work (tracing, per-service pipelines, contract tests) that would pay off now?
+
+Second, give them a way forward that protects their standing with the team. Something like "consolidate into [three] services along the boundaries that turned out to be real" can be presented as learning, because it is. Offer to write the options note with them, not for them.
+
+Third, if you're asked directly whether the original decision was wrong, be honest and generous: "The goal was right, and the cost turned out higher than we hoped for our team size. The data we have now makes the next decision easier." It's accurate, it doesn't gloat, and it points forward. Your credibility went up the moment the prediction came true. You don't need to spend it on being right.
+</details>
+
+**3.** Your vendor's delivery manager asks you to "pad" an estimate by 50% before sending it to the client, "because clients always push back".
+
+<details>
+<summary>How a senior engineer reasons about it</summary>
+
+Separate the legitimate concern from the method. The concern is real: single-point estimates are optimistic, and clients do negotiate. The method, hidden padding, damages credibility when it's discovered (and a technical client will discover it the first time a "two-week" task visibly takes three days), and it teaches the client that your numbers are theatre, which makes the next negotiation worse.
+
+Propose the honest version of the same protection: estimate in ranges, make the uncertainty and its drivers explicit, include contingency as a *named line* with a rationale ("integration risk with the partner API"), and state the assumptions that, if broken, move the estimate ([Chapter 63](#chapter-63-recommendations-proposals-and-estimates)). That gives the delivery manager the buffer they need and gives the client something to discuss other than your credibility.
+
+If the delivery manager insists on hidden padding, it's their commercial decision, and they own the number they send. Make sure your own technical estimate, as you gave it, is recorded, and don't personally present a number to the client that you know is misleading.
+</details>
+
+### Go check
+
+Answer these from your own current engagement, not from memory:
+
+- **The authority map.** Who may commit to scope, dates and money on your engagement? Who must hear bad news first? If you're not sure, ask your delivery manager this week.
+- **Your trust ledger.** For your main client contact, which trust-equation term is weakest right now? What's one small, specific action this week that would move it? (For reliability, it's usually a promise made and kept on time.)
+- **The last hard conversation.** Pick one tense client exchange from the last three months. Rewrite your own message using the structure from the matching case. What would you change?
+- **The incident template.** Does your team have a client-facing incident note template? If not, adapt the one from Case A8, and get your lead's agreement before you need it.
+- **Promises in flight.** List every open commitment you've made to the client ("I'll look into it", "by Friday"). Which ones are late or forgotten? Close them or re-negotiate them today.
+- **Story candidates.** Which of the twelve cases have you lived, even partly? Write each as a STAR skeleton in your private story bank ([Chapter 36](#chapter-36-the-story-bank-evidence-portfolio)), with the client anonymised.
+
+Keep everything about a real client, vendor or colleague private. What goes into a public portfolio is *method*: templates, anonymised decision records, public-data spikes and evaluations. Real stories go public only when they're anonymised and you have permission ([Chapter 65](#chapter-65-positioning-and-public-proof)).
+
+## Sources & Further Reading
+
+- David H. Maister, Charles H. Green and Robert M. Galford, *The Trusted Advisor* (Free Press, 2000). The source of the trust equation and the distinction between expertise and advice.
+- Peter Block, *Flawless Consulting: A Guide to Getting Your Expertise Used* (3rd ed., Pfeiffer, 2011). Contracting, presenting versus underlying problems, and working with resistance.
+- Gerald M. Weinberg, *The Secrets of Consulting: A Guide to Giving and Getting Advice Successfully* (Dorset House, 1985). The laws of consulting, including "it's always a people problem".
+- Roger Fisher and William Ury, *Getting to Yes: Negotiating Agreement Without Giving In* (1981). Interests versus positions, the basis of Cases A5, A7 and A10.
+- Frederick P. Brooks Jr., *The Mythical Man-Month* (anniversary ed., Addison-Wesley, 1995). Brooks's law and the second-system effect.
+- Joel Spolsky, "Things You Should Never Do, Part I" (*Joel on Software*, 2000). The classic argument against the big-bang rewrite.
+- Martin Fowler, "StranglerFigApplication", "MonolithFirst" and "MicroservicePremium" (martinfowler.com). The incremental alternatives in Cases A1 and A2.
+- Betsy Beyer et al. (eds.), *Site Reliability Engineering* (O'Reilly, 2016), chapter "Postmortem Culture: Learning from Failure". Blameless post-incident reviews.
+- Kerry Patterson et al., *Crucial Conversations: Tools for Talking When Stakes Are High* (McGraw-Hill, 2002). Useful for Cases A6 and A8.
+- Within this book: [Chapter 17](#chapter-17-soft-skills-engineering-practices) (communication, ADRs, estimation), [Chapter 33](#chapter-33-real-world-scenarios-architectural-decisions) and [Chapter 51](#chapter-51-the-azure-casebook-real-incidents-real-fixes) (the technical casebooks), and [Chapter 36](#chapter-36-the-story-bank-evidence-portfolio) (turning cases into stories).
+
+
+---
+
+# Chapter 65: Positioning and Public Proof
+
+_⏱️ Estimated read time: ~1 h 5 min · 10041 words (study pace)_
+
+The first five chapters of this Part are about being an advisor *inside* an engagement: having a point of view ([Chapter 60](#chapter-60-having-a-point-of-view)), diagnosing before prescribing ([Chapter 61](#chapter-61-discovery-and-diagnosis)), running an assessment ([Chapter 62](#chapter-62-lab-the-net-health-check)), turning it into a proposal ([Chapter 63](#chapter-63-recommendations-proposals-and-estimates)), and handling the situations that go wrong ([Chapter 64](#chapter-64-the-advisory-casebook)). This chapter is about what happens *before* the engagement: why a client, or the agency that places you, would think of you as an expert before you have said a word in the meeting.
+
+That reputation is built from two things. **Positioning** is a short, specific claim about who you help and with what. **Public proof** is evidence of that claim that a stranger can check without asking you. Together they change the buyer's question from "which of these five CVs is cheapest?" to "is this the person who writes about exactly our problem?"
+
+[Chapter 36](#chapter-36-the-story-bank-evidence-portfolio) built the private side: a story bank, a brag doc, evidence-backed CV bullets and a public portfolio repo. That chapter is about getting *hired*. This one reuses the same material to get *chosen*: by a client comparing specialists, by an agency's sales team deciding whom to put forward, and by people in a community who mention your name when you are not in the room.
+
+```
+            Chapter 36 (hired)                     Chapter 65 (chosen)
+  brag doc ──► story bank ──► CV bullets    positioning statement
+       │                         │                  │
+       ▼                         ▼                  ▼
+  lab artifacts ──► portfolio repo ──────► public proof ladder
+                                           answers → articles → OSS
+                                           → talks → case studies
+                                           → public assessment
+                                                    │
+                          profile surfaces ◄────────┤
+                          (LinkedIn, CV, GitHub,    │
+                           agency one-pager)        ▼
+                                           inbound questions, intros,
+                                           requests for you by name
+                                                    │
+                                                    ▼
+                                           paid assessment → retainer
+```
+
+> **The portfolio rule, extended.** Your positioning statement, your profiles, your articles and your talk abstracts live in **your own** public blog or portfolio repo, never in this handbook's repository. Stories about real clients stay private unless the client has given permission in writing, and the section on case studies below explains what permission has to cover.
+
+## Why generalists compete on price
+
+Start with the buyer, because positioning is a property of the buyer's mind and not of your CV.
+
+A client, or an agency account manager, who needs a .NET engineer faces two costs before any work starts. **Search cost** is the time it takes to find candidates, read profiles and interview. **Perceived risk** is the chance that the person picked will be slow, wrong or out of their depth, and that the failure will be blamed on whoever picked them. The buyer cannot measure your skill directly (if they could, they would not need you), so they reduce both costs with proxies.
+
+When every candidate says the same thing — "Senior .NET developer, 8 years, C#, ASP.NET Core, Azure, microservices" — the proxies all read the same, and the only visible difference left is price. Buyers are not cheap; price is simply the only number on the table they can compare. David C. Baker puts the mechanism in one line in *The Business of Expertise*: your positioning is the degree to which a client can find a suitable **substitute** for you. If ten people could replace you, you are priced like ten people.
+
+A specialist changes both costs at once:
+
+- **Search cost falls** because the buyer's problem matches your label. Someone with a .NET Framework 4.8 estate that has to move to .NET 10 who finds "I help teams move .NET Framework systems to modern .NET without a rewrite" does not need to read ten CVs to decide whether to talk to you.
+- **Perceived risk falls** because a specialist has, by definition, seen the problem before. The buyer is not paying for your hours; they are paying for the mistakes you will not make.
+
+David Maister's classic model of professional work in *Managing the Professional Service Firm* makes the same point from the supply side. He sorts projects into three types, and each one is bought differently:
+
+| Maister's type | The client's problem | What they buy | How it is priced | .NET example |
+|---|---|---|---|---|
+| **Procedure** | Well understood; they could do it themselves | Efficiency, capacity | Rate cards, competitive bids | "We need two more mid-level devs on the team for six months" |
+| **Grey hair** | Seen before, but not by them | Experience: "you have done this before" | Premium over procedure; less comparison shopping | "We are migrating 40 WCF services and we have never done it" |
+| **Brains** | New, complex, high stakes | Judgment and creativity | Value; almost no comparison shopping | "Our trading platform stalls under load and three vendors could not say why" |
+
+Most outstaffing work is sold as procedure work: a seniority band, a rate, a start date. That is a legitimate business. The aim here is to move *some* of your work up to grey hair, and positioning is how the buyer can tell you belong there.
+
+> **Gotcha.** Adding more technologies to your profile makes the substitution problem *worse*, not better. Every keyword widens the set of people you are compared with, and the wider the set, the more the comparison is about price. The keyword wall hurts in an interview ([Chapter 36](#from-artifact-to-cv-bullet)); on a profile it hurts more, because nobody asks a follow-up.
+
+### The trust equation
+
+Maister, Green and Galford's *The Trusted Advisor* (from which this Part takes its name) gives a model for why proof matters. They write trustworthiness as:
+
+```
+                credibility + reliability + intimacy
+  trust  =  ─────────────────────────────────────────
+                        self-orientation
+```
+
+Before the first meeting, a stranger can judge only **credibility** (do you know what you are talking about?) and a little **reliability** (do you do what you say, repeatedly?). A body of writing is evidence of the first; a steady cadence is visible evidence of the second. **Self-orientation**, the denominator, is the trap: a profile entirely about you, or a post that exists to sell, raises it and cancels everything on top. That is why everything in this chapter *teaches* something rather than only announcing.
+
+## Choosing a niche
+
+A niche has two axes, and they are built differently:
+
+| | **Vertical** (an industry) | **Horizontal** (a problem) |
+|---|---|---|
+| **Example** | Payments and fintech; healthcare; logistics; insurance; e-commerce | .NET Framework → modern .NET modernization; Azure cost; performance under load; observability; supply chain security |
+| **You are the expert in…** | How that business works: its regulators, its vocabulary, its failure modes | One class of technical problem, wherever it occurs |
+| **Who finds you** | People in that industry, via industry events and word of mouth | People with that problem, via search and technical communities |
+| **Proof looks like** | "I know what PCI DSS scope does to your architecture" | "Here is the method, the before-and-after numbers and the tool" |
+| **Strength** | Clients talk to each other; one good reference travels | Every .NET shop is a possible buyer; content ranks and gets shared |
+| **Risk** | The industry has a bad year and so do you | Easier for others to copy; you need a method, not only knowledge |
+| **Fits people who…** | Have already spent years in one industry | Keep getting pulled onto the same kind of problem |
+
+Morgan's *The Positioning Manual for Technical Firms* and Baker both describe this split. Most engineers already *have* a niche nobody wrote down. Open the [Chapter 36](#chapter-36-the-story-bank-evidence-portfolio) story bank and ask:
+
+1. **Where is the evidence already?** Which kind of problem appears in three or more of your stories? That is a horizontal candidate. Which industry have you spent more than half of your career in? That is a vertical candidate.
+2. **Who feels the pain and can pay?** A niche needs buyers who *know* they have the problem and have a budget line for it. "Azure bills that grew faster than traffic" has a budget owner (the CFO asks the CTO). "Code that could be more elegant" does not.
+3. **Can you reach them?** Name three places where these buyers read, meet or ask questions. If you cannot, the niche may be real but it is not reachable for you yet.
+
+The handbook's own chapters map onto horizontal niches that .NET clients buy regularly:
+
+| Horizontal niche | The pain the buyer can name | Handbook depth to draw on |
+|---|---|---|
+| .NET modernization | "We are stuck on .NET Framework / WCF / Web Forms and can't hire for it" | [Chapter 30](#chapter-30-working-with-legacy-brownfield-code) |
+| Cloud cost | "Our Azure bill doubled and nobody can explain it" | [Chapter 28](#chapter-28-compliance-data-privacy-cloud-cost-finops), [Chapter 50](#chapter-50-azure-in-depth-for-net-developers) |
+| Performance | "It is slow at month-end and we have thrown hardware at it" | [Chapter 15](#chapter-15-performance-optimization), [Chapter 37](#chapter-37-the-slow-query-lab-reading-execution-plans) |
+| Reliability and observability | "We find out about outages from customers" | [Chapter 13](#chapter-13-observability), [Chapter 21](#chapter-21-distributed-systems-theory-reliability-engineering) |
+| Security and supply chain | "The auditor / the enterprise customer sent us a questionnaire" | [Chapter 14](#chapter-14-security), [Chapter 35](#chapter-35-software-supply-chain-security) |
+| AI features in .NET products | "The board wants AI in the product and we don't know where to start" | [Chapter 19](#chapter-19-building-ai-powered-systems) |
+
+> **Best practice.** Combine one horizontal with a *light* vertical when you can: "performance for .NET e-commerce back ends" is more memorable than either half, and it gives you a vocabulary (checkout, basket abandonment, Black Friday) that a pure technologist lacks. Baker describes this narrowing over time as normal: tighten the positioning as the market answers, rather than all at once on day one.
+
+### Testing a niche cheaply
+
+You do not need to rename yourself to test a niche; you need a few weeks and a way to hear the market answer.
+
+| Test | What you do | Signal that it is working | Signal that it is not |
+|---|---|---|---|
+| **Write** | Two or three posts on the niche's core problem, each taking a position | Someone you don't know replies with *their* version of the problem | Only friends react; comments are generic ("great post") |
+| **Talk** | Ten short conversations with people who have the problem: ex-colleagues, community members, your agency's account managers | People describe the pain in the same words, unprompted; someone asks "could you look at ours?" | People agree politely but can't name a time it cost them |
+| **Offer** | One small, specific offer: a two-hour review, a written note, a talk at their team's lunch | Someone says yes, or asks what it would cost | Interest evaporates when a date or a price appears |
+
+Keep a log: the test replaces your guess with what buyers actually say.
+
+### Not over-narrowing too early
+
+The opposite failure is real too: four years of experience and a self-declared title of "the EF Core query performance specialist for Nordic insurers" is a niche nobody can find and you cannot yet fill. Three rules:
+
+- **Position narrowly, stay capable broadly.** Positioning is the *front door* — what you lead with and what people remember — not a list of what you refuse. Your agency will still place you on general .NET work; the positioning decides which of those engagements you turn into proof.
+- **Evidence-backed today, or within a quarter.** If you can't write three honest posts on it from what you know now plus one lab, it is an aspiration. Label it so and learn toward it.
+- **Change it on evidence, not boredom.** Revisit the statement every six months with the leading-indicator log (see *Measuring whether it works*). A sideways move ("performance" → "performance and cost") keeps your proof; a jump to an unrelated niche resets it.
+
+> **Pitfall.** Choosing a niche because it is fashionable. A niche is only an asset if you can out-explain most of the people competing for the same attention. If you have never shipped an AI feature to production, "AI for .NET" is where you learn, not where you position — at least until the labs and a real engagement give you evidence.
+
+## The positioning statement
+
+Everything else in this chapter is derived from one sentence. Write it first, privately, and let the profiles follow from it.
+
+```
+**Positioning statement**
+I help [who: a specific kind of team or company]
+with [problem: a pain they can name in their own words]
+so that [outcome: in money, time or risk — the buyer's units].
+
+**Proof line** (one clause, checkable)
+[I have done it N times / here is the method / here is the public write-up.]
+
+**Not for** (private; keeps you honest)
+[The work you will accept but not lead with.]
+```
+
+The three slots each do a job for the buyer. **Who** lets a reader recognize themselves in two seconds. **Problem** matches the words they would type into a search box or say to a colleague. **Outcome** is what they are actually paying for: nobody buys "a migration", they buy "being able to hire for the stack again" or "not paying for two runtimes".
+
+Worked examples, horizontal and vertical:
+
+- *Modernization, horizontal.* I help **product companies running .NET Framework 4.x** with **moving to modern .NET without stopping feature work** so that **they can hire for their stack again and stop paying for Windows-only hosting**. Proof: *[I have led N incremental migrations using the strangler pattern; the method is written up at [link].]*
+- *Cost, horizontal.* I help **SaaS teams on Azure whose cloud bill grows faster than their customer count** with **finding and fixing the few design decisions that drive most of the spend** so that **cost per customer goes down without a replatform**. Proof: *[public walkthrough of a cost assessment on a sample system, [link]].*
+- *Performance, light vertical.* I help **e-commerce teams on ASP.NET Core** with **the slow pages and database stalls that show up at peak traffic** so that **the next sales peak is a normal day for on-call**. Proof: *[the slow-query lab write-up and [N] anonymized case notes].*
+- *Vertical first.* I help **[logistics / insurance / fintech] companies with .NET back ends** with **[the integration and data problems specific to the industry]** so that **[regulatory deadline met / partner onboarding in days, not months]**. Proof: *[years in the industry, the domain terms you use without explanation].*
+
+Now the tests. A statement that fails any of them goes back for another draft.
+
+| Test | Question | Fails when… |
+|---|---|---|
+| **Substitution** | Could a thousand other .NET developers say this sentence truthfully? | "I help companies build scalable, high-quality software" |
+| **Recognition** | Would someone in the *who* slot say "that's us" in two seconds? | *Who* is "businesses", "startups and enterprises", "clients" |
+| **Buyer's words** | Is the problem phrased as the buyer feels it, not as you would fix it? | "…with CQRS and event sourcing" — that's a solution, not a problem |
+| **Outcome units** | Is the outcome in money, time or risk? | "…so that code is clean", "…so that best practices are followed" |
+| **Defensible** | Can you talk for ten minutes on the proof line with evidence? | The proof line is a wish, or an invented number |
+| **Refusable** | Is there a plausible client this statement turns away? | Nobody would ever self-select out — so it says nothing |
+
+> **Best practice.** Write five versions, not one: two horizontal, two vertical, one combined. Read them to someone in your agency's sales team or an ex-colleague and ask only "which one would you forward to a client, and to which client?" The answer to the second half tells you more than the answer to the first.
+
+## Profile surfaces
+
+The statement is written once and expressed on each surface where buyers look. Each has a different reader and a different job, so the same sentence cannot be pasted everywhere.
+
+| Surface | Who reads it | How long they read | Its job |
+|---|---|---|---|
+| LinkedIn headline | Recruiters, agency staff, clients' engineering managers, search | A glance, next to your name | Put you in the right mental bucket |
+| LinkedIn About | People who clicked because the headline matched | Under a minute; most stop before "see more" | Confirm the bucket, give one proof, give one next step |
+| CV summary | Client-side technical interviewer, agency sales | A skim before the CV bullets | Frame how the bullets below should be read |
+| GitHub profile README | Engineers checking whether you're real | A minute, often right before an interview | Point to the three best pieces of proof |
+| Agency / outstaff profile | Agency sales, then the client | Skimmed next to five other profiles | Make the account manager's pitch for them |
+
+### LinkedIn headline
+
+The headline appears wherever your name does: it is your positioning in the space of a subtitle. The common failure is a title plus a technology list.
+
+```
+**Weak**    Senior .NET Developer | C# | ASP.NET Core | Azure | Microservices | Open to work
+**Better**  .NET engineer helping SaaS teams cut Azure cost without a replatform
+**Better**  Moving .NET Framework systems to modern .NET, incrementally | writes about migrations
+```
+
+It needs the *who* or the *problem* (ideally both) and one hint of proof or activity. The technologies can live in the experience section, where search still finds them.
+
+### LinkedIn About
+
+The About section is read by people who already think you might be relevant. Make it a short argument, not an autobiography:
+
+```
+**Line 1–2 (visible before "see more")**
+The problem, in the buyer's words, and who has it.
+
+**Paragraph 2 — the point of view**
+What you believe about that problem that others often get wrong. (Chapter 60.)
+
+**Paragraph 3 — proof**
+Two or three checkable items: an article, a talk, an open-source contribution,
+an anonymized result with [placeholders] until you have a real, shareable number.
+
+**Paragraph 4 — how to work with you**
+Through [agency], or directly for [short assessments]; how to reach you.
+```
+
+> **Gotcha.** If you work through an agency, check your contract before writing "hire me directly" anywhere. Many outstaffing contracts contain non-solicitation or non-compete clauses covering the agency's clients. A profile that invites the agency's own clients to bypass it can breach the contract and will certainly damage the relationship. "Available through [agency] for [type of work]; I also run short independent assessments for teams outside current engagements" is honest and safe, if it matches what your contract allows.
+
+### CV summary
+
+Three or four lines at the top that tell the reader how to read the bullets below ([Chapter 36](#from-artifact-to-cv-bullet) covers the bullets). It is the positioning statement adjusted for a hiring reader:
+
+```
+.NET engineer (calendar years: [N]) specializing in [problem] for [kind of team].
+Most recent: [one-line outcome from the strongest story, in relative terms if under NDA].
+Writes about [topic] at [blog link]; [talk / OSS contribution] at [link].
+```
+
+### GitHub profile README
+
+GitHub shows the `README.md` of a public repository named exactly like your username at the top of your profile. The reader is an engineer who wants evidence, not adjectives, so keep it short:
+
+```
+**One line**: the positioning statement, lightly edited.
+**Start here**: three links — the best article, the best repo or lab write-up,
+  the best talk or OSS contribution — each with a one-line "what it shows".
+**Writing**: the last five posts, titles only.
+**Contact / availability**: one line, consistent with your agency contract.
+```
+
+It is the front door; the [Chapter 36](#chapter-36-the-story-bank-evidence-portfolio) evidence index is where the depth lives. Pin only repositories you would happily have a client read today.
+
+### The agency or outstaff profile
+
+Often the *only* thing a client sees before deciding to interview you, and written for the salesperson rather than the client — see *Working through intermediaries*.
+
+> **Best practice.** Make the surfaces **consistent, not identical**. A client who looks at your LinkedIn, then your GitHub, then the agency profile should see one person with one clear focus, told three times at three depths. If LinkedIn says "Azure cost" and the agency profile says "full-stack developer (Angular/React/.NET)", the reader trusts neither.
+
+## The evidence ladder
+
+Positioning is a claim; proof makes it believable. Public proof comes in rungs of rising cost and persuasive power. You keep a presence on several rungs at once, and higher rungs are built from lower ones.
+
+```
+                                                             persuasive power
+  6. Public assessment      a full health-check report on         ▲
+                            an open-source or sample system       │
+  5. Case studies           anonymized, permissioned,             │
+                            problem → method → result             │
+  4. Talks                  meetup → conference                   │
+  3. Open-source            fixes, docs, issues with repros       │
+                            in libraries your niche uses          │
+  2. Articles               a position, defended, with evidence   │
+  1. Answers & comments     Stack Overflow, GitHub issues,        │
+                            community Q&A, thoughtful replies     │
+  ──────────────────────────────────────────────────────────── cost ►
+```
+
+| Rung | Cost per item | What it proves | Who sees it | Notes |
+|---|---|---|---|---|
+| **1. Answers and comments** | Minutes | You know the details; you help | The person asking, plus search | The cheapest way to learn what people actually struggle with. Link to your longer writing only when it truly answers the question. |
+| **2. Articles** | Hours | You can reason in public and defend a position | Your network, search | The core rung. Everything above reuses articles. |
+| **3. Open-source contributions** | Hours to days | Your work survives review by maintainers who owe you nothing | Engineers | A good bug report with a minimal repro counts. So does documentation. |
+| **4. Talks** | Days per talk, reusable | You can explain under pressure and handle questions | The room, then the recording | A meetup talk is a rehearsed article. |
+| **5. Case studies** | Days, plus permission | You have done this for a real client, with a result | Buyers | The strongest evidence of grey hair — and the hardest to publish. |
+| **6. Public assessment** | Days to a week | You have a method, not only knowledge | Buyers and engineers | A [Chapter 62](#chapter-62-lab-the-net-health-check) health-check report run on an open-source .NET application or your own sample system, published in full. |
+
+The last rung is underrated. A case study needs a client's permission; a **public assessment** does not, because you choose the subject. Run the Chapter 62 health check on a well-known open-source .NET application or a realistic sample system, and publish the full report: findings, evidence, prioritized recommendations, the first two weeks. A buyer sees exactly what they would receive, which removes most of the perceived risk of a first paid assessment. Treat it as a demonstration of method, not a shaming: tell the maintainers first and offer the findings as issues.
+
+> **Pitfall.** Staying on rung 1 forever. Answers are scattered across other people's platforms and nobody reads them as one body of work. Every few weeks, turn your best answer into an article on your own site.
+
+## Writing articles that take a position
+
+Most technical writing by working engineers is a tutorial or a recap. Both are useful and neither positions you, because the reader learns about the tool, not about your judgment. The post that builds an advisor's reputation **states a position and defends it** — the written form of [Chapter 60](#chapter-60-having-a-point-of-view).
+
+### The structure
+
+```
+**Title**: the claim, not the topic.
+  "Stop using the repository pattern over EF Core for reads"  — not  "Thoughts on repositories"
+
+**The claim (first paragraph)**
+One sentence the reader could disagree with. Who it applies to.
+
+**Why it matters (context)**
+The cost of getting it wrong, in money, time or risk. One concrete situation.
+
+**The mechanism**
+Why it is true — what the runtime, the database or the team actually does.
+This is where you show depth; it is the part AI-generated posts do not have.
+
+**The evidence**
+A measurement, a before/after, a minimal repro, a lab result with its environment header.
+
+**The strongest counter-argument**
+State the opposing view in the form its best advocate would use. Then answer it.
+
+**When I'd be wrong**
+The conditions under which your advice flips. This is the senior signal.
+
+**What to do on Monday**
+Two or three concrete steps a reader can take in their own codebase.
+```
+
+The last three blocks separate a position from an opinion. The strongest counter-argument shows you have thought about it; "when I'd be wrong" shows your advice depends on the reader's context, which is exactly what they want from an advisor, and it turns a reader whose situation differs into a respectful one rather than an angry commenter.
+
+> **Best practice.** Write the "when I'd be wrong" section *first*. If you can't name the conditions under which your position fails, you don't understand it well enough to publish it yet.
+
+### Turning chapters and labs into posts
+
+This handbook and your lab work are raw material, but a summary of a chapter adds nothing and positions nobody. Use them as a source of *questions* and *evidence*:
+
+| Raw material | Turn it into | Example title shape |
+|---|---|---|
+| A lab result with numbers (e.g. [Chapter 37](#chapter-37-the-slow-query-lab-reading-execution-plans)) | An evidence post: the surprise, the plan, before/after, environment header | "The index that made the query slower: what the plan said" |
+| A *Gotcha* or *Pitfall* callout you have actually hit | A post-mortem-style post in your own words, with your own repro | "The `async void` that took our worker down — and the analyzer rule that now stops it" |
+| A decision table ("which tool when") | A position post: pick one side for one kind of team, defend it | "For most line-of-business apps, start with a modular monolith" |
+| A *Find the bug* exercise | A teaching post built from your *own* bug of the same class | "Three ways `HttpClient` has bitten us, and the one fix" |
+| Your Chapter 62 health-check report | A method post plus the public report | "How I run a two-week .NET health check, with a full example" |
+| A question you answered well in a community | A longer, linkable version on your own site | Use the asker's words in the title |
+
+The test for any derived post: *what is in it that is not in the chapter?* Your measurement, mistake, context or decision are answers; "a shorter wording" is not.
+
+> **Gotcha.** The Part XI environment-header rule applies to your blog. A number without CPU, RAM, .NET version, data size and cache state invites a public correction from the first expert who reads it, in your own niche. Publish the raw run output in your portfolio repo next to the post.
+
+### Avoiding AI-generated sameness
+
+Anyone can now produce a fluent 1,200-word article on "5 tips for EF Core performance" in a minute. Readers have learned to recognize the result: a generic title, an intro that restates the title, balanced bullet lists that never commit, and a conclusion that says "it depends on your use case". It is not that AI was used; it is that the post contains nothing that only you could have written, so it carries no evidence about you. Worse, it signals the opposite of what you want: it suggests that you have nothing specific to say.
+
+What a model cannot supply is what makes a post worth reading, and it is also what positions you:
+
+- **Your data.** A number from a run you did, with its environment.
+- **Your mistake.** The thing you got wrong first and how you found out.
+- **Your decision.** The choice you made, the option you rejected, and why.
+- **Your context.** The constraint that made the textbook answer wrong for you.
+- **Your voice.** The sentence you would say at a whiteboard to a colleague, not the one a style guide would produce.
+
+A workable division of labour: you write the claim, the mechanism, the evidence and "when I'd be wrong" in your own rough words; an assistant helps with structure, cutting and English. The [Chapter 36](#honesty-rules) rule applies: if a sentence came from the model and you can't defend it for five minutes, delete it.
+
+> **Pitfall.** Letting the model choose the topic. "Ten blog ideas for a .NET developer" returns the same ten ideas to everyone. Topics come from your brag doc, your story bank and the questions clients asked you this month.
+
+### A cadence you can sustain
+
+Reliability is in the trust equation. Five posts in January and none since reads as a hobby that ended; a post every two weeks for a year reads as a practice. Choose a cadence you can keep in a bad month:
+
+| Cadence | Realistic for | Weekly time | Risk |
+|---|---|---|---|
+| One short post a month | Anyone with a full-time engagement | ~1 h | Slow to build a body of work, but durable |
+| One post every two weeks | The default for this chapter | 2–3 h | Needs a backlog of ideas; keep one in the brag doc |
+| One post a week | People with slack between engagements | 4–6 h | Tends to collapse after a few months; quality drops first |
+
+Habits that keep it going: a *Post candidate?* line in the weekly brag doc; draft in one sitting and edit in another; publish at "good", because a correction in the comments is a conversation; and own the canonical copy on your own site, cross-posting elsewhere with a link back.
+
+## Case studies without breaking NDAs
+
+A case study shows grey hair directly, and it is the one piece of proof that can end a contract if done carelessly. Treat it as a small legal document.
+
+### What permission has to cover
+
+Your contract, and usually the agency's master agreement with the client, decide what you may say. Before you write, find out:
+
+1. **Who owns the relationship?** If you work through an agency, the client is the agency's client. Ask the agency first; they may have a process, and they may want the case study for themselves, which is fine as long as your name is on it.
+2. **What does the NDA cover?** Usually the client's identity, business information, code and data. Sometimes the fact of the engagement itself.
+3. **What exactly are you asking to publish?** Send the actual draft, not a description. "Can I write about the project?" gets a vague yes that won't help you if someone objects later.
+4. **Get the answer in writing.** An email reply that quotes the approved text is enough.
+
+### Anonymization
+
+When you do not have permission to name the client, anonymize so that someone in the client's industry *could not recognize them*. Removing the name is not enough when the combination of details identifies them.
+
+| Detail | Safe version | Why |
+|---|---|---|
+| Client name | "A European logistics company" | The obvious one |
+| Size | "Several hundred employees", "a few million orders a year" | Exact headcount plus industry plus country is often unique |
+| Internal numbers | Relative changes: "p95 from seconds to tens of milliseconds", "cost per tenant roughly halved" | Absolute figures can reveal revenue or volume |
+| System names | "The order service", "the nightly billing job" | Internal codenames are searchable |
+| Timeline | "Over a quarter", "last year" | Exact dates plus a public incident can identify them |
+| Technology details | Keep the mechanism, drop the unusual combination | "The only .NET shop in [city] on [rare database]" identifies them |
+| People | Roles only: "the CTO", "the platform team" | Never name individuals without their own consent |
+
+What never goes into a public case study, with or without anonymization: source code from the client, screenshots of their systems or dashboards, security findings that are not yet fixed, customer data of any kind, and anything the client described to you as confidential. When in doubt, the answer is no.
+
+> **Gotcha.** Anonymized stories still leak through *you*. If your LinkedIn says you spent 2025 at [named client] through [agency], then "a European logistics company, 2025" is not anonymous. Either keep the timeline vague or ask for permission anyway.
+
+### The case study template
+
+```
+**Situation**: the kind of company and the problem, anonymized. One paragraph.
+**Why it was hard**: the constraint that ruled out the obvious fix.
+**Diagnosis**: what you looked at and what you found (Chapter 61's method).
+**Decision**: the options, the one chosen, and why the others were rejected.
+**Result**: relative numbers, with how they were measured.
+**What I'd do differently**: one honest line.
+**Permission**: "Published with the client's permission" / "Anonymized; details changed".
+```
+
+This is the [Chapter 36](#chapter-36-the-story-bank-evidence-portfolio) STAR shape rewritten for a buyer, who cares most about the *Diagnosis* and *Decision*, because that is what they would pay for.
+
+Without permission you still have the public assessment, a lab that reproduces the same class of problem, or a "pattern" article about a problem you have seen at several clients, without describing any one of them.
+
+## Speaking
+
+Talks put you in front of people who chose your topic, and their questions tell you what they really struggle with. Raise the stakes slowly:
+
+```
+internal demo / brown-bag  ──►  local meetup (online or in person)  ──►  regional or
+at the client or agency         15–30 min, friendly audience,          community conference
+                                organizers often short of speakers     ──►  larger conference
+     low stakes, fast feedback                                               (CFP, committee)
+```
+
+- **Start where it's easy.** A lunch talk for your agency's engineers or the client team is a real talk; so is a local .NET user group. Ask the organizer directly.
+- **Reuse your best article** — the one with the most specific replies.
+- **Record it.** A recording, even a screen capture of an online meetup, turns a one-hour event into a permanent rung-4 item in your evidence index.
+- **Rehearse aloud three times.** If English is your second language, structure carries more than vocabulary (see the hints in [Chapter 36](#chapter-36-the-story-bank-evidence-portfolio)).
+
+### The CFP abstract
+
+Conferences choose talks from abstracts submitted to a call for papers (CFP), often through a platform such as Sessionize. The abstract is usually also what attendees read in the schedule, so write it for them, and use the private notes field for the committee.
+
+```
+**Title** (short; the claim or the question)
+"Your .NET Framework migration doesn't need a rewrite"
+
+**Abstract** (for attendees, ~3 short paragraphs)
+The problem, in the audience's words, and why the common approach fails.
+What you will show: the method, the evidence, a live demo or real numbers.
+What they leave with: two or three concrete takeaways they can use on Monday.
+
+**Level and audience**
+Intermediate; developers and tech leads maintaining .NET Framework systems.
+
+**Notes for the committee** (private)
+Why you: the experience behind the talk, where you've given it before (meetup, recording link),
+related articles, and anything that makes it new compared with talks on this topic from last year.
+
+**Bio** (third person, 2–3 sentences)
+[Name] helps [who] with [problem]. [One proof line.] Writes at [link].
+```
+
+> **Pitfall.** Titles that are puns or clever references and abstracts that only describe the topic ("In this talk we will explore microservices"). A committee can't tell what the talk argues, and neither can an attendee choosing between rooms. The same claim-not-topic rule as for articles applies.
+
+## Building a small network
+
+You don't need a large audience. You need a few dozen people in your niche who know what you are good at. For a specialist that network is the main source of work that never passes through a price comparison: a referral arrives with the referrer's credibility lent to you.
+
+### Give first
+
+The mechanism is ordinary reciprocity with a long time lag. You help in public without asking for anything. Most of it comes back as nothing; some comes back a year later as someone who remembers you understood their problem.
+
+Adam Grant's *Give and Take* adds the nuance: givers are over-represented at *both* the bottom and the top of success measures. The selfless ones burn out or get exploited; the successful ones give generously while protecting their own time and goals. So give in ways that also build your proof, and limit the rest.
+
+| Give | Cost | Also builds |
+|---|---|---|
+| A thorough answer to a community question in your niche | 20–30 min | Rung 1; material for an article |
+| A minimal repro on an open-source issue | 1 h | Rung 3; relationship with maintainers |
+| A careful review of someone's draft post or talk | 30 min | A relationship with another writer |
+| Sharing someone else's good work, with a sentence on *why* | 5 min | Signals taste; the author notices |
+| An introduction between two people who should talk | 10 min | You become the connector |
+| Speaking at or co-organizing a local meetup | Hours a month | Visibility with everyone in the room |
+
+What does not work: generic networking messages, "let me know if I can help", and the "give" that is a pitch in disguise. They raise self-orientation.
+
+> **Best practice.** Keep a short private list of the people in your niche you have helped or learned from, with a note of what they are working on. Once a month, look at it and do one specific useful thing for one of them. Small, specific, repeated beats large and occasional.
+
+### Where Blair Enns draws the line
+
+Giving first in public is not the same as working for free for a prospect. Blair Enns's *The Win Without Pitching Manifesto* argues that firms should win work without giving away their thinking in speculative pitches. There is no contradiction between the two ideas: public writing gives away *general* thinking one-to-many, and builds reputation. A free custom diagnosis of one prospect's system is the paid product given away one-to-one, and it teaches the prospect that your judgment is free. Answer questions generously in public; when a prospect asks you to "just take a quick look at our system", that is the moment to offer a small paid assessment ([Chapter 63](#chapter-63-recommendations-proposals-and-estimates)).
+
+## Working through intermediaries
+
+If you work through an outsourcing or outstaffing company, **your first buyer is the agency's sales team**. An account manager with a client request and a bench of ten .NET engineers puts forward the ones they can describe in a sentence; everyone else is described by seniority and rate, which is procedure work.
+
+The mechanism: salespeople reduce their own risk too. A proposed specialist whom the client rejects costs them credibility, so they propose people whose fit they can explain with confidence. Make yourself *easy to sell as an expert*:
+
+- **Tell them your positioning, in their words.** Meet the account managers and presales people and give them the one-sentence version. Ask what kinds of client requests they see, which is also a cheap niche test.
+- **Give them something to forward.** A one-page expert profile (below) and two or three links they can paste into an email.
+- **Be good in presales calls.** When they put you in a call with a prospect, apply [Chapter 61](#chapter-61-discovery-and-diagnosis): ask diagnostic questions, reflect the problem back, and give one specific insight. Salespeople remember who helps them close.
+- **Tell them when the proof grows.** A new article, a talk, a client win you are allowed to mention: a two-line message to the account manager keeps you top of mind.
+- **Stay loyal to the agreement.** Everything you build here makes you more valuable *to the agency* as well. Never use their clients to go around them; see the gotcha on contracts above.
+
+### The one-page expert profile
+
+Not a CV: a CV lists history, the expert profile argues for one kind of engagement. One page, forwardable, written so an account manager could read it aloud to a client.
+
+```
+**[Name] — [positioning in one line]**
+e.g. ".NET modernization: moving .NET Framework systems to modern .NET without a rewrite"
+
+**The problem I solve**
+Two sentences in the client's words: the situation, and what it costs them.
+
+**How I work**
+A 3–4 step method, one line each (e.g. assess → plan the seams → migrate incrementally → hand over).
+Mention the first deliverable: "a written assessment in [N] days".
+
+**Evidence**
+- [Relative result from an anonymized engagement, with how it was measured]
+- [Public assessment / article / talk — with a short link]
+- [Open-source contribution or certification relevant to the niche]
+
+**Good fit when**
+Three bullets describing the client situation in which you are the right choice.
+
+**Not the right fit when**
+One or two bullets. (This raises trust: it shows judgment, and it saves the salesperson a bad placement.)
+
+**Availability and engagement types**
+Through [agency]: full-time placement, a fixed-scope assessment, or part-time advisory.
+```
+
+The *not the right fit* block feels risky and is the most valuable part of the page. It lowers self-orientation in the trust equation, and it tells the salesperson that when you *do* say "I'm a fit", they can believe it.
+
+> **Best practice.** Ask the agency to put the fixed-scope assessment on their price list as a product with your name on it. A salesperson can sell "a two-week .NET modernization assessment by [name]" far more easily than "[name] is also good at modernization".
+
+## From hourly contractor to advisor
+
+The move from selling hours to selling judgment is gradual, and each step creates the trust the next one needs. Nobody pays a retainer to someone whose judgment they have not tested yet.
+
+```
+  1. hourly/placement ──► 2. advice inside ──► 3. first paid ──► 4. follow-on ──► 5. retainer
+     (procedure work)       the engagement       assessment         delivery or      (access to
+                            (free, visible,      (fixed scope,      implementation   judgment,
+                             written)            fixed price)       oversight        monthly)
+```
+
+1. **Hourly or placement work.** Where most outstaffed engineers start. Do the work well; nothing below works without reliability.
+2. **Advice inside the engagement.** Write the short decision memo, the ADR, the risk note the client did not ask for but needed ([Chapter 60](#chapter-60-having-a-point-of-view)). This is part of your paid time, and it is where the client first experiences you as an advisor. Keep copies (privately) in the brag doc.
+3. **The first paid assessment.** A fixed-scope, fixed-price piece of work with a written report: the [Chapter 62](#chapter-62-lab-the-net-health-check) health check, a cost review, a migration plan. It is small enough for a client to say yes to without a long approval, and it turns your judgment into a deliverable they can hand to their boss. Pricing and the proposal are covered in [Chapter 63](#chapter-63-recommendations-proposals-and-estimates). Your first one can be sold through the agency, to a new client of theirs, or independently to a client outside any restricted relationship.
+4. **Follow-on work.** The assessment ends with recommendations; some clients want you to lead or oversee them. This is where the assessment pays for itself.
+5. **A retainer.** A monthly fee for access to your judgment: architecture reviews, a standing call, reviewing the team's decisions, being on hand before big changes. It only works after the client has seen your judgment pay off at least once. Chapter 63 compares retainers with time-and-materials and fixed-price models and explains how to scope them so they don't turn into unpaid hours.
+
+Alan Weiss's *Value-Based Fees* and Jonathan Stark's *Hourly Billing Is Nuts* make the commercial case against hours. Move gradually anyway: for most outstaffed engineers the realistic first step is *one* assessment a quarter alongside a normal placement.
+
+> **Pitfall.** Offering a free assessment "to get a foot in the door". It sets the price of your judgment at zero in the client's mind, and a free report is read less carefully than a paid one. If you want to lower the risk for the client, make the first assessment small and cheap, not free, and publish a public assessment (rung 6) so they can see exactly what they would get.
+
+## Measuring whether it works
+
+Positioning work pays off slowly, and the numbers the platforms show you are mostly the wrong ones. Likes, impressions and follower counts measure how much *attention* a post got, not whether the *right* people now think of you for the *right* problem. They are vanity metrics for this purpose: they move easily and they don't predict work.
+
+Track **leading indicators** instead: events that come before work and that you can count honestly each week.
+
+| Leading indicator | Why it predicts work | Vanity metric it replaces |
+|---|---|---|
+| Unprompted questions from strangers about your niche problem | Someone recognized you as a source for exactly this | Impressions |
+| Specific replies ("we have this too — how did you handle X?") | The post reached someone with the pain | Likes |
+| Introductions and referrals ("you should talk to [name]") | Your network is working when you are not there | Connection count |
+| Requests for you *by name* from agency sales or clients | The intermediary can sell you as a specialist | Profile views |
+| Invitations: to speak, to review, to guest-write | Peers recognize the expertise | Follower count |
+| Conversations that reach "what would that cost?" | Buyer intent | Newsletter subscribers |
+| Paid assessments sold; follow-on work from them | The outcome itself (a lagging indicator) | — |
+
+Log them in the same place and at the same time as the brag doc: ten minutes every Friday, one line per event, with a date and where it came from (which post, which talk, which intro). After three months you will see which activities produce the indicators, and you can do more of those and drop the rest.
+
+> **Gotcha.** Everything here is small numbers. A handful of real inbound questions a quarter can be a strong signal for a specialist, and no number here is a benchmark. Compare yourself only with your own previous quarter, and look at the *source* column more than the totals.
+
+## The 90-day plan
+
+The plan below assumes a full-time engagement and a realistic 3–4 hours a week for this work. It is split into three phases of about a month each. Each phase ends with something public.
+
+| Weeks | Focus | Weekly time | Done when |
+|---|---|---|---|
+| **1–2** | Mine the story bank for niche candidates; draft five positioning statements; run the tests; pick one to test | 3 h | One statement passes every test in the table; the others are saved |
+| **3–4** | Start the cheap niche test: 5 of the 10 conversations; first position post drafted and published | 4 h | Post live on your own site; conversation log started |
+| **5** | Rewrite the LinkedIn headline and About, the CV summary, and the GitHub profile README from the statement | 3 h | All three surfaces consistent; a friend can repeat your focus back to you in one sentence |
+| **6** | Remaining 5 conversations; community answers (rung 1), one a week from now on | 3 h | 10 conversations logged; patterns noted |
+| **7–8** | Second post, built from a lab result or a story (with environment header); one open-source contribution in a library your niche uses | 4 h | Post live; PR, issue with repro, or docs fix submitted |
+| **9** | Write the one-page expert profile; meet agency sales, give them the profile | 3 h | The account manager has the PDF and can say your positioning back |
+| **10–11** | Third post; submit a talk to a local meetup (or give an internal one); start the public assessment on a sample or open-source system | 4 h | Meetup contacted or talk scheduled; assessment scoped |
+| **12** | Publish the public assessment or a smaller version of it | 4 h | Report live, linked from the GitHub profile and the expert profile |
+| **13** | Review: read the leading-indicator log; revise the positioning statement on evidence | 2 h | A written one-page review in your private notes: keep, adjust, or change the niche |
+
+Plus, every week: ten minutes of the Friday log, and one act of "give first".
+
+> **Best practice.** Protect the time as a recurring calendar block, the same slot each week. Positioning work is important and never urgent, which means it is the first thing a busy engagement squeezes out unless it has a fixed place.
+
+## Evidence to keep
+
+Private notes: the five positioning drafts with their test results, the niche-test log (it names people), the leading-indicator log and the day-90 review, and any client's written permission. Public, in your own blog and portfolio repo: the published statement, articles with the raw run output behind every number, talk abstracts and recordings, permissioned case studies, the public assessment report, and a generic version of the one-page expert profile. None of it goes into the handbook's repository.
+
+## Exercises
+
+### Find the bug
+
+**1. A LinkedIn headline.**
+
+```
+Passionate Senior Full-Stack .NET Developer | C# | ASP.NET Core | Blazor | Angular | React |
+Azure | AWS | Docker | Kubernetes | Microservices | Clean Code Enthusiast | Open to Opportunities
+```
+
+<details>
+<summary>What's wrong, and a fix</summary>
+
+It fails the substitution test completely: thousands of developers could use this line truthfully, so the only thing left to compare is price. There is no *who* and no *problem*; "passionate" and "enthusiast" are adjectives that nobody can check; the technology list invites the interviewer to ask about the weakest item (Chapter 36's keyword-wall pitfall); and "Open to Opportunities" makes you sound available rather than chosen. Both clouds and three front-end frameworks point in different directions, which makes it hard for an agency to sell you as anything specific.
+
+A fix, from a statement that passes the tests: *".NET engineer helping SaaS teams cut Azure cost without a replatform | writes about cloud cost for .NET"*. It has a who, a problem and a proof hint; and the technologies still appear in the experience section, where search finds them.
+</details>
+
+**2. A positioning statement.**
+
+```
+I help businesses of all sizes build scalable, high-quality software solutions
+using modern .NET technologies and best practices, so that they can succeed
+in today's fast-moving digital world.
+```
+
+<details>
+<summary>What's wrong, and a fix</summary>
+
+Run it through the tests. **Recognition:** "businesses of all sizes" means no reader recognizes themselves. **Buyer's words:** nobody searches for "scalable, high-quality software solutions"; they search for the pain ("our app is slow at month-end"). **Solution, not problem:** "using modern .NET technologies" describes your tools, not their problem. **Outcome units:** "succeed in today's fast-moving digital world" is not money, time or risk. **Refusable:** no client would ever self-select out, so the statement filters nothing. **Proof:** none.
+
+A fix (horizontal, performance): *"I help e-commerce teams on ASP.NET Core with the slow pages and database stalls that appear at peak traffic, so that the next sales peak is a normal day for on-call. Proof: [the slow-query lab write-up; N anonymized case notes]."*
+</details>
+
+**3. An article introduction.**
+
+```
+**Title**: Thoughts on Caching in .NET
+
+In today's world, performance is more important than ever. Caching is a powerful
+technique that can greatly improve the performance of your applications. In this
+article, we will explore the different types of caching available in .NET, including
+in-memory caching, distributed caching and output caching, and discuss their pros and
+cons. By the end, you'll have a better understanding of which caching strategy is
+right for your use case, because as always, it depends!
+```
+
+<details>
+<summary>What's wrong, and a fix</summary>
+
+The title is a topic, not a claim. The first two sentences are true of every performance article ever written and tell the reader nothing; they are also a recognizable AI-sameness opener. It promises a survey ("explore the different types"), which is the documentation's job, and it pre-announces that it will not commit ("it depends"). There is no position to disagree with, no mechanism, no evidence, and no hint of the author's own experience. A reader cannot learn anything about the author's judgment, so the post positions nobody.
+
+A fix states a claim that a reader could argue with, names who it applies to, and promises evidence: *Title: "Add a cache last: most .NET caching bugs are invalidation bugs." — "For line-of-business APIs under [a few hundred] requests per second, a cache is usually the wrong first fix for a slow endpoint. In [the lab / a client system], the query behind the slow endpoint went from [X] to [Y] ms with one index, and the cache we had planned would have added a stale-data bug we found in testing. Here is the plan output, the fix, and the three conditions under which I would add the cache anyway."* (Placeholders stay placeholders until you have real, environment-labelled numbers.)
+</details>
+
+### What would you do
+
+**4.** You have been outstaffed to the same client for two years through an agency. The client's CTO, impressed with your work, says in a one-to-one: "We have a sister company with a mess of a .NET Framework system. Could you take a look for them directly? Just a quick review, off the books." You have wanted to start doing assessments.
+
+<details>
+<summary>How a senior engineer reasons about it</summary>
+
+Three problems are tangled in the request, and each has a clear answer.
+
+- **The contract.** A sister company is very likely covered by the agency's non-solicitation clause, and "off the books" makes it worse. Before saying anything more than "thank you, let me find out how we can do this properly", read your contract, then talk to the agency. The agency usually *wants* this: it is new revenue and a new client. Propose that it is sold through them, as a fixed-scope assessment with your name on it.
+- **The "quick look".** A free, informal review is the Win Without Pitching trap: it prices your judgment at zero and gets read casually. Offer a small, paid, fixed-scope assessment with a written report instead ([Chapter 62](#chapter-62-lab-the-net-health-check) for the method, [Chapter 63](#chapter-63-recommendations-proposals-and-estimates) for scoping and pricing).
+- **The opportunity.** This is exactly the step from 2 to 3 in the contractor-to-advisor path, arriving through trust you have already built. Handled properly, it also becomes a case study, if you ask for permission as part of the engagement rather than afterwards.
+
+What you say to the CTO: "I'd be glad to. Let me set it up properly through [agency] as a short, fixed-scope assessment, so there's a written report your sister company can act on. I'll come back to you this week with the scope."
+</details>
+
+**5.** Six weeks into your 90-day plan you have published two posts. One, a general piece on clean architecture, got a lot of likes and comments from your network. The other, on a specific WCF-to-gRPC migration problem, got few likes but three detailed replies from people you do not know, one of whom asked whether you do assessments. Your niche test was "modernization". A friend says to write more like the first post.
+
+<details>
+<summary>How a senior engineer reasons about it</summary>
+
+The friend is reading vanity metrics. The first post's likes came mostly from people who already know you, and nothing in it tied you to a problem that someone would pay to have solved. The second post produced three leading indicators in one go: specific replies, strangers, and a question with buyer intent. That is the niche test saying *yes*.
+
+So: answer the assessment question properly (a short call using [Chapter 61](#chapter-61-discovery-and-diagnosis)'s discovery questions, then a small scoped offer); write down in the indicator log which post produced it; and make the next two posts in the same vein, perhaps one on the migration decision (rewrite vs strangler) and one lab-backed piece with numbers. Keep writing general posts occasionally if you enjoy them, but don't let them take the fortnightly slot. The day-90 review will judge the niche on the indicator log, not on the like counts.
+</details>
+
+### Go check
+
+**6.** Open your own LinkedIn profile, CV and GitHub profile side by side, as a stranger would. Write down, for each, the one sentence you think a reader would repeat about you after thirty seconds. Then show them to someone who does not know your work well (an agency salesperson is ideal) and ask them for their sentence.
+
+<details>
+<summary>What to look for</summary>
+
+If the three sentences differ from each other, the surfaces are inconsistent; fix the weakest one first, usually the agency profile or the CV summary, which get written once and forgotten. If *their* sentence is a job title plus a technology ("a senior .NET guy who does Azure"), your positioning hasn't reached the page yet: the surfaces describe you, but they don't make a claim. If their sentence is close to your positioning statement, keep it — and keep the evidence for it next to it on the page.
+</details>
+
+**7.** Take your last three months of the brag doc from [Chapter 36](#the-weekly-brag-doc). Count the entries that could become a public post under this chapter's rules: something with your own data, mistake, decision or context, which you can publish without breaking an NDA. Then check your published writing (if any) for the last three months and apply the "what is in this post that isn't in the documentation?" test to each post.
+
+<details>
+<summary>What to look for</summary>
+
+Most engineers find that the brag doc has more post candidates than they expected — typically the "Got wrong / learned" and "Decided" lines, not the "Shipped" ones — and that their published posts, if any, are surveys or tutorials that fail the test. The fix is a topic backlog: add a *Post candidate?* line to the weekly brag doc template, and start the next post from the strongest candidate on it. If you found no candidates you can publish at all, because everything is under NDA, the next posts should come from labs and a public assessment instead, which need nobody's permission.
+</details>
+
+## Sources & Further Reading
+
+- **David C. Baker, *The Business of Expertise: How Entrepreneurial Experts Convert Insight to Impact + Wealth*** (2017) — positioning as the degree to which a client can find a substitute for you; vertical and horizontal positioning; narrowing over time.
+- **Philip Morgan, *The Positioning Manual for Technical Firms*** (2015) — the generalist-to-specialist move for developers and technical consultancies, with vertical and horizontal specialization. Morgan's site, philipmorgan.net, has his later guides on specialization and point of view.
+- **David H. Maister, *Managing the Professional Service Firm*** (1993) — the brains / grey hair / procedure classification of professional work, and how each is sold and priced.
+- **David H. Maister, Charles H. Green and Robert M. Galford, *The Trusted Advisor*** (2000) — the trust equation (credibility + reliability + intimacy, over self-orientation) and the advisor stance this Part is named after.
+- **Blair Enns, *The Win Without Pitching Manifesto*** (2010) — winning work without giving away your thinking in speculative pitches; the line between public generosity and free consulting.
+- **Adam Grant, *Give and Take*** (2013) — givers, matchers and takers; why givers are over-represented at both the top and the bottom, and what separates the two groups.
+- **Alan Weiss, *Value-Based Fees*** and **Jonathan Stark, *Hourly Billing Is Nuts*** — the commercial case for moving from hours to value; read alongside [Chapter 63](#chapter-63-recommendations-proposals-and-estimates).
+- **Austin Kleon, *Show Your Work!*** (2014) — a short book on sharing work in progress as a habit, useful for sustaining a writing cadence.
+- **Patrick McKenzie, "Don't Call Yourself A Programmer, And Other Career Advice"** (kalzumeus.com, 2011) — on describing yourself by the business value you create rather than by the technology you use.
+- **Chapter 36: The Story Bank & Evidence Portfolio** — the private [story bank](#chapter-36-the-story-bank-evidence-portfolio), [CV bullets](#from-artifact-to-cv-bullet) and [honesty rules](#honesty-rules) this chapter builds on.
+- **Chapter 17: Soft Skills & Engineering Practices** — [from colleague to advisor](#from-colleague-to-advisor) and [written communication as async leverage](#written-communication-as-async-leverage).
 
 
 ---
