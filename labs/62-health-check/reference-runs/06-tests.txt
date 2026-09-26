@@ -1,0 +1,46 @@
+# test projects: 9
+  tests/Application.UnitTests/Application.UnitTests.csproj
+  tests/Basket.FunctionalTests/Basket.FunctionalTests.csproj
+  tests/Basket.UnitTests/Basket.UnitTests.csproj
+  tests/Catalog.FunctionalTests/Catalog.FunctionalTests.csproj
+  tests/ClientApp.UnitTests/ClientApp.UnitTests.csproj
+  tests/Ordering.FunctionalTests/Ordering.FunctionalTests.csproj
+  tests/Ordering.UnitTests/Ordering.UnitTests.csproj
+  tests/Webhooks.FunctionalTests/Webhooks.FunctionalTests.csproj
+  tests/eShop.AppHost.UnitTests/eShop.AppHost.UnitTests.csproj
+
+# test attributes
+  \[Fact             15
+  \[Theory           18
+  \[Test\]           0
+  \[TestCase         0
+  \[TestMethod       87
+  \[DataTestMethod   0
+  \[DataRow          9
+
+# non-blank C# lines: production 15314, test 3065
+
+# test infrastructure in use
+  Testcontainers             0 files
+  WebApplicationFactory      7 files
+  Aspire.Hosting.Testing     0 files
+  NSubstitute                8 files
+  Moq                        0 files
+  FakeItEasy                 0 files
+  Playwright                 1 files
+  Verify                     5 files
+
+# src projects without a same-named test project (heuristic: <Name>.UnitTests or <Name>.FunctionalTests)
+  EventBus
+  EventBusRabbitMQ
+  HybridApp
+  Identity.API
+  IntegrationEventLogEF
+  OrderProcessor
+  Ordering.Domain
+  Ordering.Infrastructure
+  PaymentProcessor
+  WebApp
+  WebAppComponents
+  WebhookClient
+  eShop.ServiceDefaults

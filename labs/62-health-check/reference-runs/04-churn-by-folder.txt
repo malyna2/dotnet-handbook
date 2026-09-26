@@ -1,0 +1,38 @@
+# file changes per top-level folder in the last 365 days (where does change land?)
+     48 .github/skills
+     35 src/WebApp
+     27 (root)
+     23 src/Catalog.API
+     12 tests/Catalog.FunctionalTests
+     12 src/eShop.AppHost
+     11 tests/Ordering.UnitTests
+     10 tests/Ordering.FunctionalTests
+      9 src/WebAppComponents
+      8 tests/ClientApp.UnitTests
+      8 tests/Application.UnitTests
+      8 src/HybridApp
+      6 tests/Webhooks.FunctionalTests
+      6 tests/Basket.UnitTests
+      6 src/eShop.ServiceDefaults
+      5 tests/Basket.FunctionalTests
+      5 src/OrderProcessor
+      5 .github/workflows
+      4 src/Ordering.API
+      4 src/Identity.API
+
+# file changes per top-level folder over the whole history
+    536 src/ClientApp
+    296 (root)
+    264 src/WebApp
+    257 src/Catalog.API
+    200 src/Identity.API
+    192 src/WebhookClient
+    140 src/Ordering.API
+    125 src/HybridApp
+     99 tests/ClientApp.UnitTests
+     96 .github/workflows
+     58 src/eShop.AppHost
+     48 .github/skills
+
+# commits in the last 365 days: 16   distinct authors: 8
+# bot-authored commits (author contains 'bot'): 0

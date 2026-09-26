@@ -1,0 +1,42 @@
+## NuGet sources and source mapping (nuget.config)
+  -- nuget.config
+  ﻿<?xml version="1.0" encoding="utf-8"?>
+  <configuration>
+    <packageSources>
+      <!--To inherit the global NuGet package sources remove the <clear/> line below -->
+      <clear />
+      <add key="nuget" value="https://api.nuget.org/v3/index.json" />
+    </packageSources>
+    <packageSourceMapping>
+      <!-- key value for <packageSource> should match key values from <packageSources> element -->
+      <clear />
+      <packageSource key="nuget">
+        <package pattern="*" />
+      </packageSource>
+    </packageSourceMapping>
+  </configuration>
+
+## Central package management / lock files / audit switches
+  Directory.Packages.props:3:    <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
+  src/ClientApp/ClientApp.csproj:22:    <ManagePackageVersionsCentrally>false</ManagePackageVersionsCentrally>
+  src/HybridApp/HybridApp.csproj:23:        <ManagePackageVersionsCentrally>false</ManagePackageVersionsCentrally>
+  tests/ClientApp.UnitTests/ClientApp.UnitTests.csproj:10:    <ManagePackageVersionsCentrally>false</ManagePackageVersionsCentrally>
+  Directory.Packages.props:4:    <CentralPackageTransitivePinningEnabled>true</CentralPackageTransitivePinningEnabled>
+  Directory.Build.props:5:    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+  Directory.Build.props:11:    <NoWarn>NU1901;NU1902;NU1903;NU1904</NoWarn>
+  src/ClientApp/ClientApp.csproj:23:    <NoWarn>$(NoWarn);XC0103</NoWarn>
+  src/WebApp/WebApp.csproj:10:    <NoWarn>$(NoWarn);RZ10021</NoWarn>
+  packages.lock.json files: 0
+
+## GitHub Actions references (pinned to a SHA or to a moving tag?)
+        4 actions/checkout@v4
+        2 actions/setup-dotnet@v3
+        1 actions/setup-dotnet@v4
+        2 actions/setup-node@v4
+        1 actions/upload-artifact@v4
+  pinned to a full SHA: 0 of 10
+  workflow permissions blocks: 1 of 4 workflows
+  dependabot/renovate config: .github/dependabot.yml
+
+## Container base images (Dockerfile FROM lines)
+  (no Dockerfiles: check for SDK container publish, <ContainerBaseImage>, or AppHost)

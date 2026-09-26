@@ -1,0 +1,80 @@
+# project -> referenced projects (ProjectReference); fan-in = how many projects reference it
+Basket.API                                    -> eShop.ServiceDefaults EventBusRabbitMQ
+Catalog.API                                   -> EventBusRabbitMQ IntegrationEventLogEF eShop.ServiceDefaults
+ClientApp                                     -> (none)
+EventBus                                      -> (none)
+EventBusRabbitMQ                              -> EventBus
+HybridApp                                     -> WebAppComponents
+Identity.API                                  -> eShop.ServiceDefaults
+IntegrationEventLogEF                         -> EventBus
+OrderProcessor                                -> eShop.ServiceDefaults EventBusRabbitMQ
+Ordering.API                                  -> EventBusRabbitMQ IntegrationEventLogEF eShop.ServiceDefaults Ordering.Domain Ordering.Infrastructure
+Ordering.Domain                               -> (none)
+Ordering.Infrastructure                       -> IntegrationEventLogEF Ordering.Domain
+PaymentProcessor                              -> eShop.ServiceDefaults EventBusRabbitMQ
+WebApp                                        -> eShop.ServiceDefaults EventBusRabbitMQ WebAppComponents
+WebAppComponents                              -> (none)
+WebhookClient                                 -> eShop.ServiceDefaults
+Webhooks.API                                  -> EventBusRabbitMQ IntegrationEventLogEF eShop.ServiceDefaults
+eShop.AppHost                                 -> Basket.API Catalog.API Identity.API Ordering.API OrderProcessor PaymentProcessor Webhooks.API WebApp WebhookClient
+eShop.ServiceDefaults                         -> (none)
+Application.UnitTests                         -> Catalog.API Identity.API OrderProcessor PaymentProcessor WebhookClient Webhooks.API
+Basket.FunctionalTests                        -> Basket.API
+Basket.UnitTests                              -> Basket.API
+Catalog.FunctionalTests                       -> Catalog.API
+ClientApp.UnitTests                           -> ClientApp
+Ordering.FunctionalTests                      -> Ordering.API Identity.API Ordering.Domain Ordering.Infrastructure
+Ordering.UnitTests                            -> Ordering.API Ordering.Domain Ordering.Infrastructure
+Webhooks.FunctionalTests                      -> Webhooks.API
+eShop.AppHost.UnitTests                       -> eShop.AppHost
+
+# fan-in
+      9 eShop.ServiceDefaults
+      7 EventBusRabbitMQ
+      4 Ordering.Domain
+      4 IntegrationEventLogEF
+      3 Webhooks.API
+      3 Ordering.Infrastructure
+      3 Ordering.API
+      3 Identity.API
+      3 Catalog.API
+      3 Basket.API
+      2 WebhookClient
+      2 WebAppComponents
+      2 PaymentProcessor
+      2 OrderProcessor
+      2 EventBus
+      1 eShop.AppHost
+      1 WebApp
+      1 ClientApp
+
+# source lines (non-blank, *.cs, excluding migrations/generated) per top-level project folder
+   6003 lines  137 files  src/ClientApp
+   2129 lines   60 files  src/Identity.API
+   1715 lines   68 files  src/Ordering.API
+    996 lines   33 files  src/Catalog.API
+    823 lines   26 files  src/WebApp
+    800 lines    9 files  tests/Ordering.UnitTests
+    639 lines   14 files  tests/ClientApp.UnitTests
+    566 lines   23 files  src/Ordering.Domain
+    450 lines    7 files  src/eShop.ServiceDefaults
+    450 lines    3 files  tests/Catalog.FunctionalTests
+    374 lines   24 files  src/Webhooks.API
+    358 lines   14 files  src/Ordering.Infrastructure
+    322 lines    5 files  src/EventBusRabbitMQ
+    312 lines    4 files  tests/Ordering.FunctionalTests
+    287 lines    7 files  tests/Application.UnitTests
+    246 lines   15 files  src/HybridApp
+    240 lines   13 files  src/WebhookClient
+    237 lines   11 files  src/Basket.API
+    219 lines    2 files  src/eShop.AppHost
+    185 lines    3 files  tests/Basket.UnitTests
+    176 lines    4 files  tests/Webhooks.FunctionalTests
+    165 lines    7 files  src/IntegrationEventLogEF
+    143 lines    7 files  src/OrderProcessor
+    131 lines    7 files  src/WebAppComponents
+    109 lines    8 files  src/EventBus
+     99 lines    3 files  tests/Basket.FunctionalTests
+     91 lines    2 files  src/Shared
+     63 lines    2 files  tests/eShop.AppHost.UnitTests
+     55 lines    7 files  src/PaymentProcessor

@@ -1,0 +1,27 @@
+  Determining projects to restore...
+  Restored src/IntegrationEventLogEF/IntegrationEventLogEF.csproj (in 441 ms).
+  Restored tests/Ordering.UnitTests/Ordering.UnitTests.csproj (in 469 ms).
+  Restored tests/Webhooks.FunctionalTests/Webhooks.FunctionalTests.csproj (in 472 ms).
+  Restored src/EventBus/EventBus.csproj (in 2 ms).
+  Restored tests/Ordering.FunctionalTests/Ordering.FunctionalTests.csproj (in 474 ms).
+  Restored src/EventBusRabbitMQ/EventBusRabbitMQ.csproj (in 10 ms).
+  Restored src/Basket.API/Basket.API.csproj (in 23 ms).
+  Restored src/eShop.ServiceDefaults/eShop.ServiceDefaults.csproj (in 10 ms).
+  Restored tests/Application.UnitTests/Application.UnitTests.csproj (in 52 ms).
+  Restored src/Webhooks.API/Webhooks.API.csproj (in 12 ms).
+  Restored src/Identity.API/Identity.API.csproj (in 113 ms).
+  Restored src/Catalog.API/Catalog.API.csproj (in 95 ms).
+  Restored src/WebhookClient/WebhookClient.csproj (in 7 ms).
+  Restored src/WebAppComponents/WebAppComponents.csproj (in 3 ms).
+  Restored src/eShop.AppHost/eShop.AppHost.csproj (in 70 ms).
+  Restored src/WebApp/WebApp.csproj (in 11 ms).
+  Restored src/PaymentProcessor/PaymentProcessor.csproj (in 14 ms).
+  Restored src/Ordering.Domain/Ordering.Domain.csproj (in 10 ms).
+  Restored src/Ordering.Infrastructure/Ordering.Infrastructure.csproj (in 12 ms).
+  Restored tests/eShop.AppHost.UnitTests/eShop.AppHost.UnitTests.csproj (in 32 ms).
+  Restored src/OrderProcessor/OrderProcessor.csproj (in 15 ms).
+  Restored src/Ordering.API/Ordering.API.csproj (in 15 ms).
+  Restored tests/Basket.UnitTests/Basket.UnitTests.csproj (in 14 ms).
+  Restored tests/Catalog.FunctionalTests/Catalog.FunctionalTests.csproj (in 30 ms).
+  Restored tests/Basket.FunctionalTests/Basket.FunctionalTests.csproj (in 22 ms).
+exit code: 0
