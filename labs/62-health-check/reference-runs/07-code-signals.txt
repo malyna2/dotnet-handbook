@@ -1,0 +1,49 @@
+# Grep signals are LEADS, not findings. Open every hit before it goes in a report.
+# Counts cover production code only (paths containing test/ or Tests/ are excluded).
+
+## Security (Ch 14)
+     4 matches in    4 files   \[AllowAnonymous\]
+     6 matches in    6 files   RequireAuthorization\(|\[Authorize
+     0 matches in    0 files   AllowAnyOrigin|SetIsOriginAllowed\(_ ?=> ?true
+     3 matches in    3 files   RequireHttpsMetadata\s*=\s*false
+     1 matches in    1 files   ValidateAudience\s*=\s*false|ValidateIssuer\s*=\s*false|ValidateLifetime\s*=\s*false
+     0 matches in    0 files   UseDeveloperExceptionPage
+     0 matches in    0 files   FromSqlRaw|ExecuteSqlRaw
+     0 matches in    0 files   AddRateLimiter|RequireRateLimiting|\[EnableRateLimiting
+     1 matches in    1 files   DangerousAcceptAnyServerCertificateValidator|ServerCertificateCustomValidationCallback
+  secret-looking literals in config/source (key names only):
+    src/ClientApp/Services/Settings/SettingsService.cs:15:    private const string DefaultClientSecret = "<redacted>";
+    src/WebApp/Extensions/Extensions.cs:78:            options.ClientSecret = "<redacted>";
+    src/WebhookClient/Extensions/Extensions.cs:54:            options.ClientSecret = "<redacted>";
+
+## Observability (Ch 13)
+    10 matches in    3 files   AddOpenTelemetry|WithTracing|WithMetrics
+    13 matches in   10 files   AddHealthChecks|MapHealthChecks|MapDefaultEndpoints
+     0 matches in    0 files   new ActivitySource|ActivitySource\(
+     0 matches in    0 files   new Meter\(|IMeterFactory
+     0 matches in    0 files   Log(Trace|Debug|Information|Warning|Error|Critical)\(\$"
+     3 matches in    1 files   \[LoggerMessage
+     0 matches in    0 files   catch\s*(\(Exception( \w+)?\))?\s*\{\s*\}
+
+## Performance and async smells (Ch 15, Ch 4, Ch 8)
+     3 matches in    2 files   \.Result\b|\.Wait\(\)|GetAwaiter\(\)\.GetResult\(\)
+    src/Identity.API/Quickstart/SecurityHeadersAttribute.cs:11:        var result = context.Result;
+    src/Ordering.API/Extensions/LinqSelectExtensions.cs:24:        return enumerable.Select(x => x.CaughtException == null ? x.Result : exceptionHandler(x.CaughtException));
+    src/Ordering.API/Extensions/LinqSelectExtensions.cs:29:        return enumerable.Select(x => x.CaughtException == null ? x.Result : exceptionHandler(x.Source, x.CaughtException));
+     8 matches in    8 files   async void
+    src/ClientApp/App.xaml.cs:57:    protected override async void OnStart()
+    src/ClientApp/AppShell.xaml.cs:18:    protected override async void OnHandlerChanged()
+    src/ClientApp/Controls/ToggleButton.cs:100:    private static async void OnCheckedChanged(BindableObject bindable, object oldValue, object newValue)
+    src/ClientApp/Triggers/BeginAnimation.cs:9:    protected override async void Invoke(VisualElement sender)
+    src/ClientApp/ViewModels/LoginViewModel.cs:42:    public override async void ApplyQueryAttributes(IDictionary<string, object> query)
+    src/ClientApp/ViewModels/SettingsViewModel.cs:215:    protected override async void OnPropertyChanged(PropertyChangedEventArgs e)
+    src/ClientApp/Views/ContentPageBase.cs:12:    protected override async void OnAppearing()
+    src/ClientApp/Views/MapView.xaml.cs:15:    private async void Pin_MarkerClicked(Object sender, PinClickedEventArgs e)
+     2 matches in    1 files   new HttpClient\(
+     5 matches in    3 files   \.Include\(
+     0 matches in    0 files   AsNoTracking
+     0 matches in    0 files   AsSplitQuery
+     0 matches in    0 files   \.ToList(Async)?\(\)\s*\.\s*(Where|Select|Count|Any|First)
+     0 matches in    0 files   Task\.Run\(
+    47 matches in   31 files   CancellationToken
+     0 matches in    0 files   Thread\.Sleep

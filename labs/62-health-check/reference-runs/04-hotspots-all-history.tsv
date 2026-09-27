@@ -1,0 +1,29 @@
+# churn = commits touching the file, over the whole history (up to 2026-08-28)
+# branches = count of if/case/for/foreach/while/catch/&&/||/?? tokens (a cheap cyclomatic proxy, Ch 30)
+# score = churn x branches; renames are not followed; migrations and generated files excluded
+score	churn	branches	lines	authors	file
+350	10	35	406	8	src/Catalog.API/Apis/CatalogApi.cs
+248	2	124	1033	2	src/ClientApp/Services/Basket/Protos/Basket.cs
+210	21	10	93	15	src/eShop.AppHost/Program.cs
+208	13	16	160	6	src/WebApp/Components/Chatbot/ChatState.cs
+140	7	20	173	4	src/eShop.ServiceDefaults/OpenApiOptionsExtensions.cs
+125	5	25	261	5	src/EventBusRabbitMQ/RabbitMQEventBus.cs
+114	6	19	94	3	src/ClientApp/Services/FixUri/FixUriService.cs
+84	14	6	42	9	src/Catalog.API/Extensions/Extensions.cs
+78	6	13	288	3	src/ClientApp/ViewModels/SettingsViewModel.cs
+75	5	15	139	3	src/ClientApp/Services/RequestProvider/RequestProvider.cs
+72	12	6	126	7	src/eShop.AppHost/Extensions.cs
+66	11	6	72	6	src/eShop.ServiceDefaults/OpenApi.Extensions.cs
+60	4	15	141	3	src/ClientApp/App.xaml.cs
+57	19	3	107	12	src/WebApp/Extensions/Extensions.cs
+55	11	5	59	6	src/Catalog.API/Services/CatalogAI.cs
+54	6	9	106	6	src/eShop.ServiceDefaults/Extensions.cs
+52	4	13	150	4	src/WebApp/Services/BasketState.cs
+49	1	49	285	1	src/Identity.API/Quickstart/Account/AccountController.cs
+48	6	8	165	3	src/ClientApp/MauiProgram.cs
+48	4	12	151	4	src/Ordering.Domain/AggregatesModel/OrderAggregate/Order.cs
+45	5	9	128	2	src/ClientApp/Services/Identity/IdentityService.cs
+43	1	43	204	1	src/Identity.API/Quickstart/Account/ExternalController.cs
+36	4	9	154	4	src/Ordering.API/Apis/OrdersApi.cs
+36	3	12	68	3	tests/Ordering.UnitTests/Application/NewOrderCommandHandlerTest.cs
+35	5	7	102	2	src/ClientApp/Services/Order/OrderService.cs

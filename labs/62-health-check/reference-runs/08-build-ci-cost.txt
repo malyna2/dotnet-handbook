@@ -1,0 +1,69 @@
+## CI definitions
+  .github/workflows/markdownlint-problem-matcher.json
+  .github/workflows/markdownlint.yml
+  .github/workflows/playwright.yml
+  .github/workflows/pr-validation-maui.yml
+  .github/workflows/pr-validation.yml
+  ci.yml
+
+## What CI runs (run: lines)
+  -- .github/workflows/markdownlint.yml
+    run: |
+  -- .github/workflows/playwright.yml
+    run: npm ci
+    run: npx playwright install --with-deps chromium
+    run: npm run test:e2e
+  -- .github/workflows/pr-validation-maui.yml
+    run: dotnet workload update
+    run: |
+    dotnet workload install android
+    dotnet workload install ios
+    dotnet workload install maccatalyst
+    dotnet workload install maui
+    run: dotnet build src/ClientApp/ClientApp.csproj
+    run: dotnet test --project tests/ClientApp.UnitTests/ClientApp.UnitTests.csproj --no-progress --output detailed
+  -- .github/workflows/pr-validation.yml
+    run: dotnet build eShop.Web.slnf
+    run: dotnet test --solution eShop.Web.slnf --no-build --no-progress --output detailed
+
+## Build hygiene (Directory.Build.props / csproj)
+  TreatWarningsAsErrors      1 files
+  Nullable                   12 files
+  ImplicitUsings             10 files
+  AnalysisLevel              0 files
+  EnforceCodeStyleInBuild    0 files
+  UseArtifactsOutput         1 files
+  Deterministic              0 files
+  ContinuousIntegrationBuild 0 files
+  projects with <Nullable>enable: 12 of 28 (plus any set in Directory.Build.props)
+  .editorconfig: 1
+
+## Cost drivers: infrastructure the app provisions (Ch 28)
+  Aspire AppHost resources (Add* calls):
+         14 .AddRoute(
+          4 .AddProject(
+          4 .AddDatabase(
+          3 .AddOllama(
+          3 .AddFoundry(
+          2 .AddModel(
+          2 .AddDeployment(
+          1 .AddYarp(
+          1 .AddRedis(
+          1 .AddRabbitMQ(
+          1 .AddPostgres(
+          1 .AddInMemoryCollection(
+          1 .AddForwardedHeaders(
+          1 .AddCluster(
+          1 .AddAzureContainerAppEnvironment(
+  IaC files: bicep 0, terraform 0, helm/k8s yaml 0
+  AI/LLM clients referenced:
+         16 Foundry
+          9 Ollama
+          8 OpenAI
+          4 OllamaEnabled
+          3 OllamaSharp
+          3 FoundryEnabled
+          2 OpenAIClientFromConfiguration
+          2 OllamaApiClient
+          1 OllamaExtensionAddsExpectedModels
+          1 FoundryFlagUsesSafeOptInDefault

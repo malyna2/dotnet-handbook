@@ -51,3 +51,9 @@ The plan and progress live in `PRACTICE_ROADMAP.md`; tick it at the end of every
 - Chapter 50 (Azure in depth) and Chapter 51 (Azure casebook). Chapter numbers 38–49 stay free for Practice Gym labs.
 - **Code verification.** `verify/snippets/Azure/verify.sh` extracts every ```` ```csharp ```` block from these chapters and compiles it against the SDK versions pinned in `verify/Directory.Packages.props`; a new block without an entry in `BLOCKS` in `extract.py` fails the check. *Find the bug* blocks must match the code in `verify/exercises/Ch51/` token for token; `ACCEPT_EULA=Y verify/exercises/Ch51/verify.sh` runs those against Azurite and the Service Bus emulator. Bicep blocks are built and linted when the Bicep CLI is on `PATH` (download it from the `Azure/bicep` GitHub releases; it is not in apt).
 - Limits, defaults and dates quoted in these chapters were checked against the docs source repos (`MicrosoftDocs/azure-docs`, `azure-monitor-docs`, `azure-security-docs`, `sql-docs`) and the SDK source. Cosmos DB's docs repo is not public; its limits were confirmed only through search snippets of Learn pages. Certification facts come from third-party summaries (Learn is blocked) and are flagged in the text.
+
+## The Trusted Advisor (Part XIII, chapters 60–65)
+
+- Client-facing expertise: 60 point of view, 61 discovery, 62 health-check lab (`labs/62-health-check/`, Practice Gym lab rules apply), 63 recommendations/proposals/estimates, 64 advisory casebook, 65 positioning and public proof. Part XII keeps 50–59 for cloud chapters.
+- *Find the bug* in these chapters is a flawed written artifact (memo, email, SOW excerpt, headline), not C#, so it needs no compiled verification.
+- Cases and examples are labelled composites; numbers are `[placeholders]` or marked illustrative. Cite books by author and title; drop any specific claim that can't be verified. Contracts and SOWs come with a short "not legal advice" note.

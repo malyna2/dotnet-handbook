@@ -1,0 +1,16 @@
+# dotnet build eShop.Web.slnf (run from outside the repo, see 01)
+  wall time: 12 s
+  5 Warning(s)
+  4 Error(s)
+  distinct errors:
+    libman.json : error LIB002: The "bootstrap@5.2.3" library could not be resolved by the "cdnjs" provider
+    libman.json : error LIB002: The "jquery-validate@1.19.5" library could not be resolved by the "cdnjs" provider
+    libman.json : error LIB002: The "jquery-validation-unobtrusive@4.0.0" library could not be resolved by the "cdnjs" provider
+    libman.json : error LIB002: The "jquery@3.6.3" library could not be resolved by the "cdnjs" provider
+
+# unit-test projects (functional tests need a container runtime and are not run here)
+  Application.UnitTests: BUILD FAILED
+  Basket.UnitTests: ran -> total: 8 failed: 0 succeeded: 8 skipped: 0 duration: 335ms
+  ClientApp.UnitTests: BUILD FAILED
+  Ordering.UnitTests: ran -> total: 43 failed: 0 succeeded: 43 skipped: 0 duration: 509ms
+  eShop.AppHost.UnitTests: BUILD FAILED

@@ -489,6 +489,26 @@ Bring data, not complaints: present the estimate, the trade-offs, and options (c
 
 > **Follow-up:** *Tell me about a time you had to make a decision without complete information.* Show how you bounded the risk: made a reversible choice, shipped small to learn, set a checkpoint to re-evaluate, and communicated the uncertainty rather than pretending certainty.
 
+## When the Client Interviews You
+
+*Revise: Part XIII — Chapters 60–65*
+
+Contractors and outstaffed engineers are often interviewed a second time, by the **end client**. That conversation tests judgment more than trivia. The client wants to know whether they can trust you with their system and their budget.
+
+**"Here's our situation — what would you do?"**
+Don't prescribe on the first sentence. Ask two or three diagnostic questions (the goal behind it, constraints, what's been tried), play back what you heard, then give a recommendation with its conditions: "If X, I'd start with A; if Y, B — and here is what I'd check in week one." That order is itself the signal. [Chapter 61](#chapter-61-discovery-and-diagnosis) has the question bank.
+
+**"What's your opinion on [technology or approach]?"**
+Commit to a position, say what it depends on and what would change your mind. "It depends", with nothing named, reads as not knowing. [Chapter 60](#chapter-60-having-a-point-of-view) shows how to build these positions in advance.
+
+**"How long will it take?"**
+Give a range, the assumptions behind it, and how you would narrow it (a short, paid discovery or spike). A confident single number to someone who hasn't seen the code is the red flag, not the range. See [Chapter 63](#chapter-63-recommendations-proposals-and-estimates).
+
+**"Tell me about a time you disagreed with a client."**
+STAR, with the emphasis on how you made the risk visible, let the client decide, and wrote the decision down, not on being right.
+
+> **Follow-up:** *What do you not know?* Name one real gap and how you'd close it on their project. A candidate with no gaps is less credible than one who knows where the edge is.
+
 ---
 
 ## Sources & Further Reading

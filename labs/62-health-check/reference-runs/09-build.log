@@ -1,0 +1,59 @@
+  Determining projects to restore...
+  All projects are up-to-date for restore.
+/root/.nuget/packages/aspire.hosting.apphost/13.5.3/build/Aspire.Hosting.AppHost.targets(157,5): warning ASPIRE010: eShop.AppHost is configured with AspireUseCliBundle=false. Some Aspire features require the Aspire CLI bundle. Set AspireUseCliBundle=true to enable those features, or suppress ASPIRE010 to continue without the bundle. See https://aka.ms/aspire/diagnostics/aspire010 for more information. [src/eShop.AppHost/eShop.AppHost.csproj]
+  eShop.ServiceDefaults -> artifacts/bin/eShop.ServiceDefaults/debug/eShop.ServiceDefaults.dll
+  EventBus -> artifacts/bin/EventBus/debug/EventBus.dll
+/root/.nuget/packages/aspire.hosting.apphost/13.5.3/build/Aspire.Hosting.AppHost.targets(157,5): warning ASPIRE010: Basket.FunctionalTests is configured with AspireUseCliBundle=false. Some Aspire features require the Aspire CLI bundle. Set AspireUseCliBundle=true to enable those features, or suppress ASPIRE010 to continue without the bundle. See https://aka.ms/aspire/diagnostics/aspire010 for more information. [tests/Basket.FunctionalTests/Basket.FunctionalTests.csproj]
+/root/.nuget/packages/aspire.hosting.apphost/13.5.3/build/Aspire.Hosting.AppHost.targets(157,5): warning ASPIRE010: Catalog.FunctionalTests is configured with AspireUseCliBundle=false. Some Aspire features require the Aspire CLI bundle. Set AspireUseCliBundle=true to enable those features, or suppress ASPIRE010 to continue without the bundle. See https://aka.ms/aspire/diagnostics/aspire010 for more information. [tests/Catalog.FunctionalTests/Catalog.FunctionalTests.csproj]
+/root/.nuget/packages/aspire.hosting.apphost/13.5.3/build/Aspire.Hosting.AppHost.targets(157,5): warning ASPIRE010: Ordering.FunctionalTests is configured with AspireUseCliBundle=false. Some Aspire features require the Aspire CLI bundle. Set AspireUseCliBundle=true to enable those features, or suppress ASPIRE010 to continue without the bundle. See https://aka.ms/aspire/diagnostics/aspire010 for more information. [tests/Ordering.FunctionalTests/Ordering.FunctionalTests.csproj]
+/root/.nuget/packages/aspire.hosting.apphost/13.5.3/build/Aspire.Hosting.AppHost.targets(157,5): warning ASPIRE010: Webhooks.FunctionalTests is configured with AspireUseCliBundle=false. Some Aspire features require the Aspire CLI bundle. Set AspireUseCliBundle=true to enable those features, or suppress ASPIRE010 to continue without the bundle. See https://aka.ms/aspire/diagnostics/aspire010 for more information. [tests/Webhooks.FunctionalTests/Webhooks.FunctionalTests.csproj]
+  EventBusRabbitMQ -> artifacts/bin/EventBusRabbitMQ/debug/EventBusRabbitMQ.dll
+libman.json : error LIB002: The "jquery@3.6.3" library could not be resolved by the "cdnjs" provider [src/Identity.API/Identity.API.csproj]
+libman.json : error LIB002: The "bootstrap@5.2.3" library could not be resolved by the "cdnjs" provider [src/Identity.API/Identity.API.csproj]
+libman.json : error LIB002: The "jquery-validation-unobtrusive@4.0.0" library could not be resolved by the "cdnjs" provider [src/Identity.API/Identity.API.csproj]
+libman.json : error LIB002: The "jquery-validate@1.19.5" library could not be resolved by the "cdnjs" provider [src/Identity.API/Identity.API.csproj]
+  
+  One or more libraries failed to restore
+  
+  WebAppComponents -> artifacts/bin/WebAppComponents/debug/WebAppComponents.dll
+  Ordering.Domain -> artifacts/bin/Ordering.Domain/debug/Ordering.Domain.dll
+  IntegrationEventLogEF -> artifacts/bin/IntegrationEventLogEF/debug/IntegrationEventLogEF.dll
+  OrderProcessor -> artifacts/bin/OrderProcessor/debug/OrderProcessor.dll
+  WebhookClient -> artifacts/bin/WebhookClient/debug/WebhookClient.dll
+  Basket.API -> artifacts/bin/Basket.API/debug/Basket.API.dll
+  Webhooks.API -> artifacts/bin/Webhooks.API/debug/Webhooks.API.dll
+  Webhooks.FunctionalTests -> tests/Webhooks.FunctionalTests/bin/Debug/net10.0/Webhooks.FunctionalTests.dll
+  Ordering.Infrastructure -> artifacts/bin/Ordering.Infrastructure/debug/Ordering.Infrastructure.dll
+  WebApp -> artifacts/bin/WebApp/debug/WebApp.dll
+  Catalog.API -> artifacts/bin/Catalog.API/debug/Catalog.API.dll
+  
+  GenerateOpenApiDocuments:
+    dotnet "/root/.nuget/packages/microsoft.extensions.apidescription.server/10.0.11/build/../tools/dotnet-getdocument.dll" --assembly "artifacts/bin/Catalog.API/debug/Catalog.API.dll" --file-list "artifacts/obj/Catalog.API/Catalog.API.OpenApiFiles.cache" --framework ".NETCoreApp,Version=v10.0" --output "src/Catalog.API" --project "Catalog.API" --assets-file "artifacts/obj/Catalog.API/project.assets.json" --platform "AnyCPU" 
+  Basket.FunctionalTests -> tests/Basket.FunctionalTests/bin/Debug/net10.0/Basket.FunctionalTests.dll
+  Basket.UnitTests -> tests/Basket.UnitTests/bin/Debug/net10.0/Basket.UnitTests.dll
+  Generating document named 'v1'.
+  Using discovered `GenerateAsync` overload with version parameter.
+  Writing document named 'v1' to 'src/Catalog.API/Catalog.API.json'.
+  Generating document named 'v2'.
+  Using discovered `GenerateAsync` overload with version parameter.
+  Writing document named 'v2' to 'src/Catalog.API/Catalog.API_v2.json'.
+  PaymentProcessor -> artifacts/bin/PaymentProcessor/debug/PaymentProcessor.dll
+  Ordering.API -> artifacts/bin/Ordering.API/debug/Ordering.API.dll
+  Catalog.FunctionalTests -> tests/Catalog.FunctionalTests/bin/Debug/net10.0/Catalog.FunctionalTests.dll
+  Ordering.UnitTests -> tests/Ordering.UnitTests/bin/Debug/net10.0/Ordering.UnitTests.dll
+
+Build FAILED.
+
+/root/.nuget/packages/aspire.hosting.apphost/13.5.3/build/Aspire.Hosting.AppHost.targets(157,5): warning ASPIRE010: eShop.AppHost is configured with AspireUseCliBundle=false. Some Aspire features require the Aspire CLI bundle. Set AspireUseCliBundle=true to enable those features, or suppress ASPIRE010 to continue without the bundle. See https://aka.ms/aspire/diagnostics/aspire010 for more information. [src/eShop.AppHost/eShop.AppHost.csproj]
+/root/.nuget/packages/aspire.hosting.apphost/13.5.3/build/Aspire.Hosting.AppHost.targets(157,5): warning ASPIRE010: Basket.FunctionalTests is configured with AspireUseCliBundle=false. Some Aspire features require the Aspire CLI bundle. Set AspireUseCliBundle=true to enable those features, or suppress ASPIRE010 to continue without the bundle. See https://aka.ms/aspire/diagnostics/aspire010 for more information. [tests/Basket.FunctionalTests/Basket.FunctionalTests.csproj]
+/root/.nuget/packages/aspire.hosting.apphost/13.5.3/build/Aspire.Hosting.AppHost.targets(157,5): warning ASPIRE010: Catalog.FunctionalTests is configured with AspireUseCliBundle=false. Some Aspire features require the Aspire CLI bundle. Set AspireUseCliBundle=true to enable those features, or suppress ASPIRE010 to continue without the bundle. See https://aka.ms/aspire/diagnostics/aspire010 for more information. [tests/Catalog.FunctionalTests/Catalog.FunctionalTests.csproj]
+/root/.nuget/packages/aspire.hosting.apphost/13.5.3/build/Aspire.Hosting.AppHost.targets(157,5): warning ASPIRE010: Ordering.FunctionalTests is configured with AspireUseCliBundle=false. Some Aspire features require the Aspire CLI bundle. Set AspireUseCliBundle=true to enable those features, or suppress ASPIRE010 to continue without the bundle. See https://aka.ms/aspire/diagnostics/aspire010 for more information. [tests/Ordering.FunctionalTests/Ordering.FunctionalTests.csproj]
+/root/.nuget/packages/aspire.hosting.apphost/13.5.3/build/Aspire.Hosting.AppHost.targets(157,5): warning ASPIRE010: Webhooks.FunctionalTests is configured with AspireUseCliBundle=false. Some Aspire features require the Aspire CLI bundle. Set AspireUseCliBundle=true to enable those features, or suppress ASPIRE010 to continue without the bundle. See https://aka.ms/aspire/diagnostics/aspire010 for more information. [tests/Webhooks.FunctionalTests/Webhooks.FunctionalTests.csproj]
+libman.json : error LIB002: The "jquery@3.6.3" library could not be resolved by the "cdnjs" provider [src/Identity.API/Identity.API.csproj]
+libman.json : error LIB002: The "bootstrap@5.2.3" library could not be resolved by the "cdnjs" provider [src/Identity.API/Identity.API.csproj]
+libman.json : error LIB002: The "jquery-validation-unobtrusive@4.0.0" library could not be resolved by the "cdnjs" provider [src/Identity.API/Identity.API.csproj]
+libman.json : error LIB002: The "jquery-validate@1.19.5" library could not be resolved by the "cdnjs" provider [src/Identity.API/Identity.API.csproj]
+    5 Warning(s)
+    4 Error(s)
+
+Time Elapsed 00:00:11.07

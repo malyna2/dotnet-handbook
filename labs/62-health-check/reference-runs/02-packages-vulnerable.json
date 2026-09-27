@@ -1,0 +1,84 @@
+{
+  "version": 1,
+  "parameters": "--vulnerable --include-transitive",
+  "sources": [
+    "https://api.nuget.org/v3/index.json"
+  ],
+  "projects": [
+    {
+      "path": "src/Basket.API/Basket.API.csproj"
+    },
+    {
+      "path": "src/Catalog.API/Catalog.API.csproj"
+    },
+    {
+      "path": "src/eShop.AppHost/eShop.AppHost.csproj"
+    },
+    {
+      "path": "src/eShop.ServiceDefaults/eShop.ServiceDefaults.csproj"
+    },
+    {
+      "path": "src/EventBus/EventBus.csproj"
+    },
+    {
+      "path": "src/EventBusRabbitMQ/EventBusRabbitMQ.csproj"
+    },
+    {
+      "path": "src/Identity.API/Identity.API.csproj"
+    },
+    {
+      "path": "src/IntegrationEventLogEF/IntegrationEventLogEF.csproj"
+    },
+    {
+      "path": "src/Ordering.API/Ordering.API.csproj"
+    },
+    {
+      "path": "src/Ordering.Domain/Ordering.Domain.csproj"
+    },
+    {
+      "path": "src/Ordering.Infrastructure/Ordering.Infrastructure.csproj"
+    },
+    {
+      "path": "src/OrderProcessor/OrderProcessor.csproj"
+    },
+    {
+      "path": "src/PaymentProcessor/PaymentProcessor.csproj"
+    },
+    {
+      "path": "src/WebApp/WebApp.csproj"
+    },
+    {
+      "path": "src/WebAppComponents/WebAppComponents.csproj"
+    },
+    {
+      "path": "src/WebhookClient/WebhookClient.csproj"
+    },
+    {
+      "path": "src/Webhooks.API/Webhooks.API.csproj"
+    },
+    {
+      "path": "tests/Application.UnitTests/Application.UnitTests.csproj"
+    },
+    {
+      "path": "tests/Basket.FunctionalTests/Basket.FunctionalTests.csproj"
+    },
+    {
+      "path": "tests/Basket.UnitTests/Basket.UnitTests.csproj"
+    },
+    {
+      "path": "tests/Catalog.FunctionalTests/Catalog.FunctionalTests.csproj"
+    },
+    {
+      "path": "tests/eShop.AppHost.UnitTests/eShop.AppHost.UnitTests.csproj"
+    },
+    {
+      "path": "tests/Ordering.FunctionalTests/Ordering.FunctionalTests.csproj"
+    },
+    {
+      "path": "tests/Ordering.UnitTests/Ordering.UnitTests.csproj"
+    },
+    {
+      "path": "tests/Webhooks.FunctionalTests/Webhooks.FunctionalTests.csproj"
+    }
+  ]
+}

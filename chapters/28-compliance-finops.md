@@ -310,6 +310,8 @@ Apply this on every non-trivial change:
 - [ ] A **budget + alert** exists for the resources I own.
 - [ ] I hunt and delete **idle/zombie** resources I created.
 
+> **Best practice.** Cost is the easiest door into an advisory conversation. Every client understands a bill, and "your non-prod environments cost [X] a month while idle" is a finding an executive acts on without a lesson in architecture. Running this checklist against a client's subscription and reporting in money is a small, bounded engagement that earns the right to discuss the bigger design questions. [Chapter 62](#chapter-62-lab-the-net-health-check) turns this into a full assessment.
+
 ---
 
 ## Part C — Green Software: the Same Levers, a Second Reason

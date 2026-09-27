@@ -44,7 +44,8 @@ PART_RANGES = [
     (33,  34,  "Part IX — The War Room: Scenarios & Interviews"),
     (35,  35,  "Part X — Trust, Supply Chain & Provenance"),
     (36,  49,  "Part XI — The Practice Gym"),
-    (50,  98,  "Part XII — Cloud in Depth: Azure"),
+    (50,  59,  "Part XII — Cloud in Depth: Azure"),
+    (60,  98,  "Part XIII — The Trusted Advisor"),
     (99,  100, "Appendices"),
     (101, 10**9, "What's New"),
 ]
