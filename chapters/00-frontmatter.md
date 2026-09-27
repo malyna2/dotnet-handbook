@@ -24,9 +24,9 @@ Let's begin.
 
 ## Contents
 
-> **Total study time: ~28 hours** (reading prose at ~200 wpm and parsing every code sample at ~60 wpm — the pace behind each chapter's own estimate under its heading). A straight cover-to-cover read (prose at ~250 wpm, code at ~100) is closer to **21 hours**; a quick skim (~300 and ~200 wpm), **~16 hours**.
+> **Total study time: ~34 hours** (reading prose at ~200 wpm and parsing every code sample at ~60 wpm — the pace behind each chapter's own estimate under its heading). A straight cover-to-cover read (prose at ~250 wpm, code at ~100) is closer to **25 hours**; a quick skim (~300 and ~200 wpm), **~19 hours**.
 >
-> **Practice time comes on top.** The labs in Part XI are measured in hours of hands-on work, not reading: so far about **5–6 hours** to build your story bank and portfolio (Chapter 36), then about 45 minutes a week to keep them going, and about **10 hours** for the slow-query lab (Chapter 37).
+> **Practice time comes on top.** The labs in Part XI are measured in hours of hands-on work, not reading: so far about **5–6 hours** to build your story bank and portfolio (Chapter 36), then about 45 minutes a week to keep them going, about **10 hours** for the slow-query lab (Chapter 37), and about **7–8 hours** for the .NET health check (Chapter 62).
 
 Use the **sidebar** on the left (or the **Browse chapters** cards below) to jump to any chapter.
 

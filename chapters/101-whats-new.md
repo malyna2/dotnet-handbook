@@ -2,6 +2,22 @@
 
 This page is the handbook's changelog. When a new release lands, a popup announces it on your next visit. Under each release, **Site & functionality** items are plain notes, while **Content updates** link to every chapter that changed — a link is ticked off (✓, stored locally in your browser) once you visit it, so you can work through an update at your own pace and see what's still unread.
 
+## Release — September 27, 2026
+
+**🔧 Site & functionality**
+
+- A new part in the sidebar, **Part XIII — The Trusted Advisor**, holds the chapters on client-facing expertise; its lab chapter links to a starter kit in the repository.
+
+**📖 Content updates**
+
+- [Preface & Contents](#the-middle-senior-net-developer-handbook) — An introduction to Part XIII, updated study-time figures, and short bridges from Chapters 17, 28, 34 and 36 to the new part.
+- [Chapter 64: The Advisory Casebook](#chapter-64-the-advisory-casebook) — New chapter: twelve composite client situations, each with the tempting wrong move, the advisor's reasoning and words you could use.
+- [Chapter 60: Having a Point of View](#chapter-60-having-a-point-of-view) — New chapter: how to form and defend opinions, with an eight-position .NET opinion canon and a personal tech radar.
+- [Chapter 61: Discovery and Diagnosis](#chapter-61-discovery-and-diagnosis) — New chapter: diagnose before you prescribe, with a discovery question bank and a one-page problem-statement template.
+- [Chapter 63: Recommendations, Proposals and Estimates](#chapter-63-recommendations-proposals-and-estimates) — New chapter: options memos, writing for executives, commercial models, scope traps and estimating for clients.
+- [Chapter 65: Positioning and Public Proof](#chapter-65-positioning-and-public-proof) — New chapter: choose a niche, write your positioning statement, and build public proof with a 90-day plan.
+- [Chapter 62: Lab — The .NET Health Check](#chapter-62-lab-the-net-health-check) — New lab chapter: assess Microsoft's eShop at a pinned commit and turn the raw findings into a one-page, business-ranked report.
+
 ## Release — September 25, 2026
 
 **🔧 Site & functionality**

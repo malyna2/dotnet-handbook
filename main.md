@@ -24,9 +24,9 @@ Let's begin.
 
 ## Contents
 
-> **Total study time: ~28 hours** (reading prose at ~200 wpm and parsing every code sample at ~60 wpm — the pace behind each chapter's own estimate under its heading). A straight cover-to-cover read (prose at ~250 wpm, code at ~100) is closer to **21 hours**; a quick skim (~300 and ~200 wpm), **~16 hours**.
+> **Total study time: ~34 hours** (reading prose at ~200 wpm and parsing every code sample at ~60 wpm — the pace behind each chapter's own estimate under its heading). A straight cover-to-cover read (prose at ~250 wpm, code at ~100) is closer to **25 hours**; a quick skim (~300 and ~200 wpm), **~19 hours**.
 >
-> **Practice time comes on top.** The labs in Part XI are measured in hours of hands-on work, not reading: so far about **5–6 hours** to build your story bank and portfolio (Chapter 36), then about 45 minutes a week to keep them going, and about **10 hours** for the slow-query lab (Chapter 37).
+> **Practice time comes on top.** The labs in Part XI are measured in hours of hands-on work, not reading: so far about **5–6 hours** to build your story bank and portfolio (Chapter 36), then about 45 minutes a week to keep them going, about **10 hours** for the slow-query lab (Chapter 37), and about **7–8 hours** for the .NET health check (Chapter 62).
 
 Use the **sidebar** on the left (or the **Browse chapters** cards below) to jump to any chapter.
 
@@ -26611,6 +26611,22 @@ Native AOT (Ahead-Of-Time) compiles your app directly to a self-contained native
 # What's New
 
 This page is the handbook's changelog. When a new release lands, a popup announces it on your next visit. Under each release, **Site & functionality** items are plain notes, while **Content updates** link to every chapter that changed — a link is ticked off (✓, stored locally in your browser) once you visit it, so you can work through an update at your own pace and see what's still unread.
+
+## Release — September 27, 2026
+
+**🔧 Site & functionality**
+
+- A new part in the sidebar, **Part XIII — The Trusted Advisor**, holds the chapters on client-facing expertise; its lab chapter links to a starter kit in the repository.
+
+**📖 Content updates**
+
+- [Preface & Contents](#the-middle-senior-net-developer-handbook) — An introduction to Part XIII, updated study-time figures, and short bridges from Chapters 17, 28, 34 and 36 to the new part.
+- [Chapter 64: The Advisory Casebook](#chapter-64-the-advisory-casebook) — New chapter: twelve composite client situations, each with the tempting wrong move, the advisor's reasoning and words you could use.
+- [Chapter 60: Having a Point of View](#chapter-60-having-a-point-of-view) — New chapter: how to form and defend opinions, with an eight-position .NET opinion canon and a personal tech radar.
+- [Chapter 61: Discovery and Diagnosis](#chapter-61-discovery-and-diagnosis) — New chapter: diagnose before you prescribe, with a discovery question bank and a one-page problem-statement template.
+- [Chapter 63: Recommendations, Proposals and Estimates](#chapter-63-recommendations-proposals-and-estimates) — New chapter: options memos, writing for executives, commercial models, scope traps and estimating for clients.
+- [Chapter 65: Positioning and Public Proof](#chapter-65-positioning-and-public-proof) — New chapter: choose a niche, write your positioning statement, and build public proof with a 90-day plan.
+- [Chapter 62: Lab — The .NET Health Check](#chapter-62-lab-the-net-health-check) — New lab chapter: assess Microsoft's eShop at a pinned commit and turn the raw findings into a one-page, business-ranked report.
 
 ## Release — September 25, 2026
 
