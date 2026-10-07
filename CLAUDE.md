@@ -34,6 +34,14 @@ How the feature works (for debugging): the site shows the **topmost** `## Releas
 - **Exercise verification.** Every C# *Find the bug* sample is compiled in `verify/exercises/ChNN/`, with a test that shows the defect on the buggy code and its absence on the fix (the suite stays green; a regression in either direction is visible). Non-C# samples are verified with the relevant tool where one runs; otherwise say so in the session report.
 - **Headings inside code fences still count.** `headingOwner` in `site/app.js` scans raw lines, so a `## Context` inside a fenced template registers as a heading and can make a real section slug ambiguous across chapters, which silently breaks cross-chapter links to it. In templates, use `**Label**` lines instead of `#` headings.
 
+## Study Track (`STUDY_TRACK.md`)
+
+- A working file at the repo root, like `PRACTICE_ROADMAP.md`: the shortest path through the book for four common middle-level gaps (async internals → messaging guarantees → indexes and execution plans → code review), under a hard cap of 10 hours of reading by the build formula. It is not a chapter, so the build ignores it. Its links are relative GitHub links of the form `chapters/NN-*.md#anchor`, where the anchor is GitHub's, not the site's: GitHub keeps a double hyphen where punctuation such as `—` or `&` was dropped.
+- It lists topics, never results. Keep anyone's scores, self-assessment answers and other personal context out of it, and out of every other committed file: the repo is public.
+- Every ```` ```csharp ```` block in it is a *Prove it* program, at most 30 lines, compiled as `verify/study-track/<Name>/Program.cs`.
+  - `verify/study-track/verify.sh` checks that each block matches its program and that every link resolves, then runs each program in a test that checks both halves of its output.
+  - `capture.sh` regenerates `reference-runs/`, the only source for numbers the track quotes.
+
 ## Practice Gym (Part XI, chapters 36–49)
 
 The plan and progress live in `PRACTICE_ROADMAP.md`; tick it at the end of every session and report what was verified and what was not.
