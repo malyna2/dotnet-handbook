@@ -7,6 +7,7 @@
   --tr-bg:#eef7ee; --tr-border:#bcdcbc; --tr-fg:#14532d;
   --shadow:0 6px 24px rgba(0,0,0,.12);
   --sidebar-w:300px; --outline-w:220px; --max:820px;
+  --bars:96px;   /* the sticky top bar (56px) plus the learning-path bar (40px) */
   --mono:"SFMono-Regular",Consolas,"Liberation Mono",Menlo,monospace;
   --sans:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
 }
@@ -86,7 +87,24 @@ mark.find-hit{background:var(--accent);color:var(--accent-fg);border-radius:3px;
 @media (max-width:620px){.switch-lbl{display:none}}
 #menuBtn{display:none}
 
-#sidebar{position:fixed;top:56px;bottom:0;left:0;width:var(--sidebar-w);overflow-y:auto;
+/* Learning paths: Part 1 · Part 2 · Full book. Sticky under the top bar. */
+#partbar{position:sticky;top:56px;z-index:39;display:flex;align-items:center;gap:6px;height:40px;
+  padding:0 14px;background:var(--bg-elev);border-bottom:1px solid var(--border);
+  overflow-x:auto;scrollbar-width:none}
+#partbar::-webkit-scrollbar{display:none}
+#partbar:empty{display:none}
+.pb-tab{display:inline-flex;align-items:baseline;gap:6px;padding:4px 12px;border-radius:999px;
+  border:1px solid var(--border);background:var(--bg-alt);color:var(--fg);text-decoration:none;
+  font-size:13.5px;line-height:1.4;white-space:nowrap}
+.pb-tab:hover{border-color:var(--accent)}
+.pb-tab .pb-sub{color:var(--fg-muted);font-size:12.5px}
+.pb-tab.active{background:var(--accent);border-color:var(--accent);color:var(--accent-fg);font-weight:600}
+.pb-tab.active .pb-sub{color:var(--accent-fg);opacity:.85;font-weight:400}
+@media (max-width:620px){.pb-tab .pb-sub{display:none}}
+/* Headings reached by an in-page link or the outline land below both sticky bars. */
+#content h1,#content h2,#content h3,#content h4{scroll-margin-top:calc(var(--bars) + 14px)}
+
+#sidebar{position:fixed;top:var(--bars);bottom:0;left:0;width:var(--sidebar-w);overflow-y:auto;
   background:var(--bg-alt);border-right:1px solid var(--border);padding:14px 8px 40px;z-index:30}
 #nav .part{font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--fg-muted);
   font-weight:700;margin:16px 10px 6px}
@@ -131,11 +149,11 @@ mark.find-hit{background:var(--accent);color:var(--accent-fg);border-radius:3px;
 
 #main{margin-left:var(--sidebar-w);margin-right:var(--outline-w);padding:0 32px 80px;
   max-width:calc(var(--max) + var(--outline-w) + 64px)}
-#reading-progress{position:fixed;top:56px;left:var(--sidebar-w);right:0;height:3px;
+#reading-progress{position:fixed;top:var(--bars);left:var(--sidebar-w);right:0;height:3px;
   background:linear-gradient(90deg,var(--accent) var(--p,0%),transparent 0);z-index:20;transition:background .1s}
 #content{max-width:var(--max);margin:0 auto;padding-top:26px}
 
-#outline{position:fixed;top:70px;right:0;width:var(--outline-w);max-height:calc(100vh - 90px);
+#outline{position:fixed;top:calc(var(--bars) + 14px);right:0;width:var(--outline-w);max-height:calc(100vh - var(--bars) - 34px);
   overflow-y:auto;padding:8px 14px;font-size:12.5px}
 #outline .ol-title{text-transform:uppercase;letter-spacing:.05em;color:var(--fg-muted);
   font-weight:700;font-size:10.5px;margin-bottom:8px}
@@ -242,6 +260,9 @@ mark.find-hit{background:var(--accent);color:var(--accent-fg);border-radius:3px;
 .home-card .hc-rt{font-size:12px;color:var(--fg-muted);margin-top:6px}
 .home-card.done::after{content:"✓";position:absolute;top:10px;right:12px;
   color:var(--accent);font-weight:700;font-size:15px}
+.home-grid.paths{grid-template-columns:repeat(auto-fill,minmax(260px,1fr))}
+.path-card{border-color:var(--accent)}
+.path-card .hc-ttl{font-size:1.15em}
 
 /* modal + toast */
 .modal{position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:80;display:flex;
@@ -280,7 +301,7 @@ mark.find-hit{background:var(--accent);color:var(--accent-fg);border-radius:3px;
   #sidebar.open{transform:none}
   #main{margin-left:0;padding:0 18px 70px}
   #reading-progress{left:0}
-  #scrim.show{display:block;position:fixed;inset:56px 0 0 0;background:rgba(0,0,0,.4);z-index:25}
+  #scrim.show{display:block;position:fixed;inset:var(--bars) 0 0 0;background:rgba(0,0,0,.4);z-index:25}
   .search-wrap{max-width:none}
   .pager{flex-direction:column}
 }
