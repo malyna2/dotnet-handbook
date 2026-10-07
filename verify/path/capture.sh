@@ -7,18 +7,26 @@
 # Start the services first, or skip those experiments:
 #   ACCEPT_EULA=Y docker compose up -d && ACCEPT_EULA=Y ./capture.sh
 #   ./capture.sh --no-docker
+# Capture only some experiments (and leave the other files alone) with --only:
+#   ./capture.sh --no-docker --only NPlusOne LogTemplate
 set -euo pipefail
 cd "$(dirname "$0")"
 
 docker=1
-if [[ "${1:-}" == "--no-docker" ]]; then
-  docker=0
-elif [[ "${ACCEPT_EULA:-}" != "Y" ]]; then
+only=()
+args=("$@")
+for ((i = 0; i < ${#args[@]}; i++)); do
+  case "${args[i]}" in
+    --no-docker) docker=0 ;;
+    --only) only=("${args[@]:i+1}"); break ;;
+    *) echo "unknown argument: ${args[i]}" >&2; exit 2 ;;
+  esac
+done
+if [[ $docker == 1 && "${ACCEPT_EULA:-}" != "Y" ]]; then
   echo "Set ACCEPT_EULA=Y (the compose file needs it to read the running services), or pass --no-docker." >&2
   exit 2
-else
-  export ACCEPT_EULA
 fi
+[[ $docker == 1 ]] && export ACCEPT_EULA
 
 dotnet build Tests/LearningPath.Tests.csproj -c Release -nologo -v quiet -warnaserror
 mkdir -p reference-runs
@@ -50,6 +58,7 @@ run() {   # run <file> <experiment> [args...]
 for dir in */; do
   name=${dir%/}
   [[ -f "$name/Program.cs" ]] || continue
+  if (( ${#only[@]} )) && [[ ! " ${only[*]} " == *" $name "* ]]; then continue; fi
   if [[ -f "$name/requires-docker" && $docker == 0 ]]; then echo "skipped $name (needs Docker)"; continue; fi
   if [[ -f "$name/capture.args" ]]; then
     while read -r file args; do
@@ -62,7 +71,7 @@ for dir in */; do
   fi
 done
 
-if [[ $docker == 1 ]]; then
+if [[ $docker == 1 ]] && (( ! ${#only[@]} )); then
   { echo "$header"; echo "$services"; echo "# Captured: $(date -u '+%Y-%m-%d %H:%M UTC') by capture.sh"
     echo "# Command: sqlcmd -d tempdb -i collation.sql, inside the mssql container"; echo
     docker compose exec -T mssql /opt/mssql-tools18/bin/sqlcmd -S localhost -d tempdb -U sa -P 'Emulator-Only-Passw0rd!' \
