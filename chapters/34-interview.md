@@ -33,42 +33,47 @@ Talk about trade-offs, failure modes, operability, and cost — not just the hap
 
 *Revise: Ch. 15 — Performance & Optimization · Ch. 13 — Observability*
 
-This is a flagship section because "the app is slow, what do you do?" is asked in almost every senior loop. Recite this as a repeatable method, not a grab-bag of tricks.
-
 **Walk me through how you diagnose a slow endpoint.**
-1. **Reproduce and quantify first.** "Slow" is not a number. Get a percentile (p95/p99 latency), a throughput figure, and the conditions (which endpoint, which payload, under what load). Never optimize on a vibe.
-2. **Measure before you guess.** The cardinal rule: *measure, don't guess.* The bottleneck is almost never where intuition points. Establish a baseline metric so you can prove any fix actually helped.
-3. **Classify the bottleneck.** Decide which resource is saturated: CPU, memory/GC, disk I/O, network, database, or lock contention. Each has a different toolset and fix.
-4. **Go from cheap metrics to expensive profilers.** Start with always-on signals (APM dashboards, `dotnet-counters` for CPU/GC/thread-pool/request rate), then reach for `dotnet-trace` (CPU sampling), `dotnet-dump` (heap/leaks), and DB query plans only once you've narrowed the suspect.
-5. **Find the bottleneck, fix one thing, verify.** Change a single variable, re-measure against the baseline, and confirm the win before moving on. Then repeat.
+1. **Reproduce and quantify.** Get a percentile (p95/p99), a throughput figure and the conditions (endpoint, payload, load): "slow" is not a number.
+2. **Measure, don't guess.** The cost usually hides where nobody looked (a serializer, a logging call, a chatty ORM), and a baseline is what proves a fix helped.
+3. **Classify the bottleneck.** CPU, memory/GC, disk I/O, network, database, or lock contention: each has its own tools and fixes.
+4. **Go from cheap metrics to expensive profilers.** Always-on signals first (APM dashboards, `dotnet-counters`), then `dotnet-trace` (CPU sampling), `dotnet-dump` (heap, thread stacks) and query plans once you've narrowed the suspect.
+5. **Fix one thing, verify, repeat.** Change a single variable and re-measure against the baseline.
 
-**Red flag:** "I'd add caching and make everything async" — naming fixes before measuring anything is optimizing on a guess.
+**Red flag:** "I'd add caching and make everything async": naming fixes before measuring anything is optimizing on a guess.
 
 **How do you tell if it's CPU-bound vs waiting?**
-Check CPU utilization while the endpoint is slow. High CPU with low throughput → CPU-bound (hot loop, serialization, regex, crypto). Low CPU but high latency → you're *waiting* (DB, downstream HTTP, lock, exhausted thread pool). `dotnet-counters` showing a growing thread-pool queue with idle CPU is the classic sync-over-async / thread-starvation fingerprint.
+Check CPU while the endpoint is slow. High CPU with low throughput → CPU-bound (hot loop, serialization, regex, crypto). Low CPU but high latency → *waiting* (DB, downstream HTTP, a lock, or a starved thread pool).
+
+> **Pay attention.** **Starvation looks like a slow dependency: how to tell them apart.**
+>
+> Sync-over-async parks pool threads while the continuations that would free them queue behind new requests, and the pool adds threads slowly ([Chapter 8](#the-sync-over-async-deadlock) has the mechanism). Three signals give it away:
+>
+> - **Counters.** Queue length grows and thread count climbs steadily while CPU stays low: `dotnet.thread_pool.queue.length` and `dotnet.thread_pool.thread.count` on .NET 9+, `threadpool-queue-length` and `threadpool-thread-count` on .NET 8.
+> - **Every endpoint slows down**, including ones that never call the slow dependency. With async code, a slow dependency delays only its own callers.
+> - **Stacks.** `dotnet-stack report` (or `parallelstacks` in `dotnet-dump analyze`) shows most pool threads parked in `Task.InternalWait`.
+>
+> Fix the blocking call. Raising `ThreadPool.SetMinThreads` only moves the cliff.
 
 **Which tools, concretely, in a .NET app?**
-- `dotnet-counters monitor` — live CPU %, GC gen counts, allocation rate, thread-pool queue length, requests/sec. First stop, zero setup.
-- `dotnet-trace` — sampled CPU profile to find hot methods without a full profiler.
-- `dotnet-dump` / `dotnet-gcdump` — heap snapshot for leaks and retention analysis.
-- APM (Application Insights, OpenTelemetry, Datadog) — distributed traces to see *which hop* in a request eats the time.
-- DB: `EXPLAIN`/`EXPLAIN ANALYZE` (Postgres), actual execution plan (SQL Server), and the slow-query log.
+- `dotnet-counters monitor`: CPU, GC counts, allocation rate, thread-pool queue length and thread count. Add `Microsoft.AspNetCore.Hosting` to `--counters` for request metrics. First stop, zero setup.
+- `dotnet-trace`: a sampled CPU profile, to find hot methods without a full profiler.
+- `dotnet-dump` / `dotnet-gcdump`: heap snapshots for leaks and retention; `dotnet-dump` also has every thread's stack.
+- APM (Application Insights, OpenTelemetry, Datadog): distributed traces show *which hop* in a request eats the time.
+- DB: `EXPLAIN`/`EXPLAIN ANALYZE` (Postgres), the actual execution plan (SQL Server), the slow-query log.
 
 **What are the usual culprits you look for?**
-- **N+1 queries** — a loop issuing one query per row. Fix with a join / `Include` / batched load.
-- **Missing index** — a seek turned into a full scan; the query plan shows it instantly.
-- **Sync-over-async** (`.Result`, `.Wait()`) — starves the thread pool, tanks throughput under load.
-- **Excess allocations / GC pressure** — high gen-0 rate and frequent gen-2 collections; fix with pooling, `Span`, fewer LINQ allocations in hot paths.
-- **Chatty network calls** — many small serial round-trips; batch or parallelize them.
-- **No caching** — recomputing or re-fetching identical results every request.
+- **N+1 queries**: a loop issuing one query per row. Fix with a join, `Include` or a batched load.
+- **Missing or unusable index**: a scan where a seek should be; the plan shows it.
+- **Sync-over-async** (`.Result`, `.Wait()`): starves the thread pool, as above.
+- **Excess allocations / GC pressure**: a high gen-0 rate and frequent gen-2 collections. Fix with pooling, `Span<T>`, and fewer LINQ allocations in hot paths.
+- **Chatty network calls**: many small serial round-trips. Batch or parallelize them.
+- **No caching**: recomputing or re-fetching identical results on every request.
 
-**Why "measure, don't guess" so emphatically?**
-Because developers reliably optimize the wrong thing. The 20% of code you assume is hot is usually cheap, while the real cost hides in a serializer, a logging call, or a chatty ORM. A profiler removes ego from the decision and gives you a number to defend the fix.
-
-> **Follow-up:** *The p99 is bad but p50 is fine — what does that tell you?* Something intermittent: GC pauses, lock contention, a cold cache, a slow downstream that only some requests hit, or connection-pool exhaustion under burst. Median-fine/tail-bad points at contention or resource limits, not raw algorithmic cost.
+> **Follow-up:** *The p99 is bad but p50 is fine — what does that tell you?* Something intermittent: GC pauses, lock contention, a cold cache, a slow downstream that only some requests hit, or connection-pool exhaustion under bursts. A fine median with a bad tail points at contention or resource limits, not raw algorithmic cost.
 
 **The DB is the bottleneck — now what?**
-Pull the execution plan for the slow query. Look for scans that should be seeks (missing/unusable index), bad join order from stale statistics, or a query returning far more rows than needed. Then consider indexing, query rewrite, pagination, caching, or read replicas — in that order of cheapness.
+Pull the execution plan for the slow query ([Execution Plans](#execution-plans) in Chapter 4). Look for scans that should be seeks (a missing index, or one the predicate can't use because it wraps the column in a function or forces an implicit conversion), bad join order from stale statistics, or far more rows than the caller needs. Then consider, cheapest first: indexing, a query rewrite, pagination, caching, read replicas.
 
 ---
 
