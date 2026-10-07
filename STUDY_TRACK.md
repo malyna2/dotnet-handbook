@@ -13,11 +13,11 @@ Before an interview, reread [Pay attention to](#pay-attention-to).
 
 | Topic | Reading | Hands-on | With a second read |
 |---|---|---|---|
-| [1. Async internals](#1-async-internals) | 40 min | 1 h 35 min | ≈ 2 h 55 min |
+| [1. Async internals](#1-async-internals) | 35 min | 1 h 35 min | ≈ 2 h 45 min |
 | [2. Messaging guarantees](#2-messaging-guarantees) | 45 min | 1 h 20 min | ≈ 2 h 50 min |
 | [3. Indexes and execution plans](#3-indexes-and-execution-plans) | 40 min | 4 h 55 min | ≈ 6 h 15 min |
 | [4. Code review](#4-code-review) | 30 min | 2 h 25 min | ≈ 3 h 25 min |
-| **Total** | **≈ 2 h 35 min** (cap: 10 h) | **≈ 10 h 15 min** | **≈ 15 h 25 min: about three weeks at 5 hours a week** |
+| **Total** | **≈ 2 h 30 min** (cap: 10 h) | **≈ 10 h 15 min** | **≈ 15 h 15 min: about three weeks at 5 hours a week** |
 
 *Reading* is the build's own formula (prose at ~200 words a minute, code at ~60), summed over the listed sections. *Hands-on* is the experiments, exercises, questions and check at work, broken down under each topic. *With a second read* counts every section twice, once before the experiment and once after, plus the hands-on time.
 
@@ -64,20 +64,20 @@ At an `await` on an unfinished task, the compiler-generated state machine regist
 
 Sockets follow the same rule as threads: they are pooled in the handler underneath `HttpClient`, and a new client per request bypasses the pool.
 
-**Time:** reading ≈ 40 min; hands-on ≈ 1 h 35 min — four experiments 40 min, the exercise 10, the questions 15, the check at work 30.
+**Time:** reading ≈ 35 min; hands-on ≈ 1 h 35 min — four experiments 40 min, the exercise 10, the questions 15, the check at work 30.
 
-### Read (≈ 40 min)
+### Read (≈ 35 min)
 
 1. [Ch 8 · Why Async Exists: I/O-Bound vs CPU-Bound Work](chapters/08-async.md#why-async-exists-io-bound-vs-cpu-bound-work) and [Tasks: The Promise of a Future Result](chapters/08-async.md#tasks-the-promise-of-a-future-result).
-2. [Ch 8 · async/await, Deeply](chapters/08-async.md#asyncawait-deeply): the state machine, and the `async void` pitfall at its end.
+2. [Ch 8 · async/await, Deeply](chapters/08-async.md#asyncawait-deeply): the state machine, and the *Pay attention* callout after it on why an `async void` exception kills the process.
 3. [Ch 8 · SynchronizationContext and ConfigureAwait](chapters/08-async.md#synchronizationcontext-and-configureawait).
-4. [Ch 8 · The Sync-Over-Async Deadlock](chapters/08-async.md#the-sync-over-async-deadlock): the last two paragraphs are the starvation mechanism.
-5. [Ch 8 · Composing Concurrent Work: WhenAll and WhenAny](chapters/08-async.md#composing-concurrent-work-whenall-and-whenany).
+4. [Ch 8 · The Sync-Over-Async Deadlock](chapters/08-async.md#the-sync-over-async-deadlock): its *Pay attention* callout is the starvation mechanism.
+5. [Ch 8 · Composing Concurrent Work: WhenAll and WhenAny](chapters/08-async.md#composing-concurrent-work-whenall-and-whenany): the *Pay attention* callout says which exception `await` throws.
 6. [Ch 5 · The Mechanics That Bite](chapters/05-patterns.md#the-mechanics-that-bite): `ExceptionDispatchInfo`, the tool `await` uses to rethrow with the original stack trace.
 7. [Ch 3 · IHttpClientFactory & Resilience with Polly](chapters/03-aspnetcore.md#ihttpclientfactory--resilience-with-polly) — up to *Resilience with Polly*.
-8. [Ch 20 · Keep-Alive, Connection Pooling, and Socket Exhaustion](chapters/20-networking.md#keep-alive-connection-pooling-and-socket-exhaustion).
+8. [Ch 20 · Keep-Alive, Connection Pooling, and Socket Exhaustion](chapters/20-networking.md#keep-alive-connection-pooling-and-socket-exhaustion): the *Pay attention* callout turns `TIME_WAIT` into a ceiling on new connections per second.
 9. [Ch 51 · Case 3 — Intermittent timeouts under load, with every dashboard green](chapters/51-azure-casebook.md#case-3--intermittent-timeouts-under-load-with-every-dashboard-green): the same bug on App Service, as SNAT port exhaustion.
-10. [Ch 34 · Diagnosing a Performance Problem](chapters/34-interview.md#diagnosing-a-performance-problem-a-worked-methodology): how starvation looks from the outside (low CPU, high latency).
+10. [Ch 34 · Diagnosing a Performance Problem](chapters/34-interview.md#diagnosing-a-performance-problem-a-worked-methodology): how starvation looks from the outside, and how to tell it from a slow dependency.
 
 **Do:** [Ch 8 · Exercises](chapters/08-async.md#exercises). Answer *Find the bug* before you open the answer.
 
@@ -269,7 +269,7 @@ What to notice:
 
 - **One shared client: zero new sockets.** It reused one pooled connection for all 500 requests.
 - **A client per request: 500 sockets in `TIME_WAIT`.** Each client opened a connection and closed it on `Dispose`. The side that closes keeps the socket, and its local port, in `TIME_WAIT` — 60 s on Linux, fixed in the kernel (`TCP_TIMEWAIT_LEN`).
-- **At production rates the ports run out.** On App Service the limit arrives much sooner: 128 preallocated SNAT ports per instance ([Ch 51 Case 3](chapters/51-azure-casebook.md#case-3--intermittent-timeouts-under-load-with-every-dashboard-green)).
+- **At production rates the ports run out.** On App Service the limit arrives much sooner: 128 preallocated SNAT ports per instance and destination, each reclaimed four minutes after its connection closes ([Ch 51 Case 3](chapters/51-azure-casebook.md#case-3--intermittent-timeouts-under-load-with-every-dashboard-green)).
 
 ### Three questions
 
@@ -304,7 +304,7 @@ Never depend on which one you get: keep the `WhenAll` task in a variable and log
 <summary>Answer</summary>
 
 - **`.Result` exhausts pool threads.** It pins a pool thread for the whole I/O wait. At low concurrency there are spare threads. At high concurrency every thread is blocked, and the continuations and timer callbacks that would unblock them sit in the queue. The pool adds threads only gradually: a burst of one per core, then one at a time with pauses of up to 250 ms. Throughput collapses to the injection rate, latency spreads to every endpoint, and CPU stays low.
-- **`new HttpClient()` per request exhausts local ports.** Each request gets a new handler, so a new connection pool and a new TCP connection. The connection closes on dispose, and the socket then stays in `TIME_WAIT` holding a local port (60 s on Linux). Once new connections per minute approach the number of ports — or 128 SNAT ports per App Service instance — new connections wait and time out.
+- **`new HttpClient()` per request exhausts local ports.** Each request gets a new handler, so a new connection pool and a new TCP connection. The connection closes on dispose, and the socket then stays in `TIME_WAIT` holding a local port (60 s on Linux). Once new connections per minute approach the number of ports (on App Service: 128 per four minutes, per instance and destination), new connections wait and time out.
 
 A test makes a handful of requests, one after another, so neither resource runs out.
 </details>
@@ -793,7 +793,7 @@ The traps behind the most common wrong answers, for rereading before an intervie
 | `async void` for fire-and-forget | No `Task`, so the builder rethrows on the `SynchronizationContext` or a pool thread: unhandled, the process exits. The caller's `try/catch` never sees it, even for a throw before the first `await`. | Return `Task`. Real fire-and-forget goes through a queue or `BackgroundService` that observes failures. `async void` only for event handlers, with a `try/catch` around the whole body. |
 | `await Task.WhenAll(...)` shows one failure | `await` rethrows only the first stored exception: for plain tasks since .NET 8 the first to fail, for `Task<T>` the first in argument order. The others never reach the log. | Keep the task in a variable; log `task.Exception?.InnerExceptions`. |
 | `.Result`, `.Wait()`, `.GetAwaiter().GetResult()` on a request path | Each call pins a pool thread for the whole wait. After the first burst the pool adds threads with pauses of up to 250 ms each, so every request queues — unrelated ones too — while the CPU stays low. In the experiment: 11.6 s instead of 1.1 s, at 0.46 s of CPU. | Async all the way down. Watch the thread count and the queue length in `dotnet-counters`. |
-| `new HttpClient()` per call | Every new handler is a new connection pool, so every call opens a TCP connection. Each closed socket holds a port in `TIME_WAIT` (60 s on Linux); App Service gives an instance 128 SNAT ports. | `IHttpClientFactory` or a typed client, or one long-lived client with `PooledConnectionLifetime`. |
+| `new HttpClient()` per call | Every new handler is a new connection pool, so every call opens a TCP connection. Each closed socket holds a port in `TIME_WAIT` (60 s on Linux, 4 minutes by default on Windows); App Service gives an instance 128 SNAT ports per destination, each reclaimed four minutes after close. | `IHttpClientFactory` or a typed client, or one long-lived client with `PooledConnectionLifetime`. |
 | Lazy loading in a loop | Every navigation access is a query. Each plan is cheap; the round trips aren't, and no single plan shows them. | `Include` or a projection; count statements per request; turn lazy loading off. |
 | "The queue is FIFO, so processing is ordered" | Competing consumers, concurrency above 1, redelivery after an abandon or an expired lock, and prefetch all reorder. | Sessions (`SessionId` = the entity's ID) where order matters, or version checks that drop stale updates. |
 | A handler that runs longer than the lock | The lock is a lease from receive time (1 minute by default, 5 at most). When it expires the message is redelivered while you're still working, and `Complete` throws `MessageLockLost`. | `ServiceBusProcessor` with lock auto-renewal, no oversized batches or prefetch, and an idempotent handler. |
@@ -812,7 +812,7 @@ The traps behind the most common wrong answers, for rereading before an intervie
 Everything else, in the order worth reading it. Reading times use the build's formula; the lab's time comes from its own time budget.
 
 **1. The rest of the chapters this track already uses.**
-- **Chapter 8.** `ValueTask`, `CancellationToken`, async streams, the TPL, `Channels`, thread safety: ≈ 15 min.
+- **Chapter 8.** `ValueTask`, `CancellationToken`, async streams, the TPL, `Channels`, thread safety: ≈ 10 min.
 - **Chapter 9.** The brokers compared, MassTransit, sagas, resilience, distributed caching: ≈ 30 min.
 - **Chapter 4.** Change tracking, split and compiled queries, bulk writes, cascades, transactions and isolation, deadlocks, Dapper, caching, concurrency: ≈ 50 min.
 - **Lab 37.** Rungs 5 and 7–9, the rest of Level 3, *Break it* and the write-up: ≈ 6 h of hands-on work.
