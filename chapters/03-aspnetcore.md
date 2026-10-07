@@ -463,9 +463,9 @@ For complex rules, implement `IAuthorizationRequirement` plus an `AuthorizationH
 
 ## IHttpClientFactory & Resilience with Polly
 
-Calling other services over HTTP is where many production incidents are born. The naïve `new HttpClient()` per call **exhausts sockets** (each instance holds a connection pool and sockets linger in `TIME_WAIT`); a single static instance **doesn't respect DNS changes**. `IHttpClientFactory` solves both by pooling and rotating the underlying handlers.
+A `new HttpClient()` per call **exhausts sockets**: each opens and closes its own connections, and a closed connection keeps its port for a while ([Chapter 20](#keep-alive-connection-pooling-and-socket-exhaustion) has the TCP mechanism). One static instance avoids that but, by default, never retires a busy connection, so it **misses DNS changes**.
 
-To see *why* that works, you need one fact: `HttpClient` itself is a cheap, disposable wrapper. The real resources — the connection pool, the open sockets — live in the `HttpMessageHandler` underneath it. The factory hands you a fresh `HttpClient` every time, but behind it shares a pool of handlers, so sockets are reused instead of exhausted; and it retires each handler after two minutes (tunable via `SetHandlerLifetime`), so new connections re-resolve DNS and a failed-over dependency doesn't leave you talking to a dead IP.
+`HttpClient` is a cheap wrapper; the connection pool lives in the `HttpMessageHandler` underneath. `IHttpClientFactory` fixes both problems: it hands out a new `HttpClient` each time over a shared handler, so connections are reused (disposing a factory client is harmless, since it doesn't own the handler), and it retires each handler after two minutes (`SetHandlerLifetime`), so new connections re-resolve DNS and a failed-over dependency doesn't leave you talking to a dead IP.
 
 ```
 CatalogClient ──> HttpClient          (new each time — cheap wrapper)
@@ -475,7 +475,7 @@ CatalogClient ──> HttpClient          (new each time — cheap wrapper)
                                        recycled every ~2 min → fresh DNS)
 ```
 
-**Named clients** let you configure a client by string key. **Typed clients** wrap an `HttpClient` in a strongly-typed service — cleaner and my default recommendation:
+**Named clients** are configured by string key. **Typed clients** wrap an `HttpClient` in a strongly typed service, which is cleaner and my default:
 
 ```csharp
 public class CatalogClient
@@ -494,7 +494,7 @@ builder.Services.AddHttpClient<CatalogClient>(c =>
 });
 ```
 
-> **Pitfall — typed clients are transient.** Don't inject a typed client into a singleton. The singleton captures one `HttpClient` — and the handler behind it — forever, which quietly reintroduces the stale-DNS problem the factory exists to solve. Keep the consuming service scoped or transient, or inject `IHttpClientFactory` itself and create clients per use.
+> **Pitfall — typed clients are transient.** A singleton that takes a typed client captures one `HttpClient`, and the handler behind it, forever: the stale-DNS problem is back. Keep the consumer scoped or transient, inject `IHttpClientFactory` and create clients per use, or (.NET 8+) set `PooledConnectionLifetime` through `.UseSocketsHttpHandler(...)` so the connections rotate instead of the handler.
 
 ### Resilience with Polly
 
