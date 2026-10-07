@@ -19,6 +19,11 @@ computed and injected automatically (see below).
   every build from the chapter's own word count, so it is always accurate.
   Any hand-written read-time line in a source file is ignored/replaced.
 - Files starting with "_" and files without a numeric prefix are ignored.
+- The learning path lives in two ranges: Part 1 (Junior → Middle, 70–84) and Part 2 (Middle →
+  Senior, 85–98). Each part is an overview page ("# Part 1: …"), module pages ("# Part 1 ·
+  Module 3: …") and a review page ("# Part 1 · Pay Attention To"). Every entry gets a `group`
+  ("home", "part1", "part2" or "book") that the reader app uses for its top navigation, and a
+  `num` for the sidebar ("8", "App A", or a module's number within its part).
 
 Note: the prose table of contents inside chapters/00-frontmatter.md is separate
 and hand-maintained; update it by hand if you want a new chapter listed there.
@@ -45,7 +50,9 @@ PART_RANGES = [
     (35,  35,  "Part X — Trust, Supply Chain & Provenance"),
     (36,  49,  "Part XI — The Practice Gym"),
     (50,  59,  "Part XII — Cloud in Depth: Azure"),
-    (60,  98,  "Part XIII — The Trusted Advisor"),
+    (60,  69,  "Part XIII — The Trusted Advisor"),
+    (70,  84,  "Part 1 — Junior → Middle"),
+    (85,  98,  "Part 2 — Middle → Senior"),
     (99,  100, "Appendices"),
     (101, 10**9, "What's New"),
 ]
@@ -126,15 +133,26 @@ for num, stem, path in entries:
     nav = re.sub(r"^Chapter\s+\d+:\s*", "", title)
     nav = re.sub(r"^Appendix\s+([A-Z]):\s*", r"App. \1: ", nav)
     part = part_for(num)
+    group = "part1" if 70 <= num <= 84 else "part2" if 85 <= num <= 98 else "book"
+    m_ch = re.match(r"^(?:Chapter\s+(\d+)|Appendix\s+([A-Z]))\b", title)
+    num_label = (m_ch.group(1) or "App " + m_ch.group(2)) if m_ch else ""
+    if group != "book":
+        m_mod = re.match(r"^Part\s+\d+\s*·\s*Module\s+(\d+):\s*(.+)$", title)
+        if m_mod:
+            num_label, nav = m_mod.group(1), m_mod.group(2)
+        elif re.match(r"^Part\s+\d+:", title):
+            nav = "Start here"
+        elif re.search(r"Pay Attention To$", title):
+            nav = "Pay attention to"
     if is_home:
         nav = "Preface & Contents"
         title = "The Middle → Senior .NET Developer Handbook"
-        part = "__home__"
+        part, group = "__home__", "home"
     if part == DEFAULT_PART:
         uncategorized.append(stem)
 
-    book.append({"id": stem, "slug": slugify(title), "title": title,
-                 "nav": nav, "part": part, "md": md})
+    book.append({"id": stem, "slug": slugify(title), "title": title, "nav": nav,
+                 "part": part, "group": group, "num": num_label, "md": md})
     md_parts.append(md)
 
 os.makedirs(os.path.dirname(OUT_JS), exist_ok=True)

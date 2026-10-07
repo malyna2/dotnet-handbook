@@ -1,7 +1,8 @@
-# Local services for the STUDY_TRACK.md experiments that need them (PeekLock, SeekVsScan).
+# Local services for the learning-path experiments that need them (PeekLock, SeekVsScan, and any
+# experiment folder with a `requires-docker` marker file).
 # Development and test only. ACCEPT_EULA=Y accepts the SQL Server and Service Bus emulator EULAs
 # (verify.sh sets it; set it yourself if you run compose by hand: ACCEPT_EULA=Y docker compose up -d).
-name: study-track
+name: learning-path
 
 services:
   mssql:

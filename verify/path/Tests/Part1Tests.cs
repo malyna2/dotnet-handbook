@@ -2,9 +2,10 @@ using System.Diagnostics;
 using System.Text.RegularExpressions;
 using Xunit;
 
-namespace StudyTrack.Tests;
+namespace LearningPath.Tests;
 
-// Each experiment in STUDY_TRACK.md runs here exactly as a reader runs it: as its own process.
+// Part 1 experiments printed in the learning-path pages (chapters 70-84) run here exactly as a
+// reader runs them: as their own process.
 // Every test checks both halves of its experiment (the failure and the fix), so a change in
 // either direction turns the suite red. Tests marked Requires=Docker need `docker compose up -d`.
 
@@ -149,39 +150,5 @@ internal sealed record Starvation(int ProbeMs, double Seconds, int PeakThreads)
         return new(int.Parse(probe.Groups[1].Value),
             double.Parse(done.Groups[1].Value, System.Globalization.CultureInfo.InvariantCulture),
             int.Parse(done.Groups[2].Value));
-    }
-}
-
-internal static class Experiment
-{
-    internal sealed record Run(int ExitCode, string Stdout, string Stderr)
-    {
-        public string[] Lines => Stdout.ReplaceLineEndings("\n").TrimEnd('\n').Split('\n');
-    }
-
-    public static async Task<Run> RunAsync(string name, params string[] args)
-    {
-        var start = new ProcessStartInfo("dotnet") { RedirectStandardOutput = true, RedirectStandardError = true };
-        start.ArgumentList.Add(Dll(name));
-        foreach (string arg in args) start.ArgumentList.Add(arg);
-
-        using var process = Process.Start(start)!;
-        Task<string> stdout = process.StandardOutput.ReadToEndAsync();
-        Task<string> stderr = process.StandardError.ReadToEndAsync();
-        using var timeout = new CancellationTokenSource(TimeSpan.FromMinutes(3));
-        await process.WaitForExitAsync(timeout.Token);
-        return new Run(process.ExitCode, await stdout, await stderr);
-    }
-
-    // verify/study-track/<Name>/bin/<Configuration>/net10.0/<Name>.dll, built through the ProjectReferences.
-    private static string Dll(string name)
-    {
-        var root = new DirectoryInfo(AppContext.BaseDirectory);
-        while (root is not null && !File.Exists(Path.Combine(root.FullName, "StudyTrack.slnx"))) root = root.Parent;
-        Assert.NotNull(root);
-        string configuration = AppContext.BaseDirectory.Contains($"{Path.DirectorySeparatorChar}Release{Path.DirectorySeparatorChar}") ? "Release" : "Debug";
-        string dll = Path.Combine(root.FullName, name, "bin", configuration, "net10.0", name + ".dll");
-        Assert.True(File.Exists(dll), $"not built: {dll}");
-        return dll;
     }
 }
