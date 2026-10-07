@@ -3278,7 +3278,7 @@ In your own service:
 
 # Chapter 5: Design Patterns, Principles & Clean Code
 
-_⏱️ Estimated read time: ~1 h 35 min · 12694 words (study pace)_
+_⏱️ Estimated read time: ~1 h 35 min · 12572 words (study pace)_
 
 A senior developer is not someone who has memorized twenty-three patterns from a book. A senior developer is someone who can look at a tangle of code and *feel* where the seams should be, who reaches for a pattern the way a carpenter reaches for the right chisel, and who — crucially — knows when to leave the chisel in the box and just drive the nail.
 
@@ -3927,9 +3927,7 @@ public async Task<Order?> GetByIdAsync(int id, CancellationToken ct)
 
 ### The Mechanics That Bite
 
-These details separate handling that helps diagnosis from handling that destroys it.
-
-**`throw;` versus `throw ex;`.** `throw ex;` restarts the exception's journey from the current frame: the `StackTrace` is reset, and every frame *below* your catch — the frames that contain the actual bug — is erased. Your log then says the failure originated in the catch block, which is the one place it certainly did not. `throw;` rethrows the original, preserving the trace. There is no situation in which `throw ex;` is the right rethrow.
+**`throw;` versus `throw ex;`.** `throw ex;` restarts the exception's journey from the current frame: the `StackTrace` is reset, and every frame *below* your catch — the ones containing the actual bug — is erased, so the log blames the catch block. `throw;` rethrows the original with its trace. `throw ex;` is never the right rethrow.
 
 ```csharp
 catch (Exception ex)
@@ -3939,7 +3937,7 @@ catch (Exception ex)
 }
 ```
 
-**Exception filters — and why they beat catch-inspect-rethrow.** `catch (X e) when (predicate)` looks like sugar for an `if` inside the catch, but the runtime treats it very differently. The filter expression runs during the **first pass**, *before the stack unwinds*. If the filter returns `false`, the exception continues outward with the stack still intact — no frames destroyed, and if it ultimately goes unhandled, a debugger or crash dump captures the state at the original throw site rather than at your catch. Catch-inspect-rethrow, by contrast, unwinds first and asks questions later.
+**Exception filters — and why they beat catch-inspect-rethrow.** `catch (X e) when (predicate)` looks like an `if` inside the catch, but the filter runs during the **first pass**, *before the stack unwinds*. If it returns `false`, the exception continues outward with the stack intact, so if it ends up unhandled, a debugger or crash dump sees the original throw site rather than your catch. Catch-inspect-rethrow unwinds first and asks questions later.
 
 ```csharp
 // ✅ Filter: decides before unwinding. Frames below stay intact.
@@ -3949,9 +3947,9 @@ catch (SqlException ex) when (IsTransient(ex)) { await RetryAsync(); }
 catch (SqlException ex) { if (!IsTransient(ex)) throw; await RetryAsync(); }
 ```
 
-Filters are also the idiomatic way to branch on an error code (`when (ex.Number == 1205)`) or to add a side effect without handling — `catch (Exception ex) when (Log(ex))`, where `Log` returns `false`, logs at the throw site and lets the exception sail past untouched.
+Filters are also the idiomatic way to branch on an error code (`when (ex.Number == 1205)`), or to log without handling: `catch (Exception ex) when (Log(ex))`, where `Log` returns `false`.
 
-**`ExceptionDispatchInfo`.** When you must capture an exception now and rethrow it later — from a different thread, out of a stored task, after some bookkeeping — `throw capturedEx;` would reset the trace. `ExceptionDispatchInfo` exists precisely for this: it preserves the original stack and *appends* the new throw site instead of replacing it.
+**`ExceptionDispatchInfo`.** To capture an exception now and rethrow it later — on another thread, out of a stored task, after some bookkeeping — use `ExceptionDispatchInfo`: it keeps the original stack and *appends* the new throw site, where `throw capturedEx;` would reset it. It is also how `await` rethrows a faulted task's exception with its original trace.
 
 ```csharp
 ExceptionDispatchInfo? captured = null;
@@ -3961,21 +3959,9 @@ await CleanupAsync();
 captured?.Throw();      // original stack trace intact, rethrow site appended
 ```
 
-**`AggregateException` and `Task.WhenAll`.** When you `await Task.WhenAll(...)` and three tasks faulted, `await` unwraps and rethrows only the **first** exception — the other two are silently invisible unless you go looking. Retrieve the whole set from the task's `Exception` property. This is a common source of "we fixed the error and it still fails": you were only ever shown one of three. See [Chapter 8: Asynchronous & Concurrent Programming](#chapter-8-asynchronous-concurrent-programming) for the full behavior of aggregated faults.
+**`AggregateException` and `Task.WhenAll`.** When three tasks in a `Task.WhenAll` fault, `await` rethrows only one of the exceptions, and the other two stay invisible unless you read the task's `Exception` property. It is a common source of "we fixed the error and it still fails": you were only ever shown one of three. [Exception Handling with WhenAll](#exception-handling-with-whenall) in Chapter 8 has the mechanism, which exception you get, and the logging pattern.
 
-```csharp
-var task = Task.WhenAll(jobs);
-try { await task; }                 // rethrows only the FIRST fault
-catch (Exception)
-{
-    // task.Exception is the AggregateException carrying ALL of them.
-    foreach (var inner in task.Exception!.InnerExceptions)
-        _logger.LogError(inner, "Job failed");
-    throw;
-}
-```
-
-**`OperationCanceledException` is not a failure.** A cancelled operation is a *successful* response to a request to stop — a client closed the connection, a shutdown began, a timeout token fired. Logging it as an error trains your team to ignore errors, and in a busy API the client-disconnect case alone can drown a real incident in noise. Filter it out at the boundary and log at `Information` or `Debug`.
+**`OperationCanceledException` is not a failure.** It is a *successful* response to a request to stop: the client closed the connection, a shutdown began. Logging it as an error trains your team to ignore errors, and in a busy API client disconnects alone can drown a real incident. Filter it at the boundary and log it at `Information` or `Debug`.
 
 ```csharp
 catch (OperationCanceledException) when (ct.IsCancellationRequested)
@@ -3985,7 +3971,7 @@ catch (OperationCanceledException) when (ct.IsCancellationRequested)
 }
 ```
 
-The filter matters here too: without `when (ct.IsCancellationRequested)` you also swallow the *timeout* case, which usually is a real problem worth surfacing.
+The filter matters: without `when (ct.IsCancellationRequested)` you also swallow *timeouts*, which are real problems worth surfacing.
 
 ### Designing Your Own Exceptions
 
