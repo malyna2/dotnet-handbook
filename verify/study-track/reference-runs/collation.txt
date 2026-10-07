@@ -1,0 +1,26 @@
+# Environment: Intel(R) Xeon(R) Processor @ 2.80GHz, 4 vCPU, 16 GB RAM, Ubuntu 24.04.5 LTS, .NET runtime 10.0.12, SDK 10.0.112, Docker 29.8.2
+# Services: SQL Server 16.0.4295.3 CU27, collation SQL_Latin1_General_CP1_CI_AS; Service Bus emulator 2.0.1
+# Captured: 2026-10-07 14:33 UTC by capture.sh
+# Command: sqlcmd -d tempdb -i collation.sql, inside the mssql container
+
+--- SQL collation, nvarchar parameter
+Id
+--
+42
+Table 'EmailsSql'. Scan count 1, logical reads 888, physical reads 0, page server reads 0, read-ahead reads 0, page server read-ahead reads 0, lob logical reads 0, lob physical reads 0, lob page server reads 0, lob read-ahead reads 0, lob page server read-ahead reads 0.
+Rows|Executes|StmtText|StmtId|NodeId|Parent|PhysicalOp|LogicalOp|Argument|DefinedValues|EstimateRows|EstimateIO|EstimateCPU|AvgRowSize|TotalSubtreeCost|OutputList|Warnings|Type|Parallel|EstimateExecutions
+----|--------|--------|------|------|------|----------|---------|--------|-------------|------------|----------|-----------|----------|----------------|----------|--------|----|--------|------------------
+1|1|SELECT Id FROM dbo.EmailsSql WHERE Email = @p|1|1|0|NULL|NULL|NULL|NULL|1.0|NULL|NULL|NULL|0.8736524|NULL|NULL|SELECT|0|NULL
+1|1|  |--Index Scan(OBJECT:([tempdb].[dbo].[EmailsSql].[IX_Email]),  WHERE:(CONVERT_IMPLICIT(nvarchar(100),[tempdb].[dbo].[EmailsSql].[Email],0)=[@p]))|1|2|1|Index Scan|Index Scan|OBJECT:([tempdb].[dbo].[EmailsSql].[IX_Email]),  WHERE:(CONVERT_IMPLICIT(nvarchar(100),[tempdb].[dbo].[EmailsSql].[Email],0)=[@p])|[tempdb].[dbo].[EmailsSql].[Id]|1.0|0.65349537|0.220157|36|0.8736524|[tempdb].[dbo].[EmailsSql].[Id]|NULL|PLAN_ROW|0|1.0
+--- Windows collation, nvarchar parameter
+Id
+--
+42
+Table 'EmailsWindows'. Scan count 1, logical reads 3, physical reads 0, page server reads 0, read-ahead reads 0, page server read-ahead reads 0, lob logical reads 0, lob physical reads 0, lob page server reads 0, lob read-ahead reads 0, lob page server read-ahead reads 0.
+Rows|Executes|StmtText|StmtId|NodeId|Parent|PhysicalOp|LogicalOp|Argument|DefinedValues|EstimateRows|EstimateIO|EstimateCPU|AvgRowSize|TotalSubtreeCost|OutputList|Warnings|Type|Parallel|EstimateExecutions
+----|--------|--------|------|------|------|----------|---------|--------|-------------|------------|----------|-----------|----------|----------------|----------|--------|----|--------|------------------
+1|1|SELECT Id FROM dbo.EmailsWindows WHERE Email = @p|2|1|0|NULL|NULL|NULL|NULL|1.0|NULL|NULL|NULL|0.0032831|NULL|NULL|SELECT|0|NULL
+1|1|  |--Nested Loops(Inner Join, OUTER REFERENCES:([Expr1005], [Expr1006], [Expr1004]))|2|2|1|Nested Loops|Inner Join|OUTER REFERENCES:([Expr1005], [Expr1006], [Expr1004])|NULL|1.0|0.003125|0.0001581|36|0.0032831|[tempdb].[dbo].[EmailsWindows].[Id]|NULL|PLAN_ROW|0|1.0
+1|1|       |--Compute Scalar(DEFINE:(([Expr1005],[Expr1006],[Expr1004])=GetRangeThroughConvert(CONVERT_IMPLICIT(nvarchar(100),[@p],0),CONVERT_IMPLICIT(nvarchar(100),[@p],0),(62))))|2|3|2|Compute Scalar|Compute Scalar|DEFINE:(([Expr1005],[Expr1006],[Expr1004])=GetRangeThroughConvert(CONVERT_IMPLICIT(nvarchar(100),[@p],0),CONVERT_IMPLICIT(nvarchar(100),[@p],0),(62)))|([Expr1005],[Expr1006],[Expr1004])=GetRangeThroughConvert(CONVERT_IMPLICIT(nvarchar(100),[@p],0),CONVERT_IMPLICIT(nvarchar(100),[@p],0),(62))|1.0|0.0|0.0|117|0.0|[Expr1005], [Expr1006], [Expr1004]|NULL|PLAN_ROW|0|1.0
+1|1|       |    |--Constant Scan|2|4|3|Constant Scan|Constant Scan|NULL|NULL|1.0|0.0|0.0|0|0.0|NULL|NULL|PLAN_ROW|0|1.0
+1|1|       |--Index Seek(OBJECT:([tempdb].[dbo].[EmailsWindows].[IX_Email]), SEEK:([tempdb].[dbo].[EmailsWindows].[Email] > [Expr1005] AND [tempdb].[dbo].[EmailsWindows].[Email] < [Expr1006]),  WHERE:(CONVERT_IMPLICIT(nvarchar(100),[tempdb].[dbo].[EmailsWindows].[Email],0)=CONVERT_IMPLICIT(nvarchar(100),[@p],0)) ORDERED FORWARD)|2|5|2|Index Seek|Index Seek|OBJECT:([tempdb].[dbo].[EmailsWindows].[IX_Email]), SEEK:([tempdb].[dbo].[EmailsWindows].[Email] > [Expr1005] AND [tempdb].[dbo].[EmailsWindows].[Email] < [Expr1006]),  WHERE:(CONVERT_IMPLICIT(nvarchar(100),[tempdb].[dbo].[EmailsWindows].[Email],0)=CONVERT_IMPLICIT(nvarchar(100),[@p],0)) ORDERED FORWARD|[tempdb].[dbo].[EmailsWindows].[Id]|1.0|0.003125|0.0001581|36|0.0032831|[tempdb].[dbo].[EmailsWindows].[Id]|NULL|PLAN_ROW|0|1.0

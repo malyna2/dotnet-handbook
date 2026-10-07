@@ -1,0 +1,17 @@
+# Environment: Intel(R) Xeon(R) Processor @ 2.80GHz, 4 vCPU, 16 GB RAM, Ubuntu 24.04.5 LTS, .NET runtime 10.0.12, SDK 10.0.112, Docker 29.8.2
+# Services: SQL Server 16.0.4295.3 CU27, collation SQL_Latin1_General_CP1_CI_AS; Service Bus emulator 2.0.1
+# Captured: 2026-10-07 14:33 UTC by capture.sh
+# Program: SeekVsScan, Release build
+
+WHERE Email = @p (@p NVarChar): 888 logical reads
+    |--Index Scan(OBJECT:([IX_Email]),  WHERE:(CONVERT_IMPLICIT(nvarchar(100),[Email],0)=[@p]))
+WHERE Email = @p (@p VarChar): 3 logical reads
+    |--Index Seek(OBJECT:([IX_Email]), SEEK:([Email]=[@p]) ORDERED FORWARD)
+WHERE LOWER(Email) = @p (@p VarChar): 888 logical reads
+    |--Index Scan(OBJECT:([IX_Email]),  WHERE:(lower([Email])=[@p]))
+WHERE City = @p AND CreatedAt >= '2025-12-31' (@p VarChar): 3 logical reads
+    |--Index Seek(OBJECT:([IX_City_CreatedAt]), SEEK:([City]=[@p] AND [CreatedAt] >= '2025-12-31 00:00:00.0000000') ORDERED FORWARD)
+WHERE CreatedAt >= @p (@p DateTime2): 712 logical reads
+    |--Index Scan(OBJECT:([IX_City_CreatedAt]),  WHERE:([CreatedAt]>=[@p]))
+[process time: wall 2.385 s, user CPU 0.593 s, system CPU 0.060 s]
+[exit code 0]

@@ -1,0 +1,11 @@
+# Environment: Intel(R) Xeon(R) Processor @ 2.80GHz, 4 vCPU, 16 GB RAM, Ubuntu 24.04.5 LTS, .NET runtime 10.0.12, SDK 10.0.112, Docker 29.8.2
+# Services: SQL Server 16.0.4295.3 CU27, collation SQL_Latin1_General_CP1_CI_AS; Service Bus emulator 2.0.1
+# Captured: 2026-10-07 14:33 UTC by capture.sh
+# Program: PeekLock, Release build
+
+received order-42, DeliveryCount=1, locked for 5 s
+received order-42 again, DeliveryCount=2
+completing the first copy threw MessageLockLost; its charge already happened
+completed the second copy; message still in the queue: False
+[process time: wall 9.537 s, user CPU 0.944 s, system CPU 0.116 s]
+[exit code 0]

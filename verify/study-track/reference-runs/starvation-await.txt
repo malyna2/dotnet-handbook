@@ -1,0 +1,9 @@
+# Environment: Intel(R) Xeon(R) Processor @ 2.80GHz, 4 vCPU, 16 GB RAM, Ubuntu 24.04.5 LTS, .NET runtime 10.0.12, SDK 10.0.112, Docker 29.8.2
+# Services: SQL Server 16.0.4295.3 CU27, collation SQL_Latin1_General_CP1_CI_AS; Service Bus emulator 2.0.1
+# Captured: 2026-10-07 14:33 UTC by capture.sh
+# Program: Starvation, Release build, arguments: await
+
+a tiny unrelated request waited 6 ms for a thread
+200 requests of 1 s each with await: done in 1.1 s, peak pool threads 3
+[process time: wall 1.138 s, user CPU 0.116 s, system CPU 0.021 s]
+[exit code 0]
