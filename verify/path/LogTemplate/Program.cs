@@ -1,6 +1,6 @@
+// Prove it: a message template keeps {OrderId} as a named, typed property; an interpolated string arrives flat.
 using Microsoft.Extensions.Logging;
 
-// Prove it: a message template keeps {OrderId} as a named, typed property; an interpolated string arrives flat.
 using var factory = LoggerFactory.Create(logging => logging.AddProvider(new PrintingProvider()));
 ILogger logger = factory.CreateLogger("Orders");
 int orderId = 42;

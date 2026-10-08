@@ -1,5 +1,5 @@
 # Environment: Intel(R) Xeon(R) Processor @ 2.80GHz, 4 vCPU, 16 GB RAM, Ubuntu 24.04.5 LTS, .NET runtime 10.0.12, SDK 10.0.112
-# Captured: 2026-10-08 05:38 UTC by capture.sh
+# Captured: 2026-10-08 05:42 UTC by capture.sh
 # Program: ThrowVsThrowEx, Release build
 
 throw;
@@ -9,5 +9,5 @@ throw;
 throw ex;
    at OrderService.Get(Int32 id, Boolean resetTrace) in /home/user/dotnet-handbook/.claude/worktrees/agent-acf07c11c6300c4ab/verify/path/ThrowVsThrowEx/Program.cs:line 21
    at Program.<Main>$(String[] args) in /home/user/dotnet-handbook/.claude/worktrees/agent-acf07c11c6300c4ab/verify/path/ThrowVsThrowEx/Program.cs:line 5
-[process time: wall 0.174 s, user CPU 0.060 s, system CPU 0.025 s]
+[process time: wall 0.196 s, user CPU 0.065 s, system CPU 0.010 s]
 [exit code 0]

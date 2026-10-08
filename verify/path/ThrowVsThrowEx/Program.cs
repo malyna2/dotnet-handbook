@@ -1,6 +1,6 @@
+// Prove it: after `throw;` the stack trace still starts in the method that threw; `throw ex;` restarts it at the rethrow.
 using System.Runtime.CompilerServices;
 
-// Prove it: after `throw;` the stack trace still starts in the method that threw; `throw ex;` restarts it at the rethrow.
 foreach (bool resetTrace in new[] { false, true })
     try { OrderService.Get(42, resetTrace); }
     catch (Exception e) { Console.WriteLine($"{(resetTrace ? "throw ex;" : "throw;")}\n{e.StackTrace}"); }
