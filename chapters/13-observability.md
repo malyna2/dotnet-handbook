@@ -34,17 +34,21 @@ Most developers start with logs like this:
 logger.LogInformation($"User {userId} placed order {orderId} for {amount:C}");
 ```
 
-This produces a human-readable string: `User 42 placed order 9981 for $59.99`. It looks fine until you have ten million of these lines and you need to answer "what is the total order value for user 42 today?" Now you are writing fragile regular expressions to parse text you never designed to be parsed.
+It produces `User 42 placed order 9981 for $59.99`, which reads fine until ten million such lines must answer "what did user 42 order today?" with regular expressions over text nobody designed to be parsed.
 
-**Structured logging** treats a log entry as a set of key-value properties, not a flat string. Instead of baking values into text, you keep them as named fields:
+**Structured logging** keeps the values as named fields instead of baking them into text:
 
 ```csharp
 logger.LogInformation("User {UserId} placed order {OrderId} for {Amount}", userId, orderId, amount);
 ```
 
-Note the crucial difference: those are **not** string interpolation placeholders (`$"..."`). They are **message template** tokens. The logging framework captures `UserId`, `OrderId`, and `Amount` as separate, typed properties attached to the event. The rendered message is still `User 42 placed order 9981 for 59.99`, but the underlying event is now a queryable object. In a log store you can write `UserId = 42 AND Amount > 50` as a real query, no regex required.
+Those are **message template** tokens, not interpolation holes. The framework captures `UserId`, `OrderId` and `Amount` as separate, typed properties of the event; the rendered text is the same, but `UserId = 42 AND Amount > 50` is now a query.
 
-> **Best practice:** Always use message templates with named placeholders, never string interpolation, in log calls. `LogInformation($"...")` throws away all structure and defeats the purpose. Enable the analyzer `CA2254` to catch this.
+> **Pay attention.** **The template is the kind of event.**
+>
+> `ILogger.Log` hands every provider a `state` object, not a string. For a template call it is a list of key-value pairs: one per placeholder, holding the original typed value, plus `{OriginalFormat}`, the template itself. Log stores use that last entry as the event's type, so every "order placed" event groups and counts together. An interpolated string is built by the compiler before the call: the provider receives no properties, and `{OriginalFormat}` is the finished text, a new "type" for every value. Part 1, Module 6 prints both states side by side.
+>
+> Use templates in every log call. The analyzer rule that flags interpolation, CA2254, is only a suggestion by default (.NET 10), so the build stays green: set `dotnet_diagnostic.CA2254.severity = warning` in `.editorconfig`.
 
 ### Serilog in Depth
 
@@ -129,7 +133,7 @@ app.Use(async (context, next) =>
 
 ### Log Levels: A Shared Vocabulary
 
-Log levels are not decoration; they are the primary control for signal-to-noise ratio. Use them deliberately:
+A level answers one question: who has to act on this entry, and how soon. It is also a filter: the configured minimum (`Logging:LogLevel:Default`, overridden per category such as `Microsoft.AspNetCore`) is checked before a message is formatted, so a disabled level costs almost nothing.
 
 - **Trace / Verbose** — extremely detailed diagnostic flow, usually off in production.
 - **Debug** — internal state useful during development or targeted troubleshooting.
@@ -138,11 +142,9 @@ Log levels are not decoration; they are the primary control for signal-to-noise 
 - **Error** — an operation failed and a user or process was affected. A caught exception that broke a request.
 - **Critical / Fatal** — the application or a major subsystem is unusable. Database unreachable, out of memory.
 
-> **Pitfall:** Logging everything at `Information` (or worse, logging exceptions at `Information`) makes levels meaningless. When every line looks equally important, alert fatigue sets in and real errors drown. Reserve `Error` for genuine failures a human might need to act on.
+> **Pitfall:** Alerts and error-rate dashboards count `Error` entries. Every entry at `Error` that needs no action — a validation failure, a 404, a client that disconnected — teaches on-call to ignore the alert; every real failure logged at `Information` never reaches it. Reserve `Error` for failures someone must act on, and log each one once.
 
 ### What Not to Log: Secrets and PII
-
-This is a discipline that separates senior engineers from juniors.
 
 > **Critical pitfall:** Never log passwords, API keys, connection strings, bearer tokens, full credit card numbers, government IDs, or personal data like full names, emails, or addresses unless you have a lawful basis and proper redaction. Logs are frequently shipped to third-party systems, retained for months, and accessible to broad audiences. A logged secret is a leaked secret.
 
@@ -370,13 +372,7 @@ In a fleet of containers, SSHing into a box to `tail` a log file is hopeless —
 
 Everything in this chapter converges on one goal: given a single symptom, reconstruct the whole story. That requires **correlation** — the ability to jump from a metric spike to the exact traces behind it, and from a trace to the exact logs of each span.
 
-The unifying key is the **trace ID**. Because W3C Trace Context propagates it automatically over HTTP, the trick is simply to stamp it onto your logs. In .NET, `Activity.Current` always holds the ambient trace context, so a tiny enricher connects logs to traces:
-
-```csharp
-.Enrich.WithSpan()   // via Serilog.Enrichers.Span, adds TraceId and SpanId
-```
-
-Or manually:
+The unifying key is the **trace ID**. W3C Trace Context propagates it over HTTP, and `Activity.Current` holds it for the code handling the request, so logs only need to record it. With `Microsoft.Extensions.Logging` under the generic host this is on by default: the host sets `ActivityTrackingOptions` to `TraceId | SpanId | ParentId`, which adds them to every entry's scope (a provider prints scopes only if configured to, such as the console's `IncludeScopes`). Current Serilog versions read `Activity.Current` themselves and store `TraceId` and `SpanId` on every event; older code used the `Serilog.Enrichers.Span` package for this. To add it by hand:
 
 ```csharp
 using (LogContext.PushProperty("TraceId", Activity.Current?.TraceId.ToString()))
@@ -398,7 +394,11 @@ propagator.Inject(
     (props, key, value) => props[key] = value);
 ```
 
-The consumer extracts the same context and starts its span as a child of the producer's. Get this right and an asynchronous, event-driven system traces as cleanly as a synchronous one. Skip it and your traces shatter at every queue boundary.
+The consumer extracts the same context and starts its span as a child of the producer's. Skip it and traces break at every queue.
+
+> **Pay attention.** **Why the trace id beats a home-made correlation id.**
+>
+> A custom `X-Correlation-ID` header travels only as far as code copies it: the middleware earlier in this chapter reads it and pushes it into the log context, but an outgoing `HttpClient` call doesn't send it unless a `DelegatingHandler` adds it, so the chain breaks at the first service that forgot. The trace id needs no such code over HTTP: it lives in `Activity.Current`, which flows with the async call chain, `HttpClient` writes it into `traceparent`, ASP.NET Core starts the next request's activity as its child, and logs and spans record the same id. Use the trace id as the correlation id — return it to clients (ProblemDetails does, as `traceId`) and search logs by it. Keep a business key, such as an order id, as an ordinary log property; it identifies the order, not the request.
 
 ## Alerting, SLIs, SLOs, SLAs, and Error Budgets
 
