@@ -37,8 +37,7 @@ In peek-lock mode, receiving a message locks it for the entity's lock duration: 
 5. [Chapter 50: Service Bus](#service-bus): the peek-lock diagram, the lock duration, sessions, duplicate detection and the processor defaults.
 6. [Chapter 51: Case 5 — Customers charged twice](#case-5-customers-charged-twice-the-batch-that-outlived-its-locks) and [Case 6 — 40,000 messages in the dead-letter queue](#case-6-40000-messages-in-the-dead-letter-queue-and-nobody-knew).
 7. [Chapter 3: Idempotency Keys: Making POST Retry-Safe](#idempotency-keys-making-post-retry-safe): why the claim goes in *before* the effect, under a unique index, in the same transaction. The same reasoning applies to a message ID.
-8. [Chapter 51: Case 11 — Large uploads fail at almost exactly four minutes](#case-11-large-uploads-fail-at-almost-exactly-four-minutes): the 230-second front-end limit, and why long work leaves the request.
-9. [Chapter 22: `IHostedService` and `BackgroundService`](#ihostedservice-and-backgroundservice) and [Async Request-Reply: 202, a Status Resource, and Retry-After](#async-request-reply-202-a-status-resource-and-retry-after): the worker, and the HTTP contract around it end to end.
+8. [Chapter 22: `IHostedService` and `BackgroundService`](#ihostedservice-and-backgroundservice) and [Async Request-Reply: 202, a Status Resource, and Retry-After](#async-request-reply-202-a-status-resource-and-retry-after): the worker, and the HTTP contract around it end to end. The section links Chapter 51's Case 11, the story of the 230-second front-end limit, if you want the incident behind it.
 
 ## Prove it
 
