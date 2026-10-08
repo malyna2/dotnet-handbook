@@ -8,7 +8,7 @@ We will move from the memory model up through the type system, then through the 
 
 ## Value Types and Reference Types: The Foundation
 
-Everything in C#'s type system descends from one distinction: a type is either a **value type** or a **reference type**. This is not a stylistic choice made by the language designers to annoy you; it dictates how instances are stored, copied, compared, and garbage-collected.
+Every C# type is either a **value type** or a **reference type**, and the distinction decides how instances are stored, copied, compared and collected.
 
 A **value type** (anything declared with `struct` or `enum`, plus all the primitives like `int`, `double`, `bool`, and `DateTime`) holds its data *directly*. When you assign one value-type variable to another, you copy the bits. Two variables end up with two independent copies.
 
@@ -29,11 +29,11 @@ d.X = 99;
 // c.X is now 99 — c and d are the same object
 ```
 
-This single behavioral difference is the root of a hundred bugs and a hundred optimizations. Internalize it and most of the rest of this section follows naturally.
+An assignment, or passing an argument by value, copies what the variable holds: a struct's fields, or a class's reference. A struct that contains a reference-type field copies only that reference, so the two copies still share the object behind it.
 
 ### Stack vs Heap: Where the Bytes Actually Live
 
-Developers often summarize this as "value types go on the stack, reference types go on the heap." That is a useful first approximation and a dangerous belief to hold literally. The truth is more precise: **the storage location depends on where the variable lives, not only on its type.**
+"Value types go on the stack, reference types on the heap" is folklore: **the storage location depends on where the variable lives, not only on its type.**
 
 In brief: the **stack** is per-thread memory that grows and shrinks with method calls — allocation is a pointer bump, and a returning method reclaims its frame instantly. The **managed heap** is the shared region where objects live until the garbage collector proves them unreachable; Chapter 2 covers the runtime mechanics — generations, compaction, collection triggers — in depth. What matters at the language level is where a given *variable's* data ends up, and the answer is more subtle than the folklore:
 
@@ -42,15 +42,13 @@ In brief: the **stack** is per-thread memory that grows and shrinks with method 
 - A value type **captured by a closure** or used in an `async` method or iterator is often hoisted into a compiler-generated heap object.
 - A reference type's **reference** (the pointer-sized handle) follows the same rules as a value type — a local reference variable sits on the stack — but the **object it points to** is on the heap.
 
-> **Gotcha:** "Value types are always on the stack" is false. Reason about *where the variable is declared*. The JIT is also free to keep things in registers or elide allocations entirely (escape analysis is limited in .NET today, but the point stands: the runtime, not you, decides).
+> **Gotcha:** "Value types are always on the stack" is false. Reason about *where the variable is declared*. The JIT is also free to keep values in registers, and since .NET 9 and 10 it stack-allocates some objects that provably don't outlive the method (boxes, small arrays, some delegates). The runtime decides, not the type.
 
-Why should you care? Because heap allocations create GC pressure. High allocation rates mean more frequent collections, which mean pauses and CPU spent tracing objects. Much of high-performance .NET is the art of not allocating. That is why `Span<T>`, `struct`, and object pooling exist, and why we return to allocation cost repeatedly in this book.
+It matters because heap allocations drive garbage collection: a higher allocation rate means more frequent collections, with pauses and CPU spent tracing objects. `Span<T>`, structs and object pooling exist to avoid them.
 
 ### Boxing and Unboxing: The Hidden Tax
 
-Because value types and reference types are stored so differently, the runtime needs a bridge when a value type must be treated as an object (its base type is ultimately `System.Object`, a reference type). That bridge is **boxing**.
-
-**Boxing** wraps a value-type instance in a freshly allocated heap object and copies the value into it. **Unboxing** extracts the value back out, checking the type at runtime.
+When a value type must be treated as an object (`System.Object` is a reference type), the runtime **boxes** it: it allocates a heap object and copies the value into it. **Unboxing** extracts the value back out, checking the type at runtime.
 
 ```csharp
 int n = 42;
@@ -68,7 +66,7 @@ list.Add(42);            // boxes — ArrayList stores objects
 object o = 3.14;         // boxes
 
 int x = 5;
-Console.WriteLine("Value: " + x);   // boxes x to call object.ToString via concatenation in some overloads
+Console.WriteLine("Value: {0}", x);  // boxes: the parameter is object
 IComparable cmp = 10;    // boxes — interface is a reference type
 ```
 
@@ -78,9 +76,7 @@ Each box is a heap allocation plus a copy. In a hot loop this destroys throughpu
 
 ### struct vs class: When to Choose Which
 
-Given the tradeoffs, when should a type be a `struct`?
-
-Microsoft's own guidance is conservative: make a type a `struct` only when it is small (roughly ≤ 16 bytes), logically represents a single value, is immutable, and is not boxed frequently. The reasons:
+Microsoft's design guidelines are conservative: a `struct` only when the type is small (an instance size under 16 bytes), logically a single value, immutable, and rarely boxed. The reasons:
 
 - **Copy cost.** Every assignment and every method call that takes the struct by value copies the whole thing. A large struct is expensive to pass around.
 - **Mutability traps.** A mutable struct behaves surprisingly because copies are everywhere. `list[0].X = 5` on a `List<MutableStruct>` won't even compile (the indexer returns a copy), and modifying a struct returned from a property silently mutates a throwaway copy.
@@ -99,8 +95,6 @@ List<Counter> boxedish = new() { new Counter() };
 Choose `class` for entities with identity, for large aggregates, and for anything with polymorphic behavior. Choose `struct` for small immutable values like `Point`, `Money`, `DateTime`, or a coordinate — cases where copying is cheap and value semantics are what you actually want.
 
 ### readonly struct and ref struct
-
-Two modern modifiers sharpen structs for performance-sensitive code.
 
 A **`readonly struct`** guarantees the whole struct is immutable: every field must be `readonly`, and the compiler can therefore skip *defensive copies*. When you call a method on a non-readonly struct held in a `readonly` field or a `readonly` context, the compiler defensively copies it to prevent mutation — a hidden cost. Marking the struct `readonly` removes that.
 
@@ -188,11 +182,11 @@ This is a genuine leap: one algorithm, zero boxing, works for every numeric type
 
 ## LINQ Internals: Deferred Execution and Expression Trees
 
-LINQ is the feature most developers use daily and understand least. Two ideas separate confident users from confused ones: **deferred execution** and the **IEnumerable/IQueryable split**.
+Two ideas explain most LINQ surprises: **deferred execution** and the **IEnumerable/IQueryable split**.
 
 ### Deferred vs Immediate Execution
 
-Most LINQ operators (`Where`, `Select`, `OrderBy`, `Take`) are **deferred**: calling them builds a query object but does *no work*. The work happens only when you *enumerate* the result — with `foreach`, or with a terminal operator like `ToList`, `Count`, `First`, or `Sum`.
+Most LINQ operators (`Where`, `Select`, `OrderBy`, `Take`) are **deferred**: they return an object that holds the source and your lambda, and do no work. The work runs when something *enumerates* that object (`foreach`, or a terminal operator such as `ToList`, `Count`, `First` or `Sum`), and every enumeration calls `GetEnumerator` again, which starts a fresh run from the source.
 
 ```csharp
 var query = numbers.Where(n => n > 10);   // nothing runs yet
@@ -201,9 +195,9 @@ foreach (var n in query)                  // NOW the predicate executes
     Console.WriteLine(n);                 // sees 20 — query re-reads the source
 ```
 
-This has two consequences that bite people constantly:
+Two consequences bite constantly:
 
-1. **The query re-executes every time you enumerate it.** Iterating a deferred query twice runs the whole pipeline twice, hitting the database or recomputing everything. If you need the results more than once, materialize with `ToList()`.
+1. **The query re-executes every time you enumerate it.** Two enumerations run the whole pipeline twice; over an EF Core query, that is two database round trips. If you need the results more than once, materialize with `ToList()`.
 2. **Captured variables are read at enumeration time, not definition time.** The query is a recipe, not a snapshot.
 
 ```csharp
@@ -214,15 +208,15 @@ if (pending.Any())                       // enumerates once
 // Two passes over the source. Materialize once: var list = pending.ToList();
 ```
 
-**Immediate** operators force execution right away: `ToList`, `ToArray`, `ToDictionary`, `Count`, `Sum`, `Average`, `First`, `Single`, `Any`. Anything that returns a concrete collection or a scalar must run the pipeline now.
+**Immediate** operators run the pipeline right away: anything that returns a concrete collection or a scalar (`ToList`, `ToArray`, `ToDictionary`, `Count`, `Sum`, `First`, `Single`, `Any`).
 
 ### IEnumerable vs IQueryable
 
-This is the deepest LINQ concept and the one that determines whether your ORM query runs in the database or drags the whole table into memory.
+This split decides whether an ORM query filters in the database or drags the whole table into memory.
 
-`IEnumerable<T>` uses **`Func<...>` delegates** — compiled code. LINQ-to-Objects operates in memory, running your lambdas as ordinary methods.
+`IEnumerable<T>` operators take **`Func<...>` delegates**: compiled code that LINQ to Objects runs in memory.
 
-`IQueryable<T>` uses **`Expression<Func<...>>` — expression trees**. Instead of compiled code, the lambda is captured as a *data structure describing the code*. A query provider (Entity Framework, for instance) walks that tree and translates it into something else — SQL, typically.
+`IQueryable<T>` operators take **`Expression<Func<...>>`**: the compiler turns the same lambda into an *expression tree*, a data structure describing the code, which a query provider such as EF Core walks and translates, typically into SQL.
 
 ```csharp
 // IQueryable: the lambda becomes an expression tree, translated to SQL
@@ -234,11 +228,17 @@ IEnumerable<Customer> e = dbContext.Customers.AsEnumerable().Where(c => c.City =
 // Pulls the ENTIRE table into memory, then filters in C#
 ```
 
-> **Critical pitfall:** Calling `AsEnumerable()`, `ToList()`, or using a method EF can't translate *too early* switches from `IQueryable` to `IEnumerable`, moving all subsequent filtering to the client. A `Where` that should have been one indexed SQL predicate becomes "download a million rows, then filter." Keep operations in `IQueryable` for as long as possible.
+> **Pay attention.** **The declared type picks the `Where`.**
+>
+> Extension methods are bound at compile time. On a variable declared `IQueryable<T>`, the compiler picks `Queryable.Where` and builds an expression tree; on one declared `IEnumerable<T>`, even when the object behind it is an EF Core query, it picks `Enumerable.Where` and compiles a delegate. From there on, every filter runs in C# over the rows the SQL returned: one indexed predicate becomes "download a million rows, then filter". The usual culprits are a repository method that returns `IEnumerable<T>` and an early `AsEnumerable()` or `ToList()`.
+>
+> Fix: keep the query `IQueryable<T>` until its filters are applied, then materialize once.
+
+A method EF Core can't translate no longer moves the filter to the client: since EF Core 3.0, an untranslatable expression in a `Where` or an `OrderBy` throws at run time, and only the final `Select` may run partly in C#.
 
 ### Expression Trees Directly
 
-You can build and inspect expression trees yourself. This is the machinery behind ORMs, mapping libraries, and mocking frameworks.
+Expression trees are the machinery behind ORMs, mapping libraries and mocking frameworks, and you can build and inspect them yourself.
 
 ```csharp
 using System.Linq.Expressions;
@@ -288,7 +288,7 @@ public class Button
 
 ### Closures and the Capture Trap
 
-A **lambda** can capture variables from its enclosing scope, forming a **closure**. The subtle and important truth: **closures capture variables, not values.** The compiler hoists the captured variable into a heap-allocated object shared by the outer method and the lambda. They see the *same* variable, and later mutations are visible to the lambda.
+A lambda that uses a local variable of its enclosing method forms a **closure**, and **it captures the variable, not its value.** The compiler moves the variable into a field of a hidden, heap-allocated object that the method and the lambda share, so later changes are visible to the lambda.
 
 ```csharp
 // The infamous loop-capture bug (pre-C# 5 foreach, still relevant with for)
@@ -299,7 +299,7 @@ for (int i = 0; i < 3; i++)
 foreach (var a in actions) a();   // prints 3, 3, 3 — all share the same i
 ```
 
-All three lambdas captured the *same* `i`, which is `3` by the time they run. The fix is to capture a fresh variable per iteration:
+A `for` loop declares `i` once, so one hidden object serves every iteration: all three lambdas share it, and `i` is `3` by the time they run. A variable declared inside the loop body gets a new object per iteration:
 
 ```csharp
 for (int i = 0; i < 3; i++)
@@ -310,11 +310,11 @@ for (int i = 0; i < 3; i++)
 // prints 0, 1, 2
 ```
 
-> **Note:** Since C# 5, `foreach` creates a fresh loop variable per iteration, so `foreach` doesn't exhibit this bug — but the classic `for` loop still does. Also be aware closures allocate: capturing a variable creates a heap object, so tight loops that create closures generate GC pressure.
+> **Note:** Since C# 5, `foreach` declares its loop variable inside each iteration, so it doesn't have this bug; `for` still does. Capturing also allocates the hidden object, so closures created in a tight loop add GC pressure: .NET 10's JIT can stack-allocate some delegates, but not yet the object that holds captured variables.
 
 ## Nullable Reference Types
 
-Historically, any reference could be `null`, and `NullReferenceException` was the most common .NET crash. **Nullable reference types (NRT)**, enabled with `<Nullable>enable</Nullable>`, flip the default: a plain `string` is now considered *non-nullable*, and you must write `string?` to allow null. The compiler then performs *flow analysis* and warns when you might dereference a null.
+**Nullable reference types (NRT)**, enabled with `<Nullable>enable</Nullable>` (the default in new projects since .NET 6), flip C#'s default: a plain `string` is *non-nullable*, `string?` allows null, and the compiler's *flow analysis* warns when you might dereference a null.
 
 ```csharp
 #nullable enable
@@ -329,13 +329,21 @@ void Print(string? s)
 }
 ```
 
-Crucially, NRT is a **compile-time-only** feature enforced by warnings. It does not add runtime null checks; the annotations are metadata. The **null-forgiving operator** `!` tells the compiler "trust me, this isn't null" — use it sparingly, because it silences the very safety net you enabled.
+NRT is **compile-time only**: the annotations are metadata, and the compiler adds no runtime null checks. The **null-forgiving operator** `!` tells the compiler "trust me, this isn't null"; use it sparingly, because it silences the safety net you enabled.
 
 ```csharp
 string definitelyThere = maybe!;   // suppress the warning — you own the risk
 ```
 
-> **Best practice:** Turn NRT on for new projects and treat the warnings as errors. It moves an entire class of bugs from production runtime to your editor.
+> **Pay attention.** **Where a null gets past the compiler.**
+>
+> Flow analysis covers the code the compiler compiles, method by method. A null arrives wherever it doesn't run:
+>
+> - **Data from outside.** A deserializer or an ORM creates objects at run time. With default options, `System.Text.Json` puts a JSON `null`, or `null` for a missing constructor parameter, into a non-nullable `string`. Since .NET 9, `RespectNullableAnnotations` rejects the explicit `null` and `RespectRequiredConstructorParameters` the missing parameter; both are off by default. On a settable property, `required` rejects a missing value.
+> - **Gaps in the analysis.** `new string[10]` holds ten nulls, and `default` of a struct leaves its non-nullable reference fields null, without a warning.
+> - **Code compiled without NRT**, and every `!`.
+>
+> Fix: turn NRT on and treat its warnings as errors, then validate where data enters: `required`, the serializer options, and `ArgumentNullException.ThrowIfNull` in public methods.
 
 ## Pattern Matching
 
@@ -378,7 +386,7 @@ The `switch` *expression* (distinct from the older `switch` statement) returns a
 
 ## Records, Value Equality, and with Expressions
 
-A **record** is a reference type (or `record struct` for a value type) that the compiler outfits with **value-based equality**, a readable `ToString`, and nondestructive mutation. Records exist for *data* — DTOs, domain values, messages — where two instances with the same contents should be considered equal.
+A **record** is a reference type (or `record struct` for a value type) for which the compiler generates **value-based equality**, a readable `ToString` and nondestructive mutation. Records are for *data* (DTOs, domain values, messages), where two instances with the same contents should be equal.
 
 ```csharp
 public record Person(string First, string Last, int Age);   // positional record
@@ -389,22 +397,30 @@ Console.WriteLine(p1 == p2);        // True — value equality, compares all mem
 Console.WriteLine(p1);              // Person { First = Ada, Last = Lovelace, Age = 36 }
 ```
 
-Contrast with a `class`, where `==` compares references, so `p1 == p2` would be `False` unless you hand-wrote `Equals`/`GetHashCode`. The compiler generates all of that for records.
+For a `class`, `==` compares references, so `p1 == p2` would be `False` unless you hand-wrote `Equals`, `GetHashCode` and the operators; for a record the compiler generates them.
 
-The **`with` expression** performs *nondestructive mutation*: it creates a copy with some properties changed, leaving the original untouched — ideal for immutable data.
+The **`with` expression** performs *nondestructive mutation*: it creates a copy with some properties changed and leaves the original untouched.
 
 ```csharp
 var older = p1 with { Age = 37 };   // new Person, only Age differs
 // p1 is unchanged
 ```
 
-A **`record struct`** gives value equality on a value type (structs already compare by value, but records add the tuned `Equals`/`GetHashCode`/`ToString` and `with`). Use `readonly record struct` for immutable value objects — it's the most concise way to define something like `Money` or `Coordinate`.
+A **`record struct`** gives a value type generated `Equals`, `GetHashCode`, `ToString`, `==` and `with` (a plain struct has no `==`, and its default `Equals` relies on reflection). `readonly record struct` is the most concise immutable value object, such as `Money` or `Coordinate`.
 
 ```csharp
 public readonly record struct Coordinate(double Lat, double Lng);
 ```
 
-> **Note:** Records use `init`-only setters by default, so positional record properties are immutable after construction. This immutability is a feature — it makes value equality meaningful and makes records safe to share.
+> **Note:** Positional properties of a `record` and a `readonly record struct` are `init`-only, so immutable after construction; a positional `record struct` gets read-write properties. Immutability is what makes value equality safe: a record whose hash changes while it is a dictionary key is lost in the dictionary.
+
+> **Pay attention.** **Why `==` and `Equals` can disagree, and what a record really compares.**
+>
+> - **`==` is chosen at compile time, from the declared types.** Operators are static, so for two `object` variables the compiler binds `object`'s `==`, a reference comparison, even when both hold equal strings; `a.Equals(b)` is virtual, runs `string.Equals` and returns `true`. A generic method constrained `where T : class` binds the same reference comparison even when `T` is `string`. Neither case gets a compiler warning.
+> - **A record compares field by field, each with `EqualityComparer<T>.Default`**, after checking that both objects have the same runtime type. A `List<T>` or array field compares by reference, so two records holding equal-looking lists are unequal.
+> - **`with` is a shallow copy.** The copy shares every reference-type member with the original: adding to the copy's list changes the original's.
+>
+> Fix: compare through the type you mean (`string`, not `object`), and keep records to values such as numbers, strings and nested records, or write `Equals(R? other)` and `GetHashCode` yourself, comparing collections with `SequenceEqual`.
 
 ## Tuples and Deconstruction
 
@@ -458,7 +474,7 @@ Utf8Formatter.TryFormat(12345, buffer, out int written, default);
 
 ## IDisposable, IAsyncDisposable, and the Dispose Pattern
 
-The GC reclaims *managed memory* automatically, but it knows nothing about *unmanaged resources*: file handles, sockets, database connections, native memory. `IDisposable` is the contract for releasing those deterministically.
+The GC reclaims *managed memory*, but knows nothing about file handles, sockets, database connections or native memory. `IDisposable` is the contract for releasing those deterministically, and `using` compiles to a `try/finally` that calls `Dispose`.
 
 ```csharp
 using (var stream = new FileStream("data.bin", FileMode.Open))
@@ -470,7 +486,9 @@ using (var stream = new FileStream("data.bin", FileMode.Open))
 using var reader = new StreamReader("data.txt");
 ```
 
-For the rare class that directly owns an unmanaged resource, the **full Dispose pattern** adds a `Dispose(bool disposing)` method, a finalizer as a last-resort backstop, and `GC.SuppressFinalize` to skip that finalizer once `Dispose` has run. The `disposing` flag matters: when `true` (called from `Dispose()`), other managed objects are still alive and safe to touch; when `false` (the finalizer path), they may already be collected, so you release only unmanaged resources. Most classes need none of this — if you merely *contain* other `IDisposable` fields, implement `Dispose` to dispose them and skip the finalizer. Chapter 2 walks through the full pattern, the finalization queue, and its runtime cost in depth.
+> **Pay attention.** **What happens to a connection nobody disposes.** The GC runs when the *heap* needs space; nothing runs when a *connection pool* runs dry. An undisposed `SqlConnection` stays out of its pool (100 connections by default), and the ADO.NET docs warn it might not return at all. Under load the pool empties, and each new `Open` waits up to 15 seconds, the default timeout, then throws, while memory and CPU look healthy. Fix: `using` or `await using` on every disposable you create; leave what you don't own (injected services, a DI-scoped `DbContext`) to the container that created it.
+
+A class that merely *contains* disposable fields implements `Dispose` to dispose them, and nothing more. Only a class that directly owns an unmanaged resource needs the **full Dispose pattern**: a `Dispose(bool disposing)` method, a finalizer as a backstop, and `GC.SuppressFinalize` once `Dispose` has run. `disposing` is `false` on the finalizer path, where other managed objects may already be collected, so only unmanaged resources are released there. Chapter 2 covers the pattern, the finalization queue and its cost.
 
 **`IAsyncDisposable`** exists for resources whose cleanup involves I/O (flushing a buffer, closing a network stream) that shouldn't block a thread:
 
@@ -634,7 +652,7 @@ string json = """
 
 The triple-quote (or more) delimiters mean embedded `"` need no escaping, and the closing quotes' indentation sets the baseline that's stripped from every line — so your literal stays visually aligned with your code.
 
-> **Where the language is heading.** C# 13 added **params collections** — `params` now accepts `Span<T>`, `ReadOnlySpan<T>`, and other collection types, not just arrays — and the dedicated `System.Threading.Lock` type. C# 14, shipping with .NET 10, brings the `field` keyword (auto-property accessors can reference their own backing field, so a property can add validation without hand-declaring one) and **extension members**, which generalize extension methods to extension properties and static extension members. Appendix B has the full version timeline.
+> **Where the language is heading.** C# 13 (.NET 9) added **params collections** (`params` accepts `Span<T>`, `ReadOnlySpan<T>` and other collection types, not just arrays) and `lock` support for .NET 9's dedicated `System.Threading.Lock` type. C# 14, which ships with .NET 10, the current LTS, brings the `field` keyword (auto-property accessors can reference their own backing field, so a property can add validation without hand-declaring one), **extension members**, which generalize extension methods to extension properties and static extension members, and null-conditional assignment (`order?.Status = ...`). C# 15 is in preview with .NET 11; its features include union types and closed hierarchies, and they can still change before release. Appendix B has the full version timeline.
 
 ## Bringing It Together
 
