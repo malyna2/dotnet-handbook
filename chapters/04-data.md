@@ -1,6 +1,6 @@
 # Chapter 4: Data Access & Databases
 
-_⏱️ Estimated read time: ~1 h 5 min · 10117 words (study pace)_
+_⏱️ Estimated read time: ~1 h 15 min · 11660 words (study pace)_
 
 Almost every non-trivial application is, underneath all its features, a machine for moving data in and out of a database safely and quickly. You can write flawless business logic and beautiful APIs, but if your data access layer holds locks too long, fires a thousand queries where one would do, or corrupts a balance under concurrent writes, the whole system fails in ways that are hard to reproduce and harder to fix. This chapter takes you from the mechanics of Entity Framework Core down to the SQL and storage engine underneath it, then back up through caching, NoSQL, and deployment. The goal is that you stop treating the database as a black box and start reasoning about what it actually does.
 

@@ -1,6 +1,6 @@
 # Chapter 14: Security
 
-_⏱️ Estimated read time: ~32 min ·     5086 words (study pace)_
+_⏱️ Estimated read time: ~50 min · 8633 words (study pace)_
 
 Security is not a feature you bolt on at the end of a sprint. It is a property of a system that emerges from thousands of small decisions: how you parse input, where you store a connection string, which overload of a crypto API you call, and whether you trusted a value that came from the network. A senior .NET developer is expected to make those decisions correctly by reflex, and to recognize when a colleague has not.
 

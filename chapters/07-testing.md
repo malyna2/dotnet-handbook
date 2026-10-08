@@ -1,6 +1,6 @@
 # Chapter 7: Testing
 
-_⏱️ Estimated read time: ~37 min ·     5292 words (study pace)_
+_⏱️ Estimated read time: ~35 min · 5373 words (study pace)_
 
 Most developers arrive at their first senior interview able to write a test. Far fewer can explain *why* one test is worth writing and another is worth deleting, why a green test suite can still be worthless, or why the team that mocks everything ends up trusting nothing. This chapter is about that second, harder layer of understanding. We will write plenty of code, but the code is in service of judgment. By the end you should be able to look at a pull request and say, with reasons, "this test earns its keep" or "this test is a liability."
 

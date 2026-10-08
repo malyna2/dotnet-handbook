@@ -1,6 +1,6 @@
 # Chapter 2: .NET Runtime & Internals
 
-_⏱️ Estimated read time: ~38 min ·     5842 words (study pace)_
+_⏱️ Estimated read time: ~40 min · 6181 words (study pace)_
 
 A senior .NET developer is expected to reason about what happens *beneath* the C# they write. When a request slows down under load, when memory climbs and never comes back, when a `Scoped` service throws in a singleton, or when a container image is 200 MB larger than it should be — the answers all live in the runtime. This chapter is a deep tour of that machinery: how memory is managed, how your IL becomes machine code, how the modern hosting stack (configuration, dependency injection, logging, background work) is wired together, and how to serialize data efficiently. By the end you should be able to hold a mental model of the CLR precise enough to debug production problems and make informed architectural decisions.
 

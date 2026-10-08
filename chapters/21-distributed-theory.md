@@ -1,6 +1,6 @@
 # Chapter 21: Distributed Systems Theory & Reliability Engineering
 
-_⏱️ Estimated read time: ~21 min ·     3838 words (study pace)_
+_⏱️ Estimated read time: ~35 min · 6072 words (study pace)_
 
 A single-process program lives in a comfortable universe. Memory reads are instantaneous, function calls always return, and if something crashes, the whole thing crashes together — you never have to reason about *half* your program being alive while the other half is dead. The moment you split that program across two machines connected by a network, you leave that comfortable universe forever. Messages get lost. Clocks disagree. One node thinks another is dead when it is merely slow. And crucially, **you can never tell the difference between a slow node and a dead one** — that single fact is the source of most of the pain in this chapter.
 

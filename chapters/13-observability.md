@@ -1,6 +1,6 @@
 # Chapter 13: Observability
 
-_⏱️ Estimated read time: ~27 min ·     4348 words (study pace)_
+_⏱️ Estimated read time: ~30 min · 5197 words (study pace)_
 
 Imagine you are the pilot of a modern aircraft. You cannot see the engines, you cannot feel the air pressure at 35,000 feet with your bare skin, and you certainly cannot inspect every one of the thousands of moving parts in real time. Yet you fly with confidence. Why? Because in front of you sits a cockpit full of instruments: altimeters, fuel gauges, temperature readouts, and warning lights that scream at you the moment something drifts out of tolerance. The aircraft is a black box, but the instruments make it *observable*.
 

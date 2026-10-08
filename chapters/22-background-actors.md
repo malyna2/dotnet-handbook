@@ -1,6 +1,6 @@
 # Chapter 22: Background Processing, Scheduling & the Actor Model
 
-_⏱️ Estimated read time: ~28 min ·     3883 words (study pace)_
+_⏱️ Estimated read time: ~35 min · 4678 words (study pace)_
 
 Almost every non-trivial system does work that no user is waiting on: sending emails, retrying failed payments, rebuilding search indexes, aggregating metrics, cleaning up expired data. The naive approach - do it inline on the request thread - couples user-facing latency to work that has no business being on the hot path, and it silently loses that work whenever a request is cancelled or a pod restarts.
 

@@ -1,6 +1,6 @@
 # Chapter 16: Tooling & Productivity
 
-_⏱️ Estimated read time: ~5 min ·     1065 words (study pace)_
+_⏱️ Estimated read time: ~5 min · 1349 words (study pace)_
 
 The tools below are the ones a modern .NET team actually reaches for. Know what each one solves, so you pick deliberately rather than by habit.
 

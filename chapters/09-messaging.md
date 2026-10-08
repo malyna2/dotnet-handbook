@@ -1,6 +1,6 @@
 # Chapter 9: Messaging & Distributed Systems
 
-_⏱️ Estimated read time: ~36 min ·     5051 words (study pace)_
+_⏱️ Estimated read time: ~35 min · 5344 words (study pace)_
 
 Somewhere along the road from junior to senior, you stop asking "how do I call this API?" and start asking "what happens when this API is down, slow, or lying to me?" That shift in mindset is the heart of distributed systems. This chapter is about the tools and patterns we use to build systems out of many independent parts that keep working even when some of those parts fail.
 

@@ -1,6 +1,6 @@
 # Chapter 25: Advanced & Specialized Testing
 
-_⏱️ Estimated read time: ~30 min · 5187 words (study pace)_
+_⏱️ Estimated read time: ~35 min · 5653 words (study pace)_
 
 Chapter 7 gave you the foundations: unit tests with xUnit, mocking with Moq or NSubstitute, integration tests, and spinning up real dependencies with Testcontainers. Those techniques carry most teams a long way. But as a system grows from a single service into a fleet of services, and as a codebase matures from "does it work?" into "can we change it safely for the next five years?", a new set of problems appears that the foundational techniques do not address well.
 

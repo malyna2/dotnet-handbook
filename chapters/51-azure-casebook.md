@@ -1,6 +1,6 @@
 # Chapter 51: The Azure Casebook — Real Incidents, Real Fixes
 
-_⏱️ Estimated read time: ~55 min · 9463 words (study pace)_
+_⏱️ Estimated read time: ~55 min · 9491 words (study pace)_
 
 [Chapter 50](#chapter-50-azure-in-depth-for-net-developers) explains how Azure works. This chapter is about what happens when it meets production. Each case is a situation that .NET teams on Azure run into again and again. They are composites of common incidents, not one company's post-mortem. For each one you get the same six parts:
 

@@ -1,6 +1,6 @@
 # Chapter 33: Real-World Scenarios & Architectural Decisions
 
-_⏱️ Estimated read time: ~65 min ·    11463 words (study pace)_
+_⏱️ Estimated read time: ~1 h 20 min · 14824 words (study pace)_
 
 Every senior engineer eventually learns that the hard part of the job is not writing code — it is deciding what to do when the code you already shipped meets reality. Reality shows up as a traffic spike you did not plan for, a "successful" request that silently lost data, a p99 latency graph that looks like a seismograph, and a dependency that vanishes at the worst possible moment. This chapter is a war-room playbook. Each scenario is a story you could plausibly live through on a production on-call rotation, framed around one question: *how do you react, and what architectural decision does that push you toward?*
 

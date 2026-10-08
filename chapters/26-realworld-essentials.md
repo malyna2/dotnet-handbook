@@ -1,6 +1,6 @@
 # Chapter 26: Real-World Engineering Essentials
 
-_⏱️ Estimated read time: ~26 min ·     3844 words (study pace)_
+_⏱️ Estimated read time: ~30 min · 4231 words (study pace)_
 
 Most textbook code lives in a fantasy world. The clock is always noon, everyone speaks American English, prices are round dollar amounts, files fit in memory, and email "just sends." Production is where those assumptions go to die. The incidents that wake engineers at 3 a.m. are rarely caused by clever algorithms gone wrong — they are caused by a timestamp stored in the server's local time, a `double` that lost a penny, a `ToUpper()` that mangled a Turkish username, or a 2 GB upload that pinned a web server's memory.
 

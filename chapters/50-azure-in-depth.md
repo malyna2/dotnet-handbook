@@ -1,6 +1,6 @@
 # Chapter 50: Azure in Depth for .NET Developers
 
-_⏱️ Estimated read time: ~1 h 30 min · 13510 words (study pace)_
+_⏱️ Estimated read time: ~1 h 30 min · 13567 words (study pace)_
 
 [Chapter 10](#chapter-10-cloud-aws-azure) gave you the map: what App Service, Functions, Cosmos DB and Service Bus *are*, and how they line up against AWS. A map gets you through a conversation. It does not get you through the first week of owning a production system on Azure, where the questions sound like this: *why does the app get a 403 from Blob Storage when its identity is a Contributor on the subscription? Why did the slot swap cause a minute of 500s? Why does Cosmos DB throttle at 3,000 RU/s when we provisioned 20,000?*
 

@@ -1,6 +1,6 @@
 # Chapter 6: Architecture & Application Design
 
-_⏱️ Estimated read time: ~35 min · 5066 words (study pace)_
+_⏱️ Estimated read time: ~35 min · 5264 words (study pace)_
 
 You can write correct code and still build a system that becomes miserable to change. Correctness is about whether a single function returns the right answer; architecture is about whether, six months from now, a new feature takes an afternoon or a fortnight. This chapter is about the second question — the shape of the whole, the boundaries between the parts, and the trade-offs that senior engineers weigh almost unconsciously.
 

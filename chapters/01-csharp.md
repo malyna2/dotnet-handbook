@@ -1,6 +1,6 @@
 # Chapter 1: C# Language Mastery
 
-_⏱️ Estimated read time: ~47 min ·     5552 words (study pace)_
+_⏱️ Estimated read time: ~50 min · 5906 words (study pace)_
 
 A senior .NET developer is not someone who knows more keywords than a mid-level developer. The difference is that a senior understands what the language does *underneath* the syntax: where the bytes live, when work actually happens, why a seemingly innocent line allocates on the heap, and what the compiler is really generating on your behalf. This chapter walks through the C# language from that vantage point. We assume you can already write loops, classes, and `async` methods. Our job is to explain the "why" so deeply that the "what" becomes obvious.
 

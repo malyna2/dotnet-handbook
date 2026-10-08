@@ -1,6 +1,6 @@
 # Chapter 17: Soft Skills & Engineering Practices
 
-_⏱️ Estimated read time: ~29 min ·     5072 words (study pace)_
+_⏱️ Estimated read time: ~40 min · 6896 words (study pace)_
 
 You already know how to write good C#. You can wire up dependency injection, reason about `async`/`await`, tune an EF Core query, and design a clean bounded context. That is the price of admission to being a *middle* engineer. It is not what makes you a senior one.
 

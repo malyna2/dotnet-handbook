@@ -1,6 +1,6 @@
 # Chapter 20: Networking & Web Fundamentals
 
-_⏱️ Estimated read time: ~26 min ·     4479 words (study pace)_
+_⏱️ Estimated read time: ~40 min · 6651 words (study pace)_
 
 Most application bugs that keep senior engineers up at night are not really *code* bugs. They are *network* bugs wearing a code costume. A method that works flawlessly on your laptop times out in production. A service that handled a thousand requests per second suddenly throws `SocketException` under load. A cross-origin `fetch` gets blocked by the browser for reasons nobody on the team can quite articulate.
 
