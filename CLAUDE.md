@@ -4,11 +4,12 @@ A self-contained .NET study handbook: Markdown chapters in `chapters/`, compiled
 
 ## Editing chapters
 
-- Chapters are `chapters/NN-*.md`, auto-discovered by numeric prefix; sidebar grouping comes from `PART_RANGES` in `build_site.py`.
+- The book is one sequence in two parts (see *Book structure* below). Files are `chapters/NNN-*.md`, auto-discovered and ordered by numeric prefix; sidebar sections come from `PART_RANGES` in `build_site.py`.
 - After any chapter edit, run `python3 build_site.py` and commit the regenerated `main.md` and `site/content.js` together with the source change.
 - `python3 verify/check_links.py` resolves every in-book link the way the reader app does; run it after any heading or link change.
 - The `_⏱ Estimated read time_` line is regenerated in the outputs on every build; keep the hand-written line in the source chapter roughly in sync when a chapter grows substantially.
-- Chapter cross-links inside Markdown use the chapter's slug: `[Chapter 3: ...](#chapter-3-aspnet-core-web-apis)` (slug = lowercased title, punctuation stripped, spaces → `-`).
+- Chapter cross-links inside Markdown use the chapter's slug: `[Chapter 5: HTTP and Web APIs](#chapter-5-http-and-web-apis)` (slug = lowercased title, punctuation stripped, spaces → `-`).
+- **Renaming or renumbering a chapter changes its slug.** Add the old slug to `chapters/_aliases.json` (old slug → new slug) so bookmarks, shared links and old What's New entries still open it; `check_links.py` and the site both resolve through it.
 
 ## Release process (pushing)
 
@@ -17,7 +18,7 @@ A self-contained .NET study handbook: Markdown chapters in `chapters/`, compiled
 When asked to push, follow this checklist:
 
 1. Review everything since the last release: `git log origin/main..HEAD`.
-2. Update `chapters/101-whats-new.md` — add (or extend, if one already exists for this release) a section **at the top**, directly under the intro paragraph:
+2. Update `chapters/999-whats-new.md` — add (or extend, if one already exists for this release) a section **at the top**, directly under the intro paragraph:
    - Heading format matters — the site parses it: `## Release — <Month D, YYYY>`.
    - First a `**🔧 Site & functionality**` bullet list for reader-app/build changes: plain static text, no links (these get no read-tracking).
    - Then a `**📖 Content updates**` bullet list: **one bullet per meaningful commit in the push** — every content commit gets its own line so the release mirrors the whole group of commits, not a merged summary. Format: `[<Chapter N: topic>](#<chapter-slug>) — <one short sentence>`. Several bullets may link to the same chapter (read-tracking keys are per-link-position, so they tick off independently).
@@ -36,34 +37,37 @@ How the feature works (for debugging): the site shows the **topmost** `## Releas
 - **Exercise verification.** Every C# *Find the bug* sample is compiled in `verify/exercises/ChNN/`, with a test that shows the defect on the buggy code and its absence on the fix (the suite stays green; a regression in either direction is visible). `verify/exercises/check_samples.py` proves the chapter prints the tested code, token for token. Non-C# samples are verified with the relevant tool where one runs; otherwise say so in the session report.
 - **Headings inside code fences still count.** `headingOwner` in `site/app.js` scans raw lines, so a `## Context` inside a fenced template registers as a heading and can make a real section slug ambiguous across chapters, which silently breaks cross-chapter links to it. In templates, use `**Label**` lines instead of `#` headings.
 
-## Learning path: Part 1 (Junior → Middle) and Part 2 (Middle → Senior)
+## Book structure: Part 1 (Junior → Middle), then Part 2 (Middle → Senior)
 
-- Two paths sit on top of the chapters, under the site's top navigation (*Part 1 · Part 2 · Full book*). **Part 1**, chapters 70–84: the basics a developer needs to work as a solid middle without help, inside one service (what happens, the trap, the fix, how to show it). **Part 2**, chapters 85–98: from middle to senior (internals, behavior under load, across services and over time, and decisions made for a team). To place a topic: internals, cross-service guarantees, scale, or deciding for others → Part 2; everything else → Part 1.
-- Page shapes and rules live in `chapters/_module-template.md` (ignored by the build). Each part has an overview page (`70-`, `85-`), module pages (`71`–`83`, `86`–`92`) and a review page with the *Pay attention to* table (`84-`, `93-`). Part 1 modules 1–7 are the core; modules 8–13 are foundation modules that open with an entry check. `build_site.py` derives each entry's `group` and sidebar number from these ranges and titles.
-- Module pages are a path through the chapters, not new reference material: they state the mechanism that ties a module together and link the chapter sections that teach it. An explanation a chapter lacks goes into that chapter (a section or a `Pay attention.` callout), and the module links it.
-- Every ```` ```csharp ```` block on a path page is a *Prove it* program of at most 30 lines, compiled as `verify/path/<Name>/Program.cs` and named on the line above its fence. `verify/path/verify.sh` checks the code, each page's `## Read (≈ …)` time against the build formula, that every program is printed once, and every link; `capture.sh` regenerates `reference-runs/`, the only source of numbers the pages quote.
-- Path pages list topics, never results. Keep anyone's scores, self-assessment answers, employer and other personal context out of them, and out of every other committed file: the repo is public.
+- One book, read in order, one navigation. **Part 1** (`100-part-1.md`, Chapters 1–16 as `101`–`116`, the review page `199-part-1-pay-attention.md`): the key concepts and topics a developer needs to work as a solid middle without help, each *explained by its mechanism*, not listed. **Part 2** (`200-part-2.md`, Chapters 17–44 as `217`–`244`, the review page `299-…`): the same topics in depth plus the harder and wider ones (internals, scale, cross-service guarantees, cloud and Azure, AI, frontend in depth, incidents, career, the Trusted Advisor). Then the appendix (`900-`) and What's New (`999-`).
+- **No repetition.** Every topic is taught in one place. Part 2 builds on Part 1 and links back to it instead of re-explaining; a Part 1 chapter may point forward to its Part 2 depth in one sentence.
+- To place a new topic: internals, behaviour under load, cross-service guarantees, scale, cloud specifics, AI, or deciding for others → Part 2; a key concept a middle developer uses unaided → Part 1, explained at the level of "how it works and where the trap is".
+- **Chapter shape.** An introduction (what the chapter makes you able to do, how its sections connect); the teaching sections; then, where the chapter has them, `## Prove it` (or `## Practice` in Part 2), `## Three questions`, `## Decide`, `## Check at work`, `## Exercises`, and `## Interview Questions`. These section names repeat across chapters, so nothing may link to them; link the chapter instead.
+- **Prove it programs.** A ```` ```csharp ```` block whose line above names `verify/path/<Name>/Program.cs` is a program of at most 30 lines compiled there. `verify/path/verify.sh` checks the code, that every program is printed exactly once, and every link; `capture.sh` regenerates `reference-runs/`, the only source of the numbers quoted with them.
+- `chapters/_notes/` and other `_`-prefixed files are working notes, ignored by the build.
+- The book lists topics, never results. Keep anyone's scores, self-assessment answers, employer and other personal context out of every committed file: the repo is public.
 
-## Practice Gym (Part XI, chapters 36–49)
+## Labs (Practice Gym)
 
 The plan and progress live in `PRACTICE_ROADMAP.md`; tick it at the end of every session and report what was verified and what was not.
 
 - **Lab chapter shape**, in this order: *Goal & the senior signal it trains* · *Time budget* · *Setup* · *Tasks* as a Level 1–3 ladder with checkable acceptance criteria · *Break it* (where relevant) · *Evidence to keep* · *Interview hook* (the story as STAR + 3 likely follow-ups) · *Hints and answers* in `<details>`. Keep prose tight — labs are for doing.
-- **Starter kits** live in `labs/<NN-slug>/` (same `NN` as the chapter): `README.md` (what to run, a *Last verified* line with date and environment), `docker-compose.yml` with pinned image tags, seed scripts, `starter/` (compiles; its tests fail for the intended reason), `solution/` (reference; tests pass), `tests/`, `verify.sh` (maintainer self-check that proves both), and `reference-runs/` (raw output behind every number quoted in the chapter). Code targets `net10.0`; package versions are pinned centrally in `labs/Directory.Packages.props`.
+- **The labs** are Chapters 19 (execution plans), 37 (story bank) and 40 (.NET health check). Their kits keep their original folders: `labs/37-execution-plans/`, `labs/36-evidence-portfolio/`, `labs/62-health-check/` (external links point at them, so don't rename them).
+- **Starter kits** live in `labs/<NN-slug>/`: `README.md` (what to run, a *Last verified* line with date and environment), `docker-compose.yml` with pinned image tags, seed scripts, `starter/` (compiles; its tests fail for the intended reason), `solution/` (reference; tests pass), `tests/`, `verify.sh` (maintainer self-check that proves both), and `reference-runs/` (raw output behind every number quoted in the chapter). Code targets `net10.0`; package versions are pinned centrally in `labs/Directory.Packages.props`.
 - **Link kits with absolute GitHub URLs** (`https://github.com/malyna2/dotnet-handbook/tree/main/labs/<NN-slug>`). Pages ships only `site/`, so a relative `labs/…` link 404s on the website.
 - **The portfolio rule.** Every lab says, in its README and its chapter, that the reader's own solutions, plans, numbers and write-ups belong in *their own public portfolio repo*, not in this one — and that stories about a real employer stay private.
 - **Numbers.** Plans, timings and counts in the text come only from real runs on the seeded data, published with an environment header (CPU, RAM, engine version, scale, cache state). Career examples (CV bullets, STAR skeletons) use `[placeholders]`, never invented metrics.
 - **What's New for lab chapters** links the *chapter* slug: lab chapters share section headings ("Time budget", "Evidence to keep"), and a shared slug does not resolve across chapters.
 - **Cloud sessions** start without a .NET SDK or a running Docker daemon: install `dotnet-sdk-10.0` from apt (the dotnet-install hosts are blocked) and start `dockerd`. `learn.microsoft.com` is blocked too; verify facts against the source repos it is built from (`dotnet/docs`, `dotnet/AspNetCore.Docs`, `dotnet/EntityFramework.Docs`, `dotnet/core` release notes on `raw.githubusercontent.com`), and leave a `TODO(verify)` for the user when no reachable official source confirms a fact.
 
-## Cloud in Depth (Part XII, chapters 50+)
+## Cloud and Azure (Part 2, Chapters 28–31)
 
-- Chapter 50 (Azure in depth) and Chapter 51 (Azure casebook). Chapter numbers 38–49 stay free for Practice Gym labs.
-- **Code verification.** `verify/snippets/Azure/verify.sh` extracts every ```` ```csharp ```` block from these chapters and compiles it against the SDK versions pinned in `verify/Directory.Packages.props`; a new block without an entry in `BLOCKS` in `extract.py` fails the check. *Find the bug* blocks must match the code in `verify/exercises/Ch51/` token for token; `ACCEPT_EULA=Y verify/exercises/Ch51/verify.sh` runs those against Azurite and the Service Bus emulator. Bicep blocks are built and linted when the Bicep CLI is on `PATH` (download it from the `Azure/bicep` GitHub releases; it is not in apt).
+- Chapter 28 (cloud fundamentals, AWS and Azure), Chapter 29 (Azure in depth, `229-`), Chapter 30 (Azure casebook, `230-`), Chapter 31 (compliance, privacy and FinOps).
+- **Code verification.** `verify/snippets/Azure/verify.sh` extracts every ```` ```csharp ```` block from Chapters 29 and 30 and compiles it against the SDK versions pinned in `verify/Directory.Packages.props`; a new block without an entry in `BLOCKS` in `extract.py` fails the check. *Find the bug* blocks must match the code in `verify/exercises/Ch51/` token for token; `ACCEPT_EULA=Y verify/exercises/Ch51/verify.sh` runs those against Azurite and the Service Bus emulator. Bicep blocks are built and linted when the Bicep CLI is on `PATH` (download it from the `Azure/bicep` GitHub releases; it is not in apt).
 - Limits, defaults and dates quoted in these chapters were checked against the docs source repos (`MicrosoftDocs/azure-docs`, `azure-monitor-docs`, `azure-security-docs`, `sql-docs`) and the SDK source. Cosmos DB's docs repo is not public; its limits were confirmed only through search snippets of Learn pages. Certification facts come from third-party summaries (Learn is blocked) and are flagged in the text.
 
-## The Trusted Advisor (Part XIII, chapters 60–65)
+## The Trusted Advisor (Part 2, Chapters 38–43)
 
-- Client-facing expertise: 60 point of view, 61 discovery, 62 health-check lab (`labs/62-health-check/`, Practice Gym lab rules apply), 63 recommendations/proposals/estimates, 64 advisory casebook, 65 positioning and public proof. Part XII keeps 50–59 for cloud chapters.
+- Client-facing expertise: 38 point of view, 39 discovery, 40 health-check lab (`labs/62-health-check/`, lab rules apply), 41 recommendations/proposals/estimates, 42 advisory casebook, 43 positioning and public proof.
 - *Find the bug* in these chapters is a flawed written artifact (memo, email, SOW excerpt, headline), not C#, so it needs no compiled verification.
 - Cases and examples are labelled composites; numbers are `[placeholders]` or marked illustrative. Cite books by author and title; drop any specific claim that can't be verified. Contracts and SOWs come with a short "not legal advice" note.

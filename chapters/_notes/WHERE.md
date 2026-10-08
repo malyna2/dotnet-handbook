@@ -1,0 +1,586 @@
+# Where every old section went
+
+Old chapter → section → new chapter. Use it to fix "Chapter N" references in prose.
+
+- old Chapter 1: C# Language Mastery → Value Types and Reference Types: The Foundation → **Chapter 1: C# Essentials**
+- old Chapter 1: C# Language Mastery → Generics: Type-Safe Reuse Without Boxing → **Chapter 1: C# Essentials**
+- old Chapter 1: C# Language Mastery → LINQ Internals: Deferred Execution and Expression Trees → **Chapter 1: C# Essentials**
+- old Chapter 1: C# Language Mastery → Delegates, Events, Lambdas, and Closures → **Chapter 1: C# Essentials**
+- old Chapter 1: C# Language Mastery → Nullable Reference Types → **Chapter 1: C# Essentials**
+- old Chapter 1: C# Language Mastery → Pattern Matching → **Chapter 1: C# Essentials**
+- old Chapter 1: C# Language Mastery → Records, Value Equality, and with Expressions → **Chapter 1: C# Essentials**
+- old Chapter 1: C# Language Mastery → Tuples and Deconstruction → **Chapter 1: C# Essentials**
+- old Chapter 1: C# Language Mastery → Span<T>, Memory<T>, and stackalloc → **Chapter 17: Runtime Internals and Performance**
+- old Chapter 1: C# Language Mastery → IDisposable, IAsyncDisposable, and the Dispose Pattern → **Chapter 1: C# Essentials**
+- old Chapter 1: C# Language Mastery → Iterators and yield return → **Chapter 1: C# Essentials**
+- old Chapter 1: C# Language Mastery → Extension Methods and Static Abstract Members → **Chapter 1: C# Essentials**
+- old Chapter 1: C# Language Mastery → Attributes and Reflection → **Chapter 17: Runtime Internals and Performance**
+- old Chapter 1: C# Language Mastery → Source Generators (Conceptual) → **Chapter 17: Runtime Internals and Performance**
+- old Chapter 1: C# Language Mastery → Modern Syntax You Should Be Using → **Chapter 1: C# Essentials**
+- old Chapter 1: C# Language Mastery → Bringing It Together → **Chapter 1: C# Essentials**
+- old Chapter 2: .NET Runtime & Internals → The Memory Model: Stack vs Managed Heap → **Chapter 3: How .NET Runs Your Code**
+- old Chapter 2: .NET Runtime & Internals → Garbage Collection (basics) → **Chapter 3: How .NET Runs Your Code**
+- old Chapter 2: .NET Runtime & Internals → Garbage Collection (depth) → **Chapter 17: Runtime Internals and Performance**
+- old Chapter 2: .NET Runtime & Internals → From IL to Machine Code: the CLR and JIT → **Chapter 17: Runtime Internals and Performance**
+- old Chapter 2: .NET Runtime & Internals → Assemblies, Loading, and Strong Naming → **Chapter 17: Runtime Internals and Performance**
+- old Chapter 2: .NET Runtime & Internals → The Configuration System → **Chapter 3: How .NET Runs Your Code**
+- old Chapter 2: .NET Runtime & Internals → Dependency Injection → **Chapter 3: How .NET Runs Your Code**
+- old Chapter 2: .NET Runtime & Internals → The Generic Host and Background Services → **Chapter 3: How .NET Runs Your Code**
+- old Chapter 2: .NET Runtime & Internals → Logging with Microsoft.Extensions.Logging → **Chapter 9: Exceptions, Logging and First Diagnosis**
+- old Chapter 2: .NET Runtime & Internals → Serialization: System.Text.Json vs Newtonsoft.Json → **Chapter 5: HTTP and Web APIs**
+- old Chapter 2: .NET Runtime & Internals → .NET Release Cadence: LTS vs STS → **Chapter 3: How .NET Runs Your Code**
+- old Chapter 2: .NET Runtime & Internals → Summary → **Chapter 3: How .NET Runs Your Code**
+- old Chapter 3: ASP.NET Core & Web APIs → The Middleware Pipeline & Request Lifecycle → **Chapter 5: HTTP and Web APIs**
+- old Chapter 3: ASP.NET Core & Web APIs → Minimal APIs vs Controllers (MVC) → **Chapter 5: HTTP and Web APIs**
+- old Chapter 3: ASP.NET Core & Web APIs → Routing & Endpoint Routing → **Chapter 5: HTTP and Web APIs**
+- old Chapter 3: ASP.NET Core & Web APIs → Model Binding & Validation → **Chapter 5: HTTP and Web APIs**
+- old Chapter 3: ASP.NET Core & Web APIs → CancellationToken Propagation → **Chapter 5: HTTP and Web APIs**
+- old Chapter 3: ASP.NET Core & Web APIs → Filters → **Chapter 5: HTTP and Web APIs**
+- old Chapter 3: ASP.NET Core & Web APIs → Authentication & Authorization → **Chapter 12: Security Essentials**
+- old Chapter 3: ASP.NET Core & Web APIs → IHttpClientFactory & Resilience with Polly → **Chapter 5: HTTP and Web APIs**
+- old Chapter 3: ASP.NET Core & Web APIs → Cross-Cutting HTTP Concerns → **Chapter 5: HTTP and Web APIs**
+- old Chapter 3: ASP.NET Core & Web APIs → REST, Status Codes, Versioning & OpenAPI (basics) → **Chapter 5: HTTP and Web APIs**
+- old Chapter 3: ASP.NET Core & Web APIs → REST, Status Codes, Versioning & OpenAPI (depth) → **Chapter 20: Distributed Systems**
+- old Chapter 3: ASP.NET Core & Web APIs → API Versioning & Backward Compatibility → **Chapter 22: API Evolution, Real-Time and Serialization**
+- old Chapter 3: ASP.NET Core & Web APIs → gRPC → **Chapter 22: API Evolution, Real-Time and Serialization**
+- old Chapter 3: ASP.NET Core & Web APIs → SignalR → **Chapter 22: API Evolution, Real-Time and Serialization**
+- old Chapter 3: ASP.NET Core & Web APIs → Error Handling with ProblemDetails (RFC 7807) → **Chapter 9: Exceptions, Logging and First Diagnosis**
+- old Chapter 3: ASP.NET Core & Web APIs → Health Checks → **Chapter 5: HTTP and Web APIs**
+- old Chapter 3: ASP.NET Core & Web APIs → Observability Wiring → **Chapter 9: Exceptions, Logging and First Diagnosis**
+- old Chapter 3: ASP.NET Core & Web APIs → A Brief Note on Blazor → **Chapter 34: Frontend and Full-Stack in Depth**
+- old Chapter 3: ASP.NET Core & Web APIs → Summary → **Chapter 5: HTTP and Web APIs**
+- old Chapter 4: Data Access & Databases → Entity Framework Core: The Object-Relational Mapper (basics) → **Chapter 7: Data Access**
+- old Chapter 4: Data Access & Databases → Entity Framework Core: The Object-Relational Mapper (depth) → **Chapter 18: Data in Depth**
+- old Chapter 4: Data Access & Databases → SQL Fundamentals → **Chapter 7: Data Access**
+- old Chapter 4: Data Access & Databases → PostgreSQL in Practice: Indexes and Query Plans → **Chapter 18: Data in Depth**
+- old Chapter 4: Data Access & Databases → Dapper: When the ORM Is Too Much → **Chapter 7: Data Access**
+- old Chapter 4: Data Access & Databases → Database Design and Normalization → **Chapter 7: Data Access**
+- old Chapter 4: Data Access & Databases → NoSQL: The Right Tool for the Shape of Your Data → **Chapter 18: Data in Depth**
+- old Chapter 4: Data Access & Databases → Caching (basics) → **Chapter 7: Data Access**
+- old Chapter 4: Data Access & Databases → Caching (depth) → **Chapter 18: Data in Depth**
+- old Chapter 4: Data Access & Databases → Concurrency: Optimistic vs Pessimistic → **Chapter 7: Data Access**
+- old Chapter 4: Data Access & Databases → Stored Procedures, Views, and Raw SQL → **Chapter 7: Data Access**
+- old Chapter 4: Data Access & Databases → DbContext Lifetime and Connection Pooling → **Chapter 7: Data Access**
+- old Chapter 4: Data Access & Databases → Migrations in CI/CD → **Chapter 7: Data Access**
+- old Chapter 4: Data Access & Databases → Summary → **Chapter 7: Data Access**
+- old Chapter 4: Data Access & Databases → Exercises → **Chapter 7: Data Access**
+- old Chapter 5: Design Patterns, Principles & Clean Code → What a Design Pattern Actually Is → **Chapter 10: Design Basics**
+- old Chapter 5: Design Patterns, Principles & Clean Code → Creational Patterns → **Chapter 10: Design Basics**
+- old Chapter 5: Design Patterns, Principles & Clean Code → Structural Patterns → **Chapter 10: Design Basics**
+- old Chapter 5: Design Patterns, Principles & Clean Code → Behavioral Patterns → **Chapter 10: Design Basics**
+- old Chapter 5: Design Patterns, Principles & Clean Code → Enterprise & Application Patterns (basics) → **Chapter 10: Design Basics**
+- old Chapter 5: Design Patterns, Principles & Clean Code → Enterprise & Application Patterns (depth) → **Chapter 21: Architecture**
+- old Chapter 5: Design Patterns, Principles & Clean Code → Exception Handling Strategy → **Chapter 9: Exceptions, Logging and First Diagnosis**
+- old Chapter 5: Design Patterns, Principles & Clean Code → Principles: The Foundation Under the Patterns → **Chapter 10: Design Basics**
+- old Chapter 5: Design Patterns, Principles & Clean Code → Clean Code & Code Smells → **Chapter 10: Design Basics**
+- old Chapter 5: Design Patterns, Principles & Clean Code → Closing Thought → **Chapter 10: Design Basics**
+- old Chapter 6: Architecture & Application Design → Why Architecture Matters: Coupling and Cohesion → **Chapter 21: Architecture**
+- old Chapter 6: Architecture & Application Design → Layered / N-Tier Architecture → **Chapter 10: Design Basics**
+- old Chapter 6: Architecture & Application Design → Clean, Onion, and Hexagonal Architecture → **Chapter 10: Design Basics**
+- old Chapter 6: Architecture & Application Design → Domain-Driven Design → **Chapter 21: Architecture**
+- old Chapter 6: Architecture & Application Design → CQRS and Event Sourcing → **Chapter 21: Architecture**
+- old Chapter 6: Architecture & Application Design → Vertical Slice Architecture → **Chapter 21: Architecture**
+- old Chapter 6: Architecture & Application Design → Monolith vs Microservices vs Modular Monolith → **Chapter 21: Architecture**
+- old Chapter 6: Architecture & Application Design → API Gateway and Backend for Frontend → **Chapter 21: Architecture**
+- old Chapter 6: Architecture & Application Design → The 12-Factor App → **Chapter 26: Delivery and Platform**
+- old Chapter 6: Architecture & Application Design → Distributed Data Patterns → **Chapter 20: Distributed Systems**
+- old Chapter 6: Architecture & Application Design → .NET Aspire → **Chapter 26: Delivery and Platform**
+- old Chapter 6: Architecture & Application Design → Bringing It Together → **Chapter 21: Architecture**
+- old Chapter 6: Architecture & Application Design → Further Reading → **Chapter 21: Architecture**
+- old Chapter 7: Testing → Why We Test At All → **Chapter 8: Testing**
+- old Chapter 7: Testing → Unit Testing with xUnit → **Chapter 8: Testing**
+- old Chapter 7: Testing → Test Doubles: The Full Taxonomy → **Chapter 8: Testing**
+- old Chapter 7: Testing → Mocking Libraries: Moq and NSubstitute → **Chapter 8: Testing**
+- old Chapter 7: Testing → Better Assertions: FluentAssertions and Shouldly → **Chapter 8: Testing**
+- old Chapter 7: Testing → Generating Test Data: AutoFixture and Bogus → **Chapter 8: Testing**
+- old Chapter 7: Testing → Integration Testing → **Chapter 8: Testing**
+- old Chapter 7: Testing → Test-Driven Development → **Chapter 8: Testing**
+- old Chapter 7: Testing → Behaviour-Driven Development → **Chapter 8: Testing**
+- old Chapter 7: Testing → Specialized Techniques → **Chapter 25: Observability and Testing at Scale**
+- old Chapter 7: Testing → Craft: Naming, Structure, and Smells → **Chapter 8: Testing**
+- old Chapter 7: Testing → Bringing It Together → **Chapter 8: Testing**
+- old Chapter 8: Asynchronous & Concurrent Programming → Why Async Exists: I/O-Bound vs CPU-Bound Work → **Chapter 4: Async Essentials**
+- old Chapter 8: Asynchronous & Concurrent Programming → Tasks: The Promise of a Future Result → **Chapter 4: Async Essentials**
+- old Chapter 8: Asynchronous & Concurrent Programming → async/await, Deeply → **Chapter 4: Async Essentials**
+- old Chapter 8: Asynchronous & Concurrent Programming → SynchronizationContext and ConfigureAwait → **Chapter 4: Async Essentials**
+- old Chapter 8: Asynchronous & Concurrent Programming → The Sync-Over-Async Deadlock → **Chapter 4: Async Essentials**
+- old Chapter 8: Asynchronous & Concurrent Programming → Task vs ValueTask → **Chapter 17: Runtime Internals and Performance**
+- old Chapter 8: Asynchronous & Concurrent Programming → CancellationToken: Cooperative Cancellation → **Chapter 4: Async Essentials**
+- old Chapter 8: Asynchronous & Concurrent Programming → Composing Concurrent Work: WhenAll and WhenAny → **Chapter 4: Async Essentials**
+- old Chapter 8: Asynchronous & Concurrent Programming → IAsyncEnumerable and Async Streams → **Chapter 4: Async Essentials**
+- old Chapter 8: Asynchronous & Concurrent Programming → The TPL: Parallelism for CPU-Bound Work → **Chapter 17: Runtime Internals and Performance**
+- old Chapter 8: Asynchronous & Concurrent Programming → System.Threading.Channels: Producer/Consumer Pipelines → **Chapter 17: Runtime Internals and Performance**
+- old Chapter 8: Asynchronous & Concurrent Programming → Thread Safety: Sharing State Correctly → **Chapter 4: Async Essentials**
+- old Chapter 8: Asynchronous & Concurrent Programming → A Brief Note on Rx.NET → **Chapter 17: Runtime Internals and Performance**
+- old Chapter 8: Asynchronous & Concurrent Programming → Exercises → **Chapter 4: Async Essentials**
+- old Chapter 9: Messaging & Distributed Systems → Why Messaging at All? → **Chapter 11: Messaging and Background Work**
+- old Chapter 9: Messaging & Distributed Systems → Message Brokers Compared → **Chapter 11: Messaging and Background Work**
+- old Chapter 9: Messaging & Distributed Systems → Core Messaging Patterns → **Chapter 11: Messaging and Background Work**
+- old Chapter 9: Messaging & Distributed Systems → MassTransit: Messaging for .NET → **Chapter 11: Messaging and Background Work**
+- old Chapter 9: Messaging & Distributed Systems → Event-Driven Architecture: Events, Commands, and Messages → **Chapter 11: Messaging and Background Work**
+- old Chapter 9: Messaging & Distributed Systems → Distributed Patterns Every Senior Should Know (basics) → **Chapter 11: Messaging and Background Work**
+- old Chapter 9: Messaging & Distributed Systems → Distributed Patterns Every Senior Should Know (depth) → **Chapter 20: Distributed Systems**
+- old Chapter 9: Messaging & Distributed Systems → Delivery Guarantees → **Chapter 11: Messaging and Background Work**
+- old Chapter 9: Messaging & Distributed Systems → Consistency in a Distributed World → **Chapter 20: Distributed Systems**
+- old Chapter 9: Messaging & Distributed Systems → Distributed Caching and Session State → **Chapter 18: Data in Depth**
+- old Chapter 9: Messaging & Distributed Systems → Wrapping Up → **Chapter 11: Messaging and Background Work**
+- old Chapter 10: Cloud — AWS & Azure → Cloud Fundamentals → **Chapter 28: Cloud Fundamentals — AWS & Azure**
+- old Chapter 10: Cloud — AWS & Azure → AWS Core Services → **Chapter 28: Cloud Fundamentals — AWS & Azure**
+- old Chapter 10: Cloud — AWS & Azure → Azure Core Services → **Chapter 28: Cloud Fundamentals — AWS & Azure**
+- old Chapter 10: Cloud — AWS & Azure → Mapping AWS and Azure Services → **Chapter 28: Cloud Fundamentals — AWS & Azure**
+- old Chapter 10: Cloud — AWS & Azure → Infrastructure as Code → **Chapter 28: Cloud Fundamentals — AWS & Azure**
+- old Chapter 10: Cloud — AWS & Azure → Serverless Trade-offs and Cold Starts → **Chapter 28: Cloud Fundamentals — AWS & Azure**
+- old Chapter 10: Cloud — AWS & Azure → Cost Awareness and Security: The Habits That Matter → **Chapter 28: Cloud Fundamentals — AWS & Azure**
+- old Chapter 10: Cloud — AWS & Azure → Lock-In, and the Honest Economics of Leaving → **Chapter 28: Cloud Fundamentals — AWS & Azure**
+- old Chapter 10: Cloud — AWS & Azure → Summary → **Chapter 28: Cloud Fundamentals — AWS & Azure**
+- old Chapter 11: Containers & Orchestration → What a Container Actually Is → **Chapter 14: Containers and Linux**
+- old Chapter 11: Containers & Orchestration → Docker: Building Images → **Chapter 14: Containers and Linux**
+- old Chapter 11: Containers & Orchestration → Containerizing a .NET Application → **Chapter 14: Containers and Linux**
+- old Chapter 11: Containers & Orchestration → Docker Compose for Local Development → **Chapter 14: Containers and Linux**
+- old Chapter 11: Containers & Orchestration → Container Registries → **Chapter 14: Containers and Linux**
+- old Chapter 11: Containers & Orchestration → Kubernetes Fundamentals → **Chapter 26: Delivery and Platform**
+- old Chapter 11: Containers & Orchestration → Kubernetes YAML for a .NET Deployment → **Chapter 26: Delivery and Platform**
+- old Chapter 11: Containers & Orchestration → Helm and Kustomize: Managing Manifests at Scale → **Chapter 26: Delivery and Platform**
+- old Chapter 11: Containers & Orchestration → Essential kubectl Commands → **Chapter 26: Delivery and Platform**
+- old Chapter 11: Containers & Orchestration → Service Mesh: Awareness → **Chapter 26: Delivery and Platform**
+- old Chapter 11: Containers & Orchestration → .NET Aspire: Orchestration for Local Development → **Chapter 26: Delivery and Platform**
+- old Chapter 11: Containers & Orchestration → Summary → **Chapter 14: Containers and Linux**
+- old Chapter 12: DevOps & CI/CD → Git, Properly Understood → **Chapter 13: Git and CI/CD**
+- old Chapter 12: DevOps & CI/CD → What CI/CD Actually Means → **Chapter 13: Git and CI/CD**
+- old Chapter 12: DevOps & CI/CD → CI/CD Platforms → **Chapter 13: Git and CI/CD**
+- old Chapter 12: DevOps & CI/CD → A Complete GitHub Actions Workflow for .NET → **Chapter 13: Git and CI/CD**
+- old Chapter 12: DevOps & CI/CD → Azure Pipelines in Practice → **Chapter 26: Delivery and Platform**
+- old Chapter 12: DevOps & CI/CD → Build Automation with the dotnet CLI → **Chapter 13: Git and CI/CD**
+- old Chapter 12: DevOps & CI/CD → NuGet in Depth → **Chapter 26: Delivery and Platform**
+- old Chapter 12: DevOps & CI/CD → Semantic Versioning and GitVersion → **Chapter 13: Git and CI/CD**
+- old Chapter 12: DevOps & CI/CD → Deployment Strategies → **Chapter 26: Delivery and Platform**
+- old Chapter 12: DevOps & CI/CD → Feature Flags → **Chapter 26: Delivery and Platform**
+- old Chapter 12: DevOps & CI/CD → Secrets in Pipelines → **Chapter 13: Git and CI/CD**
+- old Chapter 12: DevOps & CI/CD → Static Analysis Gates in CI → **Chapter 13: Git and CI/CD**
+- old Chapter 12: DevOps & CI/CD → Platform Engineering and Measuring Delivery → **Chapter 26: Delivery and Platform**
+- old Chapter 12: DevOps & CI/CD → Bringing It Together → **Chapter 13: Git and CI/CD**
+- old Chapter 13: Observability → Why Observability, and How It Differs from Monitoring → **Chapter 9: Exceptions, Logging and First Diagnosis**
+- old Chapter 13: Observability → Structured Logging → **Chapter 9: Exceptions, Logging and First Diagnosis**
+- old Chapter 13: Observability → Metrics → **Chapter 25: Observability and Testing at Scale**
+- old Chapter 13: Observability → Distributed Tracing → **Chapter 25: Observability and Testing at Scale**
+- old Chapter 13: Observability → APM Tools → **Chapter 25: Observability and Testing at Scale**
+- old Chapter 13: Observability → Centralized Logging → **Chapter 9: Exceptions, Logging and First Diagnosis**
+- old Chapter 13: Observability → Correlation Across Services → **Chapter 9: Exceptions, Logging and First Diagnosis**
+- old Chapter 13: Observability → Alerting, SLIs, SLOs, SLAs, and Error Budgets → **Chapter 25: Observability and Testing at Scale**
+- old Chapter 13: Observability → Health Checks: The Tie-In → **Chapter 9: Exceptions, Logging and First Diagnosis**
+- old Chapter 13: Observability → The 3 a.m. Walk: One Incident, Three Signals → **Chapter 25: Observability and Testing at Scale**
+- old Chapter 13: Observability → Bringing It Together → **Chapter 25: Observability and Testing at Scale**
+- old Chapter 14: Security → The Security Mindset → **Chapter 12: Security Essentials**
+- old Chapter 14: Security → The OWASP Top 10, with .NET Mitigations → **Chapter 12: Security Essentials**
+- old Chapter 14: Security → Authentication vs. Authorization → **Chapter 12: Security Essentials**
+- old Chapter 14: Security → OAuth 2.0, OpenID Connect, and JWTs → **Chapter 12: Security Essentials**
+- old Chapter 14: Security → Identity Providers → **Chapter 12: Security Essentials**
+- old Chapter 14: Security → Secrets Management → **Chapter 12: Security Essentials**
+- old Chapter 14: Security → Zero Trust and Workload Identity → **Chapter 27: Security in Depth and the Supply Chain**
+- old Chapter 14: Security → HTTPS, TLS, HSTS, and Certificates → **Chapter 12: Security Essentials**
+- old Chapter 14: Security → Cryptography for Developers (basics) → **Chapter 12: Security Essentials**
+- old Chapter 14: Security → Cryptography for Developers (depth) → **Chapter 27: Security in Depth and the Supply Chain**
+- old Chapter 14: Security → Web-Facing Defenses → **Chapter 12: Security Essentials**
+- old Chapter 14: Security → Dependency Scanning → **Chapter 12: Security Essentials**
+- old Chapter 14: Security → Summary → **Chapter 12: Security Essentials**
+- old Chapter 15: Performance & Optimization → The Golden Rule: Measure, Don't Guess → **Chapter 17: Runtime Internals and Performance**
+- old Chapter 15: Performance & Optimization → Benchmarking with BenchmarkDotNet → **Chapter 17: Runtime Internals and Performance**
+- old Chapter 15: Performance & Optimization → Profiling: Finding the Bottleneck in a Running System → **Chapter 17: Runtime Internals and Performance**
+- old Chapter 15: Performance & Optimization → Memory and Allocations: The Quiet Performance Killer → **Chapter 17: Runtime Internals and Performance**
+- old Chapter 15: Performance & Optimization → Async Performance → **Chapter 17: Runtime Internals and Performance**
+- old Chapter 15: Performance & Optimization → EF Core Performance → **Chapter 18: Data in Depth**
+- old Chapter 15: Performance & Optimization → Caching as a Performance Lever → **Chapter 18: Data in Depth**
+- old Chapter 15: Performance & Optimization → Native AOT and Trimming: Startup and Size → **Chapter 17: Runtime Internals and Performance**
+- old Chapter 15: Performance & Optimization → Big-O Awareness and Choosing the Right Collection → **Chapter 17: Runtime Internals and Performance**
+- old Chapter 15: Performance & Optimization → Load Testing: Proving It Under Pressure → **Chapter 25: Observability and Testing at Scale**
+- old Chapter 15: Performance & Optimization → Common .NET Performance Anti-Patterns → **Chapter 17: Runtime Internals and Performance**
+- old Chapter 15: Performance & Optimization → Putting It All Together → **Chapter 17: Runtime Internals and Performance**
+- old Chapter 16: Tooling & Productivity → IDEs: Visual Studio, Rider, and VS Code → **Chapter 13: Git and CI/CD**
+- old Chapter 16: Tooling & Productivity → Refactoring & Linting → **Chapter 13: Git and CI/CD**
+- old Chapter 16: Tooling & Productivity → Formatting in CI → **Chapter 13: Git and CI/CD**
+- old Chapter 16: Tooling & Productivity → API Testing → **Chapter 13: Git and CI/CD**
+- old Chapter 16: Tooling & Productivity → The dotnet CLI and Global Tools → **Chapter 13: Git and CI/CD**
+- old Chapter 16: Tooling & Productivity → Git GUIs → **Chapter 13: Git and CI/CD**
+- old Chapter 16: Tooling & Productivity → Diagramming → **Chapter 13: Git and CI/CD**
+- old Chapter 16: Tooling & Productivity → Local Dev Tooling → **Chapter 13: Git and CI/CD**
+- old Chapter 16: Tooling & Productivity → AI-Assisted Development → **Chapter 32: The AI-Native Developer — Thriving in the AI Era**
+- old Chapter 17: Soft Skills & Engineering Practices → 17.1 From Solving Tickets to Creating Leverage → **Chapter 16: Working Like a Middle Developer**
+- old Chapter 17: Soft Skills & Engineering Practices → 17.2 Communication: The Real Superpower → **Chapter 16: Working Like a Middle Developer**
+- old Chapter 17: Soft Skills & Engineering Practices → 17.3 Code Review Mastery → **Chapter 16: Working Like a Middle Developer**
+- old Chapter 17: Soft Skills & Engineering Practices → 17.4 Estimation & Planning → **Chapter 16: Working Like a Middle Developer**
+- old Chapter 17: Soft Skills & Engineering Practices → 17.5 Technical Writing & Documentation → **Chapter 16: Working Like a Middle Developer**
+- old Chapter 17: Soft Skills & Engineering Practices → 17.6 Methodical Debugging & Problem Solving → **Chapter 16: Working Like a Middle Developer**
+- old Chapter 17: Soft Skills & Engineering Practices → 17.7 Safe Change, Refactoring & Tech Debt → **Chapter 16: Working Like a Middle Developer**
+- old Chapter 17: Soft Skills & Engineering Practices → 17.8 Mentoring, Pairing & Growing Others → **Chapter 36: Senior Behaviours, Career and Interviews**
+- old Chapter 17: Soft Skills & Engineering Practices → 17.9 Agile in Practice (Not Cargo-Cult) → **Chapter 16: Working Like a Middle Developer**
+- old Chapter 17: Soft Skills & Engineering Practices → 17.10 Judgment & Influence → **Chapter 36: Senior Behaviours, Career and Interviews**
+- old Chapter 17: Soft Skills & Engineering Practices → 17.11 Ownership & Professionalism → **Chapter 16: Working Like a Middle Developer**
+- old Chapter 17: Soft Skills & Engineering Practices → 17.12 Career Growth: Toward Senior and Staff → **Chapter 36: Senior Behaviours, Career and Interviews**
+- old Chapter 17: Soft Skills & Engineering Practices → Exercises → **Chapter 16: Working Like a Middle Developer**
+- old Chapter 18: The AI-Native Developer — Thriving in the AI Era → Part I — Becoming Valuable When AI Can Write the Code → **Chapter 32: The AI-Native Developer — Thriving in the AI Era**
+- old Chapter 18: The AI-Native Developer — Thriving in the AI Era → Part II — Working Productively with AI: The Agentic Developer Workflow → **Chapter 32: The AI-Native Developer — Thriving in the AI Era**
+- old Chapter 19: Building AI-Powered Systems → Thinking about an LLM as a component → **Chapter 33: Building AI-Powered Systems**
+- old Chapter 19: Building AI-Powered Systems → Prompt engineering for applications → **Chapter 33: Building AI-Powered Systems**
+- old Chapter 19: Building AI-Powered Systems → Tool (function) calling → **Chapter 33: Building AI-Powered Systems**
+- old Chapter 19: Building AI-Powered Systems → Model Context Protocol (MCP) for products → **Chapter 33: Building AI-Powered Systems**
+- old Chapter 19: Building AI-Powered Systems → Retrieval-Augmented Generation (RAG) → **Chapter 33: Building AI-Powered Systems**
+- old Chapter 19: Building AI-Powered Systems → Chatbots and conversational systems → **Chapter 33: Building AI-Powered Systems**
+- old Chapter 19: Building AI-Powered Systems → Memory: what the system remembers between turns → **Chapter 33: Building AI-Powered Systems**
+- old Chapter 19: Building AI-Powered Systems → Workflow patterns: the ground between one call and an agent → **Chapter 33: Building AI-Powered Systems**
+- old Chapter 19: Building AI-Powered Systems → Agents → **Chapter 33: Building AI-Powered Systems**
+- old Chapter 19: Building AI-Powered Systems → Running agents durably → **Chapter 33: Building AI-Powered Systems**
+- old Chapter 19: Building AI-Powered Systems → The .NET AI stack → **Chapter 33: Building AI-Powered Systems**
+- old Chapter 19: Building AI-Powered Systems → Integrating AI into existing applications → **Chapter 33: Building AI-Powered Systems**
+- old Chapter 19: Building AI-Powered Systems → Cost mechanics: caching, batching, and thinking budgets → **Chapter 33: Building AI-Powered Systems**
+- old Chapter 19: Building AI-Powered Systems → Evaluation and observability → **Chapter 33: Building AI-Powered Systems**
+- old Chapter 19: Building AI-Powered Systems → Securing AI features and agents → **Chapter 33: Building AI-Powered Systems**
+- old Chapter 19: Building AI-Powered Systems → Bringing it together: production concerns → **Chapter 33: Building AI-Powered Systems**
+- old Chapter 20: Networking & Web Fundamentals → The Layered Model: OSI and TCP/IP → **Chapter 5: HTTP and Web APIs**
+- old Chapter 20: Networking & Web Fundamentals → TCP vs UDP → **Chapter 5: HTTP and Web APIs**
+- old Chapter 20: Networking & Web Fundamentals → DNS Resolution → **Chapter 5: HTTP and Web APIs**
+- old Chapter 20: Networking & Web Fundamentals → How HTTP Works → **Chapter 5: HTTP and Web APIs**
+- old Chapter 20: Networking & Web Fundamentals → HTTP/1.1 vs HTTP/2 vs HTTP/3: A History of Fixing Head-of-Line Blocking → **Chapter 5: HTTP and Web APIs**
+- old Chapter 20: Networking & Web Fundamentals → HTTPS and the TLS Handshake, Step by Step → **Chapter 12: Security Essentials**
+- old Chapter 20: Networking & Web Fundamentals → Cookies, Sessions, and the Same-Origin Policy → **Chapter 6: Frontend Essentials**
+- old Chapter 20: Networking & Web Fundamentals → Status Codes and Headers That Matter → **Chapter 5: HTTP and Web APIs**
+- old Chapter 20: Networking & Web Fundamentals → Keep-Alive, Connection Pooling, and Socket Exhaustion → **Chapter 5: HTTP and Web APIs**
+- old Chapter 20: Networking & Web Fundamentals → Load Balancers, Reverse Proxies, API Gateways, and CDNs → **Chapter 26: Delivery and Platform**
+- old Chapter 20: Networking & Web Fundamentals → Real-Time: WebSockets vs SSE vs Long-Polling → **Chapter 22: API Evolution, Real-Time and Serialization**
+- old Chapter 20: Networking & Web Fundamentals → Rate Limiting and Timeouts at the Edge → **Chapter 26: Delivery and Platform**
+- old Chapter 20: Networking & Web Fundamentals → Abuse, Bots, and Traffic You Did Not Ask For → **Chapter 26: Delivery and Platform**
+- old Chapter 20: Networking & Web Fundamentals → The Fallacies of Distributed Computing → **Chapter 20: Distributed Systems**
+- old Chapter 20: Networking & Web Fundamentals → Sources & Further Reading → **Chapter 5: HTTP and Web APIs**
+- old Chapter 21: Distributed Systems Theory & Reliability Engineering → The Eight Fallacies of Distributed Computing → **Chapter 20: Distributed Systems**
+- old Chapter 21: Distributed Systems Theory & Reliability Engineering → CAP and PACELC: The Physics of Distributed State → **Chapter 20: Distributed Systems**
+- old Chapter 21: Distributed Systems Theory & Reliability Engineering → Consistency Models: What "The Data Is Correct" Even Means → **Chapter 20: Distributed Systems**
+- old Chapter 21: Distributed Systems Theory & Reliability Engineering → Consensus: Getting Nodes to Agree → **Chapter 20: Distributed Systems**
+- old Chapter 21: Distributed Systems Theory & Reliability Engineering → Distributed Time: Why You Can't Trust the Clock → **Chapter 20: Distributed Systems**
+- old Chapter 21: Distributed Systems Theory & Reliability Engineering → Distributed Locks Are Dangerous → **Chapter 20: Distributed Systems**
+- old Chapter 21: Distributed Systems Theory & Reliability Engineering → Idempotency: The Antidote to "Did That Actually Happen?" → **Chapter 20: Distributed Systems**
+- old Chapter 21: Distributed Systems Theory & Reliability Engineering → Detecting Failure and Retrying Without Making It Worse → **Chapter 20: Distributed Systems**
+- old Chapter 21: Distributed Systems Theory & Reliability Engineering → From Theory to Practice: Reliability & SRE → **Chapter 20: Distributed Systems**
+- old Chapter 21: Distributed Systems Theory & Reliability Engineering → Verifying Resilience: Chaos Engineering in Practice → **Chapter 20: Distributed Systems**
+- old Chapter 21: Distributed Systems Theory & Reliability Engineering → The Debugging Map: Symptom → Theory → Mitigation → **Chapter 35: Production Incidents**
+- old Chapter 21: Distributed Systems Theory & Reliability Engineering → Putting It Together → **Chapter 20: Distributed Systems**
+- old Chapter 21: Distributed Systems Theory & Reliability Engineering → Sources & Further Reading → **Chapter 20: Distributed Systems**
+- old Chapter 22: Background Processing, Scheduling & the Actor Model → Part A — Background Processing in .NET → **Chapter 11: Messaging and Background Work**
+- old Chapter 22: Background Processing, Scheduling & the Actor Model → Async Request-Reply: 202, a Status Resource, and Retry-After → **Chapter 11: Messaging and Background Work**
+- old Chapter 22: Background Processing, Scheduling & the Actor Model → Part B — Scheduling & Job Frameworks → **Chapter 20: Distributed Systems**
+- old Chapter 22: Background Processing, Scheduling & the Actor Model → Part C — The Actor Model & Microsoft Orleans → **Chapter 20: Distributed Systems**
+- old Chapter 22: Background Processing, Scheduling & the Actor Model → Wrapping Up → **Chapter 20: Distributed Systems**
+- old Chapter 22: Background Processing, Scheduling & the Actor Model → Sources & Further Reading → **Chapter 20: Distributed Systems**
+- old Chapter 23: Data at Scale & Multi-Tenancy → Vertical vs. Horizontal Scaling → **Chapter 18: Data in Depth**
+- old Chapter 23: Data at Scale & Multi-Tenancy → Scaling Reads with Replication → **Chapter 18: Data in Depth**
+- old Chapter 23: Data at Scale & Multi-Tenancy → Partitioning and Sharding → **Chapter 18: Data in Depth**
+- old Chapter 23: Data at Scale & Multi-Tenancy → Change Data Capture (CDC) → **Chapter 18: Data in Depth**
+- old Chapter 23: Data at Scale & Multi-Tenancy → Migrations at Scale (Zero-Downtime) → **Chapter 18: Data in Depth**
+- old Chapter 23: Data at Scale & Multi-Tenancy → Connection Management Under Load → **Chapter 18: Data in Depth**
+- old Chapter 23: Data at Scale & Multi-Tenancy → Polyglot Persistence, CQRS Read Stores, and Caching → **Chapter 18: Data in Depth**
+- old Chapter 23: Data at Scale & Multi-Tenancy → Multi-Tenancy → **Chapter 18: Data in Depth**
+- old Chapter 23: Data at Scale & Multi-Tenancy → Sources & Further Reading → **Chapter 18: Data in Depth**
+- old Chapter 24: Serialization & Schema Evolution → Why the Serialization Format Matters → **Chapter 22: API Evolution, Real-Time and Serialization**
+- old Chapter 24: Serialization & Schema Evolution → Text vs Binary: The Fundamental Split → **Chapter 22: API Evolution, Real-Time and Serialization**
+- old Chapter 24: Serialization & Schema Evolution → JSON in Modern .NET: `System.Text.Json` → **Chapter 22: API Evolution, Real-Time and Serialization**
+- old Chapter 24: Serialization & Schema Evolution → XML: Still Around, Still Sometimes Right → **Chapter 22: API Evolution, Real-Time and Serialization**
+- old Chapter 24: Serialization & Schema Evolution → Protocol Buffers: Schema-First Binary → **Chapter 22: API Evolution, Real-Time and Serialization**
+- old Chapter 24: Serialization & Schema Evolution → MessagePack: Binary JSON, No Schema File → **Chapter 22: API Evolution, Real-Time and Serialization**
+- old Chapter 24: Serialization & Schema Evolution → Apache Avro: Built for Evolution → **Chapter 22: API Evolution, Real-Time and Serialization**
+- old Chapter 24: Serialization & Schema Evolution → Benchmark Intuition: The Size/Speed Landscape → **Chapter 22: API Evolution, Real-Time and Serialization**
+- old Chapter 24: Serialization & Schema Evolution → The Core Topic: Schema and Contract Evolution → **Chapter 22: API Evolution, Real-Time and Serialization**
+- old Chapter 24: Serialization & Schema Evolution → Versioning Strategies for REST APIs → **Chapter 22: API Evolution, Real-Time and Serialization**
+- old Chapter 24: Serialization & Schema Evolution → Versioning Events and Messages → **Chapter 22: API Evolution, Real-Time and Serialization**
+- old Chapter 24: Serialization & Schema Evolution → A Concrete Example: Evolving an Order Event Safely → **Chapter 22: API Evolution, Real-Time and Serialization**
+- old Chapter 24: Serialization & Schema Evolution → Summary → **Chapter 22: API Evolution, Real-Time and Serialization**
+- old Chapter 24: Serialization & Schema Evolution → Sources & Further Reading → **Chapter 22: API Evolution, Real-Time and Serialization**
+- old Chapter 25: Advanced & Specialized Testing → Contract Testing: Killing the Integration Test Explosion → **Chapter 25: Observability and Testing at Scale**
+- old Chapter 25: Advanced & Specialized Testing → Property-Based Testing: Asserting the Rules, Not the Examples → **Chapter 25: Observability and Testing at Scale**
+- old Chapter 25: Advanced & Specialized Testing → End-to-End, UI, and API Testing → **Chapter 25: Observability and Testing at Scale**
+- old Chapter 25: Advanced & Specialized Testing → Load & Performance Testing → **Chapter 25: Observability and Testing at Scale**
+- old Chapter 25: Advanced & Specialized Testing → Deterministic Tests: Time, Async, and Test Data → **Chapter 8: Testing**
+- old Chapter 25: Advanced & Specialized Testing → Mutation Testing: Testing Your Tests → **Chapter 25: Observability and Testing at Scale**
+- old Chapter 25: Advanced & Specialized Testing → Testing Nondeterministic Systems: Evals for AI Features → **Chapter 25: Observability and Testing at Scale**
+- old Chapter 25: Advanced & Specialized Testing → Choosing Your Instruments → **Chapter 25: Observability and Testing at Scale**
+- old Chapter 25: Advanced & Specialized Testing → Bringing It Together → **Chapter 25: Observability and Testing at Scale**
+- old Chapter 25: Advanced & Specialized Testing → Sources & Further Reading → **Chapter 25: Observability and Testing at Scale**
+- old Chapter 26: Real-World Engineering Essentials → Date and Time Done Right → **Chapter 15: Dates, Money and Strings**
+- old Chapter 26: Real-World Engineering Essentials → Money and Numbers → **Chapter 15: Dates, Money and Strings**
+- old Chapter 26: Real-World Engineering Essentials → Globalization and Localization (i18n / l10n) → **Chapter 15: Dates, Money and Strings**
+- old Chapter 26: Real-World Engineering Essentials → Common Integrations Every App Needs → **Chapter 15: Dates, Money and Strings**
+- old Chapter 26: Real-World Engineering Essentials → Sources & Further Reading → **Chapter 15: Dates, Money and Strings**
+- old Chapter 27: Data Structures, Algorithms & System Design Fundamentals → Big-O: The Language of "How Bad Does This Get?" → **Chapter 2: Data Structures and Algorithms Essentials**
+- old Chapter 27: Data Structures, Algorithms & System Design Fundamentals → Core Data Structures and Their .NET Types → **Chapter 2: Data Structures and Algorithms Essentials**
+- old Chapter 27: Data Structures, Algorithms & System Design Fundamentals → Key Algorithms and Patterns → **Chapter 2: Data Structures and Algorithms Essentials**
+- old Chapter 27: Data Structures, Algorithms & System Design Fundamentals → Choosing the Right Tool for a Real Problem → **Chapter 2: Data Structures and Algorithms Essentials**
+- old Chapter 27: Data Structures, Algorithms & System Design Fundamentals → System Design Fundamentals → **Chapter 23: System Design**
+- old Chapter 27: Data Structures, Algorithms & System Design Fundamentals → Bringing It Together → **Chapter 2: Data Structures and Algorithms Essentials**
+- old Chapter 27: Data Structures, Algorithms & System Design Fundamentals → Sources & Further Reading → **Chapter 2: Data Structures and Algorithms Essentials**
+- old Chapter 28: Compliance, Data Privacy & Cloud Cost (FinOps) → Part A — Compliance & Data Privacy for Engineers → **Chapter 31: Compliance, Data Privacy & Cloud Cost (FinOps)**
+- old Chapter 28: Compliance, Data Privacy & Cloud Cost (FinOps) → Part B — Cloud Cost / FinOps → **Chapter 31: Compliance, Data Privacy & Cloud Cost (FinOps)**
+- old Chapter 28: Compliance, Data Privacy & Cloud Cost (FinOps) → Part C — Green Software: the Same Levers, a Second Reason → **Chapter 31: Compliance, Data Privacy & Cloud Cost (FinOps)**
+- old Chapter 28: Compliance, Data Privacy & Cloud Cost (FinOps) → Bringing the three together → **Chapter 31: Compliance, Data Privacy & Cloud Cost (FinOps)**
+- old Chapter 28: Compliance, Data Privacy & Cloud Cost (FinOps) → Sources & Further Reading → **Chapter 31: Compliance, Data Privacy & Cloud Cost (FinOps)**
+- old Chapter 29: Frontend & Full-Stack for .NET Developers → The Web the Browser Sees → **Chapter 6: Frontend Essentials**
+- old Chapter 29: Frontend & Full-Stack for .NET Developers → Integrating a .NET API with a JavaScript SPA (basics) → **Chapter 6: Frontend Essentials**
+- old Chapter 29: Frontend & Full-Stack for .NET Developers → Integrating a .NET API with a JavaScript SPA (depth) → **Chapter 34: Frontend and Full-Stack in Depth**
+- old Chapter 29: Frontend & Full-Stack for .NET Developers → Blazor: C# in the Browser (and on the Server) → **Chapter 34: Frontend and Full-Stack in Depth**
+- old Chapter 29: Frontend & Full-Stack for .NET Developers → Native Clients from C#: MAUI, Uno, Avalonia → **Chapter 34: Frontend and Full-Stack in Depth**
+- old Chapter 29: Frontend & Full-Stack for .NET Developers → Accessibility: The Part That Is Now Law (basics) → **Chapter 6: Frontend Essentials**
+- old Chapter 29: Frontend & Full-Stack for .NET Developers → Accessibility: The Part That Is Now Law (depth) → **Chapter 34: Frontend and Full-Stack in Depth**
+- old Chapter 29: Frontend & Full-Stack for .NET Developers → How Much Frontend Should You Actually Learn? → **Chapter 6: Frontend Essentials**
+- old Chapter 29: Frontend & Full-Stack for .NET Developers → Sources & Further Reading → **Chapter 34: Frontend and Full-Stack in Depth**
+- old Chapter 30: Working with Legacy & Brownfield Code → The Myth of the Greenfield → **Chapter 24: Working with Legacy & Brownfield Code**
+- old Chapter 30: Working with Legacy & Brownfield Code → Changing Code You Don't Understand → **Chapter 24: Working with Legacy & Brownfield Code**
+- old Chapter 30: Working with Legacy & Brownfield Code → Modernizing at Scale: Strangler Fig vs. the Big Rewrite → **Chapter 24: Working with Legacy & Brownfield Code**
+- old Chapter 30: Working with Legacy & Brownfield Code → .NET Framework to Modern .NET in Practice → **Chapter 24: Working with Legacy & Brownfield Code**
+- old Chapter 30: Working with Legacy & Brownfield Code → Living With a Big Ball of Mud → **Chapter 24: Working with Legacy & Brownfield Code**
+- old Chapter 30: Working with Legacy & Brownfield Code → Data, Downtime, and Measuring Progress → **Chapter 24: Working with Legacy & Brownfield Code**
+- old Chapter 30: Working with Legacy & Brownfield Code → The EOL Treadmill: Legacy Is a Verb → **Chapter 24: Working with Legacy & Brownfield Code**
+- old Chapter 30: Working with Legacy & Brownfield Code → Sources & Further Reading → **Chapter 24: Working with Legacy & Brownfield Code**
+- old Chapter 31: Linux & the Command Line for .NET Developers → Why Linux Matters for Modern .NET → **Chapter 14: Containers and Linux**
+- old Chapter 31: Linux & the Command Line for .NET Developers → The Shell: Your Real Interface → **Chapter 14: Containers and Linux**
+- old Chapter 31: Linux & the Command Line for .NET Developers → The Filesystem Hierarchy → **Chapter 14: Containers and Linux**
+- old Chapter 31: Linux & the Command Line for .NET Developers → Permissions: Why Your Container App Can't Write That File → **Chapter 14: Containers and Linux**
+- old Chapter 31: Linux & the Command Line for .NET Developers → Processes & Signals: Graceful Shutdown → **Chapter 14: Containers and Linux**
+- old Chapter 31: Linux & the Command Line for .NET Developers → Essential Commands → **Chapter 14: Containers and Linux**
+- old Chapter 31: Linux & the Command Line for .NET Developers → Pipes, Redirection, Exit Codes, and Chaining → **Chapter 14: Containers and Linux**
+- old Chapter 31: Linux & the Command Line for .NET Developers → Environment Variables and How .NET Reads Them → **Chapter 14: Containers and Linux**
+- old Chapter 31: Linux & the Command Line for .NET Developers → Package Managers, Briefly → **Chapter 14: Containers and Linux**
+- old Chapter 31: Linux & the Command Line for .NET Developers → systemd: Running a .NET App as a Service → **Chapter 26: Delivery and Platform**
+- old Chapter 31: Linux & the Command Line for .NET Developers → Viewing Logs → **Chapter 14: Containers and Linux**
+- old Chapter 31: Linux & the Command Line for .NET Developers → Networking Tools → **Chapter 14: Containers and Linux**
+- old Chapter 31: Linux & the Command Line for .NET Developers → Shell Scripting for Automation → **Chapter 26: Delivery and Platform**
+- old Chapter 31: Linux & the Command Line for .NET Developers → Text Editors: nano and vim Survival → **Chapter 14: Containers and Linux**
+- old Chapter 31: Linux & the Command Line for .NET Developers → WSL2: Developing on Windows, Targeting Linux → **Chapter 14: Containers and Linux**
+- old Chapter 31: Linux & the Command Line for .NET Developers → Live-Container Triage: A Walkthrough → **Chapter 35: Production Incidents**
+- old Chapter 31: Linux & the Command Line for .NET Developers → Putting It Together → **Chapter 14: Containers and Linux**
+- old Chapter 31: Linux & the Command Line for .NET Developers → Sources & Further Reading → **Chapter 14: Containers and Linux**
+- old Chapter 32: Putting It All Together — A Capstone Learning Path → A Phased Learning Path → **RETIRE**
+- old Chapter 32: Putting It All Together — A Capstone Learning Path → The Capstone: One Project, Growing Up → **Chapter 44: Capstone — One Project, Growing Up**
+- old Chapter 32: Putting It All Together — A Capstone Learning Path → How to Keep Learning → **Chapter 36: Senior Behaviours, Career and Interviews**
+- old Chapter 32: Putting It All Together — A Capstone Learning Path → A Short Shelf of Great Books → **Chapter 36: Senior Behaviours, Career and Interviews**
+- old Chapter 32: Putting It All Together — A Capstone Learning Path → Depth Versus Breadth, and Why You Will Return → **Chapter 36: Senior Behaviours, Career and Interviews**
+- old Chapter 33: Real-World Scenarios & Architectural Decisions → The incident cheat-card → **Chapter 35: Production Incidents**
+- old Chapter 33: Real-World Scenarios & Architectural Decisions → Scenario 1 — Black Friday: traffic is 5× and the shop is falling over → **Chapter 35: Production Incidents**
+- old Chapter 33: Real-World Scenarios & Architectural Decisions → Scenario 2 — The lost write: the user got 200 but the data never saved → **Chapter 35: Production Incidents**
+- old Chapter 33: Real-World Scenarios & Architectural Decisions → Scenario 3 — Stop-the-world: garbage collector pauses are causing latency spikes → **Chapter 35: Production Incidents**
+- old Chapter 33: Real-World Scenarios & Architectural Decisions → Scenario 4 — The broker is down: a critical dependency has failed → **Chapter 35: Production Incidents**
+- old Chapter 33: Real-World Scenarios & Architectural Decisions → Scenario 5 — Disaster: the database is gone. How backups should really be done → **Chapter 35: Production Incidents**
+- old Chapter 33: Real-World Scenarios & Architectural Decisions → Scenario 6 — Polyglot: the system is modules in different languages that must talk → **Chapter 35: Production Incidents**
+- old Chapter 33: Real-World Scenarios & Architectural Decisions → Scenario 7 — The slow leak: memory keeps growing until the pod is OOM-killed → **Chapter 35: Production Incidents**
+- old Chapter 33: Real-World Scenarios & Architectural Decisions → Scenario 8 — Hardened: the security measures that actually matter → **Chapter 35: Production Incidents**
+- old Chapter 33: Real-World Scenarios & Architectural Decisions → Scenario 9 — Custody: the special problems of storing user personal data → **Chapter 35: Production Incidents**
+- old Chapter 33: Real-World Scenarios & Architectural Decisions → Scenario 10 — Poisoned well: a dependency you never chose shipped a backdoor → **Chapter 35: Production Incidents**
+- old Chapter 33: Real-World Scenarios & Architectural Decisions → Scenario 11 — The agent leaked customer data through a tool call → **Chapter 35: Production Incidents**
+- old Chapter 33: Real-World Scenarios & Architectural Decisions → Scenario 12 — The invisible customer: an AI crawler tripled the egress bill → **Chapter 35: Production Incidents**
+- old Chapter 33: Real-World Scenarios & Architectural Decisions → Sources & Further Reading → **Chapter 35: Production Incidents**
+- old Chapter 34: Interview Questions & How to Answer Them → How to Approach Any Interview → **Chapter 36: Senior Behaviours, Career and Interviews**
+- old Chapter 34: Interview Questions & How to Answer Them → Diagnosing a Performance Problem (a worked methodology) → **Chapter 9: Exceptions, Logging and First Diagnosis**
+- old Chapter 34: Interview Questions & How to Answer Them → C# Language → **Chapter 1: C# Essentials**
+- old Chapter 34: Interview Questions & How to Answer Them → .NET Runtime, GC & Memory → **Chapter 17: Runtime Internals and Performance**
+- old Chapter 34: Interview Questions & How to Answer Them → Async & Concurrency → **Chapter 4: Async Essentials**
+- old Chapter 34: Interview Questions & How to Answer Them → ASP.NET Core & Web → **Chapter 5: HTTP and Web APIs**
+- old Chapter 34: Interview Questions & How to Answer Them → Entity Framework & Databases → **Chapter 7: Data Access**
+- old Chapter 34: Interview Questions & How to Answer Them → Architecture & Design → **Chapter 21: Architecture**
+- old Chapter 34: Interview Questions & How to Answer Them → Distributed Systems & Scaling → **Chapter 20: Distributed Systems**
+- old Chapter 34: Interview Questions & How to Answer Them → Security → **Chapter 12: Security Essentials**
+- old Chapter 34: Interview Questions & How to Answer Them → Testing → **Chapter 8: Testing**
+- old Chapter 34: Interview Questions & How to Answer Them → System Design (mini) → **Chapter 23: System Design**
+- old Chapter 34: Interview Questions & How to Answer Them → Behavioral / Seniority → **Chapter 36: Senior Behaviours, Career and Interviews**
+- old Chapter 34: Interview Questions & How to Answer Them → When the Client Interviews You → **Chapter 43: Positioning and Public Proof**
+- old Chapter 34: Interview Questions & How to Answer Them → Sources & Further Reading → **Chapter 36: Senior Behaviours, Career and Interviews**
+- old Chapter 35: Software Supply Chain Security → The Shape of the Problem → **Chapter 27: Security in Depth and the Supply Chain**
+- old Chapter 35: Software Supply Chain Security → Attacks on What You Consume → **Chapter 27: Security in Depth and the Supply Chain**
+- old Chapter 35: Software Supply Chain Security → Pinning What You Actually Build → **Chapter 27: Security in Depth and the Supply Chain**
+- old Chapter 35: Software Supply Chain Security → The Build Is Part of the Attack Surface → **Chapter 27: Security in Depth and the Supply Chain**
+- old Chapter 35: Software Supply Chain Security → Knowing What You Shipped: SBOMs → **Chapter 27: Security in Depth and the Supply Chain**
+- old Chapter 35: Software Supply Chain Security → Proving How You Built It: Provenance → **Chapter 27: Security in Depth and the Supply Chain**
+- old Chapter 35: Software Supply Chain Security → When It Happens: The Response Playbook → **Chapter 27: Security in Depth and the Supply Chain**
+- old Chapter 35: Software Supply Chain Security → The Regulatory Floor → **Chapter 27: Security in Depth and the Supply Chain**
+- old Chapter 35: Software Supply Chain Security → Where to Start → **Chapter 27: Security in Depth and the Supply Chain**
+- old Chapter 35: Software Supply Chain Security → Summary → **Chapter 27: Security in Depth and the Supply Chain**
+- old Chapter 35: Software Supply Chain Security → Sources & Further Reading → **Chapter 27: Security in Depth and the Supply Chain**
+- old Chapter 36: The Story Bank & Evidence Portfolio → Goal and the senior signal it trains → **Chapter 37: The Story Bank & Evidence Portfolio**
+- old Chapter 36: The Story Bank & Evidence Portfolio → Time budget → **Chapter 37: The Story Bank & Evidence Portfolio**
+- old Chapter 36: The Story Bank & Evidence Portfolio → Setup → **Chapter 37: The Story Bank & Evidence Portfolio**
+- old Chapter 36: The Story Bank & Evidence Portfolio → Mining everyday work for stories → **Chapter 37: The Story Bank & Evidence Portfolio**
+- old Chapter 36: The Story Bank & Evidence Portfolio → The story bank → **Chapter 37: The Story Bank & Evidence Portfolio**
+- old Chapter 36: The Story Bank & Evidence Portfolio → The weekly brag doc → **Chapter 37: The Story Bank & Evidence Portfolio**
+- old Chapter 36: The Story Bank & Evidence Portfolio → From artifact to CV bullet → **Chapter 37: The Story Bank & Evidence Portfolio**
+- old Chapter 36: The Story Bank & Evidence Portfolio → Honesty rules → **Chapter 37: The Story Bank & Evidence Portfolio**
+- old Chapter 36: The Story Bank & Evidence Portfolio → The mock-interview protocol → **Chapter 37: The Story Bank & Evidence Portfolio**
+- old Chapter 36: The Story Bank & Evidence Portfolio → Tasks → **Chapter 37: The Story Bank & Evidence Portfolio**
+- old Chapter 36: The Story Bank & Evidence Portfolio → Break it → **Chapter 37: The Story Bank & Evidence Portfolio**
+- old Chapter 36: The Story Bank & Evidence Portfolio → Evidence to keep → **Chapter 37: The Story Bank & Evidence Portfolio**
+- old Chapter 36: The Story Bank & Evidence Portfolio → Interview hook → **Chapter 37: The Story Bank & Evidence Portfolio**
+- old Chapter 36: The Story Bank & Evidence Portfolio → Hints and answers → **Chapter 37: The Story Bank & Evidence Portfolio**
+- old Chapter 36: The Story Bank & Evidence Portfolio → Further reading → **Chapter 37: The Story Bank & Evidence Portfolio**
+- old Chapter 37: The Slow-Query Lab — Reading Execution Plans → Goal and the senior signal it trains → **Chapter 19: The Slow-Query Lab — Reading Execution Plans**
+- old Chapter 37: The Slow-Query Lab — Reading Execution Plans → Time budget → **Chapter 19: The Slow-Query Lab — Reading Execution Plans**
+- old Chapter 37: The Slow-Query Lab — Reading Execution Plans → Setup → **Chapter 19: The Slow-Query Lab — Reading Execution Plans**
+- old Chapter 37: The Slow-Query Lab — Reading Execution Plans → Tasks → **Chapter 19: The Slow-Query Lab — Reading Execution Plans**
+- old Chapter 37: The Slow-Query Lab — Reading Execution Plans → Break it → **Chapter 19: The Slow-Query Lab — Reading Execution Plans**
+- old Chapter 37: The Slow-Query Lab — Reading Execution Plans → Evidence to keep → **Chapter 19: The Slow-Query Lab — Reading Execution Plans**
+- old Chapter 37: The Slow-Query Lab — Reading Execution Plans → Interview hook → **Chapter 19: The Slow-Query Lab — Reading Execution Plans**
+- old Chapter 37: The Slow-Query Lab — Reading Execution Plans → Hints and answers → **Chapter 19: The Slow-Query Lab — Reading Execution Plans**
+- old Chapter 37: The Slow-Query Lab — Reading Execution Plans → Further reading → **Chapter 19: The Slow-Query Lab — Reading Execution Plans**
+- old Chapter 50: Azure in Depth for .NET Developers → Certifications: What They Measure, and Where This Chapter Stands → **Chapter 29: Azure in Depth for .NET Developers**
+- old Chapter 50: Azure in Depth for .NET Developers → The Control Plane: How Azure Is Organised → **Chapter 29: Azure in Depth for .NET Developers**
+- old Chapter 50: Azure in Depth for .NET Developers → Identity: Entra ID, Managed Identity and RBAC, Mechanically → **Chapter 29: Azure in Depth for .NET Developers**
+- old Chapter 50: Azure in Depth for .NET Developers → Compute: Choosing It and Running It → **Chapter 29: Azure in Depth for .NET Developers**
+- old Chapter 50: Azure in Depth for .NET Developers → Storage Accounts and Blob Storage → **Chapter 29: Azure in Depth for .NET Developers**
+- old Chapter 50: Azure in Depth for .NET Developers → Cosmos DB for NoSQL → **Chapter 29: Azure in Depth for .NET Developers**
+- old Chapter 50: Azure in Depth for .NET Developers → Azure SQL Database → **Chapter 29: Azure in Depth for .NET Developers**
+- old Chapter 50: Azure in Depth for .NET Developers → Messaging: Service Bus, Event Hubs and Event Grid → **Chapter 29: Azure in Depth for .NET Developers**
+- old Chapter 50: Azure in Depth for .NET Developers → Configuration and Secrets: Key Vault and App Configuration → **Chapter 29: Azure in Depth for .NET Developers**
+- old Chapter 50: Azure in Depth for .NET Developers → API Management → **Chapter 29: Azure in Depth for .NET Developers**
+- old Chapter 50: Azure in Depth for .NET Developers → Networking for Application Developers → **Chapter 29: Azure in Depth for .NET Developers**
+- old Chapter 50: Azure in Depth for .NET Developers → Observability: Application Insights and KQL → **Chapter 29: Azure in Depth for .NET Developers**
+- old Chapter 50: Azure in Depth for .NET Developers → Infrastructure as Code, the Azure Way → **Chapter 29: Azure in Depth for .NET Developers**
+- old Chapter 50: Azure in Depth for .NET Developers → Cost: The Developer's Share of the Bill → **Chapter 29: Azure in Depth for .NET Developers**
+- old Chapter 50: Azure in Depth for .NET Developers → Self-check: Exam-Style Questions → **Chapter 29: Azure in Depth for .NET Developers**
+- old Chapter 50: Azure in Depth for .NET Developers → Summary → **Chapter 29: Azure in Depth for .NET Developers**
+- old Chapter 51: The Azure Casebook — Real Incidents, Real Fixes → The Azure Triage Card → **Chapter 30: The Azure Casebook — Real Incidents, Real Fixes**
+- old Chapter 51: The Azure Casebook — Real Incidents, Real Fixes → Case 1 — "It's Contributor on the whole subscription and still gets 403" → **Chapter 30: The Azure Casebook — Real Incidents, Real Fixes**
+- old Chapter 51: The Azure Casebook — Real Incidents, Real Fixes → Case 2 — "Works on my machine, fails in Azure": the credential chain picked the wrong identity → **Chapter 30: The Azure Casebook — Real Incidents, Real Fixes**
+- old Chapter 51: The Azure Casebook — Real Incidents, Real Fixes → Case 3 — Intermittent timeouts under load, with every dashboard green → **Chapter 30: The Azure Casebook — Real Incidents, Real Fixes**
+- old Chapter 51: The Azure Casebook — Real Incidents, Real Fixes → Case 4 — A minute of 500s after every deployment → **Chapter 30: The Azure Casebook — Real Incidents, Real Fixes**
+- old Chapter 51: The Azure Casebook — Real Incidents, Real Fixes → Case 5 — Customers charged twice: the batch that outlived its locks → **Chapter 30: The Azure Casebook — Real Incidents, Real Fixes**
+- old Chapter 51: The Azure Casebook — Real Incidents, Real Fixes → Case 6 — 40,000 messages in the dead-letter queue, and nobody knew → **Chapter 30: The Azure Casebook — Real Incidents, Real Fixes**
+- old Chapter 51: The Azure Casebook — Real Incidents, Real Fixes → Case 7 — Functions scaled out and took the database down → **Chapter 30: The Azure Casebook — Real Incidents, Real Fixes**
+- old Chapter 51: The Azure Casebook — Real Incidents, Real Fixes → Case 8 — Cosmos DB throttles at a third of its provisioned throughput → **Chapter 30: The Azure Casebook — Real Incidents, Real Fixes**
+- old Chapter 51: The Azure Casebook — Real Incidents, Real Fixes → Case 9 — The Cosmos DB bill doubled after a small feature → **Chapter 30: The Azure Casebook — Real Incidents, Real Fixes**
+- old Chapter 51: The Azure Casebook — Real Incidents, Real Fixes → Case 10 — The private endpoint that made things worse → **Chapter 30: The Azure Casebook — Real Incidents, Real Fixes**
+- old Chapter 51: The Azure Casebook — Real Incidents, Real Fixes → Case 11 — Large uploads fail at almost exactly four minutes → **Chapter 30: The Azure Casebook — Real Incidents, Real Fixes**
+- old Chapter 51: The Azure Casebook — Real Incidents, Real Fixes → Case 12 — A deployment broke every running workflow → **Chapter 30: The Azure Casebook — Real Incidents, Real Fixes**
+- old Chapter 51: The Azure Casebook — Real Incidents, Real Fixes → Case 13 — Secret rotation took production down → **Chapter 30: The Azure Casebook — Real Incidents, Real Fixes**
+- old Chapter 51: The Azure Casebook — Real Incidents, Real Fixes → Case 14 — "The database is not currently available", every few days → **Chapter 30: The Azure Casebook — Real Incidents, Real Fixes**
+- old Chapter 51: The Azure Casebook — Real Incidents, Real Fixes → Case 15 — Blind in the middle of the incident → **Chapter 30: The Azure Casebook — Real Incidents, Real Fixes**
+- old Chapter 51: The Azure Casebook — Real Incidents, Real Fixes → Case 16 — The region went down: a design review after the fact → **Chapter 30: The Azure Casebook — Real Incidents, Real Fixes**
+- old Chapter 51: The Azure Casebook — Real Incidents, Real Fixes → Quick Cases → **Chapter 30: The Azure Casebook — Real Incidents, Real Fixes**
+- old Chapter 51: The Azure Casebook — Real Incidents, Real Fixes → Exercises → **Chapter 30: The Azure Casebook — Real Incidents, Real Fixes**
+- old Chapter 51: The Azure Casebook — Real Incidents, Real Fixes → Summary → **Chapter 30: The Azure Casebook — Real Incidents, Real Fixes**
+- old Chapter 60: Having a Point of View → Why Clients Pay for Judgment, Not Knowledge → **Chapter 38: Having a Point of View**
+- old Chapter 60: Having a Point of View → The Five Layers of Client-Perceived Expertise → **Chapter 38: Having a Point of View**
+- old Chapter 60: Having a Point of View → Trade-off Lists vs. Committed Positions → **Chapter 38: Having a Point of View**
+- old Chapter 60: Having a Point of View → The Anatomy of a Defensible Opinion → **Chapter 38: Having a Point of View**
+- old Chapter 60: Having a Point of View → Strong Opinions, Loosely Held, and How It Slides into Dogma → **Chapter 38: Having a Point of View**
+- old Chapter 60: Having a Point of View → Building Your Opinion Canon → **Chapter 38: Having a Point of View**
+- old Chapter 60: Having a Point of View → A Personal Tech Radar → **Chapter 38: Having a Point of View**
+- old Chapter 60: Having a Point of View → Saying "It Depends" Like an Expert → **Chapter 38: Having a Point of View**
+- old Chapter 60: Having a Point of View → What You Know, What You Believe, and What You'd Need to Test → **Chapter 38: Having a Point of View**
+- old Chapter 60: Having a Point of View → Calibration: Keeping Score on Yourself → **Chapter 38: Having a Point of View**
+- old Chapter 60: Having a Point of View → Updating in Public Without Losing Credibility → **Chapter 38: Having a Point of View**
+- old Chapter 60: Having a Point of View → Exercises → **Chapter 38: Having a Point of View**
+- old Chapter 60: Having a Point of View → Sources & Further Reading → **Chapter 38: Having a Point of View**
+- old Chapter 61: Discovery and Diagnosis → The Request Is Not the Need → **Chapter 39: Discovery and Diagnosis**
+- old Chapter 61: Discovery and Diagnosis → Preparing for the First Conversation → **Chapter 39: Discovery and Diagnosis**
+- old Chapter 61: Discovery and Diagnosis → Running the First Conversation → **Chapter 39: Discovery and Diagnosis**
+- old Chapter 61: Discovery and Diagnosis → The Discovery Question Bank → **Chapter 39: Discovery and Diagnosis**
+- old Chapter 61: Discovery and Diagnosis → Diagnostic Techniques → **Chapter 39: Discovery and Diagnosis**
+- old Chapter 61: Discovery and Diagnosis → Reading an Existing .NET System in a Day → **Chapter 39: Discovery and Diagnosis**
+- old Chapter 61: Discovery and Diagnosis → Stakeholder Mapping → **Chapter 39: Discovery and Diagnosis**
+- old Chapter 61: Discovery and Diagnosis → Spotting the Unstated Problem → **Chapter 39: Discovery and Diagnosis**
+- old Chapter 61: Discovery and Diagnosis → The One-Page Problem Statement → **Chapter 39: Discovery and Diagnosis**
+- old Chapter 61: Discovery and Diagnosis → Pushing Back on the Brief → **Chapter 39: Discovery and Diagnosis**
+- old Chapter 61: Discovery and Diagnosis → Working Through an Intermediary to the Decision Makers → **Chapter 39: Discovery and Diagnosis**
+- old Chapter 61: Discovery and Diagnosis → Remote and Cross-Cultural Discovery → **Chapter 39: Discovery and Diagnosis**
+- old Chapter 61: Discovery and Diagnosis → Exercises → **Chapter 39: Discovery and Diagnosis**
+- old Chapter 61: Discovery and Diagnosis → Sources & Further Reading → **Chapter 39: Discovery and Diagnosis**
+- old Chapter 62: Lab — The .NET Health Check → Goal and the senior signal it trains → **Chapter 40: Lab — The .NET Health Check**
+- old Chapter 62: Lab — The .NET Health Check → Time budget → **Chapter 40: Lab — The .NET Health Check**
+- old Chapter 62: Lab — The .NET Health Check → Setup → **Chapter 40: Lab — The .NET Health Check**
+- old Chapter 62: Lab — The .NET Health Check → The eleven areas → **Chapter 40: Lab — The .NET Health Check**
+- old Chapter 62: Lab — The .NET Health Check → The finding card → **Chapter 40: Lab — The .NET Health Check**
+- old Chapter 62: Lab — The .NET Health Check → The risk matrix → **Chapter 40: Lab — The .NET Health Check**
+- old Chapter 62: Lab — The .NET Health Check → From fifty findings to five → **Chapter 40: Lab — The .NET Health Check**
+- old Chapter 62: Lab — The .NET Health Check → The report: one page, then detail → **Chapter 40: Lab — The .NET Health Check**
+- old Chapter 62: Lab — The .NET Health Check → Presenting it without insulting the team → **Chapter 40: Lab — The .NET Health Check**
+- old Chapter 62: Lab — The .NET Health Check → Tasks → **Chapter 40: Lab — The .NET Health Check**
+- old Chapter 62: Lab — The .NET Health Check → Break it → **Chapter 40: Lab — The .NET Health Check**
+- old Chapter 62: Lab — The .NET Health Check → Evidence to keep → **Chapter 40: Lab — The .NET Health Check**
+- old Chapter 62: Lab — The .NET Health Check → Interview hook → **Chapter 40: Lab — The .NET Health Check**
+- old Chapter 62: Lab — The .NET Health Check → Hints and answers → **Chapter 40: Lab — The .NET Health Check**
+- old Chapter 62: Lab — The .NET Health Check → Further reading for assessors → **Chapter 40: Lab — The .NET Health Check**
+- old Chapter 63: Recommendations, Proposals and Estimates → 63.1 Why "It Depends" Is Not Advice → **Chapter 41: Recommendations, Proposals and Estimates**
+- old Chapter 63: Recommendations, Proposals and Estimates → 63.2 The Options Memo → **Chapter 41: Recommendations, Proposals and Estimates**
+- old Chapter 63: Recommendations, Proposals and Estimates → 63.3 A Worked Example: The .NET Framework 4.8 Monolith → **Chapter 41: Recommendations, Proposals and Estimates**
+- old Chapter 63: Recommendations, Proposals and Estimates → 63.4 Writing for Executives → **Chapter 41: Recommendations, Proposals and Estimates**
+- old Chapter 63: Recommendations, Proposals and Estimates → 63.5 Reversibility: Matching Rigor to the Door → **Chapter 41: Recommendations, Proposals and Estimates**
+- old Chapter 63: Recommendations, Proposals and Estimates → 63.6 Presenting a Recommendation and Handling Pushback → **Chapter 41: Recommendations, Proposals and Estimates**
+- old Chapter 63: Recommendations, Proposals and Estimates → 63.7 After the Decision: Writing It Down → **Chapter 41: Recommendations, Proposals and Estimates**
+- old Chapter 63: Recommendations, Proposals and Estimates → 63.8 Proposals That Survive Contact → **Chapter 41: Recommendations, Proposals and Estimates**
+- old Chapter 63: Recommendations, Proposals and Estimates → 63.9 Commercial Models and Who Carries the Risk → **Chapter 41: Recommendations, Proposals and Estimates**
+- old Chapter 63: Recommendations, Proposals and Estimates → 63.10 Scope Traps in Statements of Work → **Chapter 41: Recommendations, Proposals and Estimates**
+- old Chapter 63: Recommendations, Proposals and Estimates → 63.11 Estimating for Clients → **Chapter 41: Recommendations, Proposals and Estimates**
+- old Chapter 63: Recommendations, Proposals and Estimates → 63.12 Change Requests Without the Fight → **Chapter 41: Recommendations, Proposals and Estimates**
+- old Chapter 63: Recommendations, Proposals and Estimates → 63.13 Your Portfolio and the NDA Line → **Chapter 41: Recommendations, Proposals and Estimates**
+- old Chapter 63: Recommendations, Proposals and Estimates → Exercises → **Chapter 41: Recommendations, Proposals and Estimates**
+- old Chapter 63: Recommendations, Proposals and Estimates → Sources & Further Reading → **Chapter 41: Recommendations, Proposals and Estimates**
+- old Chapter 64: The Advisory Casebook → The Trust Equation as a Mechanism → **Chapter 42: The Advisory Casebook**
+- old Chapter 64: The Advisory Casebook → Outsourcing, Outstaffing and Who You Are Speaking For → **Chapter 42: The Advisory Casebook**
+- old Chapter 64: The Advisory Casebook → The Advisory Triage Card → **Chapter 42: The Advisory Casebook**
+- old Chapter 64: The Advisory Casebook → Case A1: "Let's just rewrite it" — the client wants a full rewrite → **Chapter 42: The Advisory Casebook**
+- old Chapter 64: The Advisory Casebook → Case A2: "We need microservices" — the architecture as a status symbol → **Chapter 42: The Advisory Casebook**
+- old Chapter 64: The Advisory Casebook → Case A3: The cloud bill doubled → **Chapter 42: The Advisory Casebook**
+- old Chapter 64: The Advisory Casebook → Case A4: The previous vendor left a mess, and the client wants you to say so → **Chapter 42: The Advisory Casebook**
+- old Chapter 64: The Advisory Casebook → Case A5: A fixed deadline and scope that won't fit → **Chapter 42: The Advisory Casebook**
+- old Chapter 64: The Advisory Casebook → Case A6: The CTO disagrees with you in front of the team → **Chapter 42: The Advisory Casebook**
+- old Chapter 64: The Advisory Casebook → Case A7: "Can we skip the tests and the security stuff for now?" → **Chapter 42: The Advisory Casebook**
+- old Chapter 64: The Advisory Casebook → Case A8: You caused the outage → **Chapter 42: The Advisory Casebook**
+- old Chapter 64: The Advisory Casebook → Case A9: "Our competitor launched an AI feature. We need one." → **Chapter 42: The Advisory Casebook**
+- old Chapter 64: The Advisory Casebook → Case A10: The account manager promised something technically wrong → **Chapter 42: The Advisory Casebook**
+- old Chapter 64: The Advisory Casebook → Case A11: A production incident on a system you inherited last week → **Chapter 42: The Advisory Casebook**
+- old Chapter 64: The Advisory Casebook → Case A12: "What do you think of [technology you don't know]?" → **Chapter 42: The Advisory Casebook**
+- old Chapter 64: The Advisory Casebook → Quick Advisory Cases → **Chapter 42: The Advisory Casebook**
+- old Chapter 64: The Advisory Casebook → Exercises → **Chapter 42: The Advisory Casebook**
+- old Chapter 64: The Advisory Casebook → Sources & Further Reading → **Chapter 42: The Advisory Casebook**
+- old Chapter 65: Positioning and Public Proof → Why generalists compete on price → **Chapter 43: Positioning and Public Proof**
+- old Chapter 65: Positioning and Public Proof → Choosing a niche → **Chapter 43: Positioning and Public Proof**
+- old Chapter 65: Positioning and Public Proof → The positioning statement → **Chapter 43: Positioning and Public Proof**
+- old Chapter 65: Positioning and Public Proof → Profile surfaces → **Chapter 43: Positioning and Public Proof**
+- old Chapter 65: Positioning and Public Proof → The evidence ladder → **Chapter 43: Positioning and Public Proof**
+- old Chapter 65: Positioning and Public Proof → Writing articles that take a position → **Chapter 43: Positioning and Public Proof**
+- old Chapter 65: Positioning and Public Proof → Case studies without breaking NDAs → **Chapter 43: Positioning and Public Proof**
+- old Chapter 65: Positioning and Public Proof → Speaking → **Chapter 43: Positioning and Public Proof**
+- old Chapter 65: Positioning and Public Proof → Building a small network → **Chapter 43: Positioning and Public Proof**
+- old Chapter 65: Positioning and Public Proof → Working through intermediaries → **Chapter 43: Positioning and Public Proof**
+- old Chapter 65: Positioning and Public Proof → From hourly contractor to advisor → **Chapter 43: Positioning and Public Proof**
+- old Chapter 65: Positioning and Public Proof → Measuring whether it works → **Chapter 43: Positioning and Public Proof**
+- old Chapter 65: Positioning and Public Proof → The 90-day plan → **Chapter 43: Positioning and Public Proof**
+- old Chapter 65: Positioning and Public Proof → Evidence to keep → **Chapter 43: Positioning and Public Proof**
+- old Chapter 65: Positioning and Public Proof → Exercises → **Chapter 43: Positioning and Public Proof**
+- old Chapter 65: Positioning and Public Proof → Sources & Further Reading → **Chapter 43: Positioning and Public Proof**
+- old Appendix A: Quick-Reference Roadmap & Checklist → Table of Contents → **RETIRE**
+- old Appendix A: Quick-Reference Roadmap & Checklist → 1. C# Language Mastery → **RETIRE**
+- old Appendix A: Quick-Reference Roadmap & Checklist → 2. .NET Runtime & Internals → **RETIRE**
+- old Appendix A: Quick-Reference Roadmap & Checklist → 3. ASP.NET Core & Web APIs → **RETIRE**
+- old Appendix A: Quick-Reference Roadmap & Checklist → 4. Data Access & Databases → **RETIRE**
+- old Appendix A: Quick-Reference Roadmap & Checklist → 5. Design Patterns → **RETIRE**
+- old Appendix A: Quick-Reference Roadmap & Checklist → 6. Architecture & Application Design → **RETIRE**
+- old Appendix A: Quick-Reference Roadmap & Checklist → 7. Testing → **RETIRE**
+- old Appendix A: Quick-Reference Roadmap & Checklist → 8. Asynchronous & Concurrent Programming → **RETIRE**
+- old Appendix A: Quick-Reference Roadmap & Checklist → 9. Messaging & Distributed Systems → **RETIRE**
+- old Appendix A: Quick-Reference Roadmap & Checklist → 10. Cloud (AWS & Azure) → **RETIRE**
+- old Appendix A: Quick-Reference Roadmap & Checklist → 11. Containers & Orchestration → **RETIRE**
+- old Appendix A: Quick-Reference Roadmap & Checklist → 12. DevOps & CI/CD → **RETIRE**
+- old Appendix A: Quick-Reference Roadmap & Checklist → 13. Observability → **RETIRE**
+- old Appendix A: Quick-Reference Roadmap & Checklist → 14. Security → **RETIRE**
+- old Appendix A: Quick-Reference Roadmap & Checklist → 15. Performance & Optimization → **RETIRE**
+- old Appendix A: Quick-Reference Roadmap & Checklist → 16. Tooling & Productivity → **RETIRE**
+- old Appendix A: Quick-Reference Roadmap & Checklist → 17. Soft Skills & Practices → **RETIRE**
+- old Appendix A: Quick-Reference Roadmap & Checklist → 18. Suggested Learning Path → **RETIRE**
+- old Appendix A: Quick-Reference Roadmap & Checklist → Recommended Resources → **RETIRE**
+- old Appendix B: .NET Version Comparison Cheat-Sheet → Release cadence: how the versioning actually works → **APP**
+- old Appendix B: .NET Version Comparison Cheat-Sheet → Main comparison table → **APP**
+- old Appendix B: .NET Version Comparison Cheat-Sheet → What each version brought → **APP**
+- old Appendix B: .NET Version Comparison Cheat-Sheet → Interview answers → **APP**
+- old Appendix B: .NET Version Comparison Cheat-Sheet → The one-line takeaway → **APP**
+- old Appendix B: .NET Version Comparison Cheat-Sheet → Sources → **APP**
+- old What's New → Release — October 8, 2026 → **END**
+- old What's New → Release — September 27, 2026 → **END**
+- old What's New → Release — September 25, 2026 → **END**
+- old What's New → Release — September 24, 2026 → **END**
+- old What's New → Release — August 28, 2026 → **END**
+- old What's New → Release — August 12, 2026 → **END**
+- old What's New → Release — August 4, 2026 → **END**
+- old What's New → Release — July 27, 2026 → **END**

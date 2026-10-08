@@ -6,8 +6,8 @@ Generates:
   * main.md          — the whole book as one Markdown file
 
 Auto-discovers every numbered `chapters/NN-*.md` file: to add a chapter, just
-drop a file named with a numeric prefix (e.g. `34-my-topic.md`, starting with an
-`# Chapter 34: ...` heading) into chapters/ and re-run this script. You do NOT
+drop a file named with a numeric prefix (e.g. `117-my-topic.md`, starting with an
+`# Chapter 17: ...` heading) into chapters/ and re-run this script. You do NOT
 need to register it here, and you do NOT need to write a read-time line — it is
 computed and injected automatically (see below).
 
@@ -19,11 +19,10 @@ computed and injected automatically (see below).
   every build from the chapter's own word count, so it is always accurate.
   Any hand-written read-time line in a source file is ignored/replaced.
 - Files starting with "_" and files without a numeric prefix are ignored.
-- The learning path lives in two ranges: Part 1 (Junior → Middle, 70–84) and Part 2 (Middle →
-  Senior, 85–98). Each part is an overview page ("# Part 1: …"), module pages ("# Part 1 ·
-  Module 3: …") and a review page ("# Part 1 · Pay Attention To"). Every entry gets a `group`
-  ("home", "part1", "part2" or "book") that the reader app uses for its top navigation, and a
-  `num` for the sidebar ("8", "App A", or a module's number within its part).
+- The book is one sequence: Part 1 (files 100–199) then Part 2 (200–299), then the appendix (900)
+  and What's New (999). Chapters are titled "# Chapter N: …"; the part pages "# Part 1: …" and
+  the review pages "# Part N · Pay Attention To". Old chapter slugs resolve through
+  chapters/_aliases.json, which is written into content.js as window.ALIASES.
 
 Note: the prose table of contents inside chapters/00-frontmatter.md is separate
 and hand-maintained; update it by hand if you want a new chapter listed there.
@@ -35,27 +34,27 @@ CH_DIR = os.path.join(ROOT, "chapters")
 OUT_JS = os.path.join(ROOT, "site", "content.js")
 OUT_MD = os.path.join(ROOT, "main.md")
 
-# Inclusive numeric ranges → sidebar Part label. Add/adjust to re-group chapters.
+# Inclusive numeric ranges of file numbers → sidebar section label. The book is one sequence:
+# Part 1 (files 100–199: the part page, Chapters 1–16 as 101–116, its review page 199), then
+# Part 2 (200–299: the part page, Chapters 17–44 as 217–244, its review page 299).
 PART_RANGES = [
     (0,   0,   "__home__"),
-    (1,   4,   "Part I — The Language & the Platform"),
-    (5,   8,   "Part II — Designing Software That Lasts"),
-    (9,   12,  "Part III — Distributed Systems & the Cloud"),
-    (13,  15,  "Part IV — Running Software in Production"),
-    (16,  19,  "Part V — The Craft & the AI Era"),
-    (20,  25,  "Part VI — Deepening the Backend"),
-    (26,  31,  "Part VII — Foundations, Governance & Specializations"),
-    (32,  32,  "Part VIII — Capstone"),
-    (33,  34,  "Part IX — The War Room: Scenarios & Interviews"),
-    (35,  35,  "Part X — Trust, Supply Chain & Provenance"),
-    (36,  49,  "Part XI — The Practice Gym"),
-    (50,  59,  "Part XII — Cloud in Depth: Azure"),
-    (60,  69,  "Part XIII — The Trusted Advisor"),
-    (70,  84,  "Part 1 — Junior → Middle"),
-    (85,  98,  "Part 2 — Middle → Senior"),
-    (99,  100, "Appendices"),
-    (101, 10**9, "What's New"),
+    (100, 199, "Part 1 — Junior → Middle"),
+    (200, 200, "Part 2 — Middle → Senior"),
+    (217, 219, "Part 2 · Runtime and Data"),
+    (220, 224, "Part 2 · Distributed Systems and Architecture"),
+    (225, 227, "Part 2 · Running It in Production"),
+    (228, 231, "Part 2 · Cloud and Azure"),
+    (232, 233, "Part 2 · AI"),
+    (234, 234, "Part 2 · Frontend and Full-Stack"),
+    (235, 237, "Part 2 · Incidents, Seniority and Career"),
+    (238, 243, "Part 2 · Beyond Senior: The Trusted Advisor"),
+    (244, 299, "Part 2 · Capstone and Review"),
+    (900, 900, "Appendix"),
+    (999, 10**9, "What's New"),
 ]
+# Old chapter and section addresses -> where they live now, so old links and bookmarks still open.
+ALIASES_FILE = os.path.join(CH_DIR, "_aliases.json")
 DEFAULT_PART = "Additional Chapters"
 
 def part_for(num):
@@ -133,17 +132,15 @@ for num, stem, path in entries:
     nav = re.sub(r"^Chapter\s+\d+:\s*", "", title)
     nav = re.sub(r"^Appendix\s+([A-Z]):\s*", r"App. \1: ", nav)
     part = part_for(num)
-    group = "part1" if 70 <= num <= 84 else "part2" if 85 <= num <= 98 else "book"
-    m_ch = re.match(r"^(?:Chapter\s+(\d+)|Appendix\s+([A-Z]))\b", title)
-    num_label = (m_ch.group(1) or "App " + m_ch.group(2)) if m_ch else ""
-    if group != "book":
-        m_mod = re.match(r"^Part\s+\d+\s*·\s*Module\s+(\d+):\s*(.+)$", title)
-        if m_mod:
-            num_label, nav = m_mod.group(1), m_mod.group(2)
-        elif re.match(r"^Part\s+\d+:", title):
-            nav = "Start here"
-        elif re.search(r"Pay Attention To$", title):
-            nav = "Pay attention to"
+    group = "book"
+    m_ch = re.match(r"^Chapter\s+(\d+)\b", title)
+    num_label = m_ch.group(1) if m_ch else ""
+    if re.match(r"^Part\s+\d+:", title):
+        nav = title
+    elif re.search(r"Pay Attention To$", title):
+        nav = "Pay attention to"
+    elif title.startswith("Appendix:"):
+        nav, num_label = title[len("Appendix:"):].strip(), "App"
     if is_home:
         nav = "Preface & Contents"
         title = "The Middle → Senior .NET Developer Handbook"
@@ -159,6 +156,8 @@ os.makedirs(os.path.dirname(OUT_JS), exist_ok=True)
 with open(OUT_JS, "w", encoding="utf-8") as f:
     f.write("window.BOOK = ")
     json.dump(book, f, ensure_ascii=False)
+    f.write(";\nwindow.ALIASES = ")
+    json.dump(json.load(open(ALIASES_FILE, encoding="utf-8")) if os.path.exists(ALIASES_FILE) else {}, f, ensure_ascii=False)
     f.write(";\n")
 
 with open(OUT_MD, "w", encoding="utf-8") as f:

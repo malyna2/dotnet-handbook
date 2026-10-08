@@ -8,6 +8,10 @@
 var BOOK = window.BOOK || [];
 var bySlug = {};
 BOOK.forEach(function (c, i) { c.index = i; bySlug[c.slug] = c; });
+// Old chapter addresses (from before the book became Part 1 + Part 2) -> where they live now,
+// so bookmarks, shared links and old What's New entries still open the right chapter.
+var ALIASES = window.ALIASES || {};
+function resolveSlug(s){ return bySlug[s] ? s : (ALIASES[s] && bySlug[ALIASES[s]] ? ALIASES[s] : s); }
 
 // The id render() gives a heading. Kept in one place so the section index below and the
 // rendered DOM can never disagree about what "#some-heading" refers to.
@@ -232,57 +236,9 @@ var outlineEl=document.getElementById("outline");
 var current=null;
 var pendingFind=null, pendingResume=null, pendingSection=null;
 
-/* ---------------- Learning paths: Part 1 · Part 2 · Full book ----------------
-   build_site.py gives every entry a group: "home", "part1" (Junior → Middle), "part2"
-   (Middle → Senior) or "book" (the chapters). The bar under the top bar picks which group
-   the sidebar lists; opening a Part 1 or Part 2 page switches to its part. The choice is a
-   per-viewer convenience kept in localStorage ("view"), so it may be absent: default "book". */
-var partbar=document.getElementById("partbar");
-var GROUPS={part1:[], part2:[], book:[]};
-BOOK.forEach(function(c){ var g=c.group||(c.part==="__home__"?"home":"book"); c.group=g; if(GROUPS[g]) GROUPS[g].push(c); });
-var view=(function(){ var v=null; try{ v=localStorage.getItem("view"); }catch(e){}
-  return (v && GROUPS[v] && GROUPS[v].length) ? v : "book"; })();
-function partLabel(g){            // "Part 1 — Junior → Middle" -> ["Part 1", "Junior → Middle"]
-  if(g==="book") return ["Full book",""];
-  var first=GROUPS[g][0], s=(first&&first.part||"").split(" — ");
-  return [s[0]||g, s[1]||""];
-}
-function buildPartbar(){
-  var html="";
-  ["part1","part2","book"].forEach(function(g){
-    if(!GROUPS[g].length) return;
-    var l=partLabel(g), target=g==="book"?BOOK[0]:GROUPS[g][0];
-    html+='<a class="pb-tab" href="#/'+target.slug+'" data-group="'+g+'">'+esc(l[0])+
-      (l[1]?'<span class="pb-sub">'+esc(l[1])+'</span>':'')+'</a>';
-  });
-  if(!GROUPS.part1.length && !GROUPS.part2.length) html="";   // nothing to choose between
-  partbar.innerHTML=html;
-  if(!html) document.documentElement.style.setProperty("--bars","56px");
-  partbar.querySelectorAll(".pb-tab").forEach(function(a){
-    a.addEventListener("click",function(ev){
-      ev.preventDefault();
-      var g=a.getAttribute("data-group");
-      setView(g);
-      navigate(g==="book"?BOOK[0].slug:GROUPS[g][0].slug);
-    });
-  });
-  markPartbar();
-}
-function markPartbar(){
-  partbar.querySelectorAll(".pb-tab").forEach(function(a){
-    var on=a.getAttribute("data-group")===view;
-    a.classList.toggle("active",on);
-    if(on) a.setAttribute("aria-current","true"); else a.removeAttribute("aria-current");
-  });
-}
-function setView(g){
-  if(!GROUPS[g] || !GROUPS[g].length || g===view) return;
-  view=g;
-  try{ localStorage.setItem("view",g); }catch(e){}
-  buildNav();
-  if(current) highlightNav(current.slug);
-  markPartbar();
-}
+/* ---------------- One book: Part 1, then Part 2 ----------------
+   The sidebar lists every page in reading order, grouped by build_site.py's sidebar sections
+   (Part 1, then Part 2's sections); the pager walks the same sequence. */
 var _saveT;
 // Per-chapter reading *progress* — a percent, a sticky "finished" flag, and the index of
 // the block you had reached — drives the sidebar bars, ✓ marks, and the Continue button.
@@ -349,8 +305,7 @@ function readTime(md){
 function buildNav(){
   var html="", lastPart=null;
   BOOK.forEach(function(c){
-    if(c.group!==view) return;
-    if(c.part!==lastPart){ html+='<div class="part">'+esc(c.part)+"</div>"; lastPart=c.part; }
+    if(c.part!==lastPart){ if(c.part!=="__home__") html+='<div class="part">'+esc(c.part)+"</div>"; lastPart=c.part; }
     var rt=readTime(c.md);
     var numMatch=c.title.match(/^(Chapter\s+\d+|Appendix\s+[A-Z])/);
     var num=typeof c.num==="string"?c.num:(numMatch?numMatch[1].replace("Chapter ","").replace("Appendix ","App "):"");
@@ -358,7 +313,7 @@ function buildNav(){
       '</span>'+esc(c.nav)+(rt?'<span class="rt">'+rt+'</span>':'')+navActs(c.slug)+'</a>';
   });
   navEl.innerHTML=html;
-  BOOK.forEach(function(c){ if(c.group===view) updateNavProgress(c.slug); });
+  BOOK.forEach(function(c){ updateNavProgress(c.slug); });
 }
 // Continue / Reset, shown only once a chapter has progress to act on. These live inside
 // the nav <a>, so their handlers must stop the click from also following the link.
@@ -410,9 +365,8 @@ function scrollToId(id){
 }
 function go(slug, push){
   saveProgress();
-  var c=bySlug[slug]||BOOK[0];
+  var c=bySlug[resolveSlug(slug)]||BOOK[0];
   current=c;
-  if(c.group==="part1"||c.group==="part2") setView(c.group);
   removePopup();
   usedIds={};
   content.innerHTML=render(c.md);
@@ -444,27 +398,26 @@ function postProcess(c){
     });
   });
   if(c.part==="__home__"){
-    if(GROUPS.part1.length || GROUPS.part2.length){
-      var ph=document.createElement("h2"); ph.textContent="Start with a learning path";
+    var parts=BOOK.filter(function(x){ return /^Part \d+:/.test(x.title); });
+    if(parts.length){
+      var ph=document.createElement("h2"); ph.textContent="Read it in order";
       var pg=document.createElement("div"); pg.className="home-grid paths";
-      ["part1","part2"].forEach(function(g){
-        var list=GROUPS[g]; if(!list.length) return;
-        var l=partLabel(g), modules=list.filter(function(x){ return x.num; }).length;
-        var pa=document.createElement("a"); pa.className="home-card path-card"; pa.href="#/"+list[0].slug;
-        pa.innerHTML='<div class="hc-num">'+esc(l[0])+'</div><div class="hc-ttl">'+esc(l[1])+'</div>'+
-          '<div class="hc-rt">'+modules+' modules</div>';
-        pa.addEventListener("click",function(ev){ ev.preventDefault(); setView(g); navigate(list[0].slug); });
+      parts.forEach(function(p){
+        var s2=p.title.split(": "), n=BOOK.filter(function(x){ return x.part.indexOf(s2[0])===0 && x.num; }).length;
+        var pa=document.createElement("a"); pa.className="home-card path-card"; pa.href="#/"+p.slug;
+        pa.innerHTML='<div class="hc-num">'+esc(s2[0])+'</div><div class="hc-ttl">'+esc(s2[1]||"")+'</div>'+
+          '<div class="hc-rt">'+n+' chapters</div>';
         pg.appendChild(pa);
       });
       content.appendChild(ph); content.appendChild(pg);
     }
     var grid=document.createElement("div"); grid.className="home-grid";
     BOOK.forEach(function(ch){
-      if(ch.group!=="book") return;
+      if(ch.part==="__home__" || !ch.num) return;
       var rt=readTime(ch.md);
-      var numMatch=ch.title.match(/^(Chapter\s+\d+|Appendix\s+[A-Z])/);
+      var numMatch=ch.title.match(/^Chapter\s+\d+/);
       var a=document.createElement("a"); a.className="home-card"+(isDone(ch.slug)?" done":""); a.href="#/"+ch.slug;
-      a.innerHTML='<div class="hc-num">'+esc(numMatch?numMatch[1]:"")+'</div>'+
+      a.innerHTML='<div class="hc-num">'+esc(numMatch?numMatch[0]:"Appendix")+'</div>'+
         '<div class="hc-ttl">'+esc(ch.nav)+'</div>'+(rt?'<div class="hc-rt">⏱️ '+rt+'</div>':'');
       grid.appendChild(a);
     });
@@ -479,7 +432,7 @@ function postProcess(c){
     if(href.indexOf("#/")===0 || a.classList.contains("wn-link")) return;
     var slug=href.slice(1);
     a.addEventListener("click",function(ev){
-      if(bySlug[slug]){ ev.preventDefault(); navigate(slug); return; }
+      if(bySlug[resolveSlug(slug)]){ ev.preventDefault(); navigate(resolveSlug(slug)); return; }
       var target=document.getElementById(slug);
       if(target){ ev.preventDefault(); target.scrollIntoView(); return; }
       // Not on this page — but if exactly one chapter has that heading, go there.
@@ -503,7 +456,7 @@ function buildOutline(c){
   });
 }
 function buildPager(c){
-  var list=GROUPS[c.group]||[];
+  var list=BOOK;
   var idx=list.indexOf(c);
   var prev=idx>0?list[idx-1]:null, next=idx>=0&&idx<list.length-1?list[idx+1]:null;
   var p=document.getElementById("pager"); p.innerHTML="";
@@ -833,12 +786,12 @@ function wnDecorate(root, releaseId){
   root.querySelectorAll("h2, a[href^='#']").forEach(function(el){
     if(el.tagName==="H2"){ rel=/^Release/.test(el.textContent)?el.textContent.trim():null; n=0; return; }
     if(!rel) return;
-    var slug=el.getAttribute("href").slice(1), sec=null;
-    if(!bySlug[slug]){
+    var slug=el.getAttribute("href").slice(1), sec=null, to=resolveSlug(slug);
+    if(!bySlug[to]){
       // A section link: resolve it to its chapter, and remember to scroll there.
       var owner=headingOwner[slug];
       if(!owner) return;
-      sec=slug; slug=owner;
+      sec=slug; slug=owner; to=owner;
     }
     // The key stays keyed on the chapter, so ✓ marks on already-published releases survive.
     var key=rel+"|"+slug+"|"+(n++);
@@ -850,7 +803,7 @@ function wnDecorate(root, releaseId){
       try{ localStorage.setItem("wn_read",JSON.stringify(r)); }catch(e){}
       el.classList.add("wn-read");
       wnHide();
-      navigate(slug, sec);
+      navigate(to, sec);
     });
   });
 }
@@ -880,7 +833,6 @@ wnModal.addEventListener("click",function(e){ if(e.target===wnModal) wnHide(); }
 function currentSlug(){var m=location.hash.match(/^#\/(.+)$/);return m?m[1]:null;}
 window.addEventListener("hashchange",function(){var s=currentSlug();if(s)go(s,false);});
 window.addEventListener("beforeunload", saveProgress);
-buildPartbar();
 buildNav();
 // A shared link's hash still wins; otherwise always start at the front of the book.
 go(currentSlug()||BOOK[0].slug,false);
