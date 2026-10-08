@@ -2,7 +2,7 @@
 
 > **What this module makes you able to do.** Write and review an endpoint so that it checks who the caller is, what this caller may do to this particular record, and treats every input as data; keep secrets out of the repository; and spot the handful of configuration lines that quietly switch a defence off.
 
-**Time:** reading ≈ 15 min; hands-on ≈ 50 min — the entry check 5 min, the review drill 15, the check at work 30.
+**Time:** reading ≈ 20 min; hands-on ≈ 50 min — the entry check 5 min, the review drill 15, the check at work 30.
 
 ## Entry check
 
@@ -56,7 +56,7 @@ Each trap is a place where something unverified gets trusted:
 
 > **Pay attention.** **CORS doesn't stop the request.** For a "simple" cross-origin request (a `GET`, or a form-encoded `POST`), the browser sends it, your server runs it, and only then does the browser hide the response from the calling script. A denied CORS check has already changed your data; that is why state-changing endpoints with cookie authentication still need anti-forgery tokens. See [Chapter 14: CORS Done Right](#cors-done-right).
 
-## Read (≈ 15 min)
+## Read (≈ 20 min)
 
 1. [Chapter 14: The Security Mindset](#the-security-mindset): four decision rules; secure by default is the one the rest of the list tests.
 2. [Chapter 14: A01: Broken Access Control](#a01-broken-access-control) and [A03: Injection](#a03-injection).
