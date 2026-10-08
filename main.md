@@ -30,6 +30,8 @@ Let's begin.
 
 Use the **sidebar** on the left (or the **Browse chapters** cards below) to jump to any chapter.
 
+**Two learning paths sit on top of the chapters.** Use the bar at the top of the page to switch between them. [Part 1: Junior → Middle](#part-1-junior-middle) covers the basics a developer needs to work as a solid middle without help, inside one service: async code, data access, messaging, diagnosis, the C# underneath and the working habits a team relies on. [Part 2: Middle → Senior](#part-2-middle-senior) covers what turns a middle into a senior: runtime and database internals, behaviour under load, consistency across services, architecture, production and the decisions made for a team. Each module names the mechanism that ties its topic together, links the chapter sections that teach it, and gives you a short program to run, three "why?" questions and a check to do at work. *Full book* shows every chapter, as before.
+
 **Parts I–X teach; Part XI makes you practise.** The chapters in *Part XI — The Practice Gym* are labs. Each has a goal, a time budget, tasks in three levels with checkable acceptance criteria, and a list of the evidence to keep in your own public portfolio repo — because the gap between middle and senior is rarely knowledge, and almost always proof. Start with [Chapter 36](#chapter-36-the-story-bank-evidence-portfolio), which builds the story bank the other labs feed.
 
 **Part XII goes deep on one cloud.** [Chapter 50](#chapter-50-azure-in-depth-for-net-developers) takes the Azure services from Chapter 10's map down to their mechanisms: identity, compute, storage, Cosmos DB, Azure SQL, messaging, networking and observability, at the depth a strong middle developer needs and far past what the AZ-900 exam asks. [Chapter 51](#chapter-51-the-azure-casebook-real-incidents-real-fixes) is a casebook of real Azure incidents, each with the diagnosis and the fix. (Chapter numbers 38–49 are kept free for the Practice Gym labs still to come.)
@@ -2337,7 +2339,7 @@ The through-line of this chapter is that ASP.NET Core is a **pipeline of composa
 
 # Chapter 4: Data Access & Databases
 
-_⏱️ Estimated read time: ~1 h 15 min · 11623 words (study pace)_
+_⏱️ Estimated read time: ~1 h 15 min · 11660 words (study pace)_
 
 Almost every non-trivial application is, underneath all its features, a machine for moving data in and out of a database safely and quickly. You can write flawless business logic and beautiful APIs, but if your data access layer holds locks too long, fires a thousand queries where one would do, or corrupts a balance under concurrent writes, the whole system fails in ways that are hard to reproduce and harder to fix. This chapter takes you from the mechanics of Entity Framework Core down to the SQL and storage engine underneath it, then back up through caching, NoSQL, and deployment. The goal is that you stop treating the database as a black box and start reasoning about what it actually does.
 
@@ -3286,18 +3288,18 @@ This is the **N+1 problem**, twice, nested. It passes the test because 20 orders
 
 Two things make it worse than it looks. First, if lazy loading is *not* enabled, `order.Lines` is an empty collection and the endpoint silently returns wrong data instead of being slow — a worse failure. Second, each of those queries takes a connection from the pool, so this endpoint under concurrency exhausts the pool and degrades endpoints that have nothing to do with it.
 
-The fix is to project what you need in one query:
+The fix is to project the lines in one query and count the orders in another:
 
 ```csharp
-var summary = await db.Orders
+var lines = await db.Orders
     .Where(o => o.CustomerId == id)
     .SelectMany(o => o.Lines)
     .Select(l => new OrderLineDto(l.Sku, l.Quantity, l.Product.Name))
-    .AsNoTracking()
     .ToListAsync();
+var orderCount = await db.Orders.CountAsync(o => o.CustomerId == id);
 ```
 
-Note `AsNoTracking()` — nothing here is being modified, so paying for change tracking on 1,000 entities is pure waste. And note that the projection means EF never materialises the `Product` entity at all; it selects the single column it needs.
+Three statements in all, whatever the customer's size. The projection reads only the columns it names, so EF never materialises an `Order`, `OrderLine` or `Product`, and nothing is tracked: a result without entities is never tracked, so `AsNoTracking()` would change nothing here. A product shared by several lines is lazy-loaded only once per context, so 1,000 is the upper bound for the product queries.
 </details>
 
 ### What would you do

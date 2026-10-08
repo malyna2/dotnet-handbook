@@ -1,6 +1,5 @@
-# Environment: Intel(R) Xeon(R) Processor @ 2.80GHz, 4 vCPU, 16 GB RAM, Ubuntu 24.04.5 LTS, .NET runtime 10.0.12, SDK 10.0.112, Docker 29.8.2
-# Services: SQL Server 16.0.4295.3 CU27, collation SQL_Latin1_General_CP1_CI_AS; Service Bus emulator 2.0.1
-# Captured: 2026-10-07 14:33 UTC by capture.sh
+# Environment: Intel(R) Xeon(R) Processor @ 2.80GHz, 4 vCPU, 16 GB RAM, Ubuntu 24.04.5 LTS, .NET runtime 10.0.12, SDK 10.0.112
+# Captured: 2026-10-08 16:15 UTC by capture.sh
 # Program: AsyncVoid, Release build
 
 async Task: the caller caught ArgumentOutOfRangeException
@@ -9,11 +8,11 @@ Unhandled exception. System.ArgumentOutOfRangeException: id ('-1') must be a non
 Actual value was -1.
    at System.ArgumentOutOfRangeException.ThrowNegative[T](T value, String paramName)
    at System.ArgumentOutOfRangeException.ThrowIfNegative[T](T value, String paramName)
-   at Program.<<Main>$>g__Save|0_1(Int32 id) in /home/user/dotnet-handbook/verify/study-track/AsyncVoid/Program.cs:line 26
+   at Program.<<Main>$>g__Save|0_1(Int32 id) in /home/user/dotnet-handbook/verify/path/AsyncVoid/Program.cs:line 26
    at System.Threading.Tasks.Task.<>c.<ThrowAsync>b__124_1(Object state)
    at System.Threading.ThreadPoolWorkQueue.Dispatch()
    at System.Threading.PortableThreadPool.WorkerThread.WorkerThreadStart()
    at System.Threading.Thread.StartCallback()
-./capture.sh: line 28: 10094 Aborted                 dotnet "$1/bin/Release/net10.0/$1.dll" "${@:2}" 2>&1
-[process time: wall 0.131 s, user CPU 0.072 s, system CPU 0.039 s]
+./capture.sh: line 48:  1470 Aborted                 dotnet "$1/bin/Release/net10.0/$1.dll" "${@:2}" 2>&1
+[process time: wall 0.089 s, user CPU 0.066 s, system CPU 0.029 s]
 [exit code 134]
