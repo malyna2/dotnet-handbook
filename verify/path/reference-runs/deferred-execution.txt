@@ -1,0 +1,11 @@
+# Environment: Intel(R) Xeon(R) Processor @ 2.80GHz, 4 vCPU, 16 GB RAM, Ubuntu 24.04.5 LTS, .NET runtime 10.0.12, SDK 10.0.112
+# Captured: 2026-10-08 05:37 UTC by capture.sh
+# Program: DeferredExecution, Release build
+
+query defined:        the predicate ran 0 times
+Count() and Sum():    the predicate ran 8 times (count 3, sum 9)
+ToList(), then both:  the predicate ran 4 times (count 3, sum 9)
+after minimum = 4:    query [4], list [2, 3, 4]
+an IQueryable holds an expression tree: System.Int32[].Where(n => (n >= value(Program+<>c__DisplayClass0_0).minimum))
+[process time: wall 0.190 s, user CPU 0.042 s, system CPU 0.038 s]
+[exit code 0]
