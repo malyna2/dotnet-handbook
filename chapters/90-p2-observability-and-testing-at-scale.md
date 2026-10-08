@@ -2,7 +2,7 @@
 
 > **What this module makes you able to do.** Decide what a service must emit so that a page at 3 a.m. leads to a cause in minutes, set an SLO and alert on how fast its budget burns instead of on CPU, and choose which expensive tests (contract, load, chaos, mutation, property-based) earn their cost for the system in front of you.
 
-**Time:** reading ≈ 50 min; hands-on ≈ 6 h 35 min — instrumenting a service 2 h, the load test 2 h, the chaos experiment 1 h, the mutation run 30, the questions 20, the decision 15, the check at work 30.
+**Time:** reading ≈ 55 min; hands-on ≈ 6 h 35 min — instrumenting a service 2 h, the load test 2 h, the chaos experiment 1 h, the mutation run 30, the questions 20, the decision 15, the check at work 30.
 
 ## Covers
 
@@ -28,7 +28,7 @@ The SLI is what users feel: the share of requests that succeed fast enough. The 
 
 > **Pay attention.** **The sampler that splits your traces.** Chapter 13's example sets `TraceIdRatioBasedSampler(0.1)` directly. The OpenTelemetry specification says that sampler *must ignore* the parent's sampled flag, so every service makes its own decision. The decisions line up only while every service runs the same ratio and the same algorithm. Change the ratio in one service and you get traces with holes: spans whose parent was dropped, and kept traces missing a hop. The fix is `new ParentBasedSampler(new TraceIdRatioBasedSampler(0.1))` in every service: the root decides and everyone downstream follows the `traceparent` flag (the SDK's default is `ParentBased` around always-on). Keep the errors and the slow traces with tail sampling in the Collector.
 
-## Read (≈ 50 min)
+## Read (≈ 55 min)
 
 1. [Chapter 13: Metrics](#metrics): the three instrument types, the cardinality pitfall, and RED against USE.
 2. [Chapter 13: Distributed Tracing](#distributed-tracing): `traceparent`, `Activity` as the span, the end-to-end setup and sampling.

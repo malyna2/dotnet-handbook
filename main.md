@@ -43,7 +43,7 @@ Use the **sidebar** on the left (or the **Browse chapters** cards below) to jump
 
 # Chapter 1: C# Language Mastery
 
-_⏱️ Estimated read time: ~45 min · 5511 words (study pace)_
+_⏱️ Estimated read time: ~50 min · 5906 words (study pace)_
 
 A senior .NET developer is not someone who knows more keywords than a mid-level developer. The difference is that a senior understands what the language does *underneath* the syntax: where the bytes live, when work actually happens, why a seemingly innocent line allocates on the heap, and what the compiler is really generating on your behalf. This chapter walks through the C# language from that vantage point. We assume you can already write loops, classes, and `async` methods. Our job is to explain the "why" so deeply that the "what" becomes obvious.
 
@@ -51,7 +51,7 @@ We will move from the memory model up through the type system, then through the 
 
 ## Value Types and Reference Types: The Foundation
 
-Everything in C#'s type system descends from one distinction: a type is either a **value type** or a **reference type**. This is not a stylistic choice made by the language designers to annoy you; it dictates how instances are stored, copied, compared, and garbage-collected.
+Every C# type is either a **value type** or a **reference type**, and the distinction decides how instances are stored, copied, compared and collected.
 
 A **value type** (anything declared with `struct` or `enum`, plus all the primitives like `int`, `double`, `bool`, and `DateTime`) holds its data *directly*. When you assign one value-type variable to another, you copy the bits. Two variables end up with two independent copies.
 
@@ -72,11 +72,11 @@ d.X = 99;
 // c.X is now 99 — c and d are the same object
 ```
 
-This single behavioral difference is the root of a hundred bugs and a hundred optimizations. Internalize it and most of the rest of this section follows naturally.
+An assignment, or passing an argument by value, copies what the variable holds: a struct's fields, or a class's reference. A struct that contains a reference-type field copies only that reference, so the two copies still share the object behind it.
 
 ### Stack vs Heap: Where the Bytes Actually Live
 
-Developers often summarize this as "value types go on the stack, reference types go on the heap." That is a useful first approximation and a dangerous belief to hold literally. The truth is more precise: **the storage location depends on where the variable lives, not only on its type.**
+"Value types go on the stack, reference types on the heap" is folklore: **the storage location depends on where the variable lives, not only on its type.**
 
 In brief: the **stack** is per-thread memory that grows and shrinks with method calls — allocation is a pointer bump, and a returning method reclaims its frame instantly. The **managed heap** is the shared region where objects live until the garbage collector proves them unreachable; Chapter 2 covers the runtime mechanics — generations, compaction, collection triggers — in depth. What matters at the language level is where a given *variable's* data ends up, and the answer is more subtle than the folklore:
 
@@ -85,15 +85,13 @@ In brief: the **stack** is per-thread memory that grows and shrinks with method 
 - A value type **captured by a closure** or used in an `async` method or iterator is often hoisted into a compiler-generated heap object.
 - A reference type's **reference** (the pointer-sized handle) follows the same rules as a value type — a local reference variable sits on the stack — but the **object it points to** is on the heap.
 
-> **Gotcha:** "Value types are always on the stack" is false. Reason about *where the variable is declared*. The JIT is also free to keep things in registers or elide allocations entirely (escape analysis is limited in .NET today, but the point stands: the runtime, not you, decides).
+> **Gotcha:** "Value types are always on the stack" is false. Reason about *where the variable is declared*. The JIT is also free to keep values in registers, and since .NET 9 and 10 it stack-allocates some objects that provably don't outlive the method (boxes, small arrays, some delegates). The runtime decides, not the type.
 
-Why should you care? Because heap allocations create GC pressure. High allocation rates mean more frequent collections, which mean pauses and CPU spent tracing objects. Much of high-performance .NET is the art of not allocating. That is why `Span<T>`, `struct`, and object pooling exist, and why we return to allocation cost repeatedly in this book.
+It matters because heap allocations drive garbage collection: a higher allocation rate means more frequent collections, with pauses and CPU spent tracing objects. `Span<T>`, structs and object pooling exist to avoid them.
 
 ### Boxing and Unboxing: The Hidden Tax
 
-Because value types and reference types are stored so differently, the runtime needs a bridge when a value type must be treated as an object (its base type is ultimately `System.Object`, a reference type). That bridge is **boxing**.
-
-**Boxing** wraps a value-type instance in a freshly allocated heap object and copies the value into it. **Unboxing** extracts the value back out, checking the type at runtime.
+When a value type must be treated as an object (`System.Object` is a reference type), the runtime **boxes** it: it allocates a heap object and copies the value into it. **Unboxing** extracts the value back out, checking the type at runtime.
 
 ```csharp
 int n = 42;
@@ -111,7 +109,7 @@ list.Add(42);            // boxes — ArrayList stores objects
 object o = 3.14;         // boxes
 
 int x = 5;
-Console.WriteLine("Value: " + x);   // boxes x to call object.ToString via concatenation in some overloads
+Console.WriteLine("Value: {0}", x);  // boxes: the parameter is object
 IComparable cmp = 10;    // boxes — interface is a reference type
 ```
 
@@ -121,9 +119,7 @@ Each box is a heap allocation plus a copy. In a hot loop this destroys throughpu
 
 ### struct vs class: When to Choose Which
 
-Given the tradeoffs, when should a type be a `struct`?
-
-Microsoft's own guidance is conservative: make a type a `struct` only when it is small (roughly ≤ 16 bytes), logically represents a single value, is immutable, and is not boxed frequently. The reasons:
+Microsoft's design guidelines are conservative: a `struct` only when the type is small (an instance size under 16 bytes), logically a single value, immutable, and rarely boxed. The reasons:
 
 - **Copy cost.** Every assignment and every method call that takes the struct by value copies the whole thing. A large struct is expensive to pass around.
 - **Mutability traps.** A mutable struct behaves surprisingly because copies are everywhere. `list[0].X = 5` on a `List<MutableStruct>` won't even compile (the indexer returns a copy), and modifying a struct returned from a property silently mutates a throwaway copy.
@@ -142,8 +138,6 @@ List<Counter> boxedish = new() { new Counter() };
 Choose `class` for entities with identity, for large aggregates, and for anything with polymorphic behavior. Choose `struct` for small immutable values like `Point`, `Money`, `DateTime`, or a coordinate — cases where copying is cheap and value semantics are what you actually want.
 
 ### readonly struct and ref struct
-
-Two modern modifiers sharpen structs for performance-sensitive code.
 
 A **`readonly struct`** guarantees the whole struct is immutable: every field must be `readonly`, and the compiler can therefore skip *defensive copies*. When you call a method on a non-readonly struct held in a `readonly` field or a `readonly` context, the compiler defensively copies it to prevent mutation — a hidden cost. Marking the struct `readonly` removes that.
 
@@ -231,11 +225,11 @@ This is a genuine leap: one algorithm, zero boxing, works for every numeric type
 
 ## LINQ Internals: Deferred Execution and Expression Trees
 
-LINQ is the feature most developers use daily and understand least. Two ideas separate confident users from confused ones: **deferred execution** and the **IEnumerable/IQueryable split**.
+Two ideas explain most LINQ surprises: **deferred execution** and the **IEnumerable/IQueryable split**.
 
 ### Deferred vs Immediate Execution
 
-Most LINQ operators (`Where`, `Select`, `OrderBy`, `Take`) are **deferred**: calling them builds a query object but does *no work*. The work happens only when you *enumerate* the result — with `foreach`, or with a terminal operator like `ToList`, `Count`, `First`, or `Sum`.
+Most LINQ operators (`Where`, `Select`, `OrderBy`, `Take`) are **deferred**: they return an object that holds the source and your lambda, and do no work. The work runs when something *enumerates* that object (`foreach`, or a terminal operator such as `ToList`, `Count`, `First` or `Sum`), and every enumeration calls `GetEnumerator` again, which starts a fresh run from the source.
 
 ```csharp
 var query = numbers.Where(n => n > 10);   // nothing runs yet
@@ -244,9 +238,9 @@ foreach (var n in query)                  // NOW the predicate executes
     Console.WriteLine(n);                 // sees 20 — query re-reads the source
 ```
 
-This has two consequences that bite people constantly:
+Two consequences bite constantly:
 
-1. **The query re-executes every time you enumerate it.** Iterating a deferred query twice runs the whole pipeline twice, hitting the database or recomputing everything. If you need the results more than once, materialize with `ToList()`.
+1. **The query re-executes every time you enumerate it.** Two enumerations run the whole pipeline twice; over an EF Core query, that is two database round trips. If you need the results more than once, materialize with `ToList()`.
 2. **Captured variables are read at enumeration time, not definition time.** The query is a recipe, not a snapshot.
 
 ```csharp
@@ -257,15 +251,15 @@ if (pending.Any())                       // enumerates once
 // Two passes over the source. Materialize once: var list = pending.ToList();
 ```
 
-**Immediate** operators force execution right away: `ToList`, `ToArray`, `ToDictionary`, `Count`, `Sum`, `Average`, `First`, `Single`, `Any`. Anything that returns a concrete collection or a scalar must run the pipeline now.
+**Immediate** operators run the pipeline right away: anything that returns a concrete collection or a scalar (`ToList`, `ToArray`, `ToDictionary`, `Count`, `Sum`, `First`, `Single`, `Any`).
 
 ### IEnumerable vs IQueryable
 
-This is the deepest LINQ concept and the one that determines whether your ORM query runs in the database or drags the whole table into memory.
+This split decides whether an ORM query filters in the database or drags the whole table into memory.
 
-`IEnumerable<T>` uses **`Func<...>` delegates** — compiled code. LINQ-to-Objects operates in memory, running your lambdas as ordinary methods.
+`IEnumerable<T>` operators take **`Func<...>` delegates**: compiled code that LINQ to Objects runs in memory.
 
-`IQueryable<T>` uses **`Expression<Func<...>>` — expression trees**. Instead of compiled code, the lambda is captured as a *data structure describing the code*. A query provider (Entity Framework, for instance) walks that tree and translates it into something else — SQL, typically.
+`IQueryable<T>` operators take **`Expression<Func<...>>`**: the compiler turns the same lambda into an *expression tree*, a data structure describing the code, which a query provider such as EF Core walks and translates, typically into SQL.
 
 ```csharp
 // IQueryable: the lambda becomes an expression tree, translated to SQL
@@ -277,11 +271,17 @@ IEnumerable<Customer> e = dbContext.Customers.AsEnumerable().Where(c => c.City =
 // Pulls the ENTIRE table into memory, then filters in C#
 ```
 
-> **Critical pitfall:** Calling `AsEnumerable()`, `ToList()`, or using a method EF can't translate *too early* switches from `IQueryable` to `IEnumerable`, moving all subsequent filtering to the client. A `Where` that should have been one indexed SQL predicate becomes "download a million rows, then filter." Keep operations in `IQueryable` for as long as possible.
+> **Pay attention.** **The declared type picks the `Where`.**
+>
+> Extension methods are bound at compile time. On a variable declared `IQueryable<T>`, the compiler picks `Queryable.Where` and builds an expression tree; on one declared `IEnumerable<T>`, even when the object behind it is an EF Core query, it picks `Enumerable.Where` and compiles a delegate. From there on, every filter runs in C# over the rows the SQL returned: one indexed predicate becomes "download a million rows, then filter". The usual culprits are a repository method that returns `IEnumerable<T>` and an early `AsEnumerable()` or `ToList()`.
+>
+> Fix: keep the query `IQueryable<T>` until its filters are applied, then materialize once.
+
+A method EF Core can't translate no longer moves the filter to the client: since EF Core 3.0, an untranslatable expression in a `Where` or an `OrderBy` throws at run time, and only the final `Select` may run partly in C#.
 
 ### Expression Trees Directly
 
-You can build and inspect expression trees yourself. This is the machinery behind ORMs, mapping libraries, and mocking frameworks.
+Expression trees are the machinery behind ORMs, mapping libraries and mocking frameworks, and you can build and inspect them yourself.
 
 ```csharp
 using System.Linq.Expressions;
@@ -331,7 +331,7 @@ public class Button
 
 ### Closures and the Capture Trap
 
-A **lambda** can capture variables from its enclosing scope, forming a **closure**. The subtle and important truth: **closures capture variables, not values.** The compiler hoists the captured variable into a heap-allocated object shared by the outer method and the lambda. They see the *same* variable, and later mutations are visible to the lambda.
+A lambda that uses a local variable of its enclosing method forms a **closure**, and **it captures the variable, not its value.** The compiler moves the variable into a field of a hidden, heap-allocated object that the method and the lambda share, so later changes are visible to the lambda.
 
 ```csharp
 // The infamous loop-capture bug (pre-C# 5 foreach, still relevant with for)
@@ -342,7 +342,7 @@ for (int i = 0; i < 3; i++)
 foreach (var a in actions) a();   // prints 3, 3, 3 — all share the same i
 ```
 
-All three lambdas captured the *same* `i`, which is `3` by the time they run. The fix is to capture a fresh variable per iteration:
+A `for` loop declares `i` once, so one hidden object serves every iteration: all three lambdas share it, and `i` is `3` by the time they run. A variable declared inside the loop body gets a new object per iteration:
 
 ```csharp
 for (int i = 0; i < 3; i++)
@@ -353,11 +353,11 @@ for (int i = 0; i < 3; i++)
 // prints 0, 1, 2
 ```
 
-> **Note:** Since C# 5, `foreach` creates a fresh loop variable per iteration, so `foreach` doesn't exhibit this bug — but the classic `for` loop still does. Also be aware closures allocate: capturing a variable creates a heap object, so tight loops that create closures generate GC pressure.
+> **Note:** Since C# 5, `foreach` declares its loop variable inside each iteration, so it doesn't have this bug; `for` still does. Capturing also allocates the hidden object, so closures created in a tight loop add GC pressure: .NET 10's JIT can stack-allocate some delegates, but not yet the object that holds captured variables.
 
 ## Nullable Reference Types
 
-Historically, any reference could be `null`, and `NullReferenceException` was the most common .NET crash. **Nullable reference types (NRT)**, enabled with `<Nullable>enable</Nullable>`, flip the default: a plain `string` is now considered *non-nullable*, and you must write `string?` to allow null. The compiler then performs *flow analysis* and warns when you might dereference a null.
+**Nullable reference types (NRT)**, enabled with `<Nullable>enable</Nullable>` (the default in new projects since .NET 6), flip C#'s default: a plain `string` is *non-nullable*, `string?` allows null, and the compiler's *flow analysis* warns when you might dereference a null.
 
 ```csharp
 #nullable enable
@@ -372,13 +372,21 @@ void Print(string? s)
 }
 ```
 
-Crucially, NRT is a **compile-time-only** feature enforced by warnings. It does not add runtime null checks; the annotations are metadata. The **null-forgiving operator** `!` tells the compiler "trust me, this isn't null" — use it sparingly, because it silences the very safety net you enabled.
+NRT is **compile-time only**: the annotations are metadata, and the compiler adds no runtime null checks. The **null-forgiving operator** `!` tells the compiler "trust me, this isn't null"; use it sparingly, because it silences the safety net you enabled.
 
 ```csharp
 string definitelyThere = maybe!;   // suppress the warning — you own the risk
 ```
 
-> **Best practice:** Turn NRT on for new projects and treat the warnings as errors. It moves an entire class of bugs from production runtime to your editor.
+> **Pay attention.** **Where a null gets past the compiler.**
+>
+> Flow analysis covers the code the compiler compiles, method by method. A null arrives wherever it doesn't run:
+>
+> - **Data from outside.** A deserializer or an ORM creates objects at run time. With default options, `System.Text.Json` puts a JSON `null`, or `null` for a missing constructor parameter, into a non-nullable `string`. Since .NET 9, `RespectNullableAnnotations` rejects the explicit `null` and `RespectRequiredConstructorParameters` the missing parameter; both are off by default. On a settable property, `required` rejects a missing value.
+> - **Gaps in the analysis.** `new string[10]` holds ten nulls, and `default` of a struct leaves its non-nullable reference fields null, without a warning.
+> - **Code compiled without NRT**, and every `!`.
+>
+> Fix: turn NRT on and treat its warnings as errors, then validate where data enters: `required`, the serializer options, and `ArgumentNullException.ThrowIfNull` in public methods.
 
 ## Pattern Matching
 
@@ -421,7 +429,7 @@ The `switch` *expression* (distinct from the older `switch` statement) returns a
 
 ## Records, Value Equality, and with Expressions
 
-A **record** is a reference type (or `record struct` for a value type) that the compiler outfits with **value-based equality**, a readable `ToString`, and nondestructive mutation. Records exist for *data* — DTOs, domain values, messages — where two instances with the same contents should be considered equal.
+A **record** is a reference type (or `record struct` for a value type) for which the compiler generates **value-based equality**, a readable `ToString` and nondestructive mutation. Records are for *data* (DTOs, domain values, messages), where two instances with the same contents should be equal.
 
 ```csharp
 public record Person(string First, string Last, int Age);   // positional record
@@ -432,22 +440,30 @@ Console.WriteLine(p1 == p2);        // True — value equality, compares all mem
 Console.WriteLine(p1);              // Person { First = Ada, Last = Lovelace, Age = 36 }
 ```
 
-Contrast with a `class`, where `==` compares references, so `p1 == p2` would be `False` unless you hand-wrote `Equals`/`GetHashCode`. The compiler generates all of that for records.
+For a `class`, `==` compares references, so `p1 == p2` would be `False` unless you hand-wrote `Equals`, `GetHashCode` and the operators; for a record the compiler generates them.
 
-The **`with` expression** performs *nondestructive mutation*: it creates a copy with some properties changed, leaving the original untouched — ideal for immutable data.
+The **`with` expression** performs *nondestructive mutation*: it creates a copy with some properties changed and leaves the original untouched.
 
 ```csharp
 var older = p1 with { Age = 37 };   // new Person, only Age differs
 // p1 is unchanged
 ```
 
-A **`record struct`** gives value equality on a value type (structs already compare by value, but records add the tuned `Equals`/`GetHashCode`/`ToString` and `with`). Use `readonly record struct` for immutable value objects — it's the most concise way to define something like `Money` or `Coordinate`.
+A **`record struct`** gives a value type generated `Equals`, `GetHashCode`, `ToString`, `==` and `with` (a plain struct has no `==`, and its default `Equals` relies on reflection). `readonly record struct` is the most concise immutable value object, such as `Money` or `Coordinate`.
 
 ```csharp
 public readonly record struct Coordinate(double Lat, double Lng);
 ```
 
-> **Note:** Records use `init`-only setters by default, so positional record properties are immutable after construction. This immutability is a feature — it makes value equality meaningful and makes records safe to share.
+> **Note:** Positional properties of a `record` and a `readonly record struct` are `init`-only, so immutable after construction; a positional `record struct` gets read-write properties. Immutability is what makes value equality safe: a record whose hash changes while it is a dictionary key is lost in the dictionary.
+
+> **Pay attention.** **Why `==` and `Equals` can disagree, and what a record really compares.**
+>
+> - **`==` is chosen at compile time, from the declared types.** Operators are static, so for two `object` variables the compiler binds `object`'s `==`, a reference comparison, even when both hold equal strings; `a.Equals(b)` is virtual, runs `string.Equals` and returns `true`. A generic method constrained `where T : class` binds the same reference comparison even when `T` is `string`. Neither case gets a compiler warning.
+> - **A record compares field by field, each with `EqualityComparer<T>.Default`**, after checking that both objects have the same runtime type. A `List<T>` or array field compares by reference, so two records holding equal-looking lists are unequal.
+> - **`with` is a shallow copy.** The copy shares every reference-type member with the original: adding to the copy's list changes the original's.
+>
+> Fix: compare through the type you mean (`string`, not `object`), and keep records to values such as numbers, strings and nested records, or write `Equals(R? other)` and `GetHashCode` yourself, comparing collections with `SequenceEqual`.
 
 ## Tuples and Deconstruction
 
@@ -501,7 +517,7 @@ Utf8Formatter.TryFormat(12345, buffer, out int written, default);
 
 ## IDisposable, IAsyncDisposable, and the Dispose Pattern
 
-The GC reclaims *managed memory* automatically, but it knows nothing about *unmanaged resources*: file handles, sockets, database connections, native memory. `IDisposable` is the contract for releasing those deterministically.
+The GC reclaims *managed memory*, but knows nothing about file handles, sockets, database connections or native memory. `IDisposable` is the contract for releasing those deterministically, and `using` compiles to a `try/finally` that calls `Dispose`.
 
 ```csharp
 using (var stream = new FileStream("data.bin", FileMode.Open))
@@ -513,7 +529,9 @@ using (var stream = new FileStream("data.bin", FileMode.Open))
 using var reader = new StreamReader("data.txt");
 ```
 
-For the rare class that directly owns an unmanaged resource, the **full Dispose pattern** adds a `Dispose(bool disposing)` method, a finalizer as a last-resort backstop, and `GC.SuppressFinalize` to skip that finalizer once `Dispose` has run. The `disposing` flag matters: when `true` (called from `Dispose()`), other managed objects are still alive and safe to touch; when `false` (the finalizer path), they may already be collected, so you release only unmanaged resources. Most classes need none of this — if you merely *contain* other `IDisposable` fields, implement `Dispose` to dispose them and skip the finalizer. Chapter 2 walks through the full pattern, the finalization queue, and its runtime cost in depth.
+> **Pay attention.** **What happens to a connection nobody disposes.** The GC runs when the *heap* needs space; nothing runs when a *connection pool* runs dry. An undisposed `SqlConnection` stays out of its pool (100 connections by default), and the ADO.NET docs warn it might not return at all. Under load the pool empties, and each new `Open` waits up to 15 seconds, the default timeout, then throws, while memory and CPU look healthy. Fix: `using` or `await using` on every disposable you create; leave what you don't own (injected services, a DI-scoped `DbContext`) to the container that created it.
+
+A class that merely *contains* disposable fields implements `Dispose` to dispose them, and nothing more. Only a class that directly owns an unmanaged resource needs the **full Dispose pattern**: a `Dispose(bool disposing)` method, a finalizer as a backstop, and `GC.SuppressFinalize` once `Dispose` has run. `disposing` is `false` on the finalizer path, where other managed objects may already be collected, so only unmanaged resources are released there. Chapter 2 covers the pattern, the finalization queue and its cost.
 
 **`IAsyncDisposable`** exists for resources whose cleanup involves I/O (flushing a buffer, closing a network stream) that shouldn't block a thread:
 
@@ -677,7 +695,7 @@ string json = """
 
 The triple-quote (or more) delimiters mean embedded `"` need no escaping, and the closing quotes' indentation sets the baseline that's stripped from every line — so your literal stays visually aligned with your code.
 
-> **Where the language is heading.** C# 13 added **params collections** — `params` now accepts `Span<T>`, `ReadOnlySpan<T>`, and other collection types, not just arrays — and the dedicated `System.Threading.Lock` type. C# 14, shipping with .NET 10, brings the `field` keyword (auto-property accessors can reference their own backing field, so a property can add validation without hand-declaring one) and **extension members**, which generalize extension methods to extension properties and static extension members. Appendix B has the full version timeline.
+> **Where the language is heading.** C# 13 (.NET 9) added **params collections** (`params` accepts `Span<T>`, `ReadOnlySpan<T>` and other collection types, not just arrays) and `lock` support for .NET 9's dedicated `System.Threading.Lock` type. C# 14, which ships with .NET 10, the current LTS, brings the `field` keyword (auto-property accessors can reference their own backing field, so a property can add validation without hand-declaring one), **extension members**, which generalize extension methods to extension properties and static extension members, and null-conditional assignment (`order?.Status = ...`). C# 15 is in preview with .NET 11; its features include union types and closed hierarchies, and they can still change before release. Appendix B has the full version timeline.
 
 ## Bringing It Together
 
@@ -690,7 +708,7 @@ Master these fundamentals and you stop guessing about performance and behavior. 
 
 # Chapter 2: .NET Runtime & Internals
 
-_⏱️ Estimated read time: ~40 min · 5921 words (study pace)_
+_⏱️ Estimated read time: ~40 min · 6181 words (study pace)_
 
 A senior .NET developer is expected to reason about what happens *beneath* the C# they write. When a request slows down under load, when memory climbs and never comes back, when a `Scoped` service throws in a singleton, or when a container image is 200 MB larger than it should be — the answers all live in the runtime. This chapter is a deep tour of that machinery: how memory is managed, how your IL becomes machine code, how the modern hosting stack (configuration, dependency injection, logging, background work) is wired together, and how to serialize data efficiently. By the end you should be able to hold a mental model of the CLR precise enough to debug production problems and make informed architectural decisions.
 
@@ -986,9 +1004,7 @@ A **strong name** is a cryptographic identity for an assembly: the assembly is s
 
 ## The Configuration System
 
-Modern .NET replaced the old `app.config`/`web.config` XML world with a flexible, layered **configuration system** built around `IConfiguration`. The core idea: configuration is a set of **key-value pairs** assembled from multiple **providers**, layered so that later providers override earlier ones.
-
-Common providers, typically layered in this order:
+`IConfiguration` is a set of **key-value pairs** assembled from several **providers**; a later provider overrides an earlier one. `WebApplication.CreateBuilder` layers them in this order:
 
 1. `appsettings.json` (base settings)
 2. `appsettings.{Environment}.json` (e.g., `appsettings.Production.json`)
@@ -1016,7 +1032,7 @@ int port = builder.Configuration.GetValue<int>("Email:Port");
 
 ### The Options pattern and binding
 
-Reading individual string keys everywhere is fragile. The **Options pattern** binds a configuration section to a strongly-typed C# class, giving you type safety, IntelliSense, validation, and testability.
+The **Options pattern** binds a configuration section to a typed class, so the rest of the code never reads string keys, and the values can be validated.
 
 ```csharp
 public sealed class EmailOptions
@@ -1035,11 +1051,13 @@ builder.Services
     .ValidateOnStart();                 // fail fast at startup, not first use
 ```
 
-You then inject one of three options interfaces, and the difference between them is a common senior-level interview question:
+You then inject one of three options interfaces; their lifetimes decide which one sees a changed value (`CreateBuilder` reloads `appsettings*.json` on change by default):
 
-- **`IOptions<T>`** — a singleton, computed once. Fine for values that don't change during the process lifetime. Can be injected into singletons.
-- **`IOptionsSnapshot<T>`** — recomputed **per request** (it's a scoped service). Reflects config changes (e.g., an edited JSON file) and supports named options. Cannot be injected into a singleton (it's scoped — see captive dependencies below).
-- **`IOptionsMonitor<T>`** — a singleton that supports **change notifications** via `OnChange` callbacks and always returns the current value. Use it when a singleton needs live-reloading config.
+- **`IOptions<T>`** — a singleton, computed on first use and never again: an edited file never reaches it. Safe to inject anywhere.
+- **`IOptionsSnapshot<T>`** — a **scoped** service, computed once per request, so it sees reloaded values; supports named options. Cannot be injected into a singleton (see captive dependencies below).
+- **`IOptionsMonitor<T>`** — a singleton that recomputes when the configuration reloads, exposes `CurrentValue`, and raises `OnChange`. Use it when a singleton needs live config.
+
+> **Pay attention.** **Binding never fails on a missing or misspelt key; it leaves the default.** The binder copies the keys it finds onto matching properties and ignores the rest, so `"SmtpHots"` in JSON, or a forgotten environment variable, yields `SmtpHost = ""` and no error. Validation is what turns that into a failure, and it runs when the options are first computed: on the first request that needs them, possibly hours after a deployment that looked healthy. `ValidateOnStart()` moves it into host start-up (`Host.StartAsync` runs it before any hosted service starts), so a bad setting fails the deployment instead of a customer's request. `BinderOptions.ErrorOnUnknownConfiguration = true` additionally rejects keys that match no property.
 
 ```csharp
 public class Mailer(IOptions<EmailOptions> options)
@@ -1050,17 +1068,13 @@ public class Mailer(IOptions<EmailOptions> options)
 
 ## Dependency Injection
 
-.NET has a built-in **DI container** (`Microsoft.Extensions.DependencyInjection`) at the heart of the modern hosting model. DI inverts control: instead of a class constructing its own dependencies, it *declares* them (usually as constructor parameters) and the container supplies them. This decouples classes from concrete implementations, makes them testable, and centralizes wiring.
-
-You register services against a `IServiceCollection`, then the container builds an `IServiceProvider` that *resolves* them. Resolution is recursive: to build `OrderService`, the container sees it needs an `IRepository`, builds that, sees the repository needs a `DbContext`, builds that, and so on down the dependency graph.
+A class *declares* its dependencies (usually as constructor parameters) and the built-in container (`Microsoft.Extensions.DependencyInjection`) supplies them. You register services on an `IServiceCollection`; the container builds an `IServiceProvider` that *resolves* them recursively: to build `OrderService` it builds the `IRepository` it needs, then the `DbContext` the repository needs, and so on down the graph.
 
 ### Service lifetimes
 
-The lifetime you choose controls how long an instance lives and how often it's created:
-
-- **Transient** — a **new instance every time** it's requested. Use for lightweight, stateless services. If `A` and `B` both depend on a transient `C`, they each get their own `C`.
-- **Scoped** — **one instance per scope**. In ASP.NET Core, a scope is created per HTTP request, so a scoped service is shared within a request but distinct across requests. `DbContext` is the archetypal scoped service — you want one unit-of-work per request.
-- **Singleton** — **one instance for the entire application** lifetime, created once and shared by everyone. Use for stateless services, caches, and expensive-to-create objects. Must be thread-safe, since concurrent requests share it.
+- **Transient** — a **new instance every time** it's requested. If `A` and `B` both depend on a transient `C`, they each get their own `C`.
+- **Scoped** — **one instance per scope**. ASP.NET Core creates a scope per HTTP request, so a scoped service is shared within a request and distinct across requests. `DbContext` is the archetype: one unit of work per request.
+- **Singleton** — **one instance for the application's lifetime**, shared by every request at once, so it must be thread-safe. For stateless services, caches and expensive-to-create objects.
 
 ```csharp
 builder.Services.AddSingleton<IClock, SystemClock>();
@@ -1072,11 +1086,13 @@ builder.Services.AddTransient<IEmailValidator, EmailValidator>();
 
 Because the container resolves dependencies recursively, a longer-lived service that captures a shorter-lived one **freezes** the shorter-lived one for its own lifetime. This is a **captive dependency**, and it's a frequent production bug.
 
-Consider a **singleton that depends on a scoped `DbContext`**. The singleton is created once, so it resolves the `DbContext` once, and then *holds that same `DbContext` forever* — across all requests, all threads. `DbContext` is not thread-safe and is meant to be short-lived, so you get corrupted state, `ObjectDisposedException`s, and concurrency errors that are maddening to reproduce.
+Consider a **singleton that depends on a scoped `DbContext`**. The singleton is created once, so it resolves the `DbContext` once, and then *holds that same `DbContext` forever* — across all requests, all threads. `DbContext` is not thread-safe, so two concurrent requests get EF Core's *"A second operation was started on this context instance"*, and tracking queries keep handing back entities loaded long ago, with their old values.
 
 > **The rule:** a service may only depend on services with an **equal or longer** lifetime. Singleton → Singleton is fine. Scoped → Singleton is fine. Singleton → Scoped is a bug. Transient captured by a Singleton effectively becomes a Singleton.
 
-The built-in container helps catch this: in the Development environment, ASP.NET Core enables **scope validation**, which throws if you try to resolve a scoped service from the root (singleton) scope.
+> **Pay attention.** **The captured instance belongs to no request, so nothing ever disposes it.** The container builds a singleton in the *root* scope and resolves the singleton's dependencies there too; a scoped service resolved in the root scope is, in the runtime's own words, "promoted to singleton". It is a separate instance from every request's own, lives until the app stops, and is shared by all of them, which is why the symptom is concurrency and stale data, not `ObjectDisposedException`. That exception comes from the opposite capture: work that outlives its request, such as a `Task.Run` closure still using the request's `DbContext` after the response has gone and the scope has disposed it. One fix covers both: whoever outlives the request creates and owns its own scope.
+
+The built-in container can catch the first capture. **`ValidateScopes`** makes it throw when a singleton consumes a scoped service (*"Cannot consume scoped service 'X' from singleton 'Y'"*) or when a scoped service is resolved from the root provider. **`ValidateOnBuild`** checks every registration when the provider is built, so `builder.Build()` fails at start-up instead of on the first resolve. `WebApplicationBuilder` turns both on **only in the Development environment**; in Production nothing checks, and the bug ships.
 
 ```csharp
 // If a singleton genuinely needs a scoped service, inject the FACTORY,
@@ -1092,7 +1108,7 @@ public class BackgroundProcessor(IServiceScopeFactory scopeFactory)
 }
 ```
 
-The container also manages **disposal**: if a resolved service implements `IDisposable`, the container disposes it when its scope ends (per-request for scoped, at app shutdown for singletons). This is why you should let the container own service lifetimes rather than `new`-ing services yourself — you'd lose automatic disposal.
+The container also **disposes** what it creates: an `IDisposable` service is disposed when its scope ends (per request for scoped, at shutdown for singletons). A service you `new` up yourself gets none of that.
 
 ## The Generic Host and Background Services
 
@@ -1158,7 +1174,7 @@ public class OrderService(ILogger<OrderService> logger)
 }
 ```
 
-Why it matters: with structured logs feeding a system like Seq or Elasticsearch, you can query `OrderId = 4567` across millions of log lines, or aggregate by `Amount`. The interpolated version throws that away — and worse, it *always* builds the string even when the log level is disabled, wasting CPU. The template version defers formatting and skips it entirely if the level is off.
+Why it matters: with structured logs feeding a system like Seq or Elasticsearch, you can query `OrderId = 4567` across millions of log lines, or aggregate by `Amount`. The interpolated version throws that away, and it *always* builds the string, even when the level is disabled, because the compiler evaluates it before the call. The template version defers formatting until an enabled provider needs it, but its arguments are still boxed into a `params object[]` on every call. On hot paths, the `[LoggerMessage]` source generator emits a method that checks `IsEnabled` first and passes the values without boxing.
 
 > **Best practice:** always use message templates with named placeholders, never string interpolation, inside logging calls. Note that placeholders are matched to arguments **by position**, not by name — order matters. Use **log scopes** (`logger.BeginScope`) to attach contextual properties (like a correlation ID) to every log line within a block.
 
@@ -1221,15 +1237,15 @@ Order? o = JsonSerializer.Deserialize(json, AppJsonContext.Default.Order);
 Microsoft ships a **new major .NET version every November**, on a predictable cadence, alternating between two support tracks:
 
 - **LTS (Long-Term Support)** releases are supported for **3 years**. These are the **even-numbered** versions: .NET 6, **.NET 8**, **.NET 10**.
-- **STS (Standard-Term Support)** releases — formerly "Current" — are supported for **18 months**. These are the **odd-numbered** versions: .NET 7, **.NET 9**.
+- **STS (Standard-Term Support)** releases are supported for **2 years** — 18 months up to .NET 7, extended to two years from .NET 9. These are the **odd-numbered** versions: .NET 7, **.NET 9**, **.NET 11**.
 
-Both LTS and STS are equally *stable and production-ready*; the difference is purely the **support window**, not quality. STS releases often preview features that later land in the next LTS.
+Both tracks follow the same engineering and release process; the difference is purely the **support window**. The last six months of each window are *maintenance*: security fixes only. Patches ship monthly, on Patch Tuesday.
 
-As of this writing (mid-2026), the relevant versions are:
+As of October 2026 (`releases-index.json` in the `dotnet/core` repository):
 
-- **.NET 8** (LTS, Nov 2023) — the workhorse for most production systems; supported into late 2026.
-- **.NET 9** (STS, Nov 2024) — performance and feature refinements; support ends mid-2026.
-- **.NET 10** (LTS, Nov 2025) — the current long-term-support release, the recommended target for new long-lived systems.
+- **.NET 8** (LTS, Nov 2023) and **.NET 9** (STS, Nov 2024) — both in maintenance; support for both ends on **November 10, 2026**. The longer STS window is why they end together.
+- **.NET 10** (LTS, Nov 2025) — the active long-term-support release, supported until **November 14, 2028**; the target for anything new.
+- **.NET 11** (STS) — at release candidate (RC1, September 2026, supported in production as "go-live"); GA is due in November 2026.
 
 > **Best practice for teams:** standardize on **LTS releases** for products with long maintenance horizons — you get three years before a forced upgrade and a smaller upgrade treadmill. Choose **STS** only when you specifically need a feature that shipped there. Whatever you pick, plan upgrades *before* the support window closes: running on an out-of-support runtime means no security patches, which is an audit and compliance problem.
 
@@ -1251,17 +1267,15 @@ Internalize these and you can reason from symptoms (a latency spike, a memory le
 
 # Chapter 3: ASP.NET Core & Web APIs
 
-_⏱️ Estimated read time: ~1 h 15 min · 10735 words (study pace)_
+_⏱️ Estimated read time: ~1 h 15 min · 11131 words (study pace)_
 
 ASP.NET Core is the beating heart of most .NET server-side work. If you've been building APIs for a couple of years, you already know how to make an endpoint return JSON. This chapter is about the *why* underneath: how a request actually travels through your application, where the extension points live, and how the senior-level decisions (versioning, resilience, auth, real-time) fit together. By the end you should be able to reason about the framework rather than just use it.
 
 ## The Middleware Pipeline & Request Lifecycle
 
-Everything in ASP.NET Core is built on one deceptively simple idea: **a request flows through a chain of components, each of which can do work before and after the next one runs.** This chain is the *middleware pipeline*, and understanding it is the single most important mental model in the framework.
+**A request flows through a chain of components, each of which can do work before and after the next one runs.** This chain is the *middleware pipeline*. A component can also short-circuit: answer without calling the rest. On the way out, the response passes back through the same components in reverse order, so the outermost middleware wraps everything inside it.
 
-Think of the pipeline like airport security lanes arranged in a line. Each checkpoint can inspect you, stamp your passport, send you back early (short-circuit), or wave you through to the next checkpoint. On the way *out*, you pass back through those same checkpoints in reverse order. That "in one order, out in reverse" behavior is often drawn as a set of Russian nesting dolls (matryoshka): the outermost middleware wraps everything inside it.
-
-A middleware component is fundamentally just a function that takes the current `HttpContext` and a delegate to "the rest of the pipeline" (`RequestDelegate`, usually called `next`).
+A middleware component is a function that takes the current `HttpContext` and a delegate to "the rest of the pipeline" (`RequestDelegate`, usually called `next`).
 
 ```csharp
 public class RequestTimingMiddleware
@@ -1321,7 +1335,7 @@ There's also `Map` / `MapWhen` for branching the pipeline based on path or a pre
 
 ### Ordering is everything
 
-The order in which you add middleware *is* the order requests flow through. This is the most common source of subtle bugs.
+The order in which you add middleware *is* the order requests flow through.
 
 > **Best practice — canonical ordering.** Exception handling first (so it wraps everything), then HSTS/HTTPS redirection, static files, routing, CORS, authentication, authorization, and finally your endpoints. Authentication must come before authorization: you can't check *what someone is allowed to do* before you know *who they are*.
 
@@ -1338,7 +1352,7 @@ app.UseAuthorization();         // Are you allowed?
 app.MapControllers();           // Terminal: executes the endpoint.
 ```
 
-That registration order creates the matryoshka nesting from the start of the chapter:
+That registration order creates this nesting:
 
 ```
        request                                    response
@@ -1356,7 +1370,15 @@ That registration order creates the matryoshka nesting from the start of the cha
 +------------------------------------------------------------+
 ```
 
-If you put `UseAuthorization` before `UseRouting`, the authorization middleware has no endpoint metadata to inspect and your `[Authorize]` attributes silently do nothing. If you put `UseCors` after the endpoint that handles the request, preflight requests break. **When something "just doesn't apply," suspect ordering first.**
+Each middleware sees only what the ones before it have set, so a wrong order fails in a predictable way:
+
+- **`UseAuthorization` before `UseAuthentication`:** authorization reads `HttpContext.User`, which authentication has not filled in yet. The user looks anonymous, so every `[Authorize]` endpoint answers `401`, even to a valid token.
+- **`UseAuthorization` before `UseRouting`:** no endpoint has been selected yet, so there is no `[Authorize]` metadata to evaluate. The endpoint middleware notices that authorization never saw the endpoint and throws *"Endpoint … contains authorization metadata, but a middleware was not found that supports authorization"*: a `500` on every protected endpoint, not a silent bypass. It runs the same check for CORS metadata.
+- **`UseExceptionHandler` anywhere but first:** it works by wrapping `await next(context)` in a `try`, so it can't catch what middleware registered before it throws.
+
+**When something "just doesn't apply," suspect ordering first.**
+
+> **Pay attention.** **`WebApplication` orders the defaults for you, until you call one yourself.** With no explicit calls, `WebApplicationBuilder` wraps your middleware: `UseDeveloperExceptionPage` (Development only), `UseRouting`, then `UseAuthentication` and `UseAuthorization` when their services are registered, then everything in `Program.cs`, then the endpoints. That is why a minimal app with `AddAuthentication()` works with no `Use…` calls at all. Call `app.UseRouting()`, `UseAuthentication()` or `UseAuthorization()` yourself and the automatic one is skipped: your order is now the order, with the failures above. Either call none of them or call all three, in order.
 
 ## Minimal APIs vs Controllers (MVC)
 
@@ -1447,7 +1469,9 @@ public class CreateProductRequest
 }
 ```
 
-With `[ApiController]`, a failing model automatically produces a `400 Bad Request` with a validation `ProblemDetails` payload — you never write `if (!ModelState.IsValid)`. In Minimal APIs there's no automatic model-state check by default (you opt in via the validation support added in .NET 10, or validate manually / with a filter).
+With `[ApiController]`, a failing model automatically produces a `400 Bad Request` with a validation `ProblemDetails` payload — you never write `if (!ModelState.IsValid)`. Minimal APIs validate nothing by default. Since .NET 10, `builder.Services.AddValidation()` runs the same DataAnnotations (and `IValidatableObject`) on query, header and body parameters and answers `400` with the error details; before that, validate manually or with a filter.
+
+> **Pay attention.** **The automatic `400` is an action filter, so your action never runs.** `[ApiController]` adds a filter that checks `ModelState` after binding and before the action: a breakpoint in the action never hits, and a log line in it never prints. Binding failures land in the same place: an unparseable body or a wrong JSON type is a `400` from that filter, not an exception. To change the response shape, configure `ApiBehaviorOptions.InvalidModelStateResponseFactory`, rather than adding `if (!ModelState.IsValid)` checks that can never be reached.
 
 ### FluentValidation
 
@@ -1603,9 +1627,7 @@ They are layers, not alternatives. DataAnnotations (or nothing) for trivial DTOs
 
 ## CancellationToken Propagation
 
-Every request carries an implicit expiry: the moment the client disconnects, times out, or navigates away, any work you're still doing on its behalf is wasted. The framework tells you when that happens — `HttpContext.RequestAborted` is a `CancellationToken` that trips when the connection drops — and both Minimal APIs and MVC will bind it for you: declare a `CancellationToken` parameter on your endpoint or action and the framework wires it to `RequestAborted` automatically.
-
-The token only helps if you *pass it through*. EF Core queries, `HttpClient` calls, stream reads — essentially every awaited I/O API — accept one:
+Once the client disconnects, times out or navigates away, work done on its behalf is wasted. `HttpContext.RequestAborted` is a `CancellationToken` that trips when the connection drops, and both Minimal APIs and MVC bind it to any `CancellationToken` parameter of an endpoint or action. It helps only if you *pass it through*: EF Core queries, `HttpClient` calls and stream reads all accept one.
 
 ```csharp
 app.MapGet("/reports/{id:int}", async (int id, AppDbContext db,
@@ -1619,11 +1641,17 @@ app.MapGet("/reports/{id:int}", async (int id, AppDbContext db,
 });
 ```
 
-When the client disconnects mid-query, EF Core cancels the database command; the connection returns to the pool and the request's threads free up. Without the token, the query runs to completion for a caller that will never read the response.
+When the client disconnects mid-query, EF Core cancels the database command and the connection returns to the pool. Without the token, the query runs to completion for a caller that will never read the response.
 
-Why this matters operationally: picture your API slowing down under load. Clients hit their own timeouts, abandon their requests, and *retry*. If your server doesn't observe cancellation, every abandoned request keeps executing — the original query is still hammering the database while the retry starts a duplicate. Load effectively doubles at precisely the moment the system is already struggling, and a slowdown snowballs into an outage. Propagating the token is what lets abandoned work actually stop, turning a retry storm into a manageable blip instead of a self-inflicted amplification attack.
+This matters most under load. Clients time out, abandon their requests and *retry*; if the server ignores cancellation, each abandoned query keeps running while its retry starts a duplicate. Load doubles exactly when the system is already struggling, and a slowdown snowballs into an outage. Propagating the token lets abandoned work stop.
 
-> **Gotcha:** Not everything should be cancellable. If you've charged a payment and are about to write the outbox record, cancelling *mid-write* because the client hung up is far worse than finishing wasted work — you'd take the money and lose the event. For operations that must run to completion once started, deliberately pass `CancellationToken.None` (or a token decoupled from the request) past that point of no return. The skill isn't "always pass the token"; it's knowing which operations are safe to abandon and which have already committed you.
+> **Pay attention.** **A token stops only the calls it reaches.**
+>
+> Cancellation is cooperative: `Cancel()` sets a flag and runs the callbacks registered on the token, nothing more. Code stops only where it checks the flag, or where an API you passed the token to registered a callback: SqlClient registers one that cancels the running command on the server, and `HttpClient` aborts the request. One method in the chain that takes no token, or doesn't forward it, leaves everything below it running to completion.
+>
+> Fix: accept a `CancellationToken` in every async method on a request path and forward it. Analyzer CA2016 flags a call that could take the token in scope but doesn't; in .NET 10 it is only a suggestion by default, so raise it to a warning in `.editorconfig`.
+
+> **Gotcha:** Not everything should be cancellable. If you've charged a payment and are about to write the outbox record, cancelling *mid-write* because the client hung up is far worse than finishing wasted work: you'd take the money and lose the event. Past such a point of no return, pass `CancellationToken.None` (or a token decoupled from the request). The skill is knowing which operations are safe to abandon and which have already committed you.
 
 ## Filters
 
@@ -1820,7 +1848,7 @@ app.UseRateLimiter();
 
 **REST** is a set of constraints, not a law, but a few principles pay dividends: model your API around **resources** (nouns) not actions; use HTTP **verbs** for intent (GET read, POST create, PUT replace, PATCH partial update, DELETE remove); make GET/PUT/DELETE **idempotent**; and lean on the **status code** to communicate outcome.
 
-Use the right codes: `200 OK`, `201 Created` (with a `Location` header), `204 No Content` for a successful DELETE, `400` for malformed input, `401` unauthenticated, `403` authenticated-but-forbidden, `404` not found, `409` conflict, `422` semantic validation failure, `429` rate limited, `500` for your bugs. Returning `200` with an error body inside is a common anti-pattern that breaks clients and tooling.
+Use the right codes: `200 OK`, `201 Created` (with a `Location` header), `204 No Content` for a successful DELETE, `400` for malformed input, `401` unauthenticated, `403` authenticated-but-forbidden, `404` not found, `409` conflict, `422` semantic validation failure, `429` rate limited, `500` for your bugs. ASP.NET Core's automatic validation answers `400`, not `422`; if you adopt `422`, change it everywhere, so clients see one convention. Returning `200` with an error body inside is a common anti-pattern: retry policies, caches and error-rate dashboards read the status code, never the body, so all of them count the failure as a success.
 
 ### Idempotency Keys: Making POST Retry-Safe
 
@@ -2184,7 +2212,7 @@ Reach for SignalR for dashboards, chat, live collaboration, notifications, and p
 
 ## Error Handling with ProblemDetails (RFC 7807)
 
-Every API needs a *consistent* error shape. **RFC 7807 ProblemDetails** is the standard: a JSON object with `type`, `title`, `status`, `detail`, and `instance`. Standardizing on it means clients (and tools) can parse errors uniformly instead of guessing.
+Every API needs *one* error shape. **ProblemDetails** — RFC 7807, since replaced by RFC 9457, which the current ASP.NET Core docs cite — is the standard: a JSON object with `type`, `title`, `status`, `detail` and `instance`, so clients and tools parse every error the same way.
 
 ```csharp
 builder.Services.AddProblemDetails();
@@ -2216,9 +2244,15 @@ public class ValidationExceptionHandler : IExceptionHandler
 // builder.Services.AddExceptionHandler<ValidationExceptionHandler>();
 ```
 
-> **Tip — `AddExceptionHandler` vs writing your own exception middleware.** These aren't two independent mechanisms: `UseExceptionHandler()` *is* the middleware, and `AddExceptionHandler<T>()` registers handlers that plug into it — called in registration order until one returns `true`, with anything unhandled falling through to the default ProblemDetails response. A hand-rolled `try/catch` middleware can do the same job, but then you own everything the built-in one already does: safe defaults (status 500, cache headers cleared), the awkward edge case where the response has already started streaming, content negotiation via `IProblemDetailsService`, and the diagnostics logs and metrics observability tooling expects. `IExceptionHandler` classes are also plain DI services — unit-testable with no `RequestDelegate` plumbing, one focused class per exception family instead of a growing `switch`. Reserve custom middleware for concerns that aren't "map this exception to an HTTP response" — releasing a resource or enriching telemetry on every failure, say — or for pre-.NET 8 targets, where the `UseExceptionHandler(errorApp => ...)` lambda overload fills the same role.
+> **Tip — `AddExceptionHandler` vs writing your own exception middleware.** `UseExceptionHandler()` *is* the middleware; `AddExceptionHandler<T>()` registers handlers it calls in registration order until one returns `true`, and anything unhandled falls through to the default ProblemDetails response. A hand-rolled `try/catch` middleware makes you own what the built-in one already does: status 500 and cleared cache headers, a response that has already started, content negotiation through `IProblemDetailsService`, and the logs and metrics tooling expects. `IExceptionHandler` classes are plain DI services, testable without `RequestDelegate` plumbing, one class per exception family. Keep custom middleware for work that isn't "map this exception to a response", or for targets before .NET 8, where the `UseExceptionHandler(errorApp => ...)` overload fills the role.
 
-> **Best practice.** Never leak stack traces or internal messages to callers in production. `detail` should be safe to show a client; log the gory details server-side with a correlation ID that the client can quote to support.
+> **Pay attention.** **What reaches the caller, and what reaches the log.**
+>
+> - **The trace id goes out by default.** The default ProblemDetails writer adds `traceId` (`Activity.Current?.Id`, else `HttpContext.TraceIdentifier`) to every body it writes, so write your responses through `IProblemDetailsService` rather than `WriteAsJsonAsync` and the caller always has the key that finds your log entry.
+> - **The stack trace goes out only through the environment.** In Development, `WebApplication` adds the developer exception page itself. A client that doesn't ask for HTML gets a ProblemDetails whose `exception` field holds `ex.ToString()` and *every request header*, `Authorization` included. A production container started with `ASPNETCORE_ENVIRONMENT=Development` serves that to anyone. Pin the environment in deployment, and never call `UseDeveloperExceptionPage` unconditionally.
+> - **The middleware logs too.** It writes its own `Error` entry for each exception it catches. On .NET 10 it skips that entry when an `IExceptionHandler` returned `true` (`ExceptionHandlerOptions.SuppressDiagnosticsCallback` changes the rule); before .NET 10 it always writes it, so a handler that also logs records every failure twice.
+>
+> Put `detail` text that is safe to show a client; the details belong in the one log entry the `traceId` points to.
 
 ## Health Checks
 
@@ -2303,7 +2337,7 @@ The through-line of this chapter is that ASP.NET Core is a **pipeline of composa
 
 # Chapter 4: Data Access & Databases
 
-_⏱️ Estimated read time: ~1 h 10 min · 10876 words (study pace)_
+_⏱️ Estimated read time: ~1 h 15 min · 11623 words (study pace)_
 
 Almost every non-trivial application is, underneath all its features, a machine for moving data in and out of a database safely and quickly. You can write flawless business logic and beautiful APIs, but if your data access layer holds locks too long, fires a thousand queries where one would do, or corrupts a balance under concurrent writes, the whole system fails in ways that are hard to reproduce and harder to fix. This chapter takes you from the mechanics of Entity Framework Core down to the SQL and storage engine underneath it, then back up through caching, NoSQL, and deployment. The goal is that you stop treating the database as a black box and start reasoning about what it actually does.
 
@@ -2644,13 +2678,13 @@ WHERE o.Status = 'Open';
 
 ### Indexes: Clustered, Non-Clustered, Covering
 
-An index is to a table what the index at the back of a book is to its pages: a sorted structure that lets the engine find rows without scanning everything. Without indexes, a `WHERE` on a million-row table means reading all million rows — a **table scan**.
+An index is a copy of some of a table's columns, kept sorted by its key in a B-tree, so the engine can find rows without reading every page. Without one, a `WHERE` on a million-row table reads all million rows: a **table scan**.
 
-A **clustered index** *is* the table, physically sorted by the index key. Because the data itself is ordered this way, a table can have only one clustered index — usually the primary key. Looking up by the clustered key is the fastest possible read.
+A **clustered index** *is* the table: its leaf pages hold the rows themselves, in key order. A table has only one, usually the primary key (SQL Server makes the primary key clustered unless a clustered index already exists), and a lookup by the clustered key is the cheapest read there is.
 
-A **non-clustered index** is a separate structure holding the indexed columns plus a pointer back to the full row. Finding a row by a non-clustered index takes two steps: search the index, then follow the pointer to fetch the rest of the row — an operation called a **key lookup**.
+A **non-clustered index** is a separate B-tree whose leaf rows hold the indexed columns plus the row's locator: the clustered key, or a row ID on a table without a clustered index. Every column the query needs beyond those costs a **key lookup**: one more descent, through the clustered index, per matching row.
 
-A **covering index** eliminates that second step by *including* the extra columns the query needs directly in the index, via `INCLUDE`:
+A **covering index** removes that step by *including* the extra columns in its leaf rows:
 
 ```sql
 -- Query: SELECT Email, Name FROM Customers WHERE City = 'Berlin'
@@ -2659,13 +2693,33 @@ CREATE NONCLUSTERED INDEX IX_Customers_City
     INCLUDE (Email, Name);   -- now the index alone answers the query
 ```
 
-The query is *covered* — everything it needs lives in the index, so no key lookups occur.
+The query is *covered*: everything it needs lives in the index, so no key lookups occur. Because the clustered key sits in every non-clustered index, `SELECT Id FROM Customers WHERE Email = @e` is covered by an index on `Email` alone, and a wide clustered key widens every other index.
+
+> **Pay attention.** **Why a composite index serves only its leftmost prefix.** An index on `(City, CreatedAt)` is sorted by `City`, and by `CreatedAt` only within each city, like a phone book sorted by surname and then first name. A seek needs one contiguous range of that order:
+>
+> - `City = @c` is one contiguous block: a seek.
+> - `City = @c AND CreatedAt >= @d` is one range inside that block: a seek on both columns, and the rows come out in date order, so `ORDER BY CreatedAt` needs no sort.
+> - `CreatedAt >= @d` alone has no range: its rows sit in every city's block, so the engine scans the whole index and filters.
+> - In `(CreatedAt, City)`, the range on the *first* column makes the second one useless for seeking: inside a date range the cities are in no order. SQL Server seeks to the start of the range and checks `City` row by row, as a residual `WHERE:` in the seek operator, reading every row of the period to keep one city's.
+>
+> So: equality columns first, then the one range or sort column, and check that every column you meant to seek on appears in the plan's seek predicate. On SQL Server 2022 CU27 (200,000 rows, 4 vCPU, warm cache), `CreatedAt >= @p` scanned `(City, CreatedAt)` for 712 logical reads, while `City = @p AND CreatedAt >= …` sought it for 3 ([`seek-vs-scan.txt`](https://github.com/malyna2/dotnet-handbook/blob/main/verify/path/reference-runs/seek-vs-scan.txt)). Rung 6 of [Chapter 37](#chapter-37-the-slow-query-lab-reading-execution-plans) measures the wrong order on PostgreSQL.
 
 > **Pitfall:** Indexes speed up reads but slow down writes, because every `INSERT`/`UPDATE`/`DELETE` must maintain them. Do not index every column. Index the columns you filter, join, and sort on, and measure.
 
 ### Execution Plans
 
-The execution plan is the database's step-by-step strategy for a query: which indexes it uses, in what order it joins, whether it scans or seeks. An **index seek** (jumping straight to matching rows) is good; an **index scan** or **table scan** on a large table under a selective filter usually signals a missing index. In SQL Server you view it with `SET SHOWPLAN_ALL ON` or the graphical plan in SSMS; watch for scans, expensive key lookups, and warnings about missing indexes.
+The execution plan is the engine's strategy for a query: which indexes it reads, in what order it joins, whether it seeks or scans. An **index seek** jumps to one contiguous range of an index; an **index scan** reads all of it (a clustered index scan is a table scan). A scan of a large table under a selective filter usually means a missing index or a predicate the index can't use.
+
+Read the *actual* plan. In SSMS, *Include Actual Execution Plan* (Ctrl+M); in a script, `SET STATISTICS XML ON` or `SET STATISTICS PROFILE ON`. `SET SHOWPLAN_ALL ON` and the estimated plan don't run the query, so they have no actual row counts. Add `SET STATISTICS IO ON` for each table's **logical reads**: the 8 KB pages the query touched in memory. They measure the work, so unlike milliseconds they come out the same on a laptop and on a server. Then look for scans under a selective filter, key lookups multiplied by many rows, estimates far from actual row counts, and warnings.
+
+A predicate can seek only if it is **sargable**: it compares the stored column itself with a value. Wrap the column in a function (`LOWER(Email)`, `YEAR(CreatedAt) = 2026`), compute with it, or start a `LIKE` with `%`, and the engine must evaluate the expression for every row: a scan. Rewrite the predicate around the bare column (`CreatedAt >= '2026-01-01' AND CreatedAt < '2027-01-01'`), or index the expression (a computed column in SQL Server, an expression index in PostgreSQL).
+
+> **Pay attention.** **A .NET `string` against a `varchar` column can turn a seek into a scan.** SqlClient and Dapper send a C# `string` as `nvarchar`, and so does EF Core for a property mapped as Unicode, the default. `nvarchar` has the higher data-type precedence, so SQL Server converts the *column*, `CONVERT_IMPLICIT(nvarchar(100),[Email],0)`, not the parameter. Whether that still seeks depends on the column's collation:
+>
+> - **Under a SQL collation**, `varchar` is compared with the collation's own sort rules and `nvarchar` with Unicode rules, and the two orders differ: `'a-c' < 'ab'`, but `N'a-c' > N'ab'`. The index's `varchar` order can't answer the converted comparison, so the plan scans the index, and the XML plan carries `<PlanAffectingConvert ConvertIssue="Seek Plan" …>`. `SQL_Latin1_General_CP1_CI_AS` is one: the setup default for US English installations and the default collation of a new Azure SQL database.
+> - **Under a Windows collation** (`Latin1_General_CI_AS`) both types follow the same rules, so the optimizer computes a seek range from the parameter (`GetRangeThroughConvert` in the plan) and still seeks. That is why the same code is fast on one database and slow on another.
+>
+> On SQL Server 2022 CU27 (16.0.4295.3, 200,000 rows, 4 vCPU, warm cache), the `nvarchar` parameter cost an Index Scan and 888 logical reads, the `varchar` one an Index Seek and 3; under a Windows collation the `nvarchar` parameter also read 3 ([`seek-vs-scan.txt`](https://github.com/malyna2/dotnet-handbook/blob/main/verify/path/reference-runs/seek-vs-scan.txt), [`collation.txt`](https://github.com/malyna2/dotnet-handbook/blob/main/verify/path/reference-runs/collation.txt)). The fix is a parameter of the column's type: in EF Core, `.IsUnicode(false).HasMaxLength(100)` on the property (`ToQueryString()` then shows `DECLARE @email varchar(100)` instead of `nvarchar(4000)`); in Dapper, `new DbString { Value = email, IsAnsi = true, Length = 100 }`; in ADO.NET, `SqlDbType.VarChar`. Or make the column `nvarchar`, so both sides agree.
 
 Reading plans is a skill worth acquiring properly rather than by pattern-matching, and it is easiest to learn on PostgreSQL, whose `EXPLAIN` output is plain text and tells you both what it *expected* and what actually *happened*. The next section does that in depth.
 
@@ -2740,7 +2794,7 @@ B-tree is the default and the right answer most of the time, but Postgres has a 
 
 The B-tree rules that matter in practice:
 
-- **Multi-column indexes obey the leftmost-prefix rule.** An index on `(customer_id, created_at)` serves `WHERE customer_id = ?`, and `WHERE customer_id = ? ORDER BY created_at`, but not `WHERE created_at > ?` alone. Put equality columns first, then the range or sort column.
+- **Multi-column indexes obey the leftmost-prefix rule.** An index on `(customer_id, created_at)` serves `WHERE customer_id = ?`, and `WHERE customer_id = ? ORDER BY created_at`, but not `WHERE created_at > ?` alone. Put equality columns first, then the range or sort column; [Indexes: Clustered, Non-Clustered, Covering](#indexes-clustered-non-clustered-covering) explains why.
 - **An index can supply the sort order.** If the index order matches the `ORDER BY`, the plan has no `Sort` node at all — the rows come out sorted. The direction and `NULLS FIRST/LAST` must match too.
 - **`INCLUDE` makes an index covering**, so the query can be answered without touching the heap.
 - **Partial indexes** index only the rows you actually query, which makes them dramatically smaller and cheaper to maintain.
@@ -3278,7 +3332,7 @@ In your own service:
 
 # Chapter 5: Design Patterns, Principles & Clean Code
 
-_⏱️ Estimated read time: ~1 h 35 min · 12572 words (study pace)_
+_⏱️ Estimated read time: ~1 h 35 min · 12713 words (study pace)_
 
 A senior developer is not someone who has memorized twenty-three patterns from a book. A senior developer is someone who can look at a tangle of code and *feel* where the seams should be, who reaches for a pattern the way a carpenter reaches for the right chisel, and who — crucially — knows when to leave the chisel in the box and just drive the nail.
 
@@ -3286,7 +3340,7 @@ This chapter is about developing that instinct. We will walk through the classic
 
 ## What a Design Pattern Actually Is
 
-A design pattern is a named, reusable solution to a recurring design problem. That is the textbook definition, and it is nearly useless on its own. Here is the useful version.
+A design pattern is a named, reusable solution to a recurring design problem.
 
 A pattern is a *record of a trade-off that someone made enough times to give it a name*. When you say "Strategy pattern," you are not describing a class hierarchy — you are describing a decision to trade a little indirection for the ability to swap an algorithm at runtime. The class hierarchy is just the shape that decision leaves in the code.
 
@@ -3303,8 +3357,6 @@ The failure mode has a name in the community — "pattern-itis" or "architecture
 > **Overuse warning:** Every pattern adds indirection, and indirection is a cost paid by every future reader of the code. A pattern is justified only when the flexibility it buys is flexibility you will actually use. Speculative flexibility — "we might need to swap the database someday" — is usually a bad trade. This is YAGNI (You Aren't Gonna Need It), and it is the single most important principle in this chapter.
 
 The right mental model: patterns are a response to *pain you already feel*, not insurance against pain you imagine. Write the simple version first. When it starts to hurt — when you find yourself editing the same `switch` in five places, when a class has grown three unrelated reasons to change — *then* refactor toward the pattern that relieves that specific pain. This is why patterns are best learned alongside refactoring: they are destinations, and refactoring is the road.
-
-With that warning firmly in place, let's build the toolkit.
 
 ## Creational Patterns
 
@@ -3847,7 +3899,7 @@ return result.IsSuccess
 
 ## Exception Handling Strategy
 
-Almost every codebase has a *style* of exception handling, and almost none have a *strategy*. The style is visible: `try`/`catch` blocks sprinkled wherever someone was once burned, a `catch (Exception ex) { _logger.LogError(ex.Message); throw; }` copied from file to file, a global handler that returns `"An error occurred"` and nothing else. The strategy is the thing that answers three questions, and this section answers them in order: **where do I catch, what do I log, and what do I surface?** Every one of those answers depends on a prior question that most code never asks.
+Most codebases have a *style* of exception handling — `try`/`catch` wherever someone was once burned, a `catch (Exception ex) { _logger.LogError(ex.Message); throw; }` copied from file to file, a global handler that returns `"An error occurred"` — and no *strategy*. A strategy answers three questions: **where do I catch, what do I log, and what do I surface?** Each answer depends on a prior question: what kind of failure is this?
 
 ### Classify the Failure First
 
@@ -3874,7 +3926,7 @@ The earlier Result-pattern section made the case for `Result<T>`; here is the ot
 
 **Exceptions are unignorable** — their single greatest property. If a method throws and you write no handler, the failure propagates and something eventually notices. Compare a method returning `Result<T>`: a caller can write `_ = DoTheThing();` and discard the failure entirely, and the compiler will not blink. Unignorability is why exceptions are right for the *exceptional*, where continuing is worse than stopping. **Results, in exchange, are visible in the signature and force a decision.** `Result<Order> Place(...)` tells you failure is expected without reading the body; `Order Place(...)` does not. The cost is signature pollution: `Result<T>` is viral, spreading up through every caller, and code that mixes both conventions gets the worst of each.
 
-Now the performance, with the mechanism rather than folklore. A throw/catch pair costs on the order of **microseconds** — roughly 5–20 µs for a shallow stack, growing with depth, and worse under a debugger. Two things dominate. First, **the stack walk**: throwing does not simply jump, it walks frames outward looking for a handler whose filter matches, unwinding as it goes, so the same `throw` is cheap in a leaf method and expensive from twenty frames down a request pipeline. Second, **stack trace capture**: building the trace means resolving frames back to method metadata, which scales with depth again.
+Now the performance, with the mechanism rather than folklore. A throw/catch pair costs on the order of **microseconds** — roughly 5–20 µs for a shallow stack, growing with depth, and worse under a debugger (TODO(verify): figure predates .NET 9's reworked managed exception handling; re-measure on .NET 10). Two things dominate. First, **the stack walk**: throwing does not simply jump, it walks frames outward looking for a handler whose filter matches, unwinding as it goes, so the same `throw` is cheap in a leaf method and expensive from twenty frames down a request pipeline. Second, **stack trace capture**: building the trace means resolving frames back to method metadata, which scales with depth again.
 
 Put that in context, because context is the whole point. Ten microseconds once per failed HTTP request, against a budget of tens of milliseconds, is *noise* — nobody has ever had an outage because a 404 threw. Ten microseconds per row across 200,000 rows is **two seconds of pure overhead**, and that is a genuine, career-defining performance bug.
 
@@ -4027,6 +4079,16 @@ One failure now produces four `Error` entries. They are not four problems and th
 
 > **Best practice.** Log where you *handle*, not where you *pass through*. If a layer genuinely knows something the boundary cannot — a retry attempt count, the exact query that failed — log that as a `Warning` with the specific fact, and still let the boundary own the single `Error` for the failure itself.
 
+> **Pay attention.** **Reading the exception you logged.**
+>
+> `LogError(ex, …)` records `ex.ToString()`: the outer type and message, then each inner exception after ` ---> `, each followed by its own frames and `--- End of inner exception stack trace ---`, then the outer exception's frames. The root cause is the innermost exception, so read the deepest `--->` first.
+>
+> - **A trace is the path the exception travelled.** The top frame is where it was thrown, each frame below is the caller of the one above, and the last frame is the one that caught it: the trace grows as the stack unwinds and stops at the catch, so it is not the whole call stack.
+> - **`--- End of stack trace from previous location ---`** marks a capture and rethrow through `ExceptionDispatchInfo`, which is what every `await` of a faulted task does: above the line is where it failed, below is where it was awaited.
+> - **Frames can be missing or late.** `throw ex;` drops everything below the rethrow. Release builds inline small methods into their callers, so an inlined method has no frame, and line numbers appear only when the `.pdb` is deployed with the assembly.
+>
+> Read down to the first frame in your own code: frames above it are the library that threw, frames below it are how you got there.
+
 ### What to Surface
 
 The response to the outside world is a **product decision**, not a debugging artifact. Never surface a stack trace, a SQL statement, a connection string, an internal type name, or raw inner-exception text: at best it confuses the caller, at worst it is a reconnaissance gift to an attacker (see the error-handling notes in [Chapter 14: Security](#chapter-14-security)).
@@ -4072,8 +4134,6 @@ The status code carries the most important piece of information, so choose it de
 | Client cancelled / disconnected | **no response** | The caller is gone. Do not manufacture a 500 for a socket nobody is reading |
 
 ### Process-Level Safety Nets
-
-Below the request boundary sits the process, and it has its own failure modes.
 
 **`BackgroundService`.** Since .NET 6, an unhandled exception in `ExecuteAsync` stops the **entire host** by default (`BackgroundServiceExceptionBehavior.StopHost`) — a deliberate change, because the previous behavior silently killed the service and left the process running as a hollow shell that looked healthy to every probe. Keep that default and put your `try`/`catch` *inside* the loop, so one bad message does not take down the worker while a genuinely broken worker still takes down the host and lets the orchestrator restart it. [Chapter 22: Background Processing, Scheduling & the Actor Model](#chapter-22-background-processing-scheduling-the-actor-model) covers the loop shape in detail.
 
@@ -4220,7 +4280,7 @@ Dependency Inversion is the principle behind the entire .NET dependency injectio
 
 ## Clean Code & Code Smells
 
-You will spend far more of your career reading code than writing it — easily ten times more. That single observation reorganizes your priorities: the reader, not the compiler, is the customer you are writing for. The principles above are the *structural* side of good code; clean code is the *local* side — what a single name, method, or file looks like up close, which is where most developers actually spend their day. And it is not a matter of taste: messy code slows every future change and quietly taxes every estimate your team gives.
+Code is read far more often than it is written, so the reader, not the compiler, is the customer. The principles above are the *structural* side of good code; clean code is the *local* side — what a single name, method or file looks like up close — and messy code taxes every future change and every estimate.
 
 > **Clarity beats cleverness.** The compiler does not reward you for a dense one-liner, and the next developer will silently curse you for it. Optimize for the person who has to understand this code under pressure at 2 a.m.
 
@@ -4447,7 +4507,7 @@ So hold the patterns lightly and the principles tightly. When you feel real pain
 
 # Chapter 6: Architecture & Application Design
 
-_⏱️ Estimated read time: ~35 min · 5096 words (study pace)_
+_⏱️ Estimated read time: ~35 min · 5264 words (study pace)_
 
 You can write correct code and still build a system that becomes miserable to change. Correctness is about whether a single function returns the right answer; architecture is about whether, six months from now, a new feature takes an afternoon or a fortnight. This chapter is about the second question — the shape of the whole, the boundaries between the parts, and the trade-offs that senior engineers weigh almost unconsciously.
 
@@ -4877,16 +4937,25 @@ The **Outbox Pattern** solves this. In the *same database transaction* that save
 
 ### Idempotency
 
-An operation is **idempotent** if performing it multiple times has the same effect as performing it once. In distributed systems, messages get redelivered, clients retry on timeout, and relays double-publish. If "charge payment" runs twice, you've double-charged a customer. The defense is to make consumers idempotent — typically by tracking a unique message/operation ID and ignoring duplicates.
+An operation is **idempotent** if performing it multiple times has the same effect as performing it once. In distributed systems, messages get redelivered, clients retry on timeout, and relays double-publish. If "charge payment" runs twice, you've double-charged a customer. The defense is to make consumers idempotent — typically by recording a unique message/operation ID and ignoring duplicates.
+
+The obvious version is wrong: "if the ID was processed, return; charge; record the ID" is check-then-act. Two copies delivered at the same time both pass the check before either records the ID, and both charge. The record must *be* the check — insert the ID under a unique key first, in the same transaction as the effect:
 
 ```csharp
-public async Task Handle(ChargePayment cmd)
+public async Task Handle(ChargePayment cmd, CancellationToken ct)
 {
-    if (await _processed.ExistsAsync(cmd.MessageId)) return;   // already handled -> no-op
-    await _payments.ChargeAsync(cmd.OrderId, cmd.Amount);
-    await _processed.MarkAsync(cmd.MessageId);
+    await using var tx = await _db.Database.BeginTransactionAsync(ct);
+    _db.ProcessedMessages.Add(new ProcessedMessage(cmd.MessageId));      // unique key on MessageId
+    try { await _db.SaveChangesAsync(ct); }                               // the claim: a duplicate stops here
+    catch (DbUpdateException e) when (IsUniqueViolation(e)) { return; }   // already handled -> no-op
+
+    _db.Payments.Add(Payment.Requested(cmd.OrderId, cmd.Amount));        // the effect, in the same transaction
+    await _db.SaveChangesAsync(ct);
+    await tx.CommitAsync(ct);
 }
 ```
+
+A second copy's insert waits on the first's uncommitted key, then fails if the first commits; if the effect fails, the rollback releases the claim and the redelivery retries. An effect outside the database (the card network itself) can't join the transaction, so pass the same ID downstream as the provider's idempotency key. [Chapter 9: Idempotent Consumers](#idempotent-consumers) walks the race; [Chapter 3: Idempotency Keys](#idempotency-keys-making-post-retry-safe) applies the same mechanism to HTTP.
 
 > **Idempotency is the safety net that makes at-least-once messaging, retries, and the Outbox pattern viable.** Design every message handler and every mutating API endpoint (via an idempotency key) to tolerate being called more than once. This is non-negotiable in a distributed system.
 
@@ -4945,17 +5014,15 @@ The senior move is restraint. Reach for the simplest structure that fits the for
 
 # Chapter 7: Testing
 
-_⏱️ Estimated read time: ~35 min · 5398 words (study pace)_
+_⏱️ Estimated read time: ~35 min · 5373 words (study pace)_
 
 Most developers arrive at their first senior interview able to write a test. Far fewer can explain *why* one test is worth writing and another is worth deleting, why a green test suite can still be worthless, or why the team that mocks everything ends up trusting nothing. This chapter is about that second, harder layer of understanding. We will write plenty of code, but the code is in service of judgment. By the end you should be able to look at a pull request and say, with reasons, "this test earns its keep" or "this test is a liability."
 
 ## Why We Test At All
 
-Testing is not about proving your code is correct. You cannot prove correctness with tests; you can only demonstrate the presence of behaviour under specific conditions. What testing actually buys you is **confidence to change code**. A codebase without tests is a codebase where every change is a gamble, and where fear slowly ossifies the design because nobody dares refactor. The real product of a good test suite is not "quality" in the abstract — it is *velocity that doesn't decay*.
+Tests can't prove code correct; they show behaviour under specific conditions. What they buy is **confidence to change code**: without them every change is a gamble, and the design ossifies because nobody dares refactor.
 
-There is a well-worn observation that the cost of fixing a defect rises the later you catch it. A bug caught by a unit test on your machine costs a few minutes. The same bug caught in code review costs a round-trip of two people's attention. Caught in QA, it costs a bug report, a triage meeting, and a context switch back into code you've forgotten. Caught in production, it costs an incident, possibly customer trust, possibly money, and always the most expensive thing of all: debugging a live system under pressure with incomplete information. The exact multipliers are debated and context-dependent, but the *shape* of the curve is real and it is steep. Tests are a mechanism for pushing detection as far left — as early — as possible.
-
-> **The core value proposition:** tests convert "I hope this still works" into "I know this still works, and here's the evidence." Everything else in this chapter is mechanics in support of that sentence.
+The later a defect is caught, the more it costs: minutes on your machine, two people's attention in review, a bug report and a context switch in QA, an incident and live debugging in production. The multipliers are debated; the steep shape of the curve is not. Tests push detection as early as possible.
 
 ### The Testing Pyramid
 
@@ -5310,11 +5377,13 @@ var client = factory.WithWebHostBuilder(builder =>
 
 The most consequential integration-test decision is what to do about the database. Three options:
 
-1. **EF Core In-Memory provider.** Fast, zero setup — and *dangerous*. It is not a relational database. It ignores relational constraints, doesn't enforce uniqueness the way SQL does, doesn't support transactions or raw SQL, and has different query-translation behaviour. A test that passes against it can fail against real Postgres. Microsoft themselves recommend against it for anything but the simplest cases.
+1. **EF Core In-Memory provider.** Fast, zero setup — and *dangerous*. It is not a relational database: it doesn't enforce unique indexes, doesn't support transactions or raw SQL, and evaluates queries differently. A test that passes against it can fail against real Postgres. The EF Core documentation calls using it as a database fake "highly discouraged".
 2. **SQLite in-memory.** A real relational engine, genuinely fast, supports transactions. A big step up in fidelity — but its SQL dialect and type handling differ from Postgres/SQL Server, so provider-specific features and migrations may not translate.
 3. **The real database engine.** Highest fidelity, catches the bugs that actually happen. Historically this meant a fragile shared test database or a heavyweight local install. **Testcontainers** solved that.
 
-> **Best practice:** test business logic against fast fakes, but test anything that touches SQL — queries, migrations, constraints, concurrency — against the *same engine you run in production*. The in-memory provider's convenience is a trap that lets real database bugs sail through a green suite.
+> **Pay attention.** **The in-memory provider never generates SQL, so nothing a database enforces can fail.** It runs your LINQ over .NET collections. `HasIndex(...).IsUnique()` is metadata only a relational provider turns into `CREATE UNIQUE INDEX`, so two rows with the same email both save (the learning path's *InMemoryProvider* experiment shows it next to SQLite, which rejects the second). String comparison is C#'s, case-sensitive, where SQL Server's default collation is not. A query the real provider can't translate never reaches a translator. Beginning a transaction throws by default; suites that silence that warning get a transaction that does nothing, so a rollback test passes for the wrong reason. Fix: run anything that touches SQL against the production engine.
+
+> **Best practice:** test business logic against fast fakes, but test anything that touches SQL — queries, migrations, constraints, concurrency — against the *same engine you run in production*.
 
 ### Testcontainers for .NET
 
@@ -5555,10 +5624,10 @@ A **flaky test** passes or fails without any code change — the most corrosive 
 
 Common causes and fixes:
 
-- **Time and dates.** `DateTime.Now` makes behaviour depend on when the test runs. Inject an `IClock`/`TimeProvider` (built into modern .NET) and control time explicitly.
-- **Ordering and shared state.** Tests that pass alone but fail together share mutable state. Isolate them — this is exactly why xUnit's per-test instance model exists.
+- **Time and dates.** `DateTime.Now` makes behaviour depend on when the test runs. Inject `TimeProvider` and control time explicitly ([Chapter 25: Deterministic Tests](#deterministic-tests-time-async-and-test-data)).
+- **Ordering and shared state.** Tests that pass alone but fail together share mutable state. xUnit's new instance per test protects instance fields only; statics, singletons, fixtures and database rows survive from one test to the next.
 - **Async and timing.** `Task.Delay` and "wait a bit then assert" race the scheduler. Await deterministic signals, not wall-clock guesses.
-- **Test parallelism.** Two tests hitting the same database row concurrently. Give each its own data, or serialise them with a collection.
+- **Test parallelism.** By default each test class is its own collection, and collections run in parallel: two classes touching the same row or static race each other, and the outcome depends on scheduling. Give each test its own data, or put the classes in one `[Collection]` to serialise them.
 - **Non-deterministic data.** Unseeded random generators (see Bogus/AutoFixture above).
 - **External dependencies.** A test calling a real network service fails when the network hiccups. Fake the boundary.
 
@@ -6178,7 +6247,7 @@ Open the service you work on and answer these from the code, not from memory:
 
 # Chapter 9: Messaging & Distributed Systems
 
-_⏱️ Estimated read time: ~35 min · 5105 words (study pace)_
+_⏱️ Estimated read time: ~35 min · 5344 words (study pace)_
 
 Somewhere along the road from junior to senior, you stop asking "how do I call this API?" and start asking "what happens when this API is down, slow, or lying to me?" That shift in mindset is the heart of distributed systems. This chapter is about the tools and patterns we use to build systems out of many independent parts that keep working even when some of those parts fail.
 
@@ -6186,7 +6255,7 @@ Messaging is the connective tissue. Instead of components shouting directly at e
 
 ## Why Messaging at All?
 
-Imagine an e-commerce checkout. When a customer clicks "Buy", a naive design does everything inline: charge the card, decrement inventory, send a confirmation email, update the loyalty points, notify the warehouse, and refresh analytics. All in one HTTP request.
+A naive checkout does everything inside the "Buy" request: charge the card, reserve inventory, send the confirmation email, update loyalty points, notify the warehouse, refresh analytics.
 
 ```
 Customer ──HTTP──▶ [CheckoutService]
@@ -6199,7 +6268,7 @@ Customer ──HTTP──▶ [CheckoutService]
 
 This is **synchronous, temporal coupling**. Every downstream service must be up, fast, and healthy at the exact moment the customer clicks. The checkout is only as reliable as the *weakest* dependency, and only as fast as the *sum* of all of them. If the email provider hiccups, the customer sees an error for a purchase that actually succeeded.
 
-Now flip it. The checkout service does the essential, transactional work (charge + reserve inventory) and then publishes an `OrderPlaced` message. Email, loyalty, warehouse, and analytics each subscribe and react on their own schedule.
+Now flip it. The checkout does the essential, transactional work (charge, reserve inventory), then publishes an `OrderPlaced` message; email, loyalty, warehouse and analytics each react on their own schedule.
 
 ```
 Customer ──HTTP──▶ [CheckoutService] ──publish──▶ [ Message Broker ]
@@ -6209,22 +6278,22 @@ Customer ──HTTP──▶ [CheckoutService] ──publish──▶ [ Message 
                   [EmailSvc]   [LoyaltySvc]   [WarehouseSvc]   [AnalyticsSvc]
 ```
 
-Three things just improved:
+Three things improve:
 
-- **Decoupling.** The checkout service doesn't know or care who consumes `OrderPlaced`. You can add a fraud-detection consumer next quarter without touching checkout.
-- **Resilience.** If the email service is down, messages queue up and get processed when it recovers. The customer's purchase is unaffected.
-- **Scalability.** If analytics is slow, you spin up ten copies to chew through the backlog. Each consumer scales independently based on its own load.
+- **Decoupling.** The checkout doesn't know who consumes `OrderPlaced`; a fraud-detection consumer can be added next quarter without touching it.
+- **Temporal decoupling.** Producer and consumer need not be up at the same time. If the email service is down, messages wait in the queue and are processed when it recovers; the purchase is unaffected.
+- **Load levelling.** A burst waits in the queue instead of overloading the consumer, which drains it at its own rate. Add consumer instances to drain it faster; each service scales on its own load.
 
-> **The core trade-off:** messaging buys you decoupling and resilience at the cost of *eventual consistency* and *complexity*. The email doesn't go out the instant the button is clicked — it goes out "soon". For most business processes, "soon" is completely fine. Knowing when it's *not* fine (e.g., "is this seat still available?") is a senior-level judgment call.
+> **The core trade-off:** messaging buys you decoupling and resilience at the cost of *eventual consistency* and *complexity*. The email goes out "soon", not instantly, which suits most business processes. Knowing when it's *not* fine (e.g., "is this seat still available?") is a senior-level judgment call.
 
 ### Synchronous vs Asynchronous, More Precisely
 
 Don't conflate "synchronous" with "request/response" or "async" with "messaging". They're orthogonal axes:
 
-- **Synchronous communication** means the caller blocks (logically) waiting for the result. A REST call, a gRPC call. The two parties must be alive simultaneously.
-- **Asynchronous communication** means the caller hands off the work and continues. Messaging is the classic vehicle, but so is fire-and-forget.
+- **Synchronous:** the caller waits (logically) for the result — a REST or gRPC call — so both parties must be alive at once.
+- **Asynchronous:** the caller hands off the work and continues; messaging is the classic vehicle.
 
-A useful rule of thumb: use **synchronous** calls when you genuinely need the answer *right now* to proceed (e.g., "is this coupon valid?"), and **asynchronous** messaging when you're notifying the world that something happened or delegating work that can complete later.
+Call synchronously when you need the answer *now* to proceed ("is this coupon valid?"); message when announcing that something happened or delegating work that can finish later.
 
 ## Message Brokers Compared
 
@@ -6357,16 +6426,16 @@ Multiple instances of the same consumer read from one queue; the broker hands ea
 
 ### Dead-Letter Queues (DLQ)
 
-When a message can't be processed — it's malformed, or it keeps throwing after N retries — you don't want it blocking the queue or being lost. It gets shunted to a **dead-letter queue**: a holding pen for "poison messages" that a human or automated process inspects later.
+A message that can't be processed — malformed, or still throwing after N retries — must neither block the queue nor be lost. It moves to a **dead-letter queue**, a holding pen for "poison messages" that a human or a tool inspects later. In Azure Service Bus that happens when the handler dead-letters it explicitly, or automatically once its delivery count exceeds `MaxDeliveryCount` (10 by default): every abandon or expired lock counts as a delivery. Nothing drains a DLQ; messages stay until someone reads them.
 
 > **Pitfall:** a DLQ silently filling up is one of the most common production incidents. Always alert on DLQ depth. A message in the DLQ usually means a bug or a bad assumption — investigate, don't just retry blindly.
 
 ### Message Ordering
 
-Ordering is deceptively hard in distributed systems. The moment you have competing consumers, messages can be processed out of order (worker 2 finishes message 5 before worker 1 finishes message 4). Solutions:
+A FIFO queue hands messages out in order; nothing makes them *finish* in order. Competing consumers, or one consumer with concurrency above 1, process messages side by side, so worker 2 finishes message 5 before worker 1 finishes message 4. A message that is abandoned or whose lock expires is processed again after the later messages other receivers took meanwhile, and with prefetch it goes to the back of the local buffer. Solutions:
 
 - **Kafka:** order is guaranteed *within a partition*. Route related messages to the same partition via a key.
-- **Azure Service Bus / RabbitMQ:** use **sessions** / **consistent hashing** to pin a related group of messages to one consumer.
+- **Azure Service Bus:** **sessions**. The sender sets `SessionId` (say, the order ID); a receiver that accepts the session holds an exclusive lock on all its messages and receives them in order, one receiver per session, many sessions in parallel. Sessions are chosen when the queue or subscription is created and can't be switched on later. **RabbitMQ:** a consistent-hash exchange pins each key to one queue with one consumer.
 - **Design around it:** the best answer is often to make consumers tolerant of out-of-order delivery (e.g., include version numbers and ignore stale updates).
 
 ## MassTransit: Messaging for .NET
@@ -6511,22 +6580,41 @@ This is where distributed systems get genuinely hard — and where interviews an
 
 ### Idempotent Consumers
 
-Foundational, so we start here. In a distributed system you will receive duplicate messages (we'll see why under delivery guarantees). An **idempotent** consumer produces the same result whether it processes a message once or five times. The standard mechanism is deduplication: check whether this message's ID has already been processed, skip it if so, and record it once the work is done. Chapter 21 covers the mechanics of idempotency and idempotency keys in depth; here the point is that idempotent consumers are what make at-least-once delivery safe to live with.
+You will receive duplicate messages (*Delivery Guarantees* below explains why). An **idempotent** consumer produces the same result whether it processes a message once or five times, and that is what makes at-least-once delivery safe to live with.
 
-> **Best practice:** design every consumer to be idempotent *by default*. It's cheaper than trying to guarantee exactly-once delivery (which, as we'll see, is nearly impossible). Use natural keys where you can — "does an order with this ID already exist?" is more robust than a separate processed-messages table.
+> **Pay attention.** **Check-then-act deduplication does the work twice.** "If this message ID was processed, return; do the work; record the ID" leaves a window between the check and the record. Two copies delivered at the same time — two instances, `MaxConcurrentCalls` above 1, or a redelivery overlapping a slow first attempt — both pass the check before either records the ID, and both do the work. A crash between the work and the record loses the record, so the redelivery does the work again. The fix is to make the record *be* the check: insert the ID under a unique key first, in the same transaction as the effect.
 
-### The Outbox Pattern
+```csharp
+public async Task Consume(ConsumeContext<OrderPlaced> context)
+{
+    CancellationToken ct = context.CancellationToken;
+    await using var tx = await _db.Database.BeginTransactionAsync(ct);
+    _db.ProcessedMessages.Add(new ProcessedMessage(context.MessageId!.Value));  // unique key on MessageId
+    try { await _db.SaveChangesAsync(ct); }                                       // the claim: a duplicate stops here
+    catch (DbUpdateException e) when (IsUniqueViolation(e)) { return; }           // 2601/2627 SQL Server, 23505 PostgreSQL
 
-Here's a subtle, vicious bug. Your consumer does two things: writes to the database *and* publishes a message. What if it crashes between them?
+    _db.LoyaltyPoints.Add(LoyaltyPoints.For(context.Message));                    // the effect, in the same transaction
+    await _db.SaveChangesAsync(ct);
+    await tx.CommitAsync(ct);
+}
+```
+
+Walk the second copy through it. Its insert waits on the first copy's uncommitted key. If the first commits, the insert fails with a duplicate-key error and the consumer returns before the effect; if the first rolls back, the claim disappears with it, and the second copy does the work. [Chapter 3: Idempotency Keys](#idempotency-keys-making-post-retry-safe) walks the same mechanism for HTTP. An effect outside your database, such as a payment API, can't join the transaction: pass the message's key to it as the provider's idempotency key as well.
+
+> **Best practice:** design every consumer to be idempotent *by default*; it's cheaper than chasing exactly-once delivery. Use natural keys where you can: a consumer that inserts the order under a unique order ID has its claim built in, with no separate processed-messages table.
+
+### The Transactional Outbox
+
+A handler writes to the database *and* publishes a message. What if it crashes between them?
 
 ```
 1. Save Order to DB   ✓
 2. Publish OrderPlaced ✗  ← crash here: DB updated but no one notified!
 ```
 
-You've now got an order in your database that no downstream service knows about. Reverse the order and you get the opposite bug: a message published for an order that was never saved.
+An order exists that no downstream service knows about. Publish first and you get the opposite bug: a message for an order that was never saved. No ordering of the two calls fixes this: they are two systems with no shared transaction (the *dual write*).
 
-The **Outbox pattern** fixes this by making the message part of the same database transaction. Instead of publishing directly, you write the outgoing message into an `outbox` table in the *same transaction* as your business data. A separate process (the "relay") reads the outbox and publishes to the broker, marking rows as sent.
+The **transactional outbox** writes the outgoing message into an `outbox` table in the *same transaction* as the business data. A separate relay reads the outbox, publishes to the broker, and marks rows as sent.
 
 ```
 ┌─────────── single DB transaction ───────────┐
@@ -6541,7 +6629,7 @@ The **Outbox pattern** fixes this by making the message part of the same databas
               [ Message Broker ]
 ```
 
-Because both inserts commit atomically, you can never have the "saved but not published" split. The relay guarantees the message *will* be published at least once. MassTransit has a built-in transactional outbox you can enable with a few lines:
+Both inserts commit atomically, so "saved but not published" can't happen. A relay that crashes after publishing but before marking the row publishes it again: at-least-once, so consumers deduplicate. MassTransit has a built-in transactional outbox:
 
 ```csharp
 x.AddEntityFrameworkOutbox<AppDbContext>(o =>
@@ -6551,7 +6639,7 @@ x.AddEntityFrameworkOutbox<AppDbContext>(o =>
 });
 ```
 
-The mirror image is the **Inbox pattern**: recording processed message IDs (as described under idempotent consumers above) so that duplicate deliveries are detected and dropped. Outbox guarantees you *send* reliably; inbox guarantees you *receive* without double-processing. Together they give you effectively-once behavior on top of at-least-once transport.
+The mirror image is the **inbox**: the processed-message claims from *Idempotent Consumers*. The outbox makes sending reliable; the inbox makes receiving safe to repeat. Together they give effectively-once behavior on at-least-once transport.
 
 ### Saga: Managing Long-Running Distributed Transactions
 
@@ -6641,7 +6729,7 @@ These come from the world of resilient clients, and Chapter 21 covers the mechan
 
 ## Delivery Guarantees
 
-This is the deep end, and getting it wrong causes lost or duplicated data. There are three theoretical guarantees:
+Getting this wrong loses or duplicates data. There are three possible guarantees:
 
 - **At-most-once.** Fire and forget. The message is delivered zero or one times — it may be lost, never duplicated. Fast, simplest, acceptable for high-volume telemetry where losing one reading doesn't matter.
 - **At-least-once.** The message will be delivered, but possibly more than once. This is the default and most common guarantee in real brokers. It's achieved with acknowledgements: the consumer processes a message, then acks. If it crashes before acking, the broker redelivers. But if it processed *and then crashed before the ack*, you get a duplicate.
@@ -6649,7 +6737,7 @@ This is the deep end, and getting it wrong causes lost or duplicated data. There
 
 ### Why Exactly-Once Is (Almost) a Myth
 
-The fundamental problem: acknowledgement is itself a network operation that can fail. Consider a consumer that processes a message and sends an ack. If the ack is lost in the network, the broker doesn't know the message was handled and redelivers it. There is no way, in the general case, for the two parties to agree perfectly on "was this done?" across an unreliable network. This is a consequence of the **Two Generals Problem** — two parties communicating over a lossy channel can never be *certain* they've reached agreement.
+The acknowledgement is itself a network operation that can fail. A consumer processes a message and sends an ack; the ack is lost; the broker, not knowing the message was handled, redelivers it. Two parties on a lossy channel can never be *certain* they agree on "was this done?" — the **Two Generals Problem**.
 
 Systems that advertise "exactly-once" (like Kafka's transactional producers or SQS FIFO) achieve it under specific constraints, and usually it's really *exactly-once processing*, not delivery — the transport is at-least-once, and duplicates are suppressed by deduplication.
 
@@ -6657,7 +6745,7 @@ Systems that advertise "exactly-once" (like Kafka's transactional producers or S
 
 ### Deduplication
 
-Idempotency's practical implementation. Every message carries a unique ID. The consumer keeps a record of processed IDs (the inbox pattern) and discards repeats. Brokers can help — Azure Service Bus offers built-in duplicate detection over a time window; SQS FIFO deduplicates within 5 minutes — but application-level dedup on a business key is the most reliable, because it survives longer windows and broker changes.
+Every message carries a unique ID, and the consumer claims it atomically with the effect (the inbox pattern, under *Idempotent Consumers*), so repeats are discarded. Brokers help only at the edges: Azure Service Bus duplicate detection and SQS FIFO deduplication (5 minutes) drop a second *send* of the same ID — a producer retrying — but never see a redelivery of a message already sent. Application-level dedup on a business key is the reliable layer: it covers redeliveries, longer windows and broker changes.
 
 ## Consistency in a Distributed World
 
@@ -7754,25 +7842,25 @@ At scale, **Kubernetes** takes over: you *declare* desired state — Deployments
 
 # Chapter 12: DevOps & CI/CD
 
-_⏱️ Estimated read time: ~1 h · 9479 words (study pace)_
+_⏱️ Estimated read time: ~1 h · 9459 words (study pace)_
 
 DevOps is not a job title, a tool, or a team you can buy. It is a way of working in which the people who write software and the people who run it in production share responsibility for the whole lifecycle. The practical machinery that makes this possible is automation: version control that lets many people change the same codebase safely, pipelines that build and test every change, and deployment mechanisms that push validated code to users without drama. This chapter takes you from the internals of Git all the way to canary deployments, with .NET as the running example throughout. By the end you should be able to design a pipeline, reason about a branching strategy, and explain to a junior why rebasing a shared branch is a bad idea.
 
 ## Git, Properly Understood
 
-Most developers use Git as a sequence of memorized incantations. To operate at a senior level you need a mental model of what those commands actually do. That model is simpler than the command surface suggests, because Git is built on a tiny, elegant data structure.
+Git's command surface is large; the model underneath is small, and once you have it, every command becomes predictable.
 
 ### The Object Model
 
-Git is, at its heart, a content-addressable key-value store. Everything it stores is an *object*, and every object is identified by the SHA-1 (increasingly SHA-256) hash of its contents. There are four object types, but three matter for understanding day-to-day work.
+Git is a content-addressable store: every *object* is identified by the hash of its contents (SHA-1 by default; Git's published plan for its next major version makes SHA-256 the default for new repositories). Of the four object types, three matter day to day.
 
-A **blob** is the raw contents of a file. Not the filename, not the permissions—just the bytes. If two files in your repo have identical contents, Git stores exactly one blob and points to it twice. The hash *is* the identity; change one byte and you get a completely different blob with a different hash.
+A **blob** is a file's raw bytes, without its name or permissions. Identical contents are stored once; change one byte and you get a different blob with a different hash.
 
-A **tree** represents a directory. It is a list of entries, each mapping a name (like `Program.cs` or `src`) to a hash and a mode. Those hashes point either to blobs (files) or to other trees (subdirectories). A tree is thus a snapshot of a directory's structure at a moment in time.
+A **tree** is a directory: a list of entries, each mapping a name and a mode to the hash of a blob (a file) or of another tree (a subdirectory).
 
-A **commit** points to exactly one tree—the complete snapshot of your project at that instant—plus metadata: author, committer, timestamp, message, and the hashes of its *parent* commit(s). A normal commit has one parent. A merge commit has two or more. The very first commit has none.
+A **commit** points to one tree, the complete snapshot of the project, plus metadata: author, committer, timestamps, message, and the hashes of its *parent* commits (one normally, two or more for a merge, none for the first commit).
 
-This is the crucial insight: **a commit is not a diff. It is a full snapshot.** Git computes diffs on demand by comparing two snapshots, but it stores complete trees. Because each commit references its parent, the commits form a directed acyclic graph (DAG). Follow the parent pointers backward and you walk the entire history.
+The crucial insight: **a commit is not a diff. It is a full snapshot.** Git computes diffs on demand by comparing two snapshots. Each commit references its parent, so the commits form a directed acyclic graph (DAG), and because the parent's hash is part of the commit's content, a commit's ID covers the entire history behind it. Change anything upstream and every ID downstream changes.
 
 > **Key mental model:** A branch is not a container of commits. A branch is a lightweight, movable *pointer* to a single commit—literally a 40-character hash in a small file under `.git/refs/heads/`. `HEAD` is a pointer to the branch you currently have checked out. This is why creating a branch in Git is instantaneous: you are writing one file.
 
@@ -7787,7 +7875,7 @@ git cat-file -p HEAD          # tree hash, parent hash, author, message
 git cat-file -p <tree-hash>   # lists blobs and subtrees with their hashes
 ```
 
-Understanding that branches are just pointers demystifies nearly every "scary" Git operation. Resetting a branch moves a pointer. Rebasing rewrites commits and moves a pointer. Merging creates a commit and moves a pointer. Nothing is ever truly destroyed immediately—which brings us to the reflog later.
+Since branches are pointers, the "scary" operations are pointer moves. Resetting a branch moves a pointer. Rebasing writes new commits and moves a pointer. Merging creates a commit and moves a pointer. Nothing committed is destroyed immediately (see the reflog, below).
 
 ### .gitignore
 
@@ -7820,19 +7908,15 @@ appsettings.Development.local.json
 
 ### Branching Strategies: GitFlow vs Trunk-Based
 
-How a team uses branches shapes how fast it can ship. Two philosophies dominate.
+**GitFlow** uses long-lived branches with defined roles: `main` holds released code, `develop` is the integration branch, and short-lived `feature/*`, `release/*`, and `hotfix/*` branches feed into them. It suits discrete versioned releases, such as an application customers install. Its weakness is deferred integration: `develop` and feature branches drift apart, and big-bang merges produce painful conflicts, which is exactly what continuous integration exists to avoid.
 
-**GitFlow** uses long-lived branches with defined roles: `main` holds released code, `develop` is the integration branch, and short-lived `feature/*`, `release/*`, and `hotfix/*` branches feed into them. It is ceremonious and works well when you ship discrete versioned releases (think a boxed product or an on-premise .NET application customers install). Its weakness is that `develop` and `feature` branches drift apart, and big-bang merges produce painful conflicts. Integration is deferred, which is exactly what continuous integration tries to avoid.
-
-**Trunk-based development** keeps everyone committing to a single branch (`main`) many times a day, using very short-lived branches (hours, not weeks) that merge back quickly. Incomplete work is hidden behind feature flags rather than long-lived branches. This is the model that high-performing teams and virtually all continuous-deployment shops use, because small frequent merges are cheap and low-risk.
+**Trunk-based development** keeps everyone committing to a single branch (`main`) many times a day, using very short-lived branches (hours, not weeks) that merge back quickly. Incomplete work is hidden behind feature flags rather than long-lived branches. Continuous-deployment teams use it because small, frequent merges are cheap and low-risk.
 
 > **Best practice:** For a service you deploy continuously, prefer trunk-based development with short-lived branches and feature flags. Reserve GitFlow-style release branches for software with genuine parallel-version maintenance needs. The longer a branch lives, the more expensive its eventual merge.
 
 ### Merge vs Rebase
 
-These two commands both integrate changes from one branch into another, but they do it differently and the difference matters.
-
-`git merge feature` into `main` creates a new *merge commit* with two parents, tying the two histories together. History is preserved exactly as it happened—including the fact that development was concurrent. The downside is a history graph full of merge commits that can be noisy.
+`git merge feature` into `main` creates a new *merge commit* with two parents, tying the two histories together. History is preserved exactly as it happened, at the cost of a noisier graph.
 
 `git rebase main` while on `feature` takes each of your feature commits, sets them aside, moves your branch pointer to the tip of `main`, and *replays your commits on top* one by one. The result is a linear history as if you had started your work from the current `main`. Note that rebasing creates *new* commits with new hashes—the originals are abandoned.
 
@@ -7853,9 +7937,11 @@ When to use each:
 
 > **The golden rule of rebasing:** Never rebase commits that others have already pulled. Because rebase rewrites history (new hashes), anyone who based work on the old commits will have a divergent history, and the next `git pull` becomes a nightmare of duplicated commits. Rebase private history freely; treat shared history as immutable.
 
+> **Pay attention.** **Why a rebased branch can't be pushed normally.** `git push` only updates a remote branch when the remote's commit is an ancestor of yours (a fast-forward). After a rebase your commits are new objects, so the old remote tip is no longer in your history and the push is rejected. That rejection is the safety net: overriding it with `--force` discards whatever the remote has that you don't, including a teammate's push. On your own pull-request branch, use `git push --force-with-lease`, which overwrites only if the remote still points where your last fetch saw it. A background fetch (some IDEs run one) silently refreshes that expectation, so add `--force-if-includes` as well. On a branch others build on, don't force at all: merge instead.
+
 ### Interactive Rebase
 
-Interactive rebase is the power tool for curating history before you share it. It lets you reorder, combine (squash), edit, or drop commits.
+Interactive rebase curates history before you share it: reorder, combine (squash), edit, or drop commits.
 
 ```bash
 git rebase -i HEAD~4
@@ -7916,7 +8002,7 @@ git merge --abort          # returns to the pre-merge state
 
 ### The Reflog: Your Safety Net
 
-The single most reassuring fact about Git is that it almost never truly loses committed work. Every time `HEAD` moves—commit, checkout, reset, rebase, merge—Git records the previous position in the **reflog**.
+Git almost never loses *committed* work. Every time `HEAD` moves—commit, checkout, reset, rebase, merge—Git records the previous position in the **reflog**.
 
 ```bash
 git reflog
@@ -7933,7 +8019,7 @@ git reset --hard 9a8b7c6      # move the branch back to that commit
 git switch -c recovery 9a8b7c6
 ```
 
-Reflog entries are local and expire (default 90 days for reachable, 30 for unreachable), but that is more than enough to rescue almost any "I destroyed my work" panic. Knowing the reflog exists changes your relationship with Git's scarier commands: they become reversible experiments rather than one-way risks.
+Reflog entries are local and expire (by default after 90 days, or 30 for commits no longer reachable from a branch), which is plenty for any "I destroyed my work" moment. The limit is the word *committed*: `git reset --hard` over uncommitted changes discards them for good, because they never became objects. Commit (or stash) before an experiment, and every Git command becomes reversible.
 
 ## What CI/CD Actually Means
 
@@ -8652,7 +8738,7 @@ None of these practices is exotic. Their power is cumulative: together they turn
 
 # Chapter 13: Observability
 
-_⏱️ Estimated read time: ~30 min · 4906 words (study pace)_
+_⏱️ Estimated read time: ~30 min · 5197 words (study pace)_
 
 Imagine you are the pilot of a modern aircraft. You cannot see the engines, you cannot feel the air pressure at 35,000 feet with your bare skin, and you certainly cannot inspect every one of the thousands of moving parts in real time. Yet you fly with confidence. Why? Because in front of you sits a cockpit full of instruments: altimeters, fuel gauges, temperature readouts, and warning lights that scream at you the moment something drifts out of tolerance. The aircraft is a black box, but the instruments make it *observable*.
 
@@ -8686,17 +8772,21 @@ Most developers start with logs like this:
 logger.LogInformation($"User {userId} placed order {orderId} for {amount:C}");
 ```
 
-This produces a human-readable string: `User 42 placed order 9981 for $59.99`. It looks fine until you have ten million of these lines and you need to answer "what is the total order value for user 42 today?" Now you are writing fragile regular expressions to parse text you never designed to be parsed.
+It produces `User 42 placed order 9981 for $59.99`, which reads fine until ten million such lines must answer "what did user 42 order today?" with regular expressions over text nobody designed to be parsed.
 
-**Structured logging** treats a log entry as a set of key-value properties, not a flat string. Instead of baking values into text, you keep them as named fields:
+**Structured logging** keeps the values as named fields instead of baking them into text:
 
 ```csharp
 logger.LogInformation("User {UserId} placed order {OrderId} for {Amount}", userId, orderId, amount);
 ```
 
-Note the crucial difference: those are **not** string interpolation placeholders (`$"..."`). They are **message template** tokens. The logging framework captures `UserId`, `OrderId`, and `Amount` as separate, typed properties attached to the event. The rendered message is still `User 42 placed order 9981 for 59.99`, but the underlying event is now a queryable object. In a log store you can write `UserId = 42 AND Amount > 50` as a real query, no regex required.
+Those are **message template** tokens, not interpolation holes. The framework captures `UserId`, `OrderId` and `Amount` as separate, typed properties of the event; the rendered text is the same, but `UserId = 42 AND Amount > 50` is now a query.
 
-> **Best practice:** Always use message templates with named placeholders, never string interpolation, in log calls. `LogInformation($"...")` throws away all structure and defeats the purpose. Enable the analyzer `CA2254` to catch this.
+> **Pay attention.** **The template is the kind of event.**
+>
+> `ILogger.Log` hands every provider a `state` object, not a string. For a template call it is a list of key-value pairs: one per placeholder, holding the original typed value, plus `{OriginalFormat}`, the template itself. Log stores use that last entry as the event's type, so every "order placed" event groups and counts together. An interpolated string is built by the compiler before the call: the provider receives no properties, and `{OriginalFormat}` is the finished text, a new "type" for every value. Part 1, Module 6 prints both states side by side.
+>
+> Use templates in every log call. The analyzer rule that flags interpolation, CA2254, is only a suggestion by default (.NET 10), so the build stays green: set `dotnet_diagnostic.CA2254.severity = warning` in `.editorconfig`.
 
 ### Serilog in Depth
 
@@ -8781,7 +8871,7 @@ app.Use(async (context, next) =>
 
 ### Log Levels: A Shared Vocabulary
 
-Log levels are not decoration; they are the primary control for signal-to-noise ratio. Use them deliberately:
+A level answers one question: who has to act on this entry, and how soon. It is also a filter: the configured minimum (`Logging:LogLevel:Default`, overridden per category such as `Microsoft.AspNetCore`) is checked before a message is formatted, so a disabled level costs almost nothing.
 
 - **Trace / Verbose** — extremely detailed diagnostic flow, usually off in production.
 - **Debug** — internal state useful during development or targeted troubleshooting.
@@ -8790,11 +8880,9 @@ Log levels are not decoration; they are the primary control for signal-to-noise 
 - **Error** — an operation failed and a user or process was affected. A caught exception that broke a request.
 - **Critical / Fatal** — the application or a major subsystem is unusable. Database unreachable, out of memory.
 
-> **Pitfall:** Logging everything at `Information` (or worse, logging exceptions at `Information`) makes levels meaningless. When every line looks equally important, alert fatigue sets in and real errors drown. Reserve `Error` for genuine failures a human might need to act on.
+> **Pitfall:** Alerts and error-rate dashboards count `Error` entries. Every entry at `Error` that needs no action — a validation failure, a 404, a client that disconnected — teaches on-call to ignore the alert; every real failure logged at `Information` never reaches it. Reserve `Error` for failures someone must act on, and log each one once.
 
 ### What Not to Log: Secrets and PII
-
-This is a discipline that separates senior engineers from juniors.
 
 > **Critical pitfall:** Never log passwords, API keys, connection strings, bearer tokens, full credit card numbers, government IDs, or personal data like full names, emails, or addresses unless you have a lawful basis and proper redaction. Logs are frequently shipped to third-party systems, retained for months, and accessible to broad audiences. A logged secret is a leaked secret.
 
@@ -8984,13 +9072,13 @@ builder.Services.AddOpenTelemetry()
         .AddAspNetCoreInstrumentation()          // incoming HTTP spans
         .AddHttpClientInstrumentation()          // outgoing HTTP spans
         .AddEntityFrameworkCoreInstrumentation() // database spans
-        .SetSampler(new TraceIdRatioBasedSampler(0.1)) // sample 10%
+        .SetSampler(new ParentBasedSampler(new TraceIdRatioBasedSampler(0.1))) // follow the caller; roots: 10%
         .AddOtlpExporter(o => o.Endpoint = new Uri("http://collector:4317")));
 ```
 
 The instrumentation packages are what make this genuinely powerful. `AddAspNetCoreInstrumentation` creates a root span for every incoming request. `AddHttpClientInstrumentation` automatically creates child spans for outbound calls *and injects the `traceparent` header* so downstream services join the trace. `AddEntityFrameworkCoreInstrumentation` captures each SQL query as a span, so you can see that the slow request spent 1.8 seconds in a single N+1 query. You wrote none of this glue; you get a full cross-service, cross-database waterfall for free.
 
-**Sampling** deserves attention. Tracing every request in a high-traffic system is expensive to store and process. `TraceIdRatioBasedSampler(0.1)` keeps a representative 10%. Because the sampling decision is based on the trace ID and propagated, either the whole trace is kept or none of it is — you never get half a trace. For more advanced needs, *tail sampling* (done in the OpenTelemetry Collector) can keep 100% of *errors* and slow traces while sampling the boring successful ones, giving you the best of both worlds.
+**Sampling** deserves attention. Tracing every request in a high-traffic system is expensive to store and process. `TraceIdRatioBasedSampler(0.1)` keeps a representative 10% of the traces that *start* in this service. On its own it ignores the caller's decision (the OpenTelemetry specification says a ratio sampler must ignore the parent's sampled flag), so services sampling independently produce traces with holes. Wrapping it in `ParentBasedSampler` makes every service follow the decision that arrived in `traceparent`: the root decides once, and either the whole trace is kept or none of it is. For more advanced needs, *tail sampling* (done in the OpenTelemetry Collector) can keep 100% of *errors* and slow traces while sampling the boring successful ones, giving you the best of both worlds.
 
 ### Exporters: OTLP, Jaeger, Zipkin
 
@@ -9022,13 +9110,7 @@ In a fleet of containers, SSHing into a box to `tail` a log file is hopeless —
 
 Everything in this chapter converges on one goal: given a single symptom, reconstruct the whole story. That requires **correlation** — the ability to jump from a metric spike to the exact traces behind it, and from a trace to the exact logs of each span.
 
-The unifying key is the **trace ID**. Because W3C Trace Context propagates it automatically over HTTP, the trick is simply to stamp it onto your logs. In .NET, `Activity.Current` always holds the ambient trace context, so a tiny enricher connects logs to traces:
-
-```csharp
-.Enrich.WithSpan()   // via Serilog.Enrichers.Span, adds TraceId and SpanId
-```
-
-Or manually:
+The unifying key is the **trace ID**. W3C Trace Context propagates it over HTTP, and `Activity.Current` holds it for the code handling the request, so logs only need to record it. With `Microsoft.Extensions.Logging` under the generic host this is on by default: the host sets `ActivityTrackingOptions` to `TraceId | SpanId | ParentId`, which adds them to every entry's scope (a provider prints scopes only if configured to, such as the console's `IncludeScopes`). Current Serilog versions read `Activity.Current` themselves and store `TraceId` and `SpanId` on every event; older code used the `Serilog.Enrichers.Span` package for this. To add it by hand:
 
 ```csharp
 using (LogContext.PushProperty("TraceId", Activity.Current?.TraceId.ToString()))
@@ -9050,7 +9132,11 @@ propagator.Inject(
     (props, key, value) => props[key] = value);
 ```
 
-The consumer extracts the same context and starts its span as a child of the producer's. Get this right and an asynchronous, event-driven system traces as cleanly as a synchronous one. Skip it and your traces shatter at every queue boundary.
+The consumer extracts the same context and starts its span as a child of the producer's. Skip it and traces break at every queue.
+
+> **Pay attention.** **Why the trace id beats a home-made correlation id.**
+>
+> A custom `X-Correlation-ID` header travels only as far as code copies it: the middleware earlier in this chapter reads it and pushes it into the log context, but an outgoing `HttpClient` call doesn't send it unless a `DelegatingHandler` adds it, so the chain breaks at the first service that forgot. The trace id needs no such code over HTTP: it lives in `Activity.Current`, which flows with the async call chain, `HttpClient` writes it into `traceparent`, ASP.NET Core starts the next request's activity as its child, and logs and spans record the same id. Use the trace id as the correlation id — return it to clients (ProblemDetails does, as `traceId`) and search logs by it. Keep a business key, such as an order id, as an ordinary log property; it identifies the order, not the request.
 
 ## Alerting, SLIs, SLOs, SLAs, and Error Budgets
 
@@ -9113,7 +9199,7 @@ Build the cockpit before you need it. When the 3 a.m. page arrives — and it wi
 
 # Chapter 14: Security
 
-_⏱️ Estimated read time: ~50 min · 8125 words (study pace)_
+_⏱️ Estimated read time: ~50 min · 8633 words (study pace)_
 
 Security is not a feature you bolt on at the end of a sprint. It is a property of a system that emerges from thousands of small decisions: how you parse input, where you store a connection string, which overload of a crypto API you call, and whether you trusted a value that came from the network. A senior .NET developer is expected to make those decisions correctly by reflex, and to recognize when a colleague has not.
 
@@ -9121,11 +9207,11 @@ This chapter builds that reflex. We start with the mindset, walk the OWASP Top 1
 
 ## The Security Mindset
 
-Before any specific technique, internalize four principles. They are not slogans; they are decision procedures you apply when the "how" is unclear.
+Four principles, used as decision procedures when the "how" is unclear:
 
-**Defense in depth.** Assume every single control will eventually fail, and layer independent controls so that one failure is not a breach. A parameterized query stops SQL injection — but you still validate input, run the database account with least privilege, and log anomalies. If an attacker slips past one layer, the next catches them. Never let your entire security posture rest on a single line of code.
+**Defense in depth.** Assume every single control will eventually fail, and layer independent controls so that one failure is not a breach. A parameterized query stops SQL injection — but you still validate input, run the database account with least privilege, and log anomalies.
 
-**Least privilege.** Every component — a user, a service account, a process, a token — gets exactly the permissions it needs to do its job and nothing more. The web app's database login should not be `db_owner`. The background worker that reads a queue should not have write access to the whole storage account. A JWT scoped to `orders:read` should not be able to delete anything. When a component is compromised, least privilege bounds the blast radius.
+**Least privilege.** Every component — a user, a service account, a process, a token — gets exactly the permissions it needs to do its job and nothing more. The web app's database login should not be `db_owner`. The background worker that reads a queue should not have write access to the whole storage account. A JWT scoped to `orders:read` should not be able to delete anything. Least privilege bounds the blast radius of a compromise.
 
 **Secure by default.** The default configuration must be the safe configuration. A new controller action should require authorization unless you deliberately open it. HTTPS should be mandatory out of the box. If a developer forgets to configure something, the system should fail closed (deny) rather than fail open (allow). ASP.NET Core largely embraces this — for example, the framework's HTTPS redirection and HSTS templates ship enabled — but you are responsible for keeping it that way.
 
@@ -9141,7 +9227,7 @@ The OWASP Top 10 is the industry's consensus list of the most critical web appli
 
 ### A01: Broken Access Control
 
-The most common serious flaw: a user can act on data or functions they should not reach. The classic form is **Insecure Direct Object Reference (IDOR)** — `GET /api/invoices/1005` returns invoice 1005 even though it belongs to another tenant, simply because the code fetched by ID without checking ownership.
+The most common serious flaw, and still A01 in the 2025 edition (which also folds SSRF into it): a user can act on data or functions they should not reach. The classic form is **Insecure Direct Object Reference (IDOR)** — `GET /api/invoices/1005` returns invoice 1005 even though it belongs to another tenant, simply because the code fetched by ID without checking ownership.
 
 The mitigation is to enforce authorization on *every* request at the resource level, server-side. Do not rely on the UI hiding a button.
 
@@ -9166,13 +9252,15 @@ public async Task<IActionResult> GetInvoice(int id)
 
 For anything beyond trivial checks, use ASP.NET Core's resource-based authorization (`IAuthorizationService.AuthorizeAsync`) so the ownership logic lives in a reusable handler rather than being copy-pasted into every action.
 
+> **Pay attention.** **Why `[Authorize]` can't stop an IDOR.** Attributes and endpoint policies run before the action, against the principal and the route, and the record hasn't been loaded yet. They can answer "may this caller use this endpoint?", never "does invoice 1005 belong to this caller?", because ownership is a column of the row. So the check has to sit where the row is: in the query itself (`Where(i => i.Id == id && i.OwnerId == userId)`, or an EF Core global query filter on the tenant), or in a resource-based check after loading. A query that filters by owner can't forget the check on the next endpoint that loads the same entity.
+
 ### A02: Cryptographic Failures (formerly "Sensitive Data Exposure")
 
 Sensitive data is stored or transmitted without adequate protection: passwords hashed with MD5, PII sent over HTTP, secrets in source control, weak or home-grown crypto. The mitigations are covered in depth in the Cryptography section below, but the headline rules are: enforce TLS everywhere, hash passwords with a slow adaptive algorithm, encrypt sensitive data at rest, and never invent your own cryptography.
 
 ### A03: Injection
 
-Untrusted input is interpreted as code or commands — SQL, OS commands, LDAP, NoSQL queries. **SQL injection** remains the canonical example. The fix is to keep data and code strictly separated using parameterized queries, never string concatenation.
+(A05 in the 2025 edition.) Untrusted input is interpreted as code or commands — SQL, OS commands, LDAP, NoSQL queries. **SQL injection** remains the canonical example. The fix is to keep data and code strictly separated using parameterized queries, never string concatenation.
 
 ```csharp
 // VULNERABLE — never do this
@@ -9185,14 +9273,16 @@ using var cmd = new SqlCommand(
 cmd.Parameters.Add("@email", SqlDbType.NVarChar, 256).Value = email;
 ```
 
-Entity Framework Core parameterizes automatically for LINQ, and `FromSqlInterpolated` safely parameterizes interpolated strings — but `FromSqlRaw` with a manually built string reintroduces the hole.
+Entity Framework Core parameterizes automatically for LINQ, and `FromSql` (EF Core 7+; `FromSqlInterpolated` before that) safely parameterizes interpolated strings — but `FromSqlRaw` with a manually built string reintroduces the hole. Dapper is the same: `conn.QueryAsync<User>("... WHERE Email = @email", new { email })` sends a parameter; a concatenated or interpolated SQL string does not.
 
 ```csharp
 // SAFE — EF Core turns the interpolation into parameters
 var users = await _db.Users
-    .FromSqlInterpolated($"SELECT * FROM Users WHERE Email = {email}")
+    .FromSql($"SELECT * FROM Users WHERE Email = {email}")
     .ToListAsync();
 ```
+
+> **Pay attention.** **Same syntax, opposite effect.** `FromSql` takes a `FormattableString`, so EF Core receives the format and the values separately and turns each hole into a `DbParameter`; the database never parses the value as SQL. `FromSqlRaw` takes a `string`, so the compiler formats the interpolation *before* EF Core sees it, and the input becomes part of the SQL text. One refactor between the two compiles cleanly and reopens the injection. Identifiers (a sort column, a table name) can't be parameters at all: map the user's choice to a fixed name from an allow-list.
 
 For OS commands, never pass user input to a shell; use `ProcessStartInfo` with an argument list rather than a single command string.
 
@@ -9264,8 +9354,6 @@ _logger.LogWarning("Failed login for user {UserId} from {IP}",
 Your server fetches a URL supplied by the user, and an attacker points it at internal resources — `http://169.254.169.254/` (cloud metadata endpoints), internal admin panels, or `localhost`. Mitigate by validating and allow-listing destinations, resolving and checking the target IP is not private/loopback/link-local, and disabling redirects on outbound requests that use user-controlled URLs.
 
 ## Authentication vs. Authorization
-
-These two words are constantly confused, so pin them down precisely:
 
 - **Authentication (AuthN)** answers *"Who are you?"* — it establishes and verifies identity. Logging in with a password, presenting a certificate, or validating a JWT are authentication.
 - **Authorization (AuthZ)** answers *"What are you allowed to do?"* — it decides whether an already-identified principal may perform an action. Checking a role, a scope, or resource ownership is authorization.
@@ -9357,13 +9445,15 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
             ValidateAudience         = true,
             ValidAudience            = "orders-api",
             ValidateLifetime         = true,   // enforce exp / nbf
-            ValidateIssuerSigningKey = true,   // enforce the signature
+            ValidateIssuerSigningKey = true,   // validate the signing KEY too (see below)
             ClockSkew                = TimeSpan.FromSeconds(30), // tolerate small clock drift
         };
     });
 ```
 
-> **Pitfall — the `alg: none` and algorithm-confusion attacks:** Historically, libraries that trusted the token's own `alg` header could be tricked into accepting an unsigned token (`alg: none`) or into verifying an RS256 token using the public key as an HMAC secret. Modern `Microsoft.IdentityModel` libraries reject `none` and require you to specify valid algorithms. Never write validation that reads the algorithm from the untrusted header and trusts it.
+> **Pitfall — the `alg: none` and algorithm-confusion attacks:** Historically, libraries that trusted the token's own `alg` header could be tricked into accepting an unsigned token (`alg: none`) or into verifying an RS256 token using the public key as an HMAC secret. `Microsoft.IdentityModel` rejects unsigned tokens by default (`RequireSignedTokens` is `true`), but `ValidAlgorithms` is `null` by default, which accepts any algorithm the key supports. Pin it (`ValidAlgorithms = [SecurityAlgorithms.RsaSha256]`), and never write validation that reads the algorithm from the untrusted header and trusts it.
+
+> **Pay attention.** **Which setting actually checks the signature.** `ValidateIssuer`, `ValidateAudience` and `ValidateLifetime` already default to `true`, and the signature is verified whenever `RequireSignedTokens` is `true` (the default). `ValidateIssuerSigningKey` is something else, and defaults to `false`: it validates the *key* that signed the token (for example, a certificate carried in the token), not the signature. The real holes are the lines added to make a `401` go away: `ValidateAudience = false` (now any token from that issuer, minted for any API, works on yours), `RequireSignedTokens = false`, or a custom `SignatureValidator` that returns the token unchecked. Read the `IDX` error in the log and fix the configuration instead.
 
 > **Best practice:** Keep `ClockSkew` small (seconds, not the 5-minute default) and keep access-token lifetimes short (minutes). Use refresh tokens for longevity. A stolen short-lived token expires before it's very useful.
 
@@ -9381,7 +9471,7 @@ The decision axis: **buy vs. host, and standalone app vs. multi-app SSO.** If yo
 
 ### Password Hashing in ASP.NET Core Identity
 
-Identity's `PasswordHasher<T>` uses PBKDF2 with a per-user salt and many iterations by default — a sensible baseline. If you build your own login (generally discouraged), you must replicate this.
+Identity's `PasswordHasher<T>` uses PBKDF2 with HMAC-SHA512, a 128-bit per-user salt and 100,000 iterations by default (the format is versioned inside the stored hash). OWASP's Password Storage Cheat Sheet currently asks for 220,000 iterations with HMAC-SHA512, so raise `PasswordHasherOptions.IterationCount`: verification returns `SuccessRehashNeeded` for any hash with fewer iterations or an older algorithm, and Identity's sign-in rehashes it, so existing users upgrade on their next login.
 
 ### Passkeys (WebAuthn / FIDO2)
 
@@ -9393,7 +9483,7 @@ Passkeys are public-key credentials standardized by WebAuthn/FIDO2, and they rem
 
 A secret is any value that grants access: connection strings, API keys, client secrets, signing keys, encryption keys. The cardinal rule: **secrets never live in source code or in `appsettings.json` committed to git.** Once a secret is in git history, treat it as compromised and rotate it — deleting the line does not remove it from history.
 
-**In development**, use the .NET **Secret Manager** (`user-secrets`), which stores values in a JSON file *outside* your project tree, keyed by a `UserSecretsId`:
+**In development**, use the .NET **Secret Manager** (`user-secrets`), which stores values in a JSON file in your user profile (`~/.microsoft/usersecrets/<id>/secrets.json`, or under `%APPDATA%\Microsoft\UserSecrets` on Windows), *outside* the project tree, keyed by a `UserSecretsId`. It keeps secrets out of git; it doesn't encrypt them, so it is for development only:
 
 ```bash
 dotnet user-secrets init
@@ -9402,7 +9492,7 @@ dotnet user-secrets set "ConnectionStrings:Db" "Server=...;Password=..."
 
 These are picked up automatically by the configuration system in Development, so `builder.Configuration["ConnectionStrings:Db"]` just works — with nothing to accidentally commit.
 
-**In production**, use a managed secret store: **Azure Key Vault**, **AWS Secrets Manager**, **HashiCorp Vault**, or Kubernetes secrets. These provide access control, audit logging, and rotation. The application authenticates to the vault using a *managed identity* (no secret needed to fetch secrets — the platform vouches for the workload):
+**In production**, use a managed secret store: **Azure Key Vault**, **AWS Secrets Manager**, **HashiCorp Vault**, or Kubernetes secrets. These provide access control, audit logging, and rotation. The application authenticates to the vault using a *managed identity* (no secret needed to fetch secrets — the platform vouches for the workload). `DefaultAzureCredential` is the development convenience; production should name its credential, as [Chapter 50](#defaultazurecredential-what-the-chain-really-is) explains:
 
 ```csharp
 // Azure Key Vault via managed identity — no secret in code at all
@@ -9549,7 +9639,7 @@ The goal is not a perfect score. It is that the number of long-lived, broadly-sc
 
 ## HTTPS, TLS, HSTS, and Certificates
 
-**TLS** (Transport Layer Security, the protocol behind HTTPS) provides three guarantees for data in transit: *confidentiality* (eavesdroppers see ciphertext), *integrity* (tampering is detected), and *authentication* (the certificate proves you're talking to the real server). It is non-negotiable for any application handling credentials or personal data.
+**TLS** (Transport Layer Security, the protocol behind HTTPS) provides three guarantees for data in transit: *confidentiality* (eavesdroppers see ciphertext), *integrity* (tampering is detected), and *authentication* (the certificate proves you're talking to the real server).
 
 A **certificate** binds a public key to a domain name and is signed by a Certificate Authority (CA) the client trusts. TLS uses asymmetric crypto for the handshake (to authenticate the server and agree on keys) then switches to fast symmetric encryption for the session.
 
@@ -9560,7 +9650,9 @@ app.UseHttpsRedirection();
 app.UseHsts(); // production only
 ```
 
-**HSTS** (HTTP Strict Transport Security) sends a response header telling the browser: "for the next *N* seconds, only ever contact this domain over HTTPS, and refuse to proceed if the certificate is invalid." This defeats SSL-stripping attacks where an attacker downgrades the first request to HTTP.
+**HSTS** (HTTP Strict Transport Security) sends a response header telling the browser: "for the next *N* seconds, only ever contact this domain over HTTPS, and refuse to proceed if the certificate is invalid." This defeats SSL-stripping attacks where an attacker downgrades the first request to HTTP. ASP.NET Core's `UseHsts` sends a 30-day `max-age` by default and skips `localhost`.
+
+> **Gotcha.** HSTS and redirection are browser mechanisms. An API client follows a redirect *after* its first request has already crossed the network in clear text, `Authorization` header included, and it ignores HSTS. For APIs, don't listen on HTTP at all, or reject plain HTTP with `400` rather than redirecting.
 
 > **Pitfall:** HSTS is sticky and cached by the browser. Don't enable it (especially with `includeSubDomains` and `preload`) until you're certain *every* subdomain can serve valid HTTPS — otherwise you can lock users out of an HTTP-only subdomain. This is why the default template excludes HSTS in Development.
 
@@ -9578,9 +9670,9 @@ You will rarely implement a cipher, but you must choose and use cryptographic pr
 
 ### Password Hashing
 
-Passwords require a *special* kind of hashing. General-purpose hashes (SHA-256) are designed to be *fast*, which is exactly wrong for passwords — it lets an attacker who steals your database try billions of guesses per second on a GPU.
+General-purpose hashes (SHA-256) are designed to be *fast*, which is exactly wrong for passwords: an attacker who steals your database can try billions of guesses per second on a GPU.
 
-> **Pitfall:** Never store passwords with MD5, SHA-1, or a plain SHA-256. MD5 and SHA-1 are broken; plain fast hashes are trivially brute-forced even when "salted." This is a resume-generating incident waiting to happen.
+> **Pitfall:** Never store passwords with MD5, SHA-1, or a plain SHA-256. MD5 and SHA-1 are broken; plain fast hashes are trivially brute-forced even when "salted."
 
 Use a **slow, adaptive, salted** password-hashing algorithm designed for the purpose: **Argon2** (the modern winner), **bcrypt**, or **PBKDF2** (what ASP.NET Core Identity uses, and the only one in the BCL). Two properties matter:
 
@@ -9624,7 +9716,7 @@ public static class Passwords
 }
 ```
 
-Note the two subtleties a senior developer catches: storing the parameters *with* the hash (so you can raise the iteration count later and re-hash on next login), and using `FixedTimeEquals` rather than `==` to avoid leaking information through comparison timing. In practice, prefer `PasswordHasher<T>` from ASP.NET Core Identity, or a vetted library like `BCrypt.Net`, over hand-rolling even this.
+Two subtleties: storing the parameters *with* the hash (so you can raise the iteration count later and re-hash on next login), and using `FixedTimeEquals` rather than `==` to avoid leaking information through comparison timing. In practice, prefer `PasswordHasher<T>` from ASP.NET Core Identity, or a vetted library like `BCrypt.Net`, over hand-rolling even this.
 
 ### Encryption at Rest and in Transit
 
@@ -9756,9 +9848,9 @@ builder.Services.AddCors(options =>
         .AllowCredentials()));
 ```
 
-> **Pitfall:** `AllowAnyOrigin()` combined with `AllowCredentials()` is invalid and dangerous — the spec forbids it precisely because it would let *any* site make credentialed requests to your API. Never reflect the `Origin` header back blindly, and never wildcard origins on an authenticated API.
+> **Pitfall:** `AllowAnyOrigin()` combined with `AllowCredentials()` is invalid and dangerous — the spec forbids it precisely because it would let *any* site make credentialed requests to your API, and ASP.NET Core's policy builder throws `InvalidOperationException` for it. The workaround people then reach for, reflecting the request's `Origin` header back, recreates the same hole: never do it, and never wildcard origins on an authenticated API.
 
-CORS is enforced by the *browser*, not the server — it is not an authorization mechanism. It stops a malicious site's JavaScript from reading your API in a victim's browser; it does nothing against `curl` or a server-side attacker.
+CORS is enforced by the *browser*, not the server — it is not an authorization mechanism. It stops a malicious site's JavaScript from reading your API in a victim's browser; it does nothing against `curl` or a server-side attacker. And it hides *responses*, not requests: a "simple" cross-origin request (a `GET`, or a `POST` with a form or plain-text body) is sent without a preflight, your server executes it, and only then does the browser withhold the response. State-changing endpoints that use cookies still need anti-forgery protection.
 
 ### Security Headers
 
@@ -10272,13 +10364,11 @@ Above all, remember the golden rule that opened this chapter, because it is the 
 
 # Chapter 16: Tooling & Productivity
 
-_⏱️ Estimated read time: ~5 min · 1067 words (study pace)_
+_⏱️ Estimated read time: ~5 min · 1349 words (study pace)_
 
-A senior developer is not just someone who writes good code. It is someone whose *environment* multiplies their output. The tools below are the ones you will actually reach for on a modern .NET team. You don't need all of them, but you should know what each solves so you can pick deliberately rather than by habit.
+The tools below are the ones a modern .NET team actually reaches for. Know what each one solves, so you pick deliberately rather than by habit.
 
 ## IDEs: Visual Studio, Rider, and VS Code
-
-The three mainstream choices trade off differently.
 
 **Visual Studio** (Windows) is the heavyweight. Its debugger is best-in-class, especially for tricky scenarios: mixed-mode debugging, memory dumps, IntelliTrace, and the diagnostic tooling for CPU and allocation profiling. If you work on WPF/WinForms, complex MSBuild setups, or need the deepest debugging experience, it is hard to beat. The cost is that it is heavy and Windows-only.
 
@@ -10290,7 +10380,7 @@ The three mainstream choices trade off differently.
 
 ## Refactoring & Linting
 
-Code quality tooling in .NET now layers nicely:
+Code-quality tooling comes in layers:
 
 - **Roslyn analyzers** run inside the compiler. They ship with the SDK (the `CAxxxx` rules), come from NuGet packages, and can be authored in-house. They surface issues as build warnings, so they integrate with CI for free.
 - **`.editorconfig`** is the single source of truth for style. It travels with the repo, is understood by VS, Rider, and `dotnet format`, and lets you set naming conventions, `var` usage, and analyzer severities per folder.
@@ -10300,13 +10390,15 @@ Code quality tooling in .NET now layers nicely:
 
 > **Tip:** Commit an `.editorconfig` early and raise a few key analyzer rules to `error` (e.g. `dotnet_diagnostic.CA2007.severity` in library code). Warnings get ignored; build-breaking errors get fixed.
 
+> **Pay attention.** **What the build actually enforces.** Analyzers run inside the compiler, so a diagnostic is a build warning everywhere the build runs, IDE and CI alike. But by default (`AnalysisMode` `Default`) only a small set of `CA` rules is on as warnings; `<AnalysisMode>Recommended</AnalysisMode>` or `All` turns on more. Style rules (`IDExxxx`) don't run in `dotnet build` at all until `<EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>`. And `AnalysisLevel` defaults to `latest`: a new SDK can switch on new warnings, which `TreatWarningsAsErrors` turns into a build that broke with no code change. Pin `AnalysisLevel` (for example `10.0`) and raise it deliberately.
+
 ## Formatting in CI
 
-Style debates waste review time. Kill them with automation. `dotnet format` reads your `.editorconfig` and rewrites code to match. Run `dotnet format --verify-no-changes` as a CI step: the build fails if someone forgot to format. That turns formatting into a machine's job, not a reviewer's.
+Style debates waste review time. `dotnet format` reads your `.editorconfig` and rewrites code to match. Run `dotnet format --verify-no-changes` as a CI step: the build fails if someone forgot to format. That turns formatting into a machine's job, not a reviewer's.
 
 ## API Testing
 
-You will constantly poke at HTTP endpoints. Options:
+Options for poking at HTTP endpoints:
 
 - **`.http` files** live in your repo and run directly inside VS, Rider, and VS Code. Because they are versioned alongside the code, they double as executable documentation. Prefer these for team-shared, checked-in requests.
 - **Postman** is the feature-rich standard: environments, scripting, collections, and mock servers, though it increasingly pushes cloud accounts.
@@ -10317,7 +10409,15 @@ You will constantly poke at HTTP endpoints. Options:
 
 ## The dotnet CLI and Global Tools
 
-The `dotnet` CLI is the backbone of automation and CI. Beyond `build`, `test`, and `publish`, learn `dotnet user-secrets`, `dotnet ef`, and `dotnet watch` for a fast inner loop. Global tools (`dotnet tool install -g`) give you reusable utilities; a `dotnet-tools.json` manifest with `dotnet tool restore` pins tool versions per repo so everyone runs the same ones.
+The `dotnet` CLI is the backbone of automation and CI, and it is a driver. Built-in commands ship with the SDK: `build`, `test`, `publish`, `format`, `user-secrets`, `watch`. Everything else is a **.NET tool**, a NuGet package that contains a console app, and you choose where it lives:
+
+- **Global** (`dotnet tool install -g dotnet-ef`): installed once per user in `~/.dotnet/tools` (`%USERPROFILE%\.dotnet\tools` on Windows), which is on `PATH`. Convenient, but every machine has whatever version someone installed.
+- **Local**: `dotnet new tool-manifest` creates `.config/dotnet-tools.json`; `dotnet tool install dotnet-ef` (no `-g`) pins a version in it; a fresh clone or a CI agent runs `dotnet tool restore`. Commit the manifest: the CLI runs whatever it lists.
+- **One-shot** (.NET 10 SDK): `dnx dotnet-counters monitor -p 1234` (or `dotnet tool exec`) runs a tool without installing it, and honours a nearby manifest's version.
+
+A tool whose command starts with `dotnet-` can also be called as `dotnet <rest>`, which is why `dotnet ef` looks built in and isn't.
+
+> **Pay attention.** **Where `dotnet-counters`, `dotnet-trace` and `dotnet-dump` come from, and why they can't see your container.** They are .NET tools from NuGet, not part of the SDK or the runtime. Each one talks to a running process through the runtime's *diagnostic port*: a named pipe `dotnet-diagnostic-{pid}` on Windows, and a Unix domain socket `dotnet-diagnostic-{pid}-…-socket` in `$TMPDIR` (or `/tmp`) on Linux and macOS. A tool on the host can't find a process in a container, because that socket lives in the container's `/tmp` and the PID belongs to the container's namespace. Run the tool inside the container (the docs publish single-file builds for images without an SDK), or share `/tmp` with a sidecar. `DOTNET_EnableDiagnostics=0` closes the port, and with it every one of these tools.
 
 ## Git GUIs
 
@@ -10350,7 +10450,7 @@ The senior mindset: **the AI drafts, you own.** Treat generated code exactly lik
 
 # Chapter 17: Soft Skills & Engineering Practices
 
-_⏱️ Estimated read time: ~35 min · 6027 words (study pace)_
+_⏱️ Estimated read time: ~40 min · 6896 words (study pace)_
 
 You already know how to write good C#. You can wire up dependency injection, reason about `async`/`await`, tune an EF Core query, and design a clean bounded context. That is the price of admission to being a *middle* engineer. It is not what makes you a senior one.
 
@@ -10359,8 +10459,6 @@ The uncomfortable truth is that the gap between a mid-level developer and a seni
 This chapter is the practical field guide to those skills. No platitudes — templates, scripts, checklists, and worked examples you can use on Monday.
 
 ## 17.1 From Solving Tickets to Creating Leverage
-
-Here is the mental model that reframes everything else.
 
 A middle engineer is measured by **throughput**: how many tickets they close, how fast, how correctly. That is real and valuable. But it scales linearly — you can only type so fast, and there are only so many hours in a week.
 
@@ -10378,7 +10476,7 @@ Concretely, the behaviors change like this:
 | "Someone should fix this." | "I filed it, tagged the owner, and proposed a fix." |
 | "That's not my code." | "I'll leave it a little better than I found it." |
 
-None of this requires a title change or permission. You can start acting with leverage today, and the title tends to follow the behavior rather than precede it.
+None of this needs a title or permission; the title tends to follow the behavior.
 
 ## 17.2 Communication: The Real Superpower
 
@@ -10437,6 +10535,24 @@ A meeting checklist:
 - **End with:** decisions made, action items with owners and dates, and where they're written down.
 - **If it could have been a doc, make it a doc.**
 
+### Asking Questions That Unblock You
+
+A question unblocks you when the person answering doesn't have to ask you three questions back first. Send the state of your thinking, not only the gap in it.
+
+**In writing**, when you are stuck past your timebox ([17.6](#176-methodical-debugging-problem-solving)) or a ticket is vague:
+
+- **The goal, not only your attempted fix.** "How do I make the CI step wait 30 seconds?" gets you a sleep; "the integration tests start before the database is ready" gets you a health check. Asking about your attempted solution instead of the problem is the *XY problem*: helpers solve the wrong thing well.
+- **What you tried, and what each attempt ruled out.** The helper skips your first half hour and often spots the wrong assumption at a glance.
+- **The exact error, pasted, and one specific ask:** a yes or no, a name, a pointer.
+- **For a vague ticket,** a short problem statement (symptom and evidence, target, constraints, out of scope; [Chapter 61](#the-one-page-problem-statement) has the full template) with your questions at the end, before any code.
+
+**In meetings:**
+
+- **Prepare one question from the agenda.** The one you think of an hour later costs another meeting.
+- **Ask early.** Once the room has converged on a plan, a question sounds like an objection, and people defend what they have just said in public.
+- **State the assumption you are testing.** "I'm assuming the export only needs the current month. Is that right?" gets a yes or a correction; "how does the export work?" gets a tour.
+- **Confirm in writing afterwards:** "To confirm: current month only, nightly, [name] owns it." Everyone leaves a meeting remembering it differently, and a written line gets corrected while that is still cheap.
+
 ### Disagreeing productively and managing up
 
 To disagree without turning it into a fight, argue about the problem, not the person, and lead with curiosity:
@@ -10451,17 +10567,31 @@ That framing invites information rather than triggering defense. And when the de
 
 Code review is where craft, teaching, and team culture intersect every single day. Done well it spreads knowledge and raises the floor. Done badly it becomes a gauntlet of ego and bikeshedding.
 
+### Finding What to Say in a Review
+
+A diff that compiles and passes its tests can still be wrong under a condition its tests never create. Reading line by line for style rarely finds that. Asking the same five questions of every changed line usually does, because each question supplies a condition the tests left out:
+
+| Ask of each change | The condition | Typical defect it exposes |
+|---|---|---|
+| What if it runs **twice**? | A retry, a redelivery, a double-clicked button | A handler that isn't idempotent; a `POST` with no idempotency key |
+| What if it runs **concurrently**? | Two requests, two instances, `MaxConcurrentCalls` above 1 | Check-then-act; a `DbContext` shared across threads; mutable static state |
+| What if it runs **slowly**? | A slow dependency, a held lock, peak load | `.Result` on a request path; no timeout; a `CancellationToken` not passed on |
+| What if it **fails halfway**? | A crash between two writes, an exception mid-loop | Save, then publish, with no outbox; `async void`; `catch { }` |
+| What if it meets **100× the data**? | Production volume instead of seed data | N+1; an unbounded `ToListAsync()`; a filter applied after materialising |
+
+Each "yes, that breaks" is the condition of a comment; the mechanism, the cost and the fix follow from it (next section). Two moves cover what the questions miss: compare the change with the file that already does the closest thing, since divergence from it is where new defects hide, and use [Chapter 18's rubric](#judging-ai-generated-code-a-reviewers-rubric) for the full order of reading a diff. If all five questions come back clean, approve and say which risks you checked ("retries and concurrency look safe: the claim is atomic"). The author learns what was verified, and the next reviewer knows what wasn't.
+
 ### Giving feedback: kind, specific, actionable
 
-Every review comment should be at least two of those three, and ideally all three. The gold standard: explain the *why*, offer a concrete alternative, and keep the tone collaborative.
+A comment gets acted on when the author can check it without asking you anything. That takes four parts: the **condition** under which the code misbehaves, the **mechanism** that makes it misbehave, the **cost** when it does, and the **fix**. Kind is the tone; specific and actionable are those four parts.
 
 > *Bad:* "This is wrong."
 
 > *Bad:* "Why would you do it this way??"
 
-> *Good:* "This `async void` will swallow exceptions — if `SendAsync` throws, we'll never see it and the message is silently lost. Can we make it `async Task` and let the caller await it? See how `NotificationService` does it."
+> *Good:* "blocking: if `SendAsync` throws, this `async void` method has no `Task` to carry the exception, so the `try/catch` around the call never sees it. ASP.NET Core has no `SynchronizationContext`, so the runtime rethrows it on a thread-pool thread, nothing catches it there, and the process terminates with every in-flight request. Can we make it `async Task` and await it, as `NotificationService` does?"
 
-The good version names the concrete risk, explains the consequence, proposes a fix, and points at a local example. The author knows exactly what to do and *why*.
+The good version gives the condition (`SendAsync` throws), the mechanism (no `Task`, so the exception is rethrown on the captured `SynchronizationContext` or, when there is none, on a thread-pool thread; [Chapter 8](#the-compiler-generated-state-machine) traces the path), the cost (an unhandled exception ends the process) and a fix with a local example to copy. The author can verify it in a minute, which makes acting on it cheaper than arguing with it.
 
 ### Conventional comments: label your intent
 
@@ -10486,7 +10616,9 @@ praise: nice use of a discriminated result type here, much clearer
 than the old bool-and-out-param.
 ```
 
-The distinction between **nitpicks and blockers** is what keeps reviews moving. If everything is presented with equal weight, a whitespace comment stalls a PR as long as a security hole. Be explicit, and let people merge over your nits.
+These labels are a shortened form of [Conventional Comments](https://conventionalcomments.org/), which writes the intent and the severity separately: `issue (blocking):`, `suggestion (non-blocking):`, `nitpick:`. Either form works once the team agrees on one.
+
+The split between **nits and blockers** keeps reviews moving. When everything carries equal weight, a whitespace comment stalls a PR as long as a security hole; when style points are labelled `blocking:`, the author learns your `blocking:` is negotiable and argues the next real one. Label honestly, and let people merge over your nits.
 
 ### The author's responsibilities
 
@@ -10494,7 +10626,7 @@ Review quality is a two-way street. As the author:
 
 - **Keep PRs small.** A 200-line PR gets a real review; a 2,000-line PR gets a "LGTM 👍" that catches nothing. Slice work so PRs stay reviewable.
 - **Write a description that answers *why*.** What problem, what approach, what you considered and rejected, how to test it. Link the ticket.
-- **Review your own diff first.** Half your reviewers' comments were things you'd have caught by reading it yourself.
+- **Review your own diff first.** Many review comments are things the author would have caught by reading the diff once.
 - **Leave breadcrumbs** on tricky lines: a comment on the PR saying "did it this way because X" pre-empts the question.
 
 ### Receiving feedback without ego
@@ -10520,6 +10652,8 @@ Techniques that actually help:
 - **Buffer for the invisible work:** code review, testing, meetings, the CI flake, the environment that's down. The coding is often the smallest slice.
 - **Communicate estimates as forecasts, not promises.** "Based on what I know now, I expect this in the first half of next week. The biggest risk is the payment vendor's sandbox — if that's flaky, add two days." You've given a number *and* the assumptions it rests on.
 
+> **Pay attention.** **Why estimates run long, and why padding doesn't fix it.** You estimate from the inside: you list the steps you can picture and add them up. The steps that blow estimates are the ones you can't picture yet (the sandbox that's down, the migration nobody mentioned), so they are missing from the sum, and the error runs one way: work rarely finishes much faster than its known steps allow, but it can run several times longer. Padding is a guess about that error that nobody can check. Anchor on the *outside view* instead, how long similar work actually took according to your tracker, and give a range whose top depends on one named assumption. When that assumption breaks, the estimate is void: re-estimate that day, before more plans are built on the old date. Daniel Kahneman's *Thinking, Fast and Slow* describes both views.
+
 Avoid the **sunk-cost trap**: "we've already spent three weeks on this approach" is not a reason to spend a fourth. Past effort is gone regardless; decide based on the cost and value *from here*. A senior says out loud, "I know we've invested a lot, but continuing is the more expensive path now."
 
 ## 17.5 Technical Writing & Documentation
@@ -10533,27 +10667,27 @@ An ADR is a short, immutable document recording one significant decision, its co
 A template:
 
 ```markdown
-# ADR-014: Use Outbox Pattern for Order Event Publishing
+**ADR-014: Use Outbox Pattern for Order Event Publishing**
 
 - Status: Accepted
 - Date: 2026-07-21
 - Deciders: Payments team
 - Supersedes: —
 
-## Context
+**Context**
 We publish an "OrderPlaced" event to the message bus after saving an
 order. Currently we save to the DB and publish in the same method,
 without a shared transaction. If the publish fails after the DB commit,
 downstream services never learn about the order — we've seen 3 such
 drops this quarter (INC-198, INC-201, INC-217).
 
-## Decision
+**Decision**
 Adopt the Transactional Outbox pattern: within the same DB transaction
 that saves the order, insert an event row into an `Outbox` table. A
 background dispatcher polls the table and publishes to the bus, marking
 rows as sent. This makes DB write and event intent atomic.
 
-## Consequences
+**Consequences**
 Positive:
 - Event publishing is now at-least-once and crash-safe.
 - The DB transaction remains the single source of truth.
@@ -10563,7 +10697,7 @@ Negative / trade-offs:
 - New moving part (dispatcher) to run and monitor.
 - Consumers must be idempotent (at-least-once => possible duplicates).
 
-## Alternatives considered
+**Alternatives considered**
 - 2-phase commit across DB and broker: rejected, operationally heavy,
   poor support in our stack.
 - Publish-then-save: rejected, inverts the source-of-truth problem.
@@ -10598,7 +10732,7 @@ Junior engineers debug by changing things and hoping. Seniors debug like scienti
 
 The loop:
 
-1. **Reproduce it first.** A bug you can reproduce on demand is 80% solved. A bug you can't reproduce, you can't verify you fixed. Invest in a reliable repro before anything else.
+1. **Reproduce it first.** A bug you can't reproduce, you can't verify you fixed. A reliable repro comes before anything else.
 2. **Read the actual error.** The full message, the full stack trace, the inner exception. The answer is astonishingly often right there in text people skimmed past.
 3. **Form a hypothesis.** "I think the null comes from the cache returning a stale entry." A specific, falsifiable statement.
 4. **Test the one hypothesis.** Change one thing. If you change five things and it works, you've learned nothing and may have added two new bugs.
@@ -10606,7 +10740,7 @@ The loop:
 
 **Rubber-ducking** works because explaining the problem out loud forces you to make your assumptions explicit, and the wrong one usually reveals itself mid-sentence. Explain it to a colleague, a literal duck, or a comment box — the medium doesn't matter, the articulation does.
 
-> **The 30-minute rule: struggle productively on your own for about 30 minutes, then ask for help.** Less, and you rob yourself of the learning that comes from wrestling with it. More, and you're just burning the team's time on something a colleague could unstick in two minutes. When you ask, show what you tried and what you expected — a good question is itself a sign of seniority, not weakness.
+> **The 30-minute rule: struggle productively on your own for about 30 minutes, then ask for help.** Less, and you skip the search that teaches you the system. More, and you spend hours on what a colleague could unstick in two minutes. Set the limit before you start: once you're stuck, every next attempt looks like the one that will work, so a decision made then always says "one more try." When you ask, send what you tried and what it ruled out ([Asking Questions That Unblock You](#asking-questions-that-unblock-you)); a good question is a sign of seniority, not weakness.
 
 ### Blameless post-mortems
 
@@ -10798,7 +10932,7 @@ And the meta-point about Friday afternoon: if the change is not urgent, a review
 
 # Chapter 18: The AI-Native Developer — Thriving in the AI Era
 
-_⏱️ Estimated read time: ~1 h · 11498 words (study pace)_
+_⏱️ Estimated read time: ~1 h · 11514 words (study pace)_
 
 For most of your career the deal has been simple: you learn to write code, and in exchange the industry pays you well to write it. That deal is being renegotiated in real time. By 2025 and into 2026, a competent AI coding assistant can produce a working REST endpoint, a unit test suite, an EF Core migration, or a plausible refactor faster than you can open the file. The raw act of turning a clear specification into syntactically correct C# — the thing you spent years getting good at — has largely been commoditized. That is not a threat to be defended against. It is a promotion, if you understand what you are being promoted into.
 
@@ -11162,7 +11296,7 @@ public IActionResult Get(int id) => Ok(_service.GetAsync(id).Result);  // sync-o
 
 `.Result`, `.Wait()` and `GetAwaiter().GetResult()` block a thread-pool thread until the async operation finishes. Under load the pool starves, and because it injects new threads slowly, latency collapses long before CPU does — the classic "it was fine in testing" outage. Three more in the same family:
 
-- **`async void`** anywhere that isn't an event handler. Its exceptions don't surface to a caller; they go to the synchronization context and take the process down.
+- **`async void`** anywhere that isn't an event handler. Its exceptions can't reach a caller: they are rethrown on the captured synchronization context or, when there is none (ASP.NET Core), on a thread-pool thread, where nothing catches them and the process goes down.
 - **`Task.Run` wrapped around I/O in ASP.NET.** It doesn't add throughput — the request is already on a pool thread. It moves the work to a *second* pool thread and loses the ambient request context. Net loss.
 - **A `CancellationToken` accepted and never passed on.** Nearly universal in generated code, because the signature came from your surrounding code while the body came from the training data:
 
@@ -12139,7 +12273,7 @@ The recurring theme across this chapter: an LLM is a powerful but unreliable com
 
 # Chapter 20: Networking & Web Fundamentals
 
-_⏱️ Estimated read time: ~40 min · 6623 words (study pace)_
+_⏱️ Estimated read time: ~40 min · 6651 words (study pace)_
 
 Most application bugs that keep senior engineers up at night are not really *code* bugs. They are *network* bugs wearing a code costume. A method that works flawlessly on your laptop times out in production. A service that handled a thousand requests per second suddenly throws `SocketException` under load. A cross-origin `fetch` gets blocked by the browser for reasons nobody on the team can quite articulate.
 
@@ -12248,19 +12382,17 @@ Cache-Control: max-age=60
 
 Every request has a **method** (verb), a **path**, **headers** (metadata as key-value pairs), and an optional **body**. Responses have a **status code**, headers, and a body.
 
-**Statelessness** is the crucial architectural property. HTTP itself remembers nothing between requests. Each request must carry everything the server needs to understand it. Cookies, tokens, and sessions all exist to *simulate* state on top of a stateless protocol. This statelessness is exactly what makes horizontal scaling possible — any server can handle any request because none of them hold conversation state (assuming you keep session data in a shared store, not in-process memory).
+**Statelessness** is the crucial property: each request carries everything the server needs, and cookies, tokens and sessions *simulate* state on top. It is what makes horizontal scaling possible — any server can handle any request, as long as session data lives in a shared store, not in-process memory.
 
 ### HTTP Methods and Idempotency
 
-The methods carry semantic meaning that the whole ecosystem (caches, proxies, retries) relies on:
+Caches, proxies and retry policies act on two properties of the method (RFC 9110):
 
-- **GET** — read, no side effects, *safe* and *cacheable*.
-- **POST** — create or "do something"; **not** idempotent.
-- **PUT** — replace a resource wholesale; idempotent.
-- **PATCH** — partial update.
-- **DELETE** — remove; idempotent.
+- **Safe** — the client asks for no state change: `GET`, `HEAD`, `OPTIONS`, `TRACE`. Safe responses can be cached and prefetched.
+- **Idempotent** — N identical requests have the same effect on the server as one: every safe method, plus `PUT` and `DELETE`. It is about the effect, not the response: a second `DELETE` may answer `404` and is still idempotent.
+- **Neither** — `POST` ("process this"), and `PATCH` unless you design it to be.
 
-> **Best practice:** *Idempotency* means calling N times has the same effect as calling once. It is not academic — it decides whether it is safe to auto-retry. A proxy or your Polly retry policy can safely retry a GET or PUT after a timeout; retrying a POST might charge a credit card twice. Design your APIs so that anything retriable is idempotent, and use idempotency keys for POSTs that must not double-execute (Chapter 21 covers the mechanics).
+> **Pay attention.** **Idempotency decides who may retry without asking.** After a timeout the client can't know whether the request ran, so HTTP lets clients and proxies repeat idempotent requests automatically and tells them not to repeat the others. Retrying a `PUT` is harmless; retrying a `POST` may charge a card twice. Make every retriable operation idempotent, and give a `POST` that must not run twice an idempotency key ([Chapter 3: Idempotency Keys: Making POST Retry-Safe](#idempotency-keys-making-post-retry-safe)).
 
 ## HTTP/1.1 vs HTTP/2 vs HTTP/3: A History of Fixing Head-of-Line Blocking
 
@@ -12349,7 +12481,7 @@ app.UseCors("api");
 
 ## Status Codes and Headers That Matter
 
-Status codes group into five families. Senior developers use them *precisely* because tooling depends on them:
+Status codes group into five families. Clients, proxies and dashboards act on the code without reading the body:
 
 - **1xx** Informational (rare; `101 Switching Protocols` for WebSocket upgrade).
 - **2xx** Success — `200 OK`, `201 Created` (with a `Location` header), `204 No Content`.
@@ -12357,7 +12489,7 @@ Status codes group into five families. Senior developers use them *precisely* be
 - **4xx** Client error — `400` bad request, `401` unauthenticated, `403` authenticated-but-forbidden, `404` not found, `409` conflict, `422` unprocessable, `429` too many requests.
 - **5xx** Server error — `500` unhandled, `502` bad gateway (proxy got garbage upstream), `503` unavailable (overloaded/deploying), `504` gateway timeout.
 
-> **Best practice:** The `401` vs `403` distinction trips people up. `401` means "I don't know who you are — authenticate." `403` means "I know who you are, and you may not do this." Returning the wrong one confuses clients and leaks information.
+> **Best practice:** The `401` vs `403` distinction trips people up. `401` means "I don't know who you are — authenticate", and it must carry a `WWW-Authenticate` header naming how; clients react by refreshing a token or prompting. `403` means "I know who you are, and you may not do this": re-authenticating won't help, so clients shouldn't try.
 
 Headers worth knowing cold: `Content-Type` and `Accept` (content negotiation), `Authorization`, `Cache-Control` and `ETag` (caching, below), `Content-Encoding` (gzip/brotli compression), `Retry-After` (paired with `429`/`503`), and `X-Forwarded-For`/`X-Forwarded-Proto` (the client's real IP/scheme, injected by proxies — trust these only from proxies you control).
 
@@ -12679,7 +12811,7 @@ We close with the mental model that should underpin every networked design decis
 
 # Chapter 21: Distributed Systems Theory & Reliability Engineering
 
-_⏱️ Estimated read time: ~35 min · 5923 words (study pace)_
+_⏱️ Estimated read time: ~35 min · 6072 words (study pace)_
 
 A single-process program lives in a comfortable universe. Memory reads are instantaneous, function calls always return, and if something crashes, the whole thing crashes together — you never have to reason about *half* your program being alive while the other half is dead. The moment you split that program across two machines connected by a network, you leave that comfortable universe forever. Messages get lost. Clocks disagree. One node thinks another is dead when it is merely slow. And crucially, **you can never tell the difference between a slow node and a dead one** — that single fact is the source of most of the pain in this chapter.
 
@@ -12783,18 +12915,28 @@ The escape hatch is **idempotency** — designing an operation so that performin
 For operations that aren't naturally idempotent, use an **idempotency key**: the client generates a unique key (a GUID) for the logical operation and sends it with every retry. The server records processed keys and, on seeing a duplicate, returns the *original stored result* instead of re-executing.
 
 ```csharp
-public async Task<PaymentResult> Charge(string idempotencyKey, decimal amount)
+public async Task<PaymentResult> Charge(string idempotencyKey, decimal amount, CancellationToken ct)
 {
-    var existing = await _store.TryGetResult(idempotencyKey);
-    if (existing is not null) return existing;          // safe replay
+    await using var tx = await _db.Database.BeginTransactionAsync(ct);
+    var record = new IdempotencyRecord { Key = idempotencyKey };            // unique index on Key
+    _db.IdempotencyRecords.Add(record);
+    try { await _db.SaveChangesAsync(ct); }                                 // the claim, BEFORE the effect
+    catch (DbUpdateException e) when (IsUniqueViolation(e))
+    {
+        await tx.RollbackAsync(ct);
+        return await ReplayStoredResultAsync(idempotencyKey, ct);          // safe replay, no second charge
+    }
 
-    var result = await _gateway.Charge(amount);
-    await _store.Save(idempotencyKey, result);          // record before returning
-    return result;
+    record.Result = await _gateway.Charge(amount, idempotencyKey, ct);     // forward the key: the gateway dedupes too
+    await _db.SaveChangesAsync(ct);
+    await tx.CommitAsync(ct);
+    return record.Result;
 }
 ```
 
-Stripe's API famously works exactly this way. This ties directly to the **delivery guarantees** from Chapter 9: networks and message brokers give you *at-least-once* delivery in practice (exactly-once is largely a myth end-to-end). At-least-once means *duplicates will happen*. Idempotent consumers turn the achievable "at-least-once delivery" into the effective "exactly-once *processing*" you actually want.
+The order is the whole trick. The tempting version — look the key up, charge, then save the result — is check-then-act: two retries 20 ms apart both find nothing and both charge. Here the unique index, not a read, decides the winner: a concurrent retry's insert waits on the first attempt's uncommitted key and fails once it commits, so it replays the stored result instead of charging. [Chapter 3: Idempotency Keys](#idempotency-keys-making-post-retry-safe) has the full HTTP version, with request hashing, scoping and retention.
+
+Stripe's API famously works this way. This ties directly to the **delivery guarantees** from Chapter 9: networks and message brokers give you *at-least-once* delivery in practice (exactly-once is largely a myth end-to-end). At-least-once means *duplicates will happen*. Idempotent consumers turn the achievable "at-least-once delivery" into the effective "exactly-once *processing*" you actually want.
 
 > **Best practice:** Make every message consumer and every mutating API endpoint idempotent. It is the single most impactful reliability pattern in a message-driven system, because it lets you retry aggressively without fear.
 
@@ -12949,9 +13091,10 @@ builder.Services.AddHttpClient<RecommendationsClient>()
             MinimumThroughput = 10
         });
 
-        // Chaos strategies go OUTERMOST in the pipeline, so the fault is
-        // introduced closest to the dependency and every strategy above
-        // gets to react to it — exactly as it would in a real outage.
+        // Chaos strategies are added LAST, which makes them the innermost
+        // strategies (Polly runs the first-added strategy outermost): the fault
+        // is introduced closest to the dependency, and every strategy added
+        // before it reacts to it, exactly as it would in a real outage.
         var options = context.ServiceProvider
             .GetRequiredService<IOptionsMonitor<ChaosOptions>>();
 
@@ -12979,7 +13122,7 @@ Three details that decide whether this is safe:
 - **The injection rate is a percentage**, so you can start at 1% of calls and turn it up. That is your blast radius control.
 - **Gate it by environment as well as by flag.** A chaos strategy that can be enabled in production by a config change is a chaos strategy that will be enabled in production by an accidental config change. Belt and braces: `if (env.IsProduction() && !explicitlyApprovedChaosWindow) return;`
 
-> **Gotcha.** Injecting chaos at the *inner*most layer of the pipeline tests nothing useful — you have proven that a fault thrown after the retry policy propagates to the caller. The chaos strategy must sit outside (that is, closer to the dependency than) the strategies whose behaviour you are trying to observe.
+> **Gotcha.** Strategies added earlier wrap the ones added later, so a chaos strategy added *first* sits outermost and tests nothing useful: its fault never passes through the retry or the breaker, and you have only proven that an exception reaches the caller. Add chaos strategies last, so they sit innermost, closest to the dependency, inside the strategies whose behaviour you want to observe.
 
 ### Platform-level injection
 
@@ -13055,7 +13198,7 @@ The mid-level instinct is to make the network invisible and hope. The senior ins
 
 # Chapter 22: Background Processing, Scheduling & the Actor Model
 
-_⏱️ Estimated read time: ~25 min · 3877 words (study pace)_
+_⏱️ Estimated read time: ~35 min · 4678 words (study pace)_
 
 Almost every non-trivial system does work that no user is waiting on: sending emails, retrying failed payments, rebuilding search indexes, aggregating metrics, cleaning up expired data. The naive approach - do it inline on the request thread - couples user-facing latency to work that has no business being on the hot path, and it silently loses that work whenever a request is cancelled or a pod restarts.
 
@@ -13210,6 +13353,72 @@ The moment you run more than one instance of your service - and in any serious d
 You cannot engineer this possibility away entirely. Distributed systems give you **at-least-once** delivery as the practical default; exactly-once is a comforting fiction that, when you look closely, is always at-least-once plus idempotent processing (Chapter 9 explains why). So the senior move is to stop fighting duplicates and instead make processing **idempotent** - safe to run more than once with the same net effect. The implementation - dedupe on a natural or supplied idempotency key, with a unique index as your backstop - is covered in Chapter 21; apply it to every handler a worker runs.
 
 For the polling contention itself, options range from a `SELECT ... FOR UPDATE SKIP LOCKED` (PostgreSQL) to claiming rows with an atomic `UPDATE ... SET LockedBy = @me WHERE ...`, to simply electing a single leader (covered in Part B) so only one instance polls at all. The right answer depends on throughput, but the principle is constant: **assume duplicates and design so they don't hurt.**
+
+## Async Request-Reply: 202, a Status Resource, and Retry-After
+
+Some work doesn't fit in a request: a four-minute report, a transcode, an import. Keep it in the request and three things break. Front ends cut long requests (App Service at 230 seconds: [Chapter 51, Case 11](#case-11-large-uploads-fail-at-almost-exactly-four-minutes)). A client that times out retries, and the server, which never noticed the first client leave, does the work twice. And the final `200` promises work that happens only if nothing crashes first. The Azure Architecture Center's *Asynchronous Request-Reply* pattern replaces the one long request with a short `POST` that creates a job and short `GET`s that read it:
+
+```
+client                                   API                                     worker
+  │ POST /reports                          │ validate: a bad request gets its 400 now
+  │ Idempotency-Key: 5f3b… ───────────────►│ one transaction: job row (Pending) + outbox row
+  │◄── 202 Accepted ───────────────────────│        relay ──► queue ──► claim the job, run it,
+  │    Location: /jobs/7                   │                            Status = Succeeded
+  │    Retry-After: 5                      │
+  │ GET /jobs/7 ──────────────────────────►│ 200 { "status": "Running", … }
+  │ GET /jobs/7 ──────────────────────────►│ 303 See Other, Location: /reports/7
+  │ GET /reports/7 ───────────────────────►│ 200 the report
+```
+
+**The `POST` does only what must be synchronous.** It validates, then records the job and an outbox message in one transaction ([Chapter 9: The Transactional Outbox](#the-transactional-outbox)); publishing to the broker after the commit would be the dual write again. It answers `202 Accepted` with `Location`, the status resource (not the result), and `Retry-After`, the seconds until a poll is worth making. A unique index on the idempotency key turns a retried `POST` into a lookup of the job it already created; [Chapter 3: Idempotency Keys](#idempotency-keys-making-post-retry-safe) has the claim-first mechanics.
+
+```csharp
+app.MapPost("/reports", async (ReportRequest request, [FromHeader(Name = "Idempotency-Key")] string key,
+                               AppDbContext db, HttpResponse response, CancellationToken ct) =>
+{
+    if (!request.TryValidate(out var errors)) return Results.ValidationProblem(errors);
+
+    var job = new Job { Id = Guid.NewGuid(), IdempotencyKey = key, Status = JobStatus.Pending, CreatedAt = DateTimeOffset.UtcNow };
+    db.Jobs.Add(job);
+    db.Outbox.Add(OutboxMessage.For(new GenerateReport(job.Id, request)));   // one SaveChanges, one transaction
+    try { await db.SaveChangesAsync(ct); }
+    catch (DbUpdateException e) when (IsUniqueViolation(e))                 // a retry: this key already has a job
+    {
+        db.ChangeTracker.Clear();
+        job = await db.Jobs.SingleAsync(j => j.IdempotencyKey == key, ct);
+    }
+    response.Headers.RetryAfter = "5";
+    return Results.Accepted($"/jobs/{job.Id}", new { job.Id, job.Status });
+});
+
+app.MapGet("/jobs/{id:guid}", async (Guid id, AppDbContext db, HttpResponse response, CancellationToken ct) =>
+{
+    Job? job = await db.Jobs.FindAsync([id], ct);
+    if (job is null) return Results.NotFound();
+    if (job.Status != JobStatus.Succeeded)
+        return Results.Ok(new { job.Status, job.CreatedAt, job.LastUpdatedAt, job.Error });  // Error: RFC 9457 problem details
+    response.Headers.Location = $"/reports/{job.Id}";       // the Redirect helpers send 301/302/307/308, never 303
+    return Results.StatusCode(StatusCodes.Status303SeeOther);
+});
+```
+
+**The status resource answers `200` until the job is done.** Its body carries a documented set of states (`Pending`, `Running`, `Succeeded`, `Failed`, `Canceled`), the timestamps that tell a slow job from a stuck one, and a problem-details `error` when it fails. On success it answers `303 See Other` to the result. A `303` makes the client follow with a `GET`; on a `302`, some clients replay the original method. Don't answer `404` for "not ready yet": the client can't tell it from a wrong ID.
+
+**The worker is a `BackgroundService`** reading the queue (or a queue-triggered Function). Delivery is at-least-once, so it claims the job with a conditional update before running it:
+
+```csharp
+DateTimeOffset now = DateTimeOffset.UtcNow;
+int claimed = await db.Jobs
+    .Where(j => j.Id == message.JobId
+             && (j.Status == JobStatus.Pending || (j.Status == JobStatus.Running && j.LeaseUntil < now)))
+    .ExecuteUpdateAsync(s => s.SetProperty(j => j.Status, JobStatus.Running)
+                              .SetProperty(j => j.LeaseUntil, now.AddMinutes(15)), ct);
+if (claimed == 0) return;   // another delivery owns it or finished it: complete the message, do nothing
+```
+
+The lease lets a redelivery take over a job whose worker died mid-run, so a rerun must be safe: write the result keyed by the job ID, overwriting any partial one. A transient failure throws, and the broker redelivers the message; a permanent one, such as input that validation couldn't catch, is dead-lettered at once. Either way the job must end `Failed`, with a reason someone can act on: set by the worker on a permanent failure or on the last attempt, by whatever drains the dead-letter queue, or by a sweeper that fails jobs whose `LastUpdatedAt` has stopped moving. A status stuck at `Running` is the HTTP face of a dead-letter queue nobody watches.
+
+**Clients poll, or get called back.** A polling client waits `Retry-After` between `GET`s and gives up at a deadline. A callback (a webhook, a SignalR message) saves the polling, but needs a reachable, authenticated endpoint on the client's side and is itself delivered at-least-once ([Chapter 26](#chapter-26-real-world-engineering-essentials) covers webhook signatures), so keep polling as the fallback. Expose `DELETE /jobs/{id}` if a job can be cancelled, and delete old jobs and results on a retention schedule.
 
 ---
 
@@ -13496,6 +13705,7 @@ The arc of this chapter is a maturation in how you think about "later" work. A `
 
 - Microsoft Learn — *Worker Services in .NET* and *Background tasks with hosted services in ASP.NET Core* (`IHostedService`, `BackgroundService`, graceful shutdown).
 - Microsoft Learn — *Implement the outbox pattern* and .NET microservices architecture guidance (transactional outbox, at-least-once, idempotency).
+- Azure Architecture Center — *Asynchronous Request-Reply pattern* (`202 Accepted`, `Location`, `Retry-After`, the status endpoint and `303 See Other`); RFC 9110 for the status-code semantics.
 - Microsoft Learn — *Microsoft Orleans documentation*: Overview, Grains, Grain persistence, Silos & clustering, and the "Hello World" / minimal application tutorials (https://learn.microsoft.com/dotnet/orleans/).
 - Hangfire Documentation — Background Methods (fire-and-forget, delayed, recurring, continuations), Dashboard, and persistent storage providers (https://docs.hangfire.io/).
 - Quartz.NET Documentation — Jobs and Triggers, Cron Triggers, and hosted-service integration (https://www.quartz-scheduler.net/documentation/).
@@ -14202,7 +14412,7 @@ Serialization is where your data model meets the outside world, and the format y
 
 # Chapter 25: Advanced & Specialized Testing
 
-_⏱️ Estimated read time: ~35 min · 5627 words (study pace)_
+_⏱️ Estimated read time: ~35 min · 5653 words (study pace)_
 
 Chapter 7 gave you the foundations: unit tests with xUnit, mocking with Moq or NSubstitute, integration tests, and spinning up real dependencies with Testcontainers. Those techniques carry most teams a long way. But as a system grows from a single service into a fleet of services, and as a codebase matures from "does it work?" into "can we change it safely for the next five years?", a new set of problems appears that the foundational techniques do not address well.
 
@@ -14497,9 +14707,12 @@ Functional tests answer "is it correct?"; load tests answer "does it stay correc
 [NBomber](https://nbomber.com) is the natural choice when you want load tests **in C#**, sharing models, auth helpers, and DTOs with your application code. You express load as a *scenario* with an injection rate:
 
 ```csharp
+// One client for the whole run: a new HttpClient per iteration would measure connection
+// setup and can exhaust the load generator's ports (Chapter 20).
+using var client = new HttpClient();
+
 var scenario = Scenario.Create("checkout_load", async context =>
 {
-    using var client = new HttpClient();
     var response = await client.PostAsJsonAsync(
         "https://api.example.com/orders",
         new { productId = 1, quantity = 2 });
@@ -14568,7 +14781,7 @@ Code coverage lies. A line can be "covered" — executed during a test — while
 Your **mutation score** (killed ÷ total) is a far more honest measure of test *effectiveness* than line coverage. A surviving mutant is a concrete, actionable finding: "if this operator were wrong, no test would tell you." You run Stryker with a simple CLI invocation:
 
 ```
-dotnet stryker --threshold-high 80 --threshold-low 60 --threshold-break 50
+dotnet stryker --threshold-high 80 --threshold-low 60 --break-at 50
 ```
 
 > **Practical note:** mutation testing is computationally expensive — it reruns the suite once per mutant, potentially thousands of times. Don't run it on every commit over the whole solution. Run it **on the diff** in CI (Stryker supports `--since` to mutate only changed code), or on a nightly schedule for critical modules. Point it at your core domain logic, where a missed bug is most costly — not at DTOs and configuration glue.
@@ -14659,7 +14872,7 @@ The senior mindset that unifies them: **every test is an investment with a cost 
 
 # Chapter 26: Real-World Engineering Essentials
 
-_⏱️ Estimated read time: ~25 min · 3882 words (study pace)_
+_⏱️ Estimated read time: ~30 min · 4231 words (study pace)_
 
 Most textbook code lives in a fantasy world. The clock is always noon, everyone speaks American English, prices are round dollar amounts, files fit in memory, and email "just sends." Production is where those assumptions go to die. The incidents that wake engineers at 3 a.m. are rarely caused by clever algorithms gone wrong — they are caused by a timestamp stored in the server's local time, a `double` that lost a penny, a `ToUpper()` that mangled a Turkish username, or a 2 GB upload that pinned a web server's memory.
 
@@ -14667,18 +14880,16 @@ This chapter is a field guide to those details. None of them are conceptually ha
 
 ## Date and Time Done Right
 
-Time is the single richest source of production bugs in business software, because the abstraction most languages hand you — a "date and time" — quietly conflates several genuinely different concepts.
+A "date and time" quietly conflates several different concepts, which makes it one of the richest sources of production bugs in business software.
 
 ### The four types, and what each one means
-
-.NET gives you a family of types. Choosing the right one is 80% of the battle.
 
 - **`DateTime`** — a date and a time, plus a `Kind` flag that is one of `Utc`, `Local`, or `Unspecified`. The `Kind` is the trap: it is easy to lose, easy to ignore, and defaults to `Unspecified`, which means "no one knows what time zone this is."
 - **`DateTimeOffset`** — a date, a time, and an explicit offset from UTC (e.g. `-05:00`). This unambiguously identifies a single instant on the global timeline. **Prefer this for timestamps.**
 - **`DateOnly`** (added in .NET 6) — a calendar date with no time and no zone. Perfect for birthdays, invoice dates, and holidays, where "a time" is meaningless.
 - **`TimeOnly`** (added in .NET 6) — a time of day with no date. Perfect for "the shop opens at 09:00."
 
-Before `DateOnly`/`TimeOnly`, developers modelled a birthday as a `DateTime` at midnight, then spent years fighting phantom time-zone shifts that moved birthdays to the previous day. If a value has no time component, do not give it one.
+A birthday modelled as a `DateTime` at midnight moves to the previous day after the first careless zone conversion. If a value has no time component, don't give it one.
 
 > **`DateTime.Now` is almost always a bug in server code.** It reads the *server's* local clock and time zone. Servers move regions, run in containers set to UTC, and get migrated to the cloud. Business logic that branches on `DateTime.Now` produces different results depending on where the process happens to run. Use `DateTimeOffset.UtcNow` (or a `TimeProvider`, below) instead.
 
@@ -14693,15 +14904,14 @@ DateTimeOffset createdAt = DateTimeOffset.UtcNow;
 // Store: as UTC. In a database, use a type that preserves offset/UTC
 // (PostgreSQL timestamptz, SQL Server datetimeoffset).
 
-// Render: convert to the user's zone at the boundary.
+// Render: convert to the user's zone at the boundary, and format with the user's
+// culture. Zone and culture are separate settings: a Kyiv user may read English.
 TimeZoneInfo userZone = TimeZoneInfo.FindSystemTimeZoneById("Europe/Kyiv");
 DateTimeOffset localForDisplay = TimeZoneInfo.ConvertTime(createdAt, userZone);
-Console.WriteLine(localForDisplay.ToString("f", userZone.HasSameRules(TimeZoneInfo.Utc)
-    ? CultureInfo.InvariantCulture
-    : CultureInfo.CurrentCulture));
+Console.WriteLine(localForDisplay.ToString("f", userCulture));
 ```
 
-The reason is subtraction. The interval between two instants is only meaningful if both are on the same absolute timeline. Local times are not — because of DST, a "local day" can be 23 or 25 hours long.
+The reason is subtraction: an interval is only meaningful between two instants on the same absolute timeline. Local times are not on one; because of DST, a "local day" can be 23 or 25 hours long.
 
 ### Daylight Saving Time: gaps and overlaps
 
@@ -14716,16 +14926,18 @@ var springForward = new DateTime(2026, 3, 29, 2, 30, 0, DateTimeKind.Unspecified
 
 Console.WriteLine(zone.IsInvalidTime(springForward)); // True — 02:30 never happened
 
-// Converting an invalid local time doesn't throw; .NET rolls it forward.
-// That silent adjustment is exactly the kind of surprise that produces
-// off-by-one-hour scheduling bugs.
+// TimeZoneInfo.ConvertTimeToUtc(springForward, zone) throws ArgumentException.
+// zone.GetUtcOffset(springForward) does not: it returns the standard offset, +01:00,
+// so code that builds a DateTimeOffset from it gets an instant nobody asked for.
 ```
+
+> **Pay attention.** **What .NET does in the gap and in the overlap.** For a time in the spring gap, `TimeZoneInfo.ConvertTimeToUtc` and `ConvertTime` throw `ArgumentException`, while `GetUtcOffset` quietly returns the standard offset. For a time in the autumn overlap, nothing throws: conversion silently picks the standard-time instant (in Berlin on 25 October 2026, 02:30 becomes 01:30 UTC, the second occurrence), and `GetAmbiguousTimeOffsets` returns both candidates, +01:00 and +02:00. And `DateTime` arithmetic ignores all of it: local midnight to midnight on 29 March 2026 is 23 hours in Berlin, while `AddDays(1)` always adds 24. The fix is the same for all three: compute on instants (UTC or `DateTimeOffset`), and decide explicitly what a wall-clock time in a gap or an overlap means for your business. (Checked on .NET 10.0.12, Linux.)
 
 > **Never schedule recurring jobs on a naive local "02:30 every night."** On transition nights that job either runs twice or not at all. Schedule against UTC, or explicitly decide your policy for the gap/overlap.
 
 Related annual traps: **leap years** (never assume 365 days; use `DateTime.IsLeapYear` and `DateTime.DaysInMonth` rather than hand-rolled math), and the "add one month to January 31" problem — `AddMonths(1)` clamps to February 28/29, which means `date.AddMonths(1).AddMonths(-1)` is not always the original date. Calendar arithmetic is not associative.
 
-**Leap seconds** deserve a note: they exist in UTC (occasionally a minute has 61 seconds) but .NET, like most platforms, historically smeared or ignored them. `DateTime` supports the value `:60` in limited parsing scenarios but does not model leap seconds in arithmetic. For virtually all business software the correct stance is: ignore them, and never rely on a second-precise difference across a potential leap-second boundary.
+**Leap seconds** exist in UTC, but `DateTime` arithmetic doesn't model them. For business software: ignore them, and never rely on a second-precise difference across one.
 
 ### IANA vs Windows time-zone IDs
 
@@ -14733,9 +14945,11 @@ Time zones have two competing ID systems. Windows uses names like `"Pacific Stan
 
 The good news: since **.NET 6**, `TimeZoneInfo.FindSystemTimeZoneById` accepts **both** forms on **both** platforms and converts between them automatically, backed by ICU. You can also convert explicitly with `TimeZoneInfo.TryConvertIanaIdToWindowsId` and its inverse. Still, **standardize on IANA IDs in your data**: they are the cross-platform lingua franca, and the IANA database is the authoritative, frequently updated source of the world's zone rules (including historical changes and political re-zonings, which happen more often than people expect).
 
+> **Gotcha.** The zone *rules* come from the operating system (the tz database on Linux, the registry on Windows), but the mapping between IANA and Windows IDs comes from ICU. In globalization-invariant mode (`InvariantGlobalization`, `DOTNET_SYSTEM_GLOBALIZATION_INVARIANT=1`, common in slim container images), `FindSystemTimeZoneById("W. Europe Standard Time")` throws `TimeZoneNotFoundException` on Linux while `"Europe/Berlin"` still works. One more reason to store IANA IDs.
+
 ### NodaTime: when the built-in types aren't enough
 
-The BCL's date/time API grew organically and still lets you write nonsense that compiles (adding a `TimeSpan` to a zone-unaware `DateTime`, comparing two `Unspecified` values, etc.). **NodaTime**, by Jon Skeet, is a widely-used library that fixes this by giving each concept its own type, so the compiler stops you from mixing them:
+The BCL lets you write nonsense that compiles (adding a `TimeSpan` to a zone-unaware `DateTime`, comparing two `Unspecified` values). **NodaTime**, by Jon Skeet, gives each concept its own type, so the compiler stops you mixing them:
 
 - **`Instant`** — a point on the global timeline (like `DateTimeOffset.UtcNow`, but with no offset baggage).
 - **`LocalDate` / `LocalTime` / `LocalDateTime`** — wall-clock values with no zone. You cannot accidentally treat these as instants.
@@ -14756,11 +14970,11 @@ LocalDateTime wallClock = new LocalDateTime(2026, 3, 29, 2, 30);
 ZonedDateTime resolved = kyiv.ResolveLocal(wallClock, Resolvers.LenientResolver);
 ```
 
-Use NodaTime when time is core to your domain (scheduling, calendars, finance, anything cross-zone). Its value is that the *types* prevent the bugs; you can't add a duration to a `LocalDate` because the API simply doesn't offer it.
+Use NodaTime when time is core to your domain (scheduling, calendars, finance, anything cross-zone): the *types* prevent the bugs.
 
 ### `TimeProvider`: testable time (.NET 8+)
 
-Code that calls `DateTimeOffset.UtcNow` directly is untestable — you can't make "now" be a fixed value, and you can't test "what happens at midnight." Historically teams wrapped this in a homegrown `IClock`. .NET 8 standardized the abstraction as **`TimeProvider`**.
+Code that calls `DateTimeOffset.UtcNow` directly can't be tested at a fixed "now", or at midnight. .NET 8 standardized the homegrown `IClock` as **`TimeProvider`**.
 
 ```csharp
 public class SubscriptionService
@@ -14784,7 +14998,7 @@ fake.Advance(TimeSpan.FromDays(1)); // deterministically move time forward
 
 ### Parsing and formatting across cultures
 
-`DateTime.Parse("03/04/2026")` is a landmine: in the US that's March 4th, in most of Europe it's April 3rd. The result depends on `CultureInfo.CurrentCulture`, which depends on the OS/thread settings.
+`DateTime.Parse("03/04/2026")` is a landmine: in the US that's March 4th, in most of Europe it's April 3rd, because the result depends on `CultureInfo.CurrentCulture`.
 
 > **For machine-to-machine data (JSON, logs, APIs, filenames), always use a fixed, culture-independent format — ISO 8601 (round-trip `"o"`) — and parse with `CultureInfo.InvariantCulture` and `DateTimeStyles`.** Reserve culture-aware formatting for text shown to humans.
 
@@ -14809,7 +15023,7 @@ Console.WriteLine(0.1m + 0.2m == 0.3m);     // True  (decimal)
 
 ### Rounding, and the surprise of banker's rounding
 
-Rounding is a *business decision*, not a technicality. .NET's default, `Math.Round`, uses **banker's rounding** (round half to even): `Math.Round(2.5m)` is `2`, and `Math.Round(3.5m)` is `4`. This exists to avoid statistical bias when rounding many values, but it surprises people who expect "round half up."
+Rounding is a *business decision*, not a technicality. `Math.Round` defaults to **banker's rounding** (round half to even): `Math.Round(2.5m)` is `2`, and `Math.Round(3.5m)` is `4`. It avoids statistical bias when rounding many values, and surprises everyone who expects "round half up".
 
 ```csharp
 Math.Round(2.5m);                               // 2  (to even — the default!)
@@ -14818,6 +15032,8 @@ Math.Round(2.345m, 2, MidpointRounding.AwayFromZero); // 2.35
 ```
 
 > **Always specify the `MidpointRounding` mode explicitly, and round only at defined boundaries** (e.g. when presenting a total or posting to a ledger), never repeatedly mid-calculation. Round once, late. Rounding intermediate results compounds error.
+
+> **Pay attention.** **Formatting rounds by a different rule.** `Math.Round(2.345m, 2)` is `2.34` (half to even), but `2.345m.ToString("F2")` prints `2.35` (half away from zero). An invoice that stores the rounded value and prints the unrounded one disagrees with its own ledger by a cent. Round once, with an explicit mode, and format the rounded value. Two more cents go missing in the same places: a `double` is rounded from a value that was never the decimal you typed (`1.005` is stored as `1.00499999999999989342`, so even `AwayFromZero` gives `1.00`), and a split such as 100.00 / 3 rounds to 33.33 three times, 99.99 in total, so an allocation rule must place the remainder.
 
 ### Store money as minor units, and always with its currency
 
@@ -14874,12 +15090,10 @@ The `"C"` (currency), `"N"` (number), and `"P"` (percent) format specifiers resp
 
 ### `CurrentCulture` vs `CurrentUICulture`
 
-This distinction trips up almost everyone:
-
 - **`CultureInfo.CurrentCulture`** governs *formatting* — dates, numbers, currency, sorting.
 - **`CultureInfo.CurrentUICulture`** governs *which translated resources* are loaded — the language of your UI strings.
 
-They are separate on purpose. A user in Switzerland might want the German language (`CurrentUICulture = de-CH`) but Swiss-franc formatting (`CurrentCulture = de-CH`), while an English-speaking expat in Germany might want English UI text with euro formatting. In ASP.NET Core, the **Request Localization** middleware sets both per request from the `Accept-Language` header, a cookie, or a query string.
+They are separate on purpose: an English-speaking expat in Germany may want English UI text (`CurrentUICulture = en`) with German number and date formatting (`CurrentCulture = de-DE`). In ASP.NET Core, the **Request Localization** middleware sets both per request from the `Accept-Language` header, a cookie, or a query string.
 
 ### Resource files and `IStringLocalizer`
 
@@ -14908,31 +15122,31 @@ Languages have wildly different plural rules. English has two forms (1 item / 2 
 
 ### String comparison and sorting: the quiet catastrophe
 
-This is the most under-appreciated correctness issue in .NET, and it causes real security bugs.
-
-There are two fundamentally different ways to compare strings:
+This is the most under-appreciated correctness issue in .NET, and it causes real security bugs. There are two fundamentally different ways to compare strings:
 
 - **Ordinal** — compares raw UTF-16 code units. Fast, deterministic, culture-independent. Correct for *program-internal* identifiers: keys, tokens, file paths, protocol values, cache keys.
 - **Culture-aware (linguistic)** — compares by the collation rules of a culture. `"ä"` might sort near `"a"` or after `"z"` depending on the locale. Correct for *displaying a sorted list to a human*.
 
-> **The Turkish-i problem.** In Turkish (`tr-TR`), the uppercase of `i` is `İ` (dotted), and the lowercase of `I` is `ı` (dotless). So `"file".ToUpper()` under a Turkish culture produces `"FİLE"`, and a culture-sensitive comparison of `"FILE" == "file".ToUpper()` **fails**. Code that compared, say, a file extension or an HTTP header this way has broken — and been exploited — on Turkish machines.
+> **The Turkish-i problem.** In Turkish (`tr-TR`), the uppercase of `i` is `İ` (dotted), and the lowercase of `I` is `ı` (dotless). So under a Turkish culture `"file".ToUpper()` produces `"FİLE"`, and `"file".ToUpper() == "FILE"` is **false**. Code that compared, say, a file extension or an HTTP header this way has broken — and been exploited — on Turkish machines.
 
 The fix is to be explicit and to use ordinal comparisons for anything non-linguistic:
 
 ```csharp
-// WRONG for internal logic — culture-dependent, breaks on tr-TR:
-if (ext.ToLower() == ".pdf") { }
-if (header.Equals("Content-Type", StringComparison.CurrentCultureIgnoreCase)) { }
+// WRONG for internal logic — culture-dependent; on tr-TR ".ZIP" lowers to ".zıp":
+if (ext.ToLower() == ".zip") { }
+if (header.Equals("Authorization", StringComparison.CurrentCultureIgnoreCase)) { }
 
 // RIGHT — explicit, culture-independent:
-if (ext.Equals(".pdf", StringComparison.OrdinalIgnoreCase)) { }
-if (header.Equals("Content-Type", StringComparison.OrdinalIgnoreCase)) { }
+if (ext.Equals(".zip", StringComparison.OrdinalIgnoreCase)) { }
+if (header.Equals("Authorization", StringComparison.OrdinalIgnoreCase)) { }
 
 // For case-insensitive normalization, use the invariant culture:
 string normalized = ext.ToUpperInvariant();
 ```
 
-**Rule of thumb: if a human isn't reading the sort order, use `Ordinal`/`OrdinalIgnoreCase`.** Reserve `CurrentCulture` comparisons for UI-facing sorting and searching. Code analyzers (CA1304, CA1305, CA1307, CA1310) will flag culture-implicit calls — turn them on.
+**Rule of thumb: if a human isn't reading the sort order, use `Ordinal`/`OrdinalIgnoreCase`.** Reserve `CurrentCulture` comparisons for UI-facing sorting and searching. Code analyzers (CA1304, CA1305, CA1307, CA1310) flag culture-implicit calls; they are off by default, so turn them on.
+
+> **Pay attention.** **Which overloads pick a culture for you.** `==`, `Equals`, `Contains`, `Replace` and `IndexOf(char)` are ordinal by default. `string.Compare`, `CompareTo`, `StartsWith(string)`, `EndsWith(string)`, `IndexOf(string)`, `LastIndexOf(string)`, `ToUpper()` and `ToLower()` use the *current culture* unless you pass a `StringComparison` or culture, and so do `OrderBy(s => s)` and `List<string>.Sort()` through the default comparer. Since .NET 5, culture-aware operations use ICU on every platform, so results can differ from ordinal ones in surprising ways: the docs' example is `"Hel\0lo".IndexOf("\0")`, which returns `0`, because ICU gives the null character no weight; with `StringComparison.Ordinal` it returns `3`. Pass the comparison explicitly every time, and the default stops mattering.
 
 ### Unicode normalization
 
@@ -15033,10 +15247,13 @@ The senior instinct is to **offload them to background processing** (Chapter 22)
 [HttpPost("orders/{id}/invoice")]
 public async Task<IActionResult> Invoice(int id)
 {
-    await _queue.EnqueueAsync(new GenerateInvoiceJob(id)); // durable
-    return Accepted(); // 202 — "I've got it, check back later"
+    Job job = await _jobs.EnqueueAsync(new GenerateInvoiceJob(id));  // durable: a job row and an outbox message
+    Response.Headers.RetryAfter = "5";
+    return AcceptedAtAction(nameof(GetJob), new { jobId = job.Id }, job);  // 202 + Location: where to check back
 }
 ```
+
+A bare `Accepted()` says "check back later" without saying where. The `Location` header names the job's status resource, which the client polls until it redirects to the result. [Chapter 22: Async Request-Reply](#async-request-reply-202-a-status-resource-and-retry-after) walks through the whole contract: the status resource, `303 See Other`, failures, and the idempotency key that makes a retried `POST` safe.
 
 This is the pattern behind every resilient real-world app: **the request path stays thin and fast; anything slow, external, or flaky moves to a background worker that can retry safely.** Combine that with the earlier rules — UTC everywhere, `decimal` for money, ordinal comparisons for internal logic, streamed file bodies, verified webhooks — and you have eliminated the large majority of the mundane bugs that actually take production down.
 
@@ -17474,7 +17691,7 @@ You have the map, you have the capstone, and you have the habits. The only thing
 
 # Chapter 33: Real-World Scenarios & Architectural Decisions
 
-_⏱️ Estimated read time: ~1 h 20 min · 14816 words (study pace)_
+_⏱️ Estimated read time: ~1 h 20 min · 14824 words (study pace)_
 
 Every senior engineer eventually learns that the hard part of the job is not writing code — it is deciding what to do when the code you already shipped meets reality. Reality shows up as a traffic spike you did not plan for, a "successful" request that silently lost data, a p99 latency graph that looks like a seismograph, and a dependency that vanishes at the worst possible moment. This chapter is a war-room playbook. Each scenario is a story you could plausibly live through on a production on-call rotation, framed around one question: *how do you react, and what architectural decision does that push you toward?*
 
@@ -17651,7 +17868,7 @@ If the relay crashes after publishing but before marking a row processed, it rep
 ### How to prevent it
 
 - **Never dual-write.** One transactional store per write; propagate via outbox.
-- **Make `200` mean durably committed.** If you must go async, return `202 Accepted` with a status URL, and back it with a durable queue/outbox — not a fire-and-forget `Task`.
+- **Make `200` mean durably committed.** If you must go async, return `202 Accepted` with a status URL, and back it with a durable queue/outbox — not a fire-and-forget `Task` ([Chapter 22: Async Request-Reply](#async-request-reply-202-a-status-resource-and-retry-after) has the full contract).
 - **Reconciliation jobs as a standing safety net.** A scheduled job that compares counts/checksums across services and alerts (or auto-heals) on drift. Even a perfect design benefits from a smoke detector.
 - **Idempotency everywhere** writes can be retried — from the public API down to internal consumers.
 
@@ -20622,7 +20839,7 @@ SQL Server handles the OR form (script 4 of the SQL Server track). It is a genui
 
 # Chapter 50: Azure in Depth for .NET Developers
 
-_⏱️ Estimated read time: ~1 h 30 min · 13544 words (study pace)_
+_⏱️ Estimated read time: ~1 h 30 min · 13567 words (study pace)_
 
 [Chapter 10](#chapter-10-cloud-aws-azure) gave you the map: what App Service, Functions, Cosmos DB and Service Bus *are*, and how they line up against AWS. A map gets you through a conversation. It does not get you through the first week of owning a production system on Azure, where the questions sound like this: *why does the app get a 403 from Blob Storage when its identity is a Contributor on the subscription? Why did the slot swap cause a minute of 500s? Why does Cosmos DB throttle at 3,000 RU/s when we provisioned 20,000?*
 
@@ -21323,9 +21540,9 @@ The database tuning skills from [Chapter 37](#chapter-37-the-slow-query-lab-read
 
 ### Service Bus
 
-**Tiers.** *Basic* has queues only. *Standard* adds topics, sessions, transactions and duplicate detection, on shared infrastructure. *Premium* runs on dedicated capacity (messaging units), adds private endpoints and larger messages, and is the tier for production workloads that need predictable latency. Messages are limited to 256 KB on Standard. Premium allows 1 MB by default, and up to 100 MB with large-message support.
+**Tiers.** *Basic* has queues only. *Standard* adds topics, sessions, transactions and duplicate detection, on shared infrastructure. *Premium* runs on dedicated messaging units, with private endpoints and predictable latency. Messages: 256 KB on Basic and Standard; on Premium 1 MB by default, up to 100 MB with large-message support.
 
-**Peek-lock, the default and the one to use.** A receiver gets a message and a **lock** on it. Until the lock expires, no other receiver sees the message. The receiver then *settles* it:
+**Peek-lock, the default and the one to use.** A receiver gets a message and a **lock** on it; until the lock expires, no other receiver sees it. The receiver then *settles* it:
 
 ```
             receive (peek-lock)
@@ -21341,18 +21558,18 @@ The database tuning skills from [Chapter 37](#chapter-37-the-slow-query-lab-read
 The facts that matter, and that interviewers ask about:
 
 - **The lock duration defaults to 1 minute, with a maximum of 5.** Work that takes longer must *renew* the lock. `ServiceBusProcessor` does this automatically for up to `MaxAutoLockRenewalDuration` (5 minutes by default). If the lock expires, `CompleteMessageAsync` throws `MessageLockLost`, and the message is delivered again, *after your side effects have already happened*. Chapter 51's second *Find the bug* exercise shows this, verified against the Service Bus emulator.
-- **Delivery is at-least-once, always.** Locks expire, processes crash between the side effect and `Complete`, networks drop the settlement. Every consumer must be **idempotent** (Chapter 9's inbox table, or a natural key check).
+- **Delivery is at-least-once, always.** Locks expire, processes crash between the side effect and `Complete`, networks drop the settlement. Every consumer must be **idempotent**: claim the message ID under a unique key in the same transaction as the effect ([Chapter 9: Idempotent Consumers](#idempotent-consumers)), never check first and record afterwards.
 - **The dead-letter queue does not drain itself.** Messages stay there until someone reads them. Put an alert on the dead-letter message count (the `DeadletteredMessages` metric), and have a tool to inspect, fix and resubmit messages. A DLQ nobody watches is a silent data-loss mechanism.
 - **Sessions give ordered processing per key.** Set `SessionId = customerId`, and the queue delivers each session's messages in order to one receiver at a time, while different sessions are processed in parallel. Session state (up to one message's size) lets the receiver keep a small state machine per session.
-- **Duplicate detection** discards a message whose `MessageId` was already seen within a time window (10 minutes by default, 20 seconds to 7 days). It protects against a *sender* that retries after a timeout. It does nothing about consumer-side redelivery, so it does not replace idempotent consumers.
-- **Scheduled messages** (`ScheduledEnqueueTime`) and **transactions** (receive, process and send atomically *within the same namespace*) round out the features. A transaction cannot include your database. That is what the outbox pattern is for.
+- **Duplicate detection** discards a message whose `MessageId` was already seen within a time window (20 seconds to 7 days; the service documents 10 minutes as the default, but the .NET `CreateQueueOptions` sets 1 minute unless you set `DuplicateDetectionHistoryTimeWindow`). It protects against a *sender* that retries after a timeout. A redelivery is the same message delivered again, which it never sees, so it does not replace idempotent consumers.
+- **Scheduled messages** (`ScheduledEnqueueTime`) and **transactions** (settle and send atomically *within one namespace*) round out the features. A transaction cannot include your database; that is what the outbox is for.
 
 **The .NET client.** `ServiceBusClient` owns the AMQP connection, so create one per namespace for the life of the process. Senders, receivers and processors are cheap and share it. Know the processor defaults, because they are conservative:
 
 | `ServiceBusProcessorOptions` | Default | Note |
 |---|---|---|
 | `MaxConcurrentCalls` | **1** | One message at a time. Raise it deliberately, with the downstream capacity in mind. |
-| `AutoCompleteMessages` | `true` | Completes the message when your handler returns, and abandons it when the handler throws. |
+| `AutoCompleteMessages` | `true` | Completes the message when your handler returns. A handler that throws without settling gets its message abandoned whatever this is set to. |
 | `MaxAutoLockRenewalDuration` | 5 minutes | Longer handlers need a larger value. |
 | `PrefetchCount` | 0 | Prefetched messages are *locked while they wait in memory*. A large prefetch plus slow processing means expired locks and redeliveries. |
 | `ReceiveMode` | `PeekLock` | `ReceiveAndDelete` is at-most-once: a crash loses the message. |
@@ -21386,7 +21603,7 @@ processor.ProcessErrorAsync += args =>
 await processor.StartProcessingAsync();
 ```
 
-Separate *transient* failures (throw, and let the message be retried) from *permanent* ones (dead-letter immediately with a reason). Otherwise, a message that can never succeed burns through all 10 delivery attempts first, and each attempt may repeat a side effect.
+Throw on *transient* failures so the message is retried; dead-letter *permanent* ones at once, with a reason. Otherwise a message that can never succeed burns all 10 delivery attempts, each one possibly repeating a side effect.
 
 ### Event Hubs
 
@@ -21779,7 +21996,7 @@ Around everything sit Key Vault and App Configuration (load once, reload deliber
 
 # Chapter 51: The Azure Casebook — Real Incidents, Real Fixes
 
-_⏱️ Estimated read time: ~55 min · 9489 words (study pace)_
+_⏱️ Estimated read time: ~55 min · 9491 words (study pace)_
 
 [Chapter 50](#chapter-50-azure-in-depth-for-net-developers) explains how Azure works. This chapter is about what happens when it meets production. Each case is a situation that .NET teams on Azure run into again and again. They are composites of common incidents, not one company's post-mortem. For each one you get the same six parts:
 
@@ -22163,7 +22380,7 @@ A public IP in the answer settles it: the problem is DNS, and nothing in RBAC or
 
 Chapter 50's `UploadUrlIssuer` shows step 2. The browser uploads in blocks, so it can resume after a failure, and upload time is limited only by the SAS expiry, which should be long enough for a slow connection but no longer. The API's requests now take milliseconds. Route the `BlobCreated` event through a Service Bus queue rather than straight to the worker, so that bursts are buffered and processing gets peek-lock and dead-lettering.
 
-**Prevent it.** A design rule: *no request does work proportional to user-controlled size or duration*. Anything that can exceed a few seconds becomes "accept, then process asynchronously" ([Chapter 22](#chapter-22-background-processing-scheduling-the-actor-model)).
+**Prevent it.** A design rule: *no request does work proportional to user-controlled size or duration*. Anything that can exceed a few seconds becomes "accept, then process asynchronously" ([Chapter 22: Async Request-Reply](#async-request-reply-202-a-status-resource-and-retry-after)).
 
 **Interview angle.** A classic system-design follow-up ("how would you handle large file uploads?"). Name the limit, the SAS scoping (one blob, create and write only, short expiry), and the event-driven completion.
 
@@ -26099,6 +26316,3060 @@ Most engineers find that the brag doc has more post candidates than they expecte
 - **Patrick McKenzie, "Don't Call Yourself A Programmer, And Other Career Advice"** (kalzumeus.com, 2011) — on describing yourself by the business value you create rather than by the technology you use.
 - **Chapter 36: The Story Bank & Evidence Portfolio** — the private [story bank](#chapter-36-the-story-bank-evidence-portfolio), [CV bullets](#from-artifact-to-cv-bullet) and [honesty rules](#honesty-rules) this chapter builds on.
 - **Chapter 17: Soft Skills & Engineering Practices** — [from colleague to advisor](#from-colleague-to-advisor) and [written communication as async leverage](#written-communication-as-async-leverage).
+
+
+---
+
+# Part 1: Junior → Middle
+
+_⏱️ Estimated read time: ~5 min · 688 words (study pace)_
+
+> **What Part 1 makes you able to do.** Work as a solid middle developer inside one service, without help: write async, data-access and messaging code that survives production, explain the mechanism behind each classic trap and the fix for it, find the first cause of a slow or failing endpoint yourself, and turn vague tickets, estimates and reviews into work the team can rely on.
+
+**Time:** the core modules take ≈ 3 h 35 min of reading in the linked chapter sections and ≈ 12 h 40 min of hands-on work; with a second read after the experiments, about 20 hours, or four weeks at five hours a week. The foundation modules add up to ≈ 2 h 25 min of reading and 4 h 40 min of hands-on work, but only for the modules whose entry check sends you back.
+
+## How Part 1 Works
+
+Part 1 is a path through the chapters, not a second copy of them. Each module names the mechanism that ties its topic together, links the chapter sections that teach it, and then makes you use it:
+
+1. **Read the mechanism first,** then the linked sections, in order.
+2. **Run the experiment before reading what it shows.** Every *Prove it* program is at most 30 lines and is compiled and tested in [`verify/path`](https://github.com/malyna2/dotnet-handbook/tree/main/verify/path): clone the repository, install the .NET 10 SDK, and run `dotnet run --project <Name>` from that folder. Two experiments also need Docker for SQL Server or the Service Bus emulator.
+3. **Answer the three questions without notes,** then open the answers. A "why?" you can't answer is the gap an interviewer's follow-up finds.
+4. **Do the check at work.** The module is done when you have found the trap, or proved it absent, in code you own.
+
+**Modules 1–7 are the core:** async code, data access, messaging, the working habits a team expects from a middle developer, diagnosis and the C# underneath it all. Take them in order. **Modules 8–13 are foundations:** each opens with an entry check of three questions. Get all three right and move on; otherwise, work through the module.
+
+Before an interview, reread [Part 1 · Pay Attention To](#part-1-pay-attention-to): one table of trap → why it bites → the fix.
+
+## The Modules of Part 1
+
+| # | Module | Kind | Reading | Hands-on |
+|---|---|---|---|---|
+| 1 | [Async Essentials](#part-1-module-1-async-essentials) | Core | 35 min | 1 h 35 min |
+| 2 | [EF Core Essentials](#part-1-module-2-ef-core-essentials) | Core | 15 min | 1 h 10 min |
+| 3 | [SQL and Indexes](#part-1-module-3-sql-and-indexes) | Core | 20 min | 4 h 10 min |
+| 4 | [Messaging and Long-Running Work](#part-1-module-4-messaging-and-long-running-work) | Core | 40 min | 1 h 25 min |
+| 5 | [Working Like a Middle Developer](#part-1-module-5-working-like-a-middle-developer) | Core | 40 min | 2 h 15 min |
+| 6 | [Exceptions, Logging and First Diagnosis](#part-1-module-6-exceptions-logging-and-first-diagnosis) | Core | 40 min | 1 h 5 min |
+| 7 | [C# Essentials](#part-1-module-7-c-essentials) | Core | 25 min | 1 h |
+| 8 | [Web API Basics](#part-1-module-8-web-api-basics) | Foundation | 30 min | 50 min |
+| 9 | [Testing Essentials](#part-1-module-9-testing-essentials) | Foundation | 25 min | 45 min |
+| 10 | [Design Basics](#part-1-module-10-design-basics) | Foundation | 35 min | 35 min |
+| 11 | [Git and Everyday Tooling](#part-1-module-11-git-and-everyday-tooling) | Foundation | 15 min | 50 min |
+| 12 | [Security Essentials](#part-1-module-12-security-essentials) | Foundation | 20 min | 50 min |
+| 13 | [Dates, Money and Strings](#part-1-module-13-dates-money-and-strings) | Foundation | 20 min | 50 min |
+
+## Where Part 2 Takes Over
+
+Part 1 stops at the boundary of one service and at the mechanism you need to get the code right. [Part 2](#part-2-middle-senior) starts where the questions become *why does it behave like this under load, across services and over time, and what should the team choose?*: thread-pool and GC internals, isolation levels and plan regressions, outbox relays and ordering across consumers, architecture and system design, observability, production and the decisions a senior is trusted with.
+
+
+---
+
+# Part 1 · Module 1: Async Essentials
+
+_⏱️ Estimated read time: ~20 min · 2700 words (study pace)_
+
+> **What this module makes you able to do.** Write and review async request code that loses no exceptions, threads or sockets: say where an exception from `async void` or `Task.WhenAll` goes, why `.Result` slows every endpoint, what a `CancellationToken` actually stops, and why an `HttpClient` must be reused.
+
+**Time:** reading ≈ 35 min; hands-on ≈ 1 h 35 min — the four experiments 40 min, the questions 15, the check at work 30, the chapter exercise 10.
+
+## Covers
+
+- what `await` does with the thread, and why "async runs on another thread" is the wrong model;
+- why a `try/catch` around an `async void` call never runs, and why the exception ends the process;
+- what `await Task.WhenAll` throws when several tasks fail, and how to log all of them;
+- why `.Result` and `.Wait()` slow down every endpoint even when nothing deadlocks;
+- what a `CancellationToken` stops, and why it has to be passed all the way down;
+- why `new HttpClient()` per request exhausts sockets, and what to use instead.
+
+## The mechanism to explain without notes
+
+**`await` hands the thread back and parks the rest of the method on the task; the task is the only thing that carries the result or the exception back.**
+
+At an `await` on an unfinished task, the compiler-generated state machine registers "run the rest of me" as a continuation and returns to its caller, so the thread goes back to the pool. No thread waits for the I/O. When the task completes, the continuation is queued to a pool thread (or posted to a captured `SynchronizationContext`, which ASP.NET Core doesn't have), and there `await` returns the value or rethrows the exception. Every trap in *Covers* follows from that:
+
+- **The returned `Task` is the only channel for the exception.** `async void` returns none, so the exception is rethrown on the `SynchronizationContext`, or, in ASP.NET Core, workers and console apps, on a thread-pool thread where nothing catches it and the process dies. `Task.WhenAll` stores every failure in its task, and `await` rethrows only one of them.
+- **A continuation needs a free pool thread.** `.Result` holds a pool thread for the whole wait. Under load every thread is held, the continuations that would release them wait in the pool's queue, and the pool adds threads only gradually: every endpoint slows down while the CPU idles.
+- **Stopping is cooperative.** A `CancellationToken` is a flag with a list of callbacks. It stops only the calls it reaches: each API you pass it to checks it, or registers a callback that cancels its I/O.
+- **Sockets are pooled like threads.** The connection pool lives in the handler under `HttpClient`. A new client per request brings a new pool, so every request opens a TCP connection, and every closed one holds its local port for a while.
+
+## Read (≈ 35 min)
+
+1. [Chapter 8: Why Async Exists: I/O-Bound vs CPU-Bound Work](#why-async-exists-io-bound-vs-cpu-bound-work) and [Tasks: The Promise of a Future Result](#tasks-the-promise-of-a-future-result): the thread pool, and why async is about not holding threads.
+2. [Chapter 8: async/await, Deeply](#asyncawait-deeply): what `await` does step by step, the state machine, and the *Pay attention* callout on why an `async void` exception kills the process.
+3. [Chapter 8: SynchronizationContext and ConfigureAwait](#synchronizationcontext-and-configureawait): where a continuation runs, and why ASP.NET Core has no context.
+4. [Chapter 8: The Sync-Over-Async Deadlock](#the-sync-over-async-deadlock): the classic deadlock, then the *Pay attention* callout on starvation, which hurts ASP.NET Core too.
+5. [Chapter 8: CancellationToken: Cooperative Cancellation](#cancellationtoken-cooperative-cancellation) and [Chapter 3: CancellationToken Propagation](#cancellationtoken-propagation): what a token is, and what passing it down buys a web API.
+6. [Chapter 8: Composing Concurrent Work: WhenAll and WhenAny](#composing-concurrent-work-whenall-and-whenany): start first, await together; the *Pay attention* callout says which exception `await` throws.
+7. [Chapter 3: IHttpClientFactory & Resilience with Polly](#ihttpclientfactory-resilience-with-polly): the handler that owns the connections, and typed clients.
+8. [Chapter 20: Keep-Alive, Connection Pooling, and Socket Exhaustion](#keep-alive-connection-pooling-and-socket-exhaustion): `TIME_WAIT`, and the ceiling it puts on new connections per second.
+9. [Chapter 51: Case 3 — Intermittent timeouts under load, with every dashboard green](#case-3-intermittent-timeouts-under-load-with-every-dashboard-green): the same bug on App Service, as SNAT port exhaustion.
+10. [Chapter 34: Diagnosing a Performance Problem (a worked methodology)](#diagnosing-a-performance-problem-a-worked-methodology): how starvation looks from the outside, and how to tell it from a slow dependency.
+
+## Prove it
+
+Four programs, one per trap. Predict each output before you run it: the gap between the prediction and the output is what this module is for.
+
+**1. An `async void` exception kills the process.**
+
+`verify/path/AsyncVoid/Program.cs` · run it from `verify/path` with `dotnet run --project AsyncVoid`:
+
+```csharp
+// Prove it: an exception from an async void method cannot reach its caller, and it ends the process.
+try
+{
+    await SaveAsync(-1);                       // async Task: the exception travels inside the Task
+}
+catch (ArgumentOutOfRangeException e)
+{
+    Console.WriteLine($"async Task: the caller caught {e.GetType().Name}");
+}
+
+try
+{
+    Save(-1);                                  // async void: there is no Task to carry the exception
+    Console.WriteLine("async void: the call returned normally and the catch below never ran");
+}
+catch (ArgumentOutOfRangeException e)
+{
+    Console.WriteLine($"async void: the caller caught {e.GetType().Name}");   // never printed
+}
+
+await Task.Delay(1000);                        // the process dies in here, on a thread-pool thread
+Console.WriteLine("still alive");              // never printed
+
+static async Task SaveAsync(int id) { ArgumentOutOfRangeException.ThrowIfNegative(id); await Task.Delay(10); }
+
+static async void Save(int id) { ArgumentOutOfRangeException.ThrowIfNegative(id); await Task.Delay(10); }
+```
+
+```text
+async Task: the caller caught ArgumentOutOfRangeException
+async void: the call returned normally and the catch below never ran
+Unhandled exception. System.ArgumentOutOfRangeException: id ('-1') must be a non-negative value. (Parameter 'id')
+Actual value was -1.
+   at System.ArgumentOutOfRangeException.ThrowNegative[T](T value, String paramName)
+   at System.ArgumentOutOfRangeException.ThrowIfNegative[T](T value, String paramName)
+   at Program.<<Main>$>g__Save|0_1(Int32 id) in …/AsyncVoid/Program.cs:line 26
+   at System.Threading.Tasks.Task.<>c.<ThrowAsync>b__124_1(Object state)
+   at System.Threading.ThreadPoolWorkQueue.Dispatch()
+   at System.Threading.PortableThreadPool.WorkerThread.WorkerThreadStart()
+   at System.Threading.Thread.StartCallback()
+```
+
+The process exits with code 134 on Linux; it is non-zero everywhere. What to notice:
+
+- **The exception is thrown before the first `await`, and the caller still can't catch it.** The compiler moves the whole method body into the state machine, inside its own `try/catch`, which hands the exception to the method builder. The call returns normally.
+- **The bottom frames are the rethrow on the pool.** `ThreadPoolWorkQueue.Dispatch` is a thread-pool thread with no caller above it, so the exception is unhandled and the runtime ends the process. In a web app, every in-flight request dies with it.
+
+**2. `await Task.WhenAll` throws one exception.**
+
+`verify/path/WhenAll/Program.cs` · run it from `verify/path` with `dotnet run --project WhenAll`:
+
+```csharp
+// Prove it: await Task.WhenAll rethrows ONE exception; the WhenAll task holds all of them.
+Task first = Fail(300, "A (listed first, fails last)");
+Task second = Fail(50, "B (listed second, fails first)");
+Task all = Task.WhenAll(first, second);
+
+try
+{
+    await all;
+}
+catch (Exception e)
+{
+    Console.WriteLine($"await threw:   {e.GetType().Name}: {e.Message}");
+    Console.WriteLine($"all.Exception: {all.Exception!.InnerExceptions.Count} inner exceptions");
+    foreach (Exception inner in all.Exception.InnerExceptions)
+        Console.WriteLine($"  - {inner.Message}");
+}
+
+try { all.Wait(); }                             // the blocking API throws the wrapper instead
+catch (AggregateException e) { Console.WriteLine($".Wait() threw: AggregateException with {e.InnerExceptions.Count} inner exceptions"); }
+
+try { await Task.WhenAll(FailTyped(300, "A"), FailTyped(50, "B")); }
+catch (Exception e) { Console.WriteLine($"WhenAll over Task<int> threw: {e.Message} (argument order this time)"); }
+
+static async Task Fail(int ms, string name) { await Task.Delay(ms); throw new InvalidOperationException(name); }
+static async Task<int> FailTyped(int ms, string name) { await Task.Delay(ms); throw new InvalidOperationException(name); }
+```
+
+```text
+await threw:   InvalidOperationException: B (listed second, fails first)
+all.Exception: 2 inner exceptions
+  - B (listed second, fails first)
+  - A (listed first, fails last)
+.Wait() threw: AggregateException with 2 inner exceptions
+WhenAll over Task<int> threw: A (argument order this time)
+```
+
+What to notice:
+
+- **`await` rethrows one exception; the task holds both.** `await` unwraps on purpose, so async code reads like synchronous code, where a call throws one exception. `.Wait()` and `.Result` throw the `AggregateException` wrapper instead.
+- **Which one you get is not stable.** Over plain `Task`s it was the first to fail; over `Task<int>`, the first in argument order. Don't depend on either: keep the `WhenAll` task in a variable and log `all.Exception?.InnerExceptions`. `Exception` is `null` when the task was cancelled rather than faulted, so the `!` above is safe only for a fault.
+
+**3. Sync-over-async starves the pool.** Run it twice: with `-- await`, then with `-- block`.
+
+`verify/path/Starvation/Program.cs` · run it from `verify/path` with `dotnet run --project Starvation -- await`, then `-- block`:
+
+```csharp
+using System.Diagnostics;
+
+// Prove it: blocking on async work starves the thread pool; awaiting it does not.
+// Run twice: `dotnet run -- await` and `dotnet run -- block`.
+bool block = args.FirstOrDefault() == "block";
+int requests = 50 * Environment.ProcessorCount;
+var clock = Stopwatch.StartNew();
+
+Task[] work = Enumerable.Range(0, requests).Select(_ => Task.Run(async () =>
+{
+    if (block) Task.Delay(1000).Wait();        // sync-over-async: the thread waits for the "I/O"
+    else await Task.Delay(1000);               // async: the thread goes back to the pool
+})).ToArray();
+
+var probe = Stopwatch.StartNew();
+await Task.Run(() => { });                     // one tiny unrelated request, queued behind them
+Console.WriteLine($"a tiny unrelated request waited {probe.ElapsedMilliseconds} ms for a thread");
+
+int peakThreads = 0;
+while (!work.All(t => t.IsCompleted))
+{
+    peakThreads = Math.Max(peakThreads, ThreadPool.ThreadCount);
+    await Task.Delay(50);
+}
+Console.WriteLine($"{requests} requests of 1 s each with {(block ? ".Wait()" : "await")}: " +
+    $"done in {clock.Elapsed.TotalSeconds:F1} s, peak pool threads {peakThreads}");
+```
+
+```text
+a tiny unrelated request waited 6 ms for a thread
+200 requests of 1 s each with await: done in 1.1 s, peak pool threads 3
+
+a tiny unrelated request waited 10542 ms for a thread
+200 requests of 1 s each with .Wait(): done in 11.6 s, peak pool threads 68
+```
+
+The run was on 4 vCPUs, so 200 requests; your machine's core count sets the number, and your seconds will differ. What to notice:
+
+- **Same work, ten times slower.** Awaiting, 200 one-second requests finish in 1.1 s on 3 pool threads: nobody holds a thread while waiting. Blocking, the same work takes 11.6 s, and the pool has to grow to 68 threads.
+- **The unrelated request is the outage.** It waited 10.5 s for a thread, queued behind the blocked work. In production every endpoint slows down, including the ones that never block.
+- **The CPU had nothing to do.** The blocking run used 0.46 s of CPU in 11.7 s of wall time on 4 cores: the threads were waiting, not working. Low CPU, high latency everywhere and a climbing thread count is how starvation looks from the outside, and why it is so often blamed on the database.
+- **It ends only because the pool keeps adding threads, slowly.** How fast it adds them, and why raising the minimum only moves the cliff, is Part 2 material.
+
+**4. A new `HttpClient` per request leaves a socket behind every time.**
+
+`verify/path/HttpClientPerRequest/Program.cs` · run it from `verify/path` with `dotnet run --project HttpClientPerRequest`:
+
+```csharp
+using System.Net.NetworkInformation;
+
+// Prove it: a new HttpClient per request opens (and closes) one TCP connection per request, and
+// every closed connection then sits in TIME_WAIT. A shared client reuses its pooled connections.
+int port = Random.Shared.Next(20_000, 30_000);     // a fresh port, so earlier runs don't count
+var builder = WebApplication.CreateSlimBuilder();
+builder.Logging.ClearProviders();
+builder.WebHost.UseUrls($"http://127.0.0.1:{port}");
+var server = builder.Build();
+server.MapGet("/", () => "ok");
+await server.StartAsync();
+
+var shared = new HttpClient();
+await Measure("one shared HttpClient", () => shared.GetStringAsync($"http://127.0.0.1:{port}/"));
+await Measure("new HttpClient per request", async () =>
+{
+    using var perRequest = new HttpClient();
+    return await perRequest.GetStringAsync($"http://127.0.0.1:{port}/");
+});
+
+async Task Measure(string label, Func<Task<string>> call)
+{
+    int before = SocketsInTimeWait();
+    for (int i = 0; i < 500; i++) await call();
+    Console.WriteLine($"{label,-27} 500 requests, new sockets in TIME_WAIT: {SocketsInTimeWait() - before}");
+}
+
+int SocketsInTimeWait() => IPGlobalProperties.GetIPGlobalProperties().GetActiveTcpConnections()
+    .Count(c => c.State == TcpState.TimeWait && c.RemoteEndPoint.Port == port);
+```
+
+```text
+one shared HttpClient       500 requests, new sockets in TIME_WAIT: 0
+new HttpClient per request  500 requests, new sockets in TIME_WAIT: 500
+```
+
+What to notice:
+
+- **One shared client: zero new sockets.** It reused one pooled connection for all 500 requests.
+- **A client per request: 500 sockets in `TIME_WAIT`.** Each client opened a connection and closed it on `Dispose`. The side that closes keeps the socket, and its local port, in `TIME_WAIT`: 60 s on Linux.
+- **At production rates the ports run out.** Ports come back only as fast as `TIME_WAIT` expires, which caps new connections per second to one destination; on App Service the cap is far lower, 128 SNAT ports per instance and destination, each reclaimed four minutes after its connection closes. A test suite never reaches either rate; a traffic peak does.
+
+Then do the chapter exercise: [Chapter 8](#chapter-8-asynchronous-concurrent-programming), *Exercises*, *Find the bug*, a report endpoint with `.Result`, `.Wait()` and `Parallel.ForEach`. Name every defect, and the one that causes the outage, before you open the answer.
+
+## Three questions
+
+**1.** A `try/catch` wraps a call to an `async void` method that throws on its first line, before any `await`. Why doesn't the catch run, and why does the whole process die instead of one request failing?
+
+<details>
+<summary>Answer</summary>
+
+- **The method body never runs outside the state machine.** The compiler moves it into `MoveNext`, wrapped in its own `try/catch`, so every exception is caught there and handed to the method builder, even one thrown before the first `await`. The call returns normally.
+- **`async Task` has somewhere to put it.** Its builder stores the exception in the returned `Task`, and the caller sees it when it awaits.
+- **`async void` doesn't.** Its builder rethrows the exception on the captured `SynchronizationContext`. When there is none (ASP.NET Core, workers, console apps), it rethrows it on a thread-pool thread. Nothing above a pool work item catches it: the exception is unhandled, and the runtime ends the process, with every request in it.
+
+Fix: return `Task`. Hand real fire-and-forget work to a queue or a `BackgroundService` that logs failures. Keep `async void` for event handlers, with a `try/catch` around their whole body.
+</details>
+
+**2.** `await Task.WhenAll(a, b)`, and both fail. Why does the catch see one exception, why does `.Wait()` on the same task throw something else, and how do you log both?
+
+<details>
+<summary>Answer</summary>
+
+- **The `WhenAll` task stores both exceptions**, in an `AggregateException`.
+- **`await` throws one on purpose.** It rethrows the first stored exception, with its original stack trace, so async code reads like synchronous code: one call, one exception. Which one is "first" depends on the overload and on timing, so never depend on it.
+- **`.Wait()` and `.Result` throw the wrapper**: the `AggregateException` itself.
+
+To log both, keep the `WhenAll` task in a variable and, in the `catch`, log `task.Exception?.InnerExceptions`. `Exception` is `null` when the task was cancelled rather than faulted.
+</details>
+
+**3.** `.Result` in a request handler and `new HttpClient()` per request both pass every test and fail only under load. Which finite resource does each exhaust, and why only at high concurrency?
+
+<details>
+<summary>Answer</summary>
+
+- **`.Result` exhausts pool threads.** It holds a pool thread for the whole I/O wait. At low concurrency there are spare threads. At high concurrency every thread is held, and the continuations and timer callbacks that would release them wait in the queue behind new requests. The pool adds threads only gradually, so latency spreads to every endpoint while the CPU stays low.
+- **`new HttpClient()` per request exhausts local ports.** Each client brings its own handler and connection pool, so each request opens a TCP connection. Disposing the client closes it, and the socket then holds a local port in `TIME_WAIT` (60 s on Linux). Once connections open faster than ports come back (on App Service: 128 SNAT ports per instance and destination, each reclaimed four minutes after close), new connections wait and time out.
+
+A test makes a handful of requests, one after another, so neither resource runs out.
+</details>
+
+## Check at work
+
+**Inspect.** Search your service for `async void`, `.Result`, `.Wait()`, `.GetAwaiter().GetResult()` and `new HttpClient(`. Sort every hit into one of three bins: an event handler, start-up code, or a request or message path, which is a latent outage. Then follow one endpoint's `await` chain from the action down to its database or HTTP call: a `CancellationToken` that stops halfway leaves everything below it uncancellable.
+
+**Measure.** Check that something charts the service's thread-pool queue length and thread count: `dotnet.thread_pool.queue.length` and `dotnet.thread_pool.thread.count` on .NET 9+, `threadpool-queue-length` and `threadpool-thread-count` in `dotnet-counters` on .NET 8. Without them, starvation looks exactly like a slow database. Read both at your traffic peak: a queue that grows while the thread count climbs is the starvation fingerprint.
+
+
+---
+
+# Part 1 · Module 2: EF Core Essentials
+
+_⏱️ Estimated read time: ~15 min · 1808 words (study pace)_
+
+> **What this module makes you able to do.** Write and review EF Core data access that sends the SQL you expect: tracked reads only where you save, related data in one round trip, one `DbContext` per request, and a concurrency token that turns a lost update into an exception.
+
+**Time:** reading ≈ 15 min; hands-on ≈ 1 h 10 min — the experiment 15 min, the Chapter 4 exercise 10, the questions 15, the check at work 30.
+
+## Covers
+
+- what `SaveChanges` compares, and why every tracked read costs memory;
+- when `AsNoTracking` pays, and what it changes besides speed;
+- `Include` against lazy and explicit loading, and the N+1 problem: how to see it and how to kill it;
+- projections, and why an `Include` above a `Select` does nothing;
+- `DbContext` lifetime: scoped, not thread-safe, and cheap because connections are pooled;
+- optimistic concurrency: a concurrency token, `DbUpdateConcurrencyException`, and the window the token covers.
+
+## The mechanism to explain without notes
+
+**A `DbContext` is a unit of work that remembers every entity it hands you, and it talks to the database at three moments only: when a query is enumerated, when a navigation is loaded, and at `SaveChanges`.**
+
+A tracking query stores a snapshot of each entity's original values and returns one instance per key (identity resolution). `SaveChanges` compares every tracked entity with its snapshot and sends `UPDATE`s for the changed columns only, all in one transaction. The traps follow from that:
+
+- **Tracking is paid per entity.** The snapshot and the identity map exist for every row a tracking query returns, and a read-only endpoint gets nothing for them. Use `AsNoTracking()`, or project: a result that holds no entities is never tracked.
+- **The query decides the SQL, not the code that runs after it.** Related rows arrive only if the query asked for them, with `Include` or with navigations inside the `Select`. Otherwise every navigation you touch is one more statement (lazy or explicit loading: 1 + N), or nothing at all (lazy loading off: an empty collection). Under a projection the `Select` alone decides the SQL, so an `Include` above it is dead code.
+- **One context is one unit of work, on one thread at a time.** Its change tracker isn't thread-safe, and EF Core throws when it sees a second operation start before the first has finished. `AddDbContext` registers it as scoped, one per request. That is cheap because the physical connection underneath comes from ADO.NET's pool; a singleton that captures a context shares one tracker across every request (Chapter 2's captive dependency).
+- **The snapshot is also the concurrency check.** A concurrency token's *original* value, the one the context read, goes into the `UPDATE`'s `WHERE`. Zero rows affected means the row changed since that read, and `SaveChanges` throws `DbUpdateConcurrencyException`.
+
+## Read (≈ 15 min)
+
+1. [Chapter 4: DbContext and Change Tracking](#dbcontext-and-change-tracking): the snapshot and the five entity states.
+2. [Chapter 4: AsNoTracking: Read-Only Speed](#asnotracking-read-only-speed).
+3. [Chapter 4: Loading Related Data: Eager, Lazy, Explicit](#loading-related-data-eager-lazy-explicit).
+4. [Chapter 4: The N+1 Problem — Seeing It and Killing It](#the-n1-problem-seeing-it-and-killing-it).
+5. [Chapter 4: Projections: Select Only What You Need](#projections-select-only-what-you-need), then [Include + Projection: The Include Is Silently Ignored](#include-projection-the-include-is-silently-ignored).
+6. [Chapter 4: Split Queries](#split-queries): what two collection `Include`s do to the row count.
+7. [Chapter 4: DbContext Lifetime and Connection Pooling](#dbcontext-lifetime-and-connection-pooling).
+8. [Chapter 4: Concurrency: Optimistic vs Pessimistic](#concurrency-optimistic-vs-pessimistic).
+
+## Prove it
+
+The same 50 orders and 100 order lines, loaded four ways, with every SQL command EF Core sends counted. Predict the four counts before you run it; the last one is the surprise.
+
+`verify/path/NPlusOne/Program.cs` · run it from `verify/path` with `dotnet run --project NPlusOne` (the .NET 10 SDK is all it needs):
+
+```csharp
+using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Diagnostics;
+
+// Prove it: loading related rows one parent at a time sends 1 + N SQL statements; Include or a projection sends 1.
+int statements = 0;
+var options = new DbContextOptionsBuilder<Shop>().UseSqlite("Data Source=shop;Mode=Memory;Cache=Shared")
+    .LogTo(_ => statements++, [RelationalEventId.CommandExecuted]).Options;       // counts every SQL command sent
+using var seed = new Shop(options);
+seed.Database.OpenConnection();                    // an in-memory database lives while a connection to it is open
+seed.Database.EnsureCreated();
+seed.Orders.AddRange(Enumerable.Range(1, 50).Select(i => new Order { Lines = [new() { Sku = $"A-{i}" }, new() { Sku = $"B-{i}" }] }));
+seed.SaveChanges();
+Count("Load() each order's lines in a loop", db =>
+{
+    var orders = db.Orders.ToList();
+    foreach (var order in orders) db.Entry(order).Collection(o => o.Lines).Load();   // what lazy loading runs per order
+    return orders.Sum(o => o.Lines.Count);
+});
+Count("Include(o => o.Lines)", db => db.Orders.Include(o => o.Lines).ToList().Sum(o => o.Lines.Count));
+Count("Select(o => new { o.Id, Skus = ... })", db => db.Orders.Select(o => new { o.Id, Skus = o.Lines.Select(l => l.Sku).ToList() }).ToList().Sum(o => o.Skus.Count));
+Count("neither, and no lazy loading", db => db.Orders.ToList().Sum(o => o.Lines.Count));
+void Count(string label, Func<Shop, int> load)
+{
+    using var db = new Shop(options);              // a fresh context, as each request gets from DI
+    statements = 0;
+    Console.WriteLine($"{label,-38} {load(db),3} order lines, {statements,2} SQL statement(s)");
+}
+class Shop(DbContextOptions<Shop> options) : DbContext(options) { public DbSet<Order> Orders => Set<Order>(); }
+class Order { public int Id { get; set; } public List<OrderLine> Lines { get; set; } = []; }
+class OrderLine { public int Id { get; set; } public int OrderId { get; set; } public string Sku { get; set; } = ""; }
+```
+
+```text
+Load() each order's lines in a loop    100 order lines, 51 SQL statement(s)
+Include(o => o.Lines)                  100 order lines,  1 SQL statement(s)
+Select(o => new { o.Id, Skus = ... })  100 order lines,  1 SQL statement(s)
+neither, and no lazy loading             0 order lines,  1 SQL statement(s)
+```
+
+What to notice:
+
+- **1 + N is a count, not a slow query.** 51 statements: one for the orders, then one per order. Lazy loading produces exactly this, because a lazy navigation's getter runs the same `Load` on first access; there is just no call to see in the loop. Against SQLite in memory each statement costs microseconds. Against a database server each one is a network round trip and a connection borrowed from the pool, and their number grows with the rows on the page.
+- **`Include` and the projection send one statement each.** Both become one `LEFT JOIN`. The projection reads only the columns in its `Select` and tracks nothing; `Include` materialises and tracks all 150 entities.
+- **Loading neither is not slow; it is wrong.** With lazy loading off, `o.Lines` stays the empty list the entity was created with: 0 lines, and no exception. Switching lazy loading off without adding `Include` or a projection turns an N+1 into missing data. A collection the entity doesn't initialise stays `null` instead, and the loop throws.
+- **The fresh context per measurement matters.** The seed context still tracks every order and line, so a query through it would return the instances it already holds, lines attached, without loading anything. A test that seeds and queries through one context can pass against code that returns nothing in production.
+
+Then do Chapter 4's *Find the bug*, in the Exercises at the end of [Chapter 4](#chapter-4-data-access-databases): count the queries the endpoint sends before you open the answer.
+
+## Three questions
+
+**1.** An endpoint sends 1 + N queries, and every one of their plans is an index seek under a millisecond. Why is the endpoint slow, why can't any single plan show the problem, and how do you find it?
+
+<details>
+<summary>Answer</summary>
+
+- **The cost is the count.** Each statement pays a network round trip, a connection borrowed from the pool and a round of materialisation. N statements pay it N times, and N grows with the data, not with the code.
+- **No plan contains it.** Each statement really is cheap, so each plan looks perfect. The problem is the number of statements one request sends, and no plan holds that number.
+- **Count statements per request.** In development, EF Core's command log (`LogTo`, or the `Microsoft.EntityFrameworkCore.Database.Command` category at `Information`). In production, the database spans of one request's trace (Chapter 13), or call counts on the server: `pg_stat_statements` (Chapter 37, Level 3) or Query Store. The signature is a statement whose call count is a multiple of another's.
+- **Fix:** `Include`, a projection or a split query, and lazy loading off so the pattern can't come back unnoticed.
+</details>
+
+**2.** A query starts with `.Include(o => o.Customer)`, has `.AsNoTracking()` in the middle and ends with `.Select(o => new OrderRow(o.Id, o.Customer.Name))`. Which of the three calls changes the SQL or the work, and why?
+
+<details>
+<summary>Answer</summary>
+
+- **The `Select` decides everything.** The navigation `o.Customer.Name` inside it generates the join, and only the two selected columns are read.
+- **`Include` does nothing.** It is an instruction for materialising `Order` entities, and this query materialises `OrderRow`s. EF Core drops it without a warning; the SQL is identical without it.
+- **`AsNoTracking` does nothing either.** Tracking applies to entity instances, and a result without entities is never tracked.
+
+Delete both. Both start to matter only if the result contains the entity again, for example `.Select(o => new { Order = o, o.Customer.Name })`.
+</details>
+
+**3.** `Product` has a `[Timestamp]` row version. A user opens the edit form, someone else saves the same product, and five minutes later the first user saves and silently overwrites that change. No `DbUpdateConcurrencyException`. Why, and what is the fix?
+
+<details>
+<summary>Answer</summary>
+
+- **The token guards the window between one context's read and its write.** EF Core puts the token's *original* value, the one this context read, into the `UPDATE`'s `WHERE`.
+- **The save handler read the current version.** The user's form came from version 1. The other save made it version 2. The handler loads the product (version 2), copies the form onto it and sends `UPDATE … WHERE RowVersion = <version 2>`: one row matches, nothing throws, and the other user's change is gone.
+- **Fix: make the original value the one the user saw.** Send the row version with the form (or as an `ETag`), and before `SaveChanges` set `db.Entry(product).Property(p => p.RowVersion).OriginalValue = form.RowVersion`. Now zero rows match, `SaveChanges` throws, and the handler returns `409 Conflict` (`412 Precondition Failed` for an `If-Match` header) so the user reloads.
+</details>
+
+## Check at work
+
+**Inspect.** Turn on EF Core's command log in development, call your busiest endpoint once with realistic data, and count the `Executed DbCommand` lines. Good: a small number that stays the same when the data grows. Bad: a number that grows with the rows on the page. Then search the code for `.Include(` in queries that end in `.Select(`, for `UseLazyLoadingProxies`, and for a `DbContext` held by anything registered as a singleton, hosted services included.
+
+**Measure.** In your APM or OpenTelemetry traces, the number of database spans per request for that endpoint over a day. Look at the maximum, not the average: N+1 shows on the requests with the most rows.
+
+
+---
+
+# Part 1 · Module 3: SQL and Indexes
+
+_⏱️ Estimated read time: ~15 min · 1951 words (study pace)_
+
+> **What this module makes you able to do.** Open the actual plan of a slow query in your own service, name each index operator a seek or a scan and say why, fix the predicate, the parameter type or the index so it seeks, and show the change in logical reads.
+
+**Time:** reading ≈ 20 min; hands-on ≈ 4 h 10 min — the experiment 15 min, the Chapter 4 exercise 10, the lab subset 3 h, the questions 15, the check at work 30.
+
+## Covers
+
+- what an index is, and clustered against non-clustered against covering in SQL Server;
+- seek against scan, and why "the query uses the index" is not "the query seeks it";
+- the leftmost-prefix rule for composite indexes, and why it holds;
+- sargability: a function on the column, and an `nvarchar` parameter against a `varchar` column, with the .NET fix;
+- reading an actual plan at the basic level: operators, estimated against actual rows, logical reads;
+- joins, and what a transaction guarantees.
+
+## The mechanism to explain without notes
+
+**An index is a copy of some columns, kept sorted by its key from left to right, with a pointer back to the row. A seek jumps to one contiguous range of that order; a scan reads all of it.**
+
+The optimizer can seek only when the predicate pins a *leftmost prefix* of the key, using the values the index stores. Two things defeat it:
+
+- **A predicate on a non-leading column.** Its rows have no contiguous range: the rows for one date are scattered across every city's block of a `(City, CreatedAt)` index. So the rule is equality columns first, then the range or sort column.
+- **A function or a conversion applied to the column**, such as `LOWER(Email)` or `CONVERT_IMPLICIT(nvarchar, Email)`. It asks about values the index doesn't store. In .NET the conversion usually comes from a `string` parameter, which SqlClient sends as `nvarchar`.
+
+The pointer explains covering. In SQL Server a non-clustered index row holds its key columns plus the clustered key, so a query that needs any other column pays a key lookup per row, unless `INCLUDE` puts that column in the index. Logical reads count the 8 KB pages a query touched: that is the work, and unlike milliseconds it is the same on every machine.
+
+Joins and transactions sit on top of the same storage: a join is a lookup per row or a pass over two inputs, and both are cheap only when an index serves the join column. A transaction makes a group of statements all-or-nothing; EF Core's `SaveChanges` wraps its statements in one, and two `SaveChanges` calls are two transactions.
+
+## Read (≈ 20 min)
+
+1. [Chapter 4: Joins](#joins).
+2. [Chapter 4: Indexes: Clustered, Non-Clustered, Covering](#indexes-clustered-non-clustered-covering): the row locator, and why the leftmost-prefix rule holds.
+3. [Chapter 4: Execution Plans](#execution-plans): actual plans, logical reads, and why an implicit conversion scans.
+4. [Chapter 4: Transactions and ACID](#transactions-and-acid).
+5. [Chapter 4: Choosing an Index Type](#choosing-an-index-type): the B-tree rules, from the PostgreSQL side.
+6. [Chapter 4: Reading EXPLAIN](#reading-explain): PostgreSQL's plan text, which the lab prints.
+7. [Chapter 37: What the harness prints, and in what order to read it](#what-the-harness-prints-and-in-what-order-to-read-it).
+8. [Chapter 37: Level 1 — The code decides the SQL (rungs 1–4)](#level-1-the-code-decides-the-sql-rungs-14), and rung 6 in [Level 2 — The index decides the plan (rungs 5–9)](#level-2-the-index-decides-the-plan-rungs-59).
+
+## Prove it
+
+Five queries against one 200,000-row table, each printed with its index operator and its logical reads. Before you run it, predict SEEK or SCAN for each of the five.
+
+It needs SQL Server: start it from `verify/path` with `ACCEPT_EULA=Y docker compose up -d mssql` (the image has a EULA; in PowerShell set `$env:ACCEPT_EULA="Y"` first), and stop it with `docker compose down`.
+
+`verify/path/SeekVsScan/Program.cs` · run it from `verify/path` with `dotnet run --project SeekVsScan`:
+
+```csharp
+using System.Data;
+using Microsoft.Data.SqlClient;
+
+// Prove it: which predicates can SEEK an index and which must SCAN it. Needs a SQL Server:
+// `docker compose up -d` in this folder. Prints each query's index operator and logical reads.
+using var db = new SqlConnection("Server=localhost,14330;Database=tempdb;User Id=sa;Password=Emulator-Only-Passw0rd!;TrustServerCertificate=true");
+db.Open();
+new SqlCommand("""
+    DROP TABLE IF EXISTS dbo.Customers;
+    CREATE TABLE dbo.Customers (Id int IDENTITY PRIMARY KEY, Email varchar(100) NOT NULL, City varchar(50) NOT NULL, CreatedAt datetime2 NOT NULL);
+    INSERT dbo.Customers (Email, City, CreatedAt) SELECT CONCAT('user', value, '@example.com'), CONCAT('City', value % 200), DATEADD(minute, -value, '2026-01-01') FROM GENERATE_SERIES(1, 200000);
+    CREATE INDEX IX_Email ON dbo.Customers (Email); CREATE INDEX IX_City_CreatedAt ON dbo.Customers (City, CreatedAt);
+    SET STATISTICS PROFILE ON; SET STATISTICS IO ON;
+    """, db).ExecuteNonQuery();
+string reads = "?";
+db.InfoMessage += (_, e) => { if (e.Message.Contains("logical reads")) reads = e.Message.Split("logical reads ")[1].Split(',')[0]; };
+Plan("Email = @p", SqlDbType.NVarChar, "user42@example.com");     // a C# string is sent as nvarchar
+Plan("Email = @p", SqlDbType.VarChar, "user42@example.com");
+Plan("LOWER(Email) = @p", SqlDbType.VarChar, "user42@example.com");
+Plan("City = @p AND CreatedAt >= '2025-12-31'", SqlDbType.VarChar, "City7");
+Plan("CreatedAt >= @p", SqlDbType.DateTime2, new DateTime(2025, 12, 31));
+void Plan(string where, SqlDbType type, object value)
+{
+    using var command = new SqlCommand($"SELECT Id FROM dbo.Customers WHERE {where}", db);
+    command.Parameters.Add(new SqlParameter("@p", type) { Value = value });
+    var ops = new List<string>();
+    using (var reader = command.ExecuteReader())
+        do while (reader.Read()) if (reader.FieldCount > 2 && reader.GetString(2).Contains("Index")) ops.Add(reader.GetString(2).Trim()); while (reader.NextResult());
+    Console.WriteLine($"WHERE {where} (@p {type}): {reads} logical reads\n    {string.Join(" ", ops).Replace("[tempdb].[dbo].[Customers].", "")}");
+}
+```
+
+```text
+WHERE Email = @p (@p NVarChar): 888 logical reads
+    |--Index Scan(OBJECT:([IX_Email]),  WHERE:(CONVERT_IMPLICIT(nvarchar(100),[Email],0)=[@p]))
+WHERE Email = @p (@p VarChar): 3 logical reads
+    |--Index Seek(OBJECT:([IX_Email]), SEEK:([Email]=[@p]) ORDERED FORWARD)
+WHERE LOWER(Email) = @p (@p VarChar): 888 logical reads
+    |--Index Scan(OBJECT:([IX_Email]),  WHERE:(lower([Email])=[@p]))
+WHERE City = @p AND CreatedAt >= '2025-12-31' (@p VarChar): 3 logical reads
+    |--Index Seek(OBJECT:([IX_City_CreatedAt]), SEEK:([City]=[@p] AND [CreatedAt] >= '2025-12-31 00:00:00.0000000') ORDERED FORWARD)
+WHERE CreatedAt >= @p (@p DateTime2): 712 logical reads
+    |--Index Scan(OBJECT:([IX_City_CreatedAt]),  WHERE:([CreatedAt]>=[@p]))
+```
+
+The run: SQL Server 2022 CU27 (16.0.4295.3) with the `SQL_Latin1_General_CP1_CI_AS` collation, in Docker on a 4 vCPU Xeon with 16 GB RAM. What to notice — three scans, each for a different reason:
+
+- **The conversion lands on the column.** `nvarchar` outranks `varchar` in data-type precedence, so SQL Server converts the *column*: `CONVERT_IMPLICIT(…,[Email],0)`. Under a SQL collation `varchar` and `nvarchar` sort differently, so the index's order can't answer the question: 888 reads instead of 3. Under a Windows collation the same parameter still seeks, through a computed range: the companion run [`collation.txt`](https://github.com/malyna2/dotnet-handbook/blob/main/verify/path/reference-runs/collation.txt) shows 3 reads and `GetRangeThroughConvert`. That is why this bug appears on one database and not on another.
+- **A function on the column.** `lower([Email])` is a value the index doesn't store: 888 reads.
+- **The index is used, but scanned.** `CreatedAt` alone isn't a leftmost prefix of `(City, CreatedAt)`, so SQL Server reads the whole index: 712 reads. With `City` pinned first, both columns appear in `SEEK:`: 3 reads.
+- **Every query is covered.** Each selects only `Id`, the clustered key, which every non-clustered index row carries. Select `City` from `IX_Email` and each matching row would add a key lookup.
+
+**The fix in .NET:** send the parameter as `varchar`. In EF Core, map the property `.IsUnicode(false).HasMaxLength(100)`: `ToQueryString()` then shows `DECLARE @email varchar(100)`, where the default mapping shows `nvarchar(4000)`. In Dapper, `new DbString { Value = email, IsAnsi = true, Length = 100 }`; in raw ADO.NET, `SqlDbType.VarChar`.
+
+**Then the lab** ([kit](https://github.com/malyna2/dotnet-handbook/tree/main/labs/37-execution-plans), PostgreSQL in Docker, about 3 hours): read the *Goal* and *Setup* sections of [Chapter 37](#chapter-37-the-slow-query-lab-reading-execution-plans), do Level 1 (rungs 1–4: N+1, a cartesian explosion from two `Include`s, a function on a column, a conversion on a column) and rung 6 (column order). Open its *Hints and answers* for a rung only after your fix passes. Your results belong in your own public portfolio repo, not in this one.
+
+Also do Chapter 4's *What would you do* (the 40-second report), in the Exercises at the end of [Chapter 4](#chapter-4-data-access-databases).
+
+## Three questions
+
+**1.** An index on `(City, CreatedAt)`. Why does `WHERE CreatedAt >= @d` scan while `WHERE City = @c AND CreatedAt >= @d` seeks? And why would `(CreatedAt, City)` be worse for the second query?
+
+<details>
+<summary>Answer</summary>
+
+- **Why one seeks and the other scans.** The index is sorted by `City`, then by `CreatedAt` within each city. One city is a contiguous block with its dates in order, so the engine seeks to `(City, start date)` and reads forward. A date range alone is spread across every city's block: there is no single range to seek, so it scans (712 reads against 3 in the experiment).
+- **Why `(CreatedAt, City)` is worse.** The date range on the leading column *is* contiguous, but it holds every city's rows for that period, and inside that range the cities are not in order. `City` can only be checked row by row, so the engine reads the whole period to keep one city's rows. Chapter 37's rung 6 measures exactly this.
+- **The rule:** equality columns first, then the range or sort column. PostgreSQL 18's skip scan softens it only when the leading column has few distinct values.
+</details>
+
+**2.** The same query seeks when you run it in SSMS with a literal, and scans when the application sends it. The column is `varchar`. Why, and what are the fixes in EF Core and Dapper?
+
+<details>
+<summary>Answer</summary>
+
+- **The application sends `nvarchar`.** SqlClient and Dapper send a C# `string` as `nvarchar` unless told otherwise; so does EF Core for a property not mapped as non-Unicode.
+- **The conversion lands on the column.** `nvarchar` has the higher data-type precedence, so SQL Server converts the `varchar` column, not the parameter.
+- **The collation decides whether that scans.** Under a SQL collation, such as `SQL_Latin1_General_CP1_CI_AS`, `varchar` and `nvarchar` sort differently, so the index's order can't answer the converted comparison: a scan, 888 reads against 3. Under a Windows collation the optimizer can still compute a seek range, which is why it "works on the other database". The SSMS literal `'user42@example.com'` is `varchar`, so it seeks everywhere.
+- **Fixes:** send `varchar`. EF Core: `.IsUnicode(false).HasMaxLength(100)` on the property. Dapper: `DbString { IsAnsi = true, Length = 100 }`. ADO.NET: `SqlDbType.VarChar`. Or make the column `nvarchar`.
+</details>
+
+**3.** An index on `Email`, and `Id` is the clustered primary key. `SELECT Id FROM Customers WHERE Email = @e` is one Index Seek. Add `City` to the `SELECT` and the plan grows a Key Lookup. Why, what happens when 10,000 rows match, and what is the fix?
+
+<details>
+<summary>Answer</summary>
+
+- **`Id` comes free.** A non-clustered index row holds its key and the clustered key, the row's locator. `Id` is in the index, so the seek answers the query alone.
+- **`City` needs the row.** For each matching index row, SQL Server follows the clustered key into the clustered index, a *key lookup*: one more descent of the clustered index, a few pages, per matching row. For 10,000 rows that is 10,000 descents, and past some number of rows the optimizer scans the whole table instead.
+- **Fix:** `CREATE INDEX … ON Customers (Email) INCLUDE (City)`. The index now covers the query, and the lookups disappear. `INCLUDE` columns live only in the index's leaf rows: they cost space and write time, not key order.
+</details>
+
+## Check at work
+
+**Inspect.** Take your service's most expensive query from Query Store (or your APM's slowest dependency) and open its *actual* plan. Name every index operator a seek or a scan. For each scan, decide which of the experiment's three causes it is, or whether the scan is simply right because the query needs most of the table. For every `varchar` column your code filters on, check the type the parameter arrives with (`ToQueryString()` shows EF Core's `DECLARE`).
+
+**Measure.** The query's logical reads before and after your fix (`SET STATISTICS IO ON`), and its executions per hour from Query Store. Reads saved times executions is the load you removed.
+
+
+---
+
+# Part 1 · Module 4: Messaging and Long-Running Work
+
+_⏱️ Estimated read time: ~15 min · 2450 words (study pace)_
+
+> **What this module makes you able to do.** Put a queue between two parts of a system, and write a handler that stays correct when a message arrives twice, late or out of order. Move work that takes longer than a request into a worker behind `202 Accepted`, without losing or duplicating it.
+
+**Time:** reading ≈ 40 min; hands-on ≈ 1 h 25 min — the experiments 25 min, the chapter exercise 15, the questions 15, the check at work 30.
+
+## Covers
+
+- why a queue at all: temporal decoupling, load levelling, competing consumers, and what they cost;
+- peek-lock versus receive-and-delete, the lock as a lease (1 minute by default, 5 at most), redelivery, `MaxDeliveryCount` and the dead-letter queue;
+- why every handler sees duplicates, why check-then-act deduplication fails, and the claim-first handler;
+- why a FIFO queue doesn't give ordered processing, and what sessions do about it;
+- the dual write behind "saved but never published", and the outbox idea;
+- long-running work over HTTP: `202 Accepted`, a status URL, `Retry-After`, a queue, a `BackgroundService` worker, and an idempotency key on the `POST`.
+
+## The mechanism to explain without notes
+
+**A queue hands out leases, not messages: a message is gone only when a handler settles it while its lock still holds. Every other path is a redelivery, so the handler must make its effect happen once, by claiming the message's ID atomically with the effect.**
+
+A queue lets a producer and its consumers be up, and fast, at different times. The producer's send succeeds while the consumer is down (temporal decoupling), and a burst waits in the queue while consumers drain it at their own rate (load levelling). Several instances reading one queue are *competing consumers*: each message goes to one of them.
+
+In peek-lock mode, receiving a message locks it for the entity's lock duration: 1 minute by default, 5 at most. `Complete` inside the lock deletes the message. Anything else — the handler throws and the message is abandoned, the process dies, the settlement is lost, the lock expires — makes it visible again with `DeliveryCount + 1`. Past `MaxDeliveryCount` (10 by default) it moves to the dead-letter queue, and stays there until someone acts. `ReceiveAndDelete` removes the message as it is delivered: no duplicates, and a crash loses it. Peek-lock delivery is therefore at-least-once by construction, and each trap in *Covers* follows from that:
+
+- **Every handler sees duplicates.** The effect must be idempotent: insert the message ID under a unique key, in the same transaction as the effect. Checking first and recording afterwards fails, because two copies can both pass the check before either records the ID.
+- **Order is lost.** Competing consumers, concurrency above 1, retries and prefetch make messages finish in a different order from the one they were sent in. Sessions restore order per key; a version number makes order irrelevant.
+- **The producer has the mirror-image problem.** Committing to the database and publishing to the broker are two operations, and a crash between them loses one of them. The outbox writes the message into the same transaction as the data, and a relay publishes it after the commit: at-least-once again.
+- **Long work doesn't belong in a request.** Record a job, enqueue it, answer `202 Accepted` with a status URL and `Retry-After`, and let a `BackgroundService` worker run it while the client polls. An idempotency key on the `POST` makes a retried request find the job it already created.
+
+> **Pay attention.** **Duplicate detection is not idempotency.** Service Bus duplicate detection drops a newly *sent* message whose `MessageId` it has already seen within its window: a guard against a producer that retries a send. A redelivery after an expired lock or a crash is the *same* message delivered again, which duplicate detection never sees. Keep it for producers, and make every handler idempotent anyway.
+
+## Read (≈ 40 min)
+
+1. [Chapter 9: Why Messaging at All?](#why-messaging-at-all): temporal coupling, and what a queue costs.
+2. [Chapter 9: Competing Consumers](#competing-consumers), [Dead-Letter Queues (DLQ)](#dead-letter-queues-dlq) and [Message Ordering](#message-ordering).
+3. [Chapter 9: Delivery Guarantees](#delivery-guarantees), including *Why Exactly-Once Is (Almost) a Myth* and *Deduplication*.
+4. [Chapter 9: Idempotent Consumers](#idempotent-consumers) and [The Transactional Outbox](#the-transactional-outbox).
+5. [Chapter 50: Service Bus](#service-bus): the peek-lock diagram, the lock duration, sessions, duplicate detection and the processor defaults.
+6. [Chapter 51: Case 5 — Customers charged twice](#case-5-customers-charged-twice-the-batch-that-outlived-its-locks) and [Case 6 — 40,000 messages in the dead-letter queue](#case-6-40000-messages-in-the-dead-letter-queue-and-nobody-knew).
+7. [Chapter 3: Idempotency Keys: Making POST Retry-Safe](#idempotency-keys-making-post-retry-safe): why the claim goes in *before* the effect, under a unique index, in the same transaction. The same reasoning applies to a message ID.
+8. [Chapter 22: `IHostedService` and `BackgroundService`](#ihostedservice-and-backgroundservice) and [Async Request-Reply: 202, a Status Resource, and Retry-After](#async-request-reply-202-a-status-resource-and-retry-after): the worker, and the HTTP contract around it end to end. The section links Chapter 51's Case 11, the story of the 230-second front-end limit, if you want the incident behind it.
+
+## Prove it
+
+Two programs: the first shows the broker redelivering a message to a handler that is still working, the second shows why the usual deduplication doesn't stop the duplicate effect. Both live in [`verify/path`](https://github.com/malyna2/dotnet-handbook/tree/main/verify/path), where a test runs each one and checks its output.
+
+**Peek-lock is a lease.** It needs Docker: start the Service Bus emulator from `verify/path` with `ACCEPT_EULA=Y docker compose up -d` (the emulator and SQL Server have EULAs), and stop it with `docker compose down`. The run takes about 10 seconds. Without Docker, read the output below.
+
+`verify/path/PeekLock/Program.cs` · run it from `verify/path` with `dotnet run --project PeekLock`:
+
+```csharp
+using Azure.Messaging.ServiceBus;
+using Azure.Messaging.ServiceBus.Administration;
+
+// Prove it: peek-lock is a lease, not a hand-over. A handler that outlives the lock gets the same
+// message again. Needs the Service Bus emulator: `docker compose up -d` in this folder.
+const string Emulator = "Endpoint=sb://localhost;SharedAccessKeyName=RootManageSharedAccessKey;SharedAccessKey=SAS_KEY_VALUE;UseDevelopmentEmulator=true;";
+string queue = "payments-" + Guid.NewGuid().ToString("N")[..8];
+var admin = new ServiceBusAdministrationClient(Emulator.Replace("sb://localhost", "sb://localhost:5300"));
+await admin.CreateQueueAsync(new CreateQueueOptions(queue) { LockDuration = TimeSpan.FromSeconds(5) });
+
+await using var client = new ServiceBusClient(Emulator);
+await client.CreateSender(queue).SendMessageAsync(new ServiceBusMessage("charge order 42") { MessageId = "order-42" });
+ServiceBusReceiver receiver = client.CreateReceiver(queue);                // peek-lock is the default mode
+
+ServiceBusReceivedMessage first = await receiver.ReceiveMessageAsync();
+Console.WriteLine($"received {first.MessageId}, DeliveryCount={first.DeliveryCount}, locked for 5 s");
+await Task.Delay(TimeSpan.FromSeconds(8));                                 // the "charge" takes 8 s
+ServiceBusReceivedMessage second = await receiver.ReceiveMessageAsync(TimeSpan.FromSeconds(10));
+Console.WriteLine($"received {second.MessageId} again, DeliveryCount={second.DeliveryCount}");
+
+try { await receiver.CompleteMessageAsync(first); }
+catch (ServiceBusException e) when (e.Reason == ServiceBusFailureReason.MessageLockLost)
+{
+    Console.WriteLine("completing the first copy threw MessageLockLost; its charge already happened");
+}
+await receiver.CompleteMessageAsync(second);
+Console.WriteLine($"completed the second copy; message still in the queue: {await receiver.PeekMessageAsync() is not null}");
+```
+
+```text
+received order-42, DeliveryCount=1, locked for 5 s
+received order-42 again, DeliveryCount=2
+completing the first copy threw MessageLockLost; its charge already happened
+completed the second copy; message still in the queue: False
+```
+
+What to notice:
+
+- **The same `MessageId` came back with `DeliveryCount=2`.** The lock expired at 5 seconds while the handler was still "charging", so Service Bus made the message visible again.
+- **Completing the first copy fails, but its side effect has already happened.** In production, that is the duplicate charge.
+- **Duplicate detection would not have helped.** It drops a second *send* with the same `MessageId`; this is one message delivered twice.
+- **Lock renewal removes this trigger, not the others.** `ServiceBusProcessor` renews the lock while your handler runs (`MaxAutoLockRenewalDuration`, 5 minutes by default). Crashes and lost settlements still redeliver, so the handler must be idempotent anyway.
+- **The numbers are scaled down** so the run takes seconds: a 5-second lock and an 8-second "charge". Azure's default lock is 1 minute, and 5 minutes is the maximum.
+
+**Check, then act.** Before you run it, read the two handlers and predict how many times each one charges the card.
+
+`verify/path/CheckThenAct/Program.cs` · run it from `verify/path` with `dotnet run --project CheckThenAct`:
+
+```csharp
+using System.Collections.Concurrent;
+
+// Prove it: review the two handlers below BEFORE running this. Both "deduplicate" a message
+// that the broker delivered twice; the two copies are being processed at the same time.
+int charges = 0;
+
+var seen = new ConcurrentDictionary<string, bool>();
+async Task CheckThenAct(string messageId)
+{
+    if (seen.ContainsKey(messageId)) return;        // check …
+    await ChargeCardAsync();                        // … the effect …
+    seen[messageId] = true;                         // … then remember the id
+}
+
+var claimed = new ConcurrentDictionary<string, bool>();
+async Task ClaimFirst(string messageId)
+{
+    if (!claimed.TryAdd(messageId, true)) return;  // one atomic step: only one copy can win
+    await ChargeCardAsync();
+}
+
+await Task.WhenAll(CheckThenAct("order-42"), CheckThenAct("order-42"));
+Console.WriteLine($"check, then act: the card was charged {charges} time(s)");
+
+charges = 0;
+await Task.WhenAll(ClaimFirst("order-42"), ClaimFirst("order-42"));
+Console.WriteLine($"claim first:     the card was charged {charges} time(s)");
+
+async Task ChargeCardAsync() { await Task.Delay(100); Interlocked.Increment(ref charges); }
+```
+
+```text
+check, then act: the card was charged 2 time(s)
+claim first:     the card was charged 1 time(s)
+```
+
+What to notice:
+
+- **A thread-safe dictionary doesn't make the handler safe.** Both copies passed `ContainsKey` before either recorded the ID. Every *call* is thread-safe; the *check-then-act sequence* is not atomic.
+- **`TryAdd` makes the check and the claim one atomic step.** Only one copy can win, and the loser never reaches the effect.
+- **In a database, the claim is an insert under a unique key, in the same transaction as the effect.** The second copy hits the unique violation and stops; if the effect fails, the rollback releases the claim, so the redelivery can try again. Chapter 3's *Idempotency Keys* shows the full pattern.
+- **An effect outside your database can't join that transaction.** For a payment API, also pass the message's key downstream as the provider's idempotency key.
+
+**Then do the chapter exercise.** [Chapter 51](#chapter-51-the-azure-casebook-real-incidents-real-fixes), *Exercises → Find the bug*, sample 2: a payment worker whose batch outlives its locks, verified against the same emulator.
+
+## Three questions
+
+**1.** Your handler charged the card, then `CompleteMessageAsync` threw `MessageLockLost`. What happened, what happens next, and why doesn't Service Bus duplicate detection protect you?
+
+<details>
+<summary>Answer</summary>
+
+- **What happened.** The lock, a lease of `LockDuration` (1 minute by default), expired before the settlement. Either the handler ran longer than the lock, or the message had been waiting, already locked, in a received batch or a prefetch buffer: those locks start at receive time, not when your code reaches the message.
+- **What happens next.** Service Bus has made the message visible again. A receiver gets it with `DeliveryCount + 1` and charges again, unless the handler is idempotent. After `MaxDeliveryCount` deliveries (10 by default) it is dead-lettered.
+- **Why duplicate detection doesn't help.** It discards a newly *sent* message whose `MessageId` it has already seen within its window: a guard against a producer that retries. A redelivery is the same message delivered again, which duplicate detection never sees.
+- **The fix, in two layers.** Use `ServiceBusProcessor`, which renews locks while the handler runs, with no oversized batches or prefetch. And make the handler idempotent: claim the message ID in the same transaction as the effect, and pass a payment idempotency key downstream.
+</details>
+
+**2.** Events are sent in order, yet the consumer applies `OrderShipped` before `OrderPaid`. How, and how do sessions fix it, at what cost?
+
+<details>
+<summary>Answer</summary>
+
+- **How.** A FIFO queue hands messages out in order, but nothing makes them *finish* in order. Competing consumers, or one processor with `MaxConcurrentCalls` above 1, handle messages at the same time, and the faster one finishes first. A message that is abandoned or whose lock expires is processed again after the later messages that other receivers took meanwhile. With prefetch, an abandoned message goes to the back of the local buffer.
+- **Sessions.** The sender sets `SessionId` (say, the order ID) on a session-enabled queue or subscription. A receiver accepts one session and holds an exclusive lock on all its messages, current and future, and receives them in order. One receiver per session at a time, many sessions in parallel.
+- **The cost.** Throughput per key is one consumer. A message that keeps failing holds up the rest of its session until it is dead-lettered; Part 2 goes deeper into that head-of-line blocking. Sessions are chosen when the entity is created and can't be switched on or off later, and a session-enabled entity accepts only messages that carry a `SessionId`.
+- **When strict order isn't needed**, carry a version or sequence number, and make the consumer ignore anything older than the state it already has.
+</details>
+
+**3.** A `POST` must save a record, publish `DocumentRequested`, and run a document generation that takes ten minutes. Why is "save, then publish, then generate, then return `200`" wrong, and what does the robust design look like end to end?
+
+<details>
+<summary>Answer</summary>
+
+**Three failures:**
+
+1. **A dual write.** The commit and the publish are separate operations. A crash or a failed publish between them leaves a record nobody hears about; publish first, and a rollback leaves an event for a record that doesn't exist.
+2. **Ten minutes inside an HTTP request.** Front ends cut it: App Service at 230 seconds. Clients time out and retry, which duplicates the work: the server keeps working on a request whose client has given up. Every attempt holds a connection the whole time.
+3. **A `200` that is only a hope.** It promises work that happens only if nothing crashes.
+
+**The robust shape:**
+
+1. The `POST` validates the request, then one database transaction writes the job row (`Pending`) and an outbox row.
+2. The response is `202 Accepted`, with `Location: /jobs/{id}` and `Retry-After`.
+3. After the commit, a relay publishes the outbox rows, at-least-once. Part 2 covers relays that read the database log (CDC).
+4. A `BackgroundService` worker takes the job from the queue, runs it idempotently (claimed on the job ID), and updates the job's status. Transient failures are retried; a job that keeps failing is dead-lettered and marked `Failed`, with a reason.
+5. `GET /jobs/{id}` returns `200` with the status while the job runs, and `303 See Other` to the result when it is done.
+6. The client sends an `Idempotency-Key` with the `POST`, so a retried request gets the existing job's status URL instead of a second job.
+</details>
+
+## Check at work
+
+**Inspect.** For each message consumer in your codebase, find where it deduplicates. Good: an insert under a unique key, or a conditional update, in the same transaction as the effect, plus an idempotency key passed to any external API it calls. Bad: `if (await AlreadyProcessed(id)) return;` followed by the effect and then a "mark processed" call, or no deduplication at all. While you are there, search for `ReceiveMessagesAsync(` with large batches, `PrefetchCount`, handlers that wrap everything in `catch (Exception)`, and endpoints that return `Accepted()` without a `Location`.
+
+**Measure.** For each queue and subscription: the lock duration against the handler's p99 duration, `MaxDeliveryCount`, the dead-letter count (the `DeadletteredMessages` metric) and whether anything alerts on it, and how often your handlers log `DeliveryCount > 1`.
+
+
+---
+
+# Part 1 · Module 5: Working Like a Middle Developer
+
+_⏱️ Estimated read time: ~20 min · 2600 words (study pace)_
+
+> **What this module makes you able to do.** Take a vague ticket, a request for an estimate or a pull request, and send back something a teammate can act on without a meeting: a problem statement with your questions, a range with the assumption that drives it, a review comment with its condition and its fix, a request for help that shows what you tried.
+
+**Time:** reading ≈ 40 min; hands-on ≈ 2 h 15 min — the four written tasks 1 h, the questions 15, the check at work 1 h.
+
+## Covers
+
+- turning a vague, solution-shaped ticket into a one-page problem statement with your questions, before writing code;
+- giving an estimate as a range with the assumption that drives it, and re-estimating the day that assumption breaks;
+- writing a review comment that gets acted on: condition → mechanism → cost → fix, labelled `blocking:`, `suggestion:`, `nit:` or `question:`;
+- finding something worth saying in a review: what if it runs twice, concurrently, slowly, fails halfway, or meets 100× the data?
+- digging on your own inside a timebox, then asking with what you tried;
+- asking a question in a meeting that changes the outcome: prepared, early, with the assumption stated, confirmed in writing.
+
+## The mechanism to explain without notes
+
+**Turn every guess into a claim someone else can check, with the condition or assumption it rests on, in writing, before anyone builds on it.**
+
+Two facts make this the job. People act on a claim they can check in a minute, and ignore or argue with one they can't: "this could be a problem" leaves the author to rebuild your reasoning, while "two concurrent deliveries both pass the check, so the card is charged twice" can be verified on the spot. And a misunderstanding costs more with every step built on it: a misread ticket costs one reply before the code exists, a rewrite after review, an incident after release.
+
+Every habit in this module applies both facts:
+
+- **A vague ticket** names a solution ("add caching") and hides the problem. A short problem statement (the symptom with its evidence, the target, the constraints, what is out of scope) plus your questions makes your reading of the ticket checkable while that costs one reply.
+- **An estimate** is a forecast that holds only while its assumptions do. A point hides which one drives it; a range with its driving assumption tells everyone what to watch. When the assumption breaks, the estimate is void: say so that day, with the new range.
+- **A review comment** that lands is a prediction: under this condition, this line does this, which costs that, and here is the fix. The label says whether it blocks the merge. Five questions (twice, concurrently, slowly, halfway, at 100× the data) are how you find the conditions.
+- **Being stuck** is a guess about where the problem is that nobody else can see. After a timebox of about 30 minutes, a question with the goal, the exact error, what you tried and what it ruled out lets the helper check your search instead of restarting it.
+- **A meeting question** works the same way: prepared from the agenda, asked before the room converges, phrased as the assumption you are testing ("I'm assuming the export runs nightly. Is that right?"), and confirmed in writing afterwards, because everyone leaves a meeting remembering it differently.
+
+> **Pay attention.** **A missed estimate has two causes, and padding fixes neither.** Either the work was harder than you pictured, or you estimated a different scope from the one the asker meant. In the first, the steps you couldn't picture were never in the sum, so the error runs one way: long. The fix is a range anchored on how long similar work actually took, with the assumption behind its top named. In the second, the estimate was right for the wrong ticket; the fix is the problem statement and its questions before any number.
+
+## Read (≈ 40 min)
+
+1. [Chapter 17: 17.1 From Solving Tickets to Creating Leverage](#171-from-solving-tickets-to-creating-leverage): the table. Each right-hand answer removes a surprise for someone else, and that habit is what lets a middle developer work without supervision.
+2. [Chapter 61: The Request Is Not the Need](#the-request-is-not-the-need) and [The One-Page Problem Statement](#the-one-page-problem-statement): written for consultants, but a ticket is a request too. For a ticket, keep *Problem*, *Constraints*, *Out of scope*, *Success looks like* and *Open questions*.
+3. [Chapter 17: 17.4 Estimation & Planning](#174-estimation-planning), then [What would you do — the estimate](#what-would-you-do-the-estimate): ranges, spikes, and the assumption written next to the number.
+4. [Chapter 17: 17.3 Code Review Mastery](#173-code-review-mastery), then [What would you do — the review](#what-would-you-do-the-review): the five questions in *Finding What to Say in a Review*, the comment formula, the labels, and how much to say to someone new.
+5. [Chapter 18: Judging AI-generated code: a reviewer's rubric](#judging-ai-generated-code-a-reviewers-rubric): read it as the checklist of *what to look for*; the defects are the same in human-written code. Keep its *Signal → check* table and its order for reading a diff.
+6. [Chapter 17: 17.6 Methodical Debugging & Problem Solving](#176-methodical-debugging-problem-solving): the hypothesis loop and the 30-minute rule.
+7. [Chapter 17: Written communication as async leverage](#written-communication-as-async-leverage), [Running meetings that don't waste an hour × N people](#running-meetings-that-dont-waste-an-hour-n-people), [Asking Questions That Unblock You](#asking-questions-that-unblock-you) and [Disagreeing productively and managing up](#disagreeing-productively-and-managing-up): the ask in the first line, a question that carries what you tried and the assumption you are testing, decisions written down, disagree and commit.
+
+## Prove it
+
+This module's hands-on is written. Do each task before you open its answer; the answer is one good version, not the only one.
+
+**1. Review before you run.** Part 1, Module 4 prints the `CheckThenAct` experiment, [`verify/path/CheckThenAct/Program.cs`](https://github.com/malyna2/dotnet-handbook/blob/main/verify/path/CheckThenAct/Program.cs). Treat its first handler, `CheckThenAct`, as a pull request and write one labelled review comment. Then run it from `verify/path` with `dotnet run --project CheckThenAct` and check your prediction against the output.
+
+<details>
+<summary>A comment that lands</summary>
+
+```text
+blocking: when the broker delivers a message twice and the copies run at the
+same time (MaxConcurrentCalls above 1, or a redelivery after lock expiry that
+overlaps a slow first attempt), both copies pass ContainsKey before either
+records the id, so the card is charged twice. Claim the id before the effect,
+in one atomic step: TryAdd here; in the database, an insert under a unique key
+in the same transaction as the charge.
+```
+
+- **Condition:** two concurrent copies of one message. **Mechanism:** each `ConcurrentDictionary` call is thread-safe, but the check and the record are separate calls with the whole charge between them, so both copies fit in the gap. **Cost:** a double charge. **Fix:** claim first, atomically. The run agrees: the check-then-act handler charges the card 2 times, the claim-first handler once.
+- **Why `blocking:`.** Money moves twice. Any lower label on a data-integrity defect tells the author it is optional.
+</details>
+
+**2. Rewrite three weak comments.** Each is a common kind of comment on a common kind of line. Rewrite it as condition → mechanism → cost → fix, with the right label.
+
+```text
+a) On:      var client = new HttpClient();          // in a method called per request
+   Comment: Don't create HttpClient like this.
+
+b) On:      var user = _users.GetAsync(id).Result;  // in a controller action
+   Comment: Use async.
+
+c) On:      var data = await _db.Invoices.Where(i => i.Status == Status.Pending).ToListAsync(ct);
+   Comment: blocking: bad name.
+```
+
+<details>
+<summary>Model rewrites</summary>
+
+```text
+a) blocking: a new HttpClient per call is a new handler, so a new connection
+   pool and a new TCP connection on every request. Each closed connection
+   holds its local port in TIME_WAIT, so under load the service runs out of
+   ports and outgoing calls fail. Inject a typed client from
+   IHttpClientFactory, as PaymentsClient does.
+
+b) blocking: .Result holds this request's thread-pool thread until the query
+   returns. Under load every in-flight request holds one, the pool adds
+   threads slowly, and requests queue while the CPU stays low. Make the
+   action async and await GetAsync.
+
+c) nit: "data" doesn't say what it holds; pendingInvoices would.
+```
+
+- **(a) and (b) were right but unactionable.** The author learned *what* you disliked, not *why*, so arguing or ignoring was cheaper than checking. The mechanism is what lets them verify you in a minute: [Chapter 20: Keep-Alive, Connection Pooling, and Socket Exhaustion](#keep-alive-connection-pooling-and-socket-exhaustion) for (a), [Chapter 8: The Sync-Over-Async Deadlock](#the-sync-over-async-deadlock) for (b). A local example to copy (`PaymentsClient`) makes the fix cheaper than a reply.
+- **(c) was the opposite failure:** a style point labelled `blocking:`. Each over-labelled nit teaches the author that your `blocking:` is negotiable, and the next real one gets argued too.
+</details>
+
+**3. Write the problem statement for a vague ticket.** The ticket says: "Add caching to the product page." Write what you would send back before writing any code: at most a page, no solution in it, your questions at the end.
+
+<details>
+<summary>A model answer</summary>
+
+```text
+Problem statement: product page performance (ticket [ID])
+
+Problem       The product page is reported slow. Not yet known: which
+              endpoint, for which users, and its p95 latency today.
+Evidence      [trace or APM link]; baseline [N] ms p95 on [date]
+Success       p95 under [N] ms at [peak load], read from [dashboard]
+Constraints   How stale may price and stock be: seconds, minutes, never?
+              Who must see a price change, and how fast?
+Out of scope  Other pages; the search API.
+
+Questions
+1. What prompted the ticket: a complaint, an alert, a load test?
+2. Is the goal user-facing latency or database load? They have different fixes.
+3. Is there a date, and what drives it?
+```
+
+- **Why not open the Redis docs first.** The ticket is solution-shaped: someone's guess at a fix for a problem nobody wrote down. If the page is slow because of a missing index or an N+1, a cache hides the cause and adds a staleness rule nobody agreed to.
+- **What it buys.** The cheapest moment to find out you read a ticket differently from its author is before the code exists, when it costs one reply. Each question can be answered in a line.
+</details>
+
+**4. Turn a point estimate into a range.** In the stand-up your lead asks: "The CSV export of orders: two days?" The happy path is a day of work. You don't know whether the export covers the current month or the whole order history, which is millions of rows.
+
+<details>
+<summary>A model answer</summary>
+
+```text
+Two days if it's the current month: one query, streamed to the response.
+If it must cover the full history, it becomes a background job with a
+download link: five to eight days. I'll confirm which with [product owner]
+by tomorrow noon and update the ticket.
+```
+
+And the message on the day the assumption breaks:
+
+```text
+CSV export: the full history is needed after all (confirmed with [product
+owner]). My two days assumed the current month, so that estimate no longer
+holds. New range: five to eight days, most of it the background job. If the
+date matters more than the scope, the current-month export can ship in two
+days and the history follow.
+```
+
+- **A range shows what a point hides:** which assumption drives its top, so everyone knows what to watch.
+- **Re-estimate the day the assumption breaks.** Your number is already in someone's plan; each day you absorb the slip silently, more work is scheduled against a date that is gone. Offering a smaller scope leaves the decision with whoever owns the date.
+</details>
+
+## Three questions
+
+**1.** A PR wraps a Service Bus handler's body in `catch (Exception) { }` "so poison messages stop retrying". What do you comment, with which label, and why?
+
+<details>
+<summary>Answer</summary>
+
+- **`blocking:`, because it turns every failure into a success.** With `AutoCompleteMessages` at its default, `true`, a handler that returns normally completes the message. A transient timeout becomes a lost payment: no retry, no dead-letter entry, no alert. It stops poison messages by deleting good ones too.
+- **The fix to ask for.** Catch only the permanent failures (deserialisation, validation, "the order no longer exists") and dead-letter them with a reason a human can act on. Let transient exceptions propagate, so the message is retried up to `MaxDeliveryCount`. Alert on the dead-letter count.
+- **The question that finds it:** what if it fails halfway? [Chapter 50: Service Bus](#service-bus) has the settings; [Chapter 51, Case 6](#case-6-40000-messages-in-the-dead-letter-queue-and-nobody-knew) is what this looks like in production.
+</details>
+
+**2.** Your estimate said "three to five days, assuming the vendor API supports bulk updates." On day two you learn it doesn't. Why is "I'll work late and still make it" the wrong answer, and what do you send?
+
+<details>
+<summary>Answer</summary>
+
+- **The estimate is void, not tight.** It held only while the bulk API existed. Working late hides that until the date slips, by which time others have planned more on top of it.
+- **Send it the same day:** what you found, with the link; that the estimate assumed the opposite; the new range and what drives it (one call per item, rate limits, retries); and an option that keeps the date, such as a smaller first scope.
+- **Why the assumption was worth writing down on day zero:** it turns this message from a broken promise into an update everyone saw coming.
+</details>
+
+**3.** You've been stuck for 40 minutes on an integration test that passes locally and fails in CI. Why is "the test fails in CI, any idea?" a weak question, and what do you send instead?
+
+<details>
+<summary>Answer</summary>
+
+- **It hands over the whole search.** Before the helper can think, they must ask what you already know: which test, which error, what you tried. Each round trip in chat costs both of you minutes and focus.
+- **Send the state of your search:** the goal, the exact error (pasted), what you tried and what each attempt ruled out, your hypothesis, and one specific ask. For example: "`OrderExportTests` fails only in CI with `Connection refused` on the database port. Reruns fail every time; the connection string matches. I think the tests start before the database container is ready. Does our pipeline wait for its health check?"
+- **Name the goal, not only your attempted fix.** "How do I add a sleep to the CI step?" gets you a sleep; "the tests need the database ready first" gets you a health check. Asking about your fix instead of your problem is the *XY problem*.
+- **Why a timebox.** Shorter, and you skip the search that teaches you the system. Longer, and you spend an hour on what a colleague who knows the system unblocks in minutes.
+</details>
+
+## Check at work
+
+**Inspect.** Open the last ten review comments you left (most PR tools filter comments by author). Count how many state a condition and a cost, how many carry a label, and how many `blocking:` comments were about style. Good: every `blocking:` names what goes wrong and when; nits are labelled. Bad: "this could be a problem", a bare "why?", unlabelled style notes.
+
+**Do.** In the next two pull requests you review, ask the five questions of every changed line and leave at least one comment in the full form, with a label. Afterwards ask each author: "Was that comment clear enough to act on without asking me anything?"
+
+**Measure.** Take your last five estimates and their actual durations from the tracker. If most ran long by a similar ratio, that ratio is your outside view: apply it before you say the next number, and name the assumption behind the top of the range.
+
+
+---
+
+# Part 1 · Module 6: Exceptions, Logging and First Diagnosis
+
+_⏱️ Estimated read time: ~15 min · 2005 words (study pace)_
+
+> **What this module makes you able to do.** Decide where a failure is caught and what the caller sees, write log events that a log store can query and join across services, and take the first measurement of a slow endpoint before anyone guesses at a fix.
+
+**Time:** reading ≈ 40 min; hands-on ≈ 1 h 5 min — the two experiments 20 min, the questions 15, the check at work 30.
+
+## Covers
+
+- where to catch an exception, and why most layers should not catch at all;
+- `throw;` versus `throw ex;`, and what an exception filter (`when`) decides before the stack unwinds;
+- what an API returns when it fails: ProblemDetails with a trace id, never the exception's text;
+- structured logging: why a message template keeps properties and string interpolation flattens them; which level; what never goes into a log;
+- following one request across services by its trace id, and reading the stack trace you find;
+- the first look at a slow endpoint: CPU-bound or waiting, and the thread-pool starvation fingerprint.
+
+## The mechanism to explain without notes
+
+**An exception carries its own diagnosis — type, message, the frames it unwound through, the inner exception — so the code between the throw and the boundary should stay out of its way, and the boundary should turn it into exactly one log event and one safe response, joined by a trace id.**
+
+A `catch` earns its place only if it *translates* (wraps the exception in one your abstraction owns, the original kept as `InnerException`), *handles* (retries, falls back, compensates) or *reports* (the outermost boundary: middleware, a message dispatcher, a worker loop). Every other `catch` can only destroy part of the diagnosis:
+
+- **`throw ex;` restarts the trace at the rethrow.** The frame that threw disappears and the log blames the catch block; `throw;` keeps it. A filter (`catch … when`) runs before the stack unwinds, so an exception it declines travels on with every frame intact.
+- **Log-and-rethrow multiplies, swallowing erases.** One failure becomes one `Error` per layer, or none at all.
+- **The boundary answers in two directions.** Outward, a status code that says who can fix it and a ProblemDetails body with a stable code and the `traceId`. Inward, one log entry with the whole exception. The trace id is how support gets from the first to the second.
+
+A log event follows the same rule. With a message template the logger receives the template and the values separately: each placeholder becomes a named, typed property, and the template itself names the kind of event. An interpolated string arrives finished, so the properties are gone and every value makes a new kind of event. The level says who has to act. Secrets and personal data stay out, because logs are copied to more places, kept longer and read by more people than the database.
+
+Across services the trace id is the join key: `HttpClient` sends it in the W3C `traceparent` header, ASP.NET Core continues it, and the generic host adds it to the scope of every log entry. A queue carries it only if the message does.
+
+A slow endpoint gets the same discipline: measure before changing anything. A busy CPU means profile the CPU. An idle CPU with high latency means the request is *waiting*: on a dependency (its span dominates the trace), or for a thread (the pool's queue grows and every endpoint slows down, as [Chapter 8](#the-sync-over-async-deadlock) explains).
+
+## Read (≈ 40 min)
+
+1. [Chapter 5: Exception Handling Strategy](#exception-handling-strategy): classify the failure, then where to catch, *The Mechanics That Bite* (`throw;`, filters, `ExceptionDispatchInfo`), what to log (with the *Pay attention* callout on reading a stack trace) and what to surface.
+2. [Chapter 3: Error Handling with ProblemDetails (RFC 7807)](#error-handling-with-problemdetails-rfc-7807): `UseExceptionHandler` and `IExceptionHandler`, and the *Pay attention* callout on what reaches the caller and what reaches the log.
+3. [Chapter 2: Logging with Microsoft.Extensions.Logging](#logging-with-microsoftextensionslogging): the provider abstraction, placeholders matched by position, scopes.
+4. [Chapter 13: Why Structured Beats String Logging](#why-structured-beats-string-logging), [Log Levels: A Shared Vocabulary](#log-levels-a-shared-vocabulary) and [What Not to Log: Secrets and PII](#what-not-to-log-secrets-and-pii).
+5. [Chapter 13: Correlation Across Services](#correlation-across-services): the trace id over HTTP and through a queue, and why it beats a home-made correlation id.
+6. [Chapter 34: Diagnosing a Performance Problem (a worked methodology)](#diagnosing-a-performance-problem-a-worked-methodology): CPU-bound versus waiting, the tools in order, and the starvation fingerprint in its *Pay attention* callout.
+
+## Prove it
+
+Predict each output before you run it.
+
+**6a. `throw;` keeps the frame that threw; `throw ex;` erases it.**
+
+`verify/path/ThrowVsThrowEx/Program.cs` · run it from `verify/path` with `dotnet run --project ThrowVsThrowEx`:
+
+```csharp
+// Prove it: after `throw;` the stack trace still starts in the method that threw; `throw ex;` restarts it at the rethrow.
+using System.Runtime.CompilerServices;
+
+foreach (bool resetTrace in new[] { false, true })
+    try { OrderService.Get(42, resetTrace); }
+    catch (Exception e) { Console.WriteLine($"{(resetTrace ? "throw ex;" : "throw;")}\n{e.StackTrace}"); }
+
+static class OrderService
+{
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    public static void Get(int id, bool resetTrace)
+    {
+        try { OrderStore.Load(id); }
+        catch (InvalidOperationException) when (!resetTrace)
+        {
+            throw;                      // rethrows the same exception, its trace intact
+        }
+        catch (InvalidOperationException ex)
+        {
+#pragma warning disable CA2200         // the SDK flags the next line by default
+            throw ex;                   // the trace restarts on this line
+        }
+    }
+}
+
+static class OrderStore
+{
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    public static void Load(int id) => throw new InvalidOperationException($"order {id} is missing");
+}
+```
+
+```text
+throw;
+   at OrderStore.Load(Int32 id) in …/ThrowVsThrowEx/Program.cs:line 29
+   at OrderService.Get(Int32 id, Boolean resetTrace) in …/ThrowVsThrowEx/Program.cs:line 13
+   at Program.<Main>$(String[] args) in …/ThrowVsThrowEx/Program.cs:line 5
+throw ex;
+   at OrderService.Get(Int32 id, Boolean resetTrace) in …/ThrowVsThrowEx/Program.cs:line 21
+   at Program.<Main>$(String[] args) in …/ThrowVsThrowEx/Program.cs:line 5
+```
+
+What to notice:
+
+- **Read a trace from the top.** The first frame is where the exception was thrown (line 29). Each frame below is the caller of the one above, at the line of the call. The last is the frame that caught it: a trace is the path the exception travelled, not the whole call stack.
+- **`throw ex;` erased the frame with the bug.** The trace starts at line 21, the rethrow, and `OrderStore.Load` appears nowhere. In production that log entry points at the catch block.
+- **The SDK already warns.** `throw ex;` is warning CA2200 by default, which is why the program needs a `#pragma` to build with warnings as errors.
+- **A frame can be missing.** Release builds inline small methods into their callers, and an inlined method has no frame of its own. `NoInlining` keeps these two visible.
+
+**6b. A template keeps a typed property; interpolation flattens it.**
+
+`verify/path/LogTemplate/Program.cs` · run it from `verify/path` with `dotnet run --project LogTemplate`:
+
+```csharp
+// Prove it: a message template keeps {OrderId} as a named, typed property; an interpolated string arrives flat.
+using Microsoft.Extensions.Logging;
+
+using var factory = LoggerFactory.Create(logging => logging.AddProvider(new PrintingProvider()));
+ILogger logger = factory.CreateLogger("Orders");
+int orderId = 42;
+
+logger.LogInformation("Order {OrderId} placed", orderId);
+logger.LogInformation($"Order {orderId} placed");
+
+// The smallest provider there is: it prints what every real provider receives.
+sealed class PrintingProvider : ILoggerProvider, ILogger
+{
+    public ILogger CreateLogger(string categoryName) => this;
+    public IDisposable? BeginScope<TState>(TState state) where TState : notnull => null;
+    public bool IsEnabled(LogLevel logLevel) => true;
+    public void Dispose() { }
+
+    public void Log<TState>(LogLevel logLevel, EventId eventId, TState state, Exception? exception,
+        Func<TState, Exception?, string> formatter)
+    {
+        Console.WriteLine($"message:  {formatter(state, exception)}");
+        if (state is IEnumerable<KeyValuePair<string, object?>> properties)
+            foreach (var (name, value) in properties)
+                Console.WriteLine($"  {name} = {value} ({value?.GetType().Name})");
+    }
+}
+```
+
+```text
+message:  Order 42 placed
+  OrderId = 42 (Int32)
+  {OriginalFormat} = Order {OrderId} placed (String)
+message:  Order 42 placed
+  {OriginalFormat} = Order 42 placed (String)
+```
+
+What to notice:
+
+- **The text is identical.** Reading the console, you can't tell which call was right; only what the provider receives shows it.
+- **The template delivers `OrderId` as an `Int32`.** A log store indexes it, so `OrderId = 42` is a query, not a regular expression.
+- **`{OriginalFormat}` names the kind of event.** Every call from the template line shares it, so a store can group and count those events. Interpolated, the "template" is the finished text: each order id is a new kind of event.
+- **Nothing stops you.** The analyzer rule for this, CA2254, is a suggestion by default, so the build stays green. Raise it to a warning in `.editorconfig`.
+
+## Three questions
+
+**1.** A repository wraps every method in `try { … } catch (Exception ex) { _logger.LogError(ex, "Failed"); throw ex; }`. What does this cost, in the order an on-call engineer finds out?
+
+<details>
+<summary>Answer</summary>
+
+- **The log points at the wrong line.** `throw ex;` restarts the stack trace at the rethrow, so the frame that actually failed — the query, the null dereference — is gone from every entry after this one.
+- **One failure, several errors.** The boundary logs the same exception again, and so does every other layer with the same block: the error rate is inflated and each alert fires several times for one fault.
+- **Cancellations become errors.** `catch (Exception)` also catches the `OperationCanceledException` of a client that disconnected, and logs it at `Error`.
+
+Fix: delete the block. If the repository must translate, catch the specific exception (`catch (SqlException ex) when (…)`) and throw your own with the original as its inner exception; log once, at the boundary.
+</details>
+
+**2.** `logger.LogInformation($"Order {orderId} placed")` prints the same text as the template version. Why does it still break the log store, and what does it cost when `Information` is turned off?
+
+<details>
+<summary>Answer</summary>
+
+- **The logger never sees the value.** The compiler builds the string before the call, so the provider receives one finished string: no `OrderId` property to query, and a different `{OriginalFormat}` for every order, so nothing groups.
+- **It costs even when nobody listens.** The interpolation runs before `LogInformation` is called, so the string is built and thrown away when the level is off. A template defers the formatting until a provider is enabled, although its arguments are still boxed into an array; the `[LoggerMessage]` source generator checks the level first and avoids even that.
+
+Fix: templates everywhere, CA2254 as a warning, and `[LoggerMessage]` on hot paths.
+</details>
+
+**3.** An endpoint's p99 jumped from 200 ms to 4 s, and CPU sits at 15%. What are the two likely causes, what tells them apart, and what do you open first?
+
+<details>
+<summary>Answer</summary>
+
+- **Low CPU with high latency means waiting, not computing.** Either a dependency got slow (database, downstream HTTP, a lock), or the thread pool is starved by blocking calls.
+- **What tells them apart.** A slow dependency slows only its own callers, its span dominates the trace, and the pool's queue stays near zero. Starvation slows *every* endpoint, including ones that never touch the dependency, while the thread-pool queue length grows and the thread count climbs (`dotnet.thread_pool.queue.length` and `dotnet.thread_pool.thread.count` on .NET 9+).
+- **First:** `dotnet-counters monitor` on the process (no setup), and the trace of one slow request. If it is starvation, `dotnet-stack report` shows the pool threads parked in `Task.InternalWait`.
+
+Fix the cause: remove the blocking call (raising the pool's minimum only moves the cliff), or diagnose the dependency (its query plan, its timeout, its retry budget).
+</details>
+
+## Check at work
+
+**Inspect.** Search your service for:
+
+- `throw ex;` — CA2200 is a build warning by default, so a hit means warnings are being ignored or suppressed;
+- `catch (Exception` outside the outermost boundaries, and `catch` blocks that only log and rethrow;
+- `Log` calls with a `$"…"` message;
+- `ex.Message` or `ex.ToString()` written into a response, and `UseDeveloperExceptionPage` or `ASPNETCORE_ENVIRONMENT=Development` anywhere near production.
+
+A good result: each hit is a deliberate boundary. A bad one: a `catch` in every layer.
+
+**Measure.** In a test environment, make one request fail. Count the `Error` entries it produced (one is right), then search your log store for the `traceId` from its ProblemDetails response and count the services whose entries you get back. During the next busy hour, run `dotnet-counters monitor` against one instance and write down CPU usage, thread-pool queue length and thread count: that is your baseline for the next slow day.
+
+
+---
+
+# Part 1 · Module 7: C# Essentials
+
+_⏱️ Estimated read time: ~10 min · 1793 words (study pace)_
+
+> **What this module makes you able to do.** Predict what everyday C# does before you run it: what an assignment copies, what `==` compares, where a null still gets past the compiler, when a LINQ query runs and where its filter executes, what a lambda captures, and what `Dispose` gives back.
+
+**Time:** reading ≈ 25 min; hands-on ≈ 1 h — the experiment 15 min, the questions 15, the check at work 30.
+
+## Covers
+
+- what an assignment copies for a struct and for a class, and where boxing allocates;
+- what `==` and `Equals` compare, and what a record changes about both;
+- what nullable reference types check, and where a null still gets in;
+- when a LINQ query runs, and why enumerating it twice runs it twice;
+- where a `Where` runs: in memory over `IEnumerable<T>`, in the database over `IQueryable<T>`;
+- what a lambda captures, and what `Dispose` is for.
+
+## The mechanism to explain without notes
+
+**A variable holds either a value or a reference to a shared object, and the compiler turns many lines into something else: a method picked from the variable's declared type, or an object that runs later.**
+
+- **What a copy copies.** Assigning a struct copies its fields; assigning a class copies the reference, so both variables see one object. Boxing is the bridge between the two: a value type assigned to `object` or to an interface is copied into a new heap object.
+- **What `==` compares.** `==` is an operator, chosen at compile time from the declared types: on a class it compares references unless the type overloads it, as `string` and records do. `Equals` is a virtual method, chosen at run time from the object. A record generates both and compares field by field, each field with its own `Equals`, so a `List<T>` field still compares by reference.
+- **What the compiler can't see.** Nullable reference types are annotations plus flow analysis at compile time; the compiled code checks nothing. A null still arrives from code the compiler didn't analyze: a deserializer, `default`, a new array, a `!`.
+- **When the code runs.** `Where` and `Select` return an object that holds the source and your lambda. It runs each time something enumerates it, and reads captured variables at that moment, because a lambda captures the variable itself: the compiler moves it into a hidden object that the method and the lambda share.
+- **Where the code runs.** The declared type picks the `Where`. On `IEnumerable<T>` it is `Enumerable.Where`, which runs your compiled lambda in memory; on `IQueryable<T>` it is `Queryable.Where`, which receives the lambda as an expression tree that EF Core translates into SQL. An EF query declared as `IEnumerable<T>` runs every later filter in C#, after reading every row the SQL returns.
+- **What `Dispose` is for.** The GC reclaims memory when memory runs short. Nothing reclaims a pooled connection or a file handle when those run short, so `using` compiles to a `try/finally` that calls `Dispose` and returns them on time.
+
+## Read (≈ 25 min)
+
+1. [Chapter 1: Value Types and Reference Types: The Foundation](#value-types-and-reference-types-the-foundation): what a copy copies, why "value types live on the stack" is folklore, boxing, and when a `struct` is the right choice.
+2. [Chapter 1: Records, Value Equality, and with Expressions](#records-value-equality-and-with-expressions): what the compiler generates for a record, and why `==` and `Equals` can disagree.
+3. [Chapter 1: Nullable Reference Types](#nullable-reference-types): what the compiler checks, and where a null gets in anyway.
+4. [Chapter 1: LINQ Internals: Deferred Execution and Expression Trees](#linq-internals-deferred-execution-and-expression-trees): when a query runs, and why the declared type decides whether its filter becomes SQL.
+5. [Chapter 1: Iterators and yield return](#iterators-and-yield-return): the compiler-generated state machine that makes LINQ lazy.
+6. [Chapter 1: Closures and the Capture Trap](#closures-and-the-capture-trap): what a lambda captures, and why a `for` loop shares one variable.
+7. [Chapter 1: IDisposable, IAsyncDisposable, and the Dispose Pattern](#idisposable-iasyncdisposable-and-the-dispose-pattern): what `Dispose` is for, and what happens to a connection nobody disposes.
+
+## Prove it
+
+A query with a counting predicate shows when LINQ runs and what a lambda captures. Predict the four counts and the two lists before you run it.
+
+`verify/path/DeferredExecution/Program.cs` · run it from `verify/path` with `dotnet run --project DeferredExecution`:
+
+```csharp
+// Prove it: a LINQ query is a recipe. It runs again on every enumeration and reads captured variables when it runs.
+int calls = 0, minimum = 2;
+int[] numbers = [1, 2, 3, 4];
+IEnumerable<int> query = numbers.Where(n => { calls++; return n >= minimum; });
+Console.WriteLine($"query defined:        the predicate ran {calls} times");
+
+int count = query.Count();                     // enumeration 1
+int sum = query.Sum();                         // enumeration 2: the whole pipeline runs again
+Console.WriteLine($"Count() and Sum():    the predicate ran {calls} times (count {count}, sum {sum})");
+
+calls = 0;
+List<int> list = query.ToList();               // one enumeration; from here on, a plain list
+Console.WriteLine($"ToList(), then both:  the predicate ran {calls} times (count {list.Count}, sum {list.Sum()})");
+
+minimum = 4;                                   // the lambda captured the variable, not its value 2
+Console.WriteLine($"after minimum = 4:    query [{string.Join(", ", query)}], list [{string.Join(", ", list)}]");
+
+IQueryable<int> queryable = numbers.AsQueryable().Where(n => n >= minimum);
+Console.WriteLine($"an IQueryable holds an expression tree: {queryable.Expression}");
+```
+
+```text
+query defined:        the predicate ran 0 times
+Count() and Sum():    the predicate ran 8 times (count 3, sum 9)
+ToList(), then both:  the predicate ran 4 times (count 3, sum 9)
+after minimum = 4:    query [4], list [2, 3, 4]
+an IQueryable holds an expression tree: System.Int32[].Where(n => (n >= value(Program+<>c__DisplayClass0_0).minimum))
+```
+
+What to notice:
+
+- **Defining the query ran nothing.** `Where` only stored the array and the lambda.
+- **Two terminal calls, two full runs.** `Count()` and `Sum()` each enumerated the query: 8 predicate calls for 4 numbers. Over an EF Core query, that is two SQL round trips.
+- **`ToList()` ran it once.** After that, `Count` is a property of the list and `Sum()` reads the list, not the query.
+- **The lambda read `minimum` when it ran.** Changed to 4 after the query was defined, the query now yields only 4; the list kept the snapshot it took. The lambda captured the variable, not its value.
+- **The last line is what the capture looks like.** The `IQueryable` holds its lambda as data, an expression tree that a provider such as EF Core translates into SQL. In it, `minimum` is a field of a compiler-generated object (`<>c__DisplayClass0_0`, a name the compiler chooses), shared by the method and the lambda: that shared field is the captured variable.
+
+## Three questions
+
+**1.** Two `object` variables hold strings with the same text: `a == b` is `false` and `a.Equals(b)` is `true`. Then two `Order` records with the same `Id` and equal `List<string>` lines compare unequal with `==`. Why, in both cases?
+
+<details>
+<summary>Answer</summary>
+
+- **`==` is chosen at compile time, from the declared types.** For two `object` variables the compiler binds `object`'s `==`, which compares references; `string`'s overload is never considered. The compiler doesn't warn when both sides are `object`, and a generic method constrained with `where T : class` binds the same reference comparison even when `T` is `string`.
+- **`Equals` is chosen at run time, from the object.** It is virtual, so `a.Equals(b)` runs `string.Equals`, which compares the text.
+- **A record compares field by field, each with its own `Equals`.** `List<T>` doesn't override `Equals`, so two lists with equal contents are two different references, and the records are unequal. `with` is shallow for the same reason: the copy shares the original's list.
+
+Fix: declare the types you mean to compare (`string`, not `object`), and give a record that holds a collection its own `Equals(Order?)` and `GetHashCode` using `SequenceEqual`, or keep records to values: numbers, strings, nested records.
+</details>
+
+**2.** A repository method returns `IEnumerable<Order>`, built as `db.Orders.Where(o => o.IsPending)`. The caller calls `Any()`, then `Count()`, then filters by customer with `.Where(o => o.CustomerId == id)` and loops over the result. How many SQL queries run, and where does the customer filter run?
+
+<details>
+<summary>Answer</summary>
+
+- **Three queries, the same `SELECT` each time.** The method returned a recipe, not results. Each of `Any()`, `Count()` and the loop enumerates it, and each enumeration sends the pending-orders query again; `Count()` and the loop read every pending row.
+- **The customer filter runs in C#.** The declared type is `IEnumerable<Order>`, so the compiler binds `Enumerable.Where`, which takes a compiled delegate and filters rows after they arrive. Only `Queryable.Where`, bound when the declared type is `IQueryable<Order>`, receives an expression tree that EF Core can turn into SQL.
+
+Fix: ask the database the question you mean, `db.Orders.Where(o => o.IsPending && o.CustomerId == id)`, then `CountAsync()` or `ToListAsync()` once, and work with the list. If several callers need to compose filters, keep `IQueryable<T>` inside the data layer and return materialized results from it.
+</details>
+
+**3.** The project has `<Nullable>enable</Nullable>` and treats warnings as errors. A message handler deserializes `record OrderPlaced(int OrderId, string Email)` with `JsonSerializer.Deserialize`, and `message.Email.Trim()` throws `NullReferenceException`. How did a null get into a non-nullable `string`, and what stops it?
+
+<details>
+<summary>Answer</summary>
+
+- **The compiler checks only the code it compiles.** Nullable annotations are metadata, and flow analysis runs inside your methods; the compiled code has no null checks. The deserializer calls the record's constructor at run time with whatever the JSON holds, and no analysis runs there.
+- **The JSON decided.** A payload without `email` passes `null` for the missing parameter, and `"email": null` passes it explicitly. With default options, `System.Text.Json` accepts both.
+
+Fix: validate where data enters. Since .NET 9, `RespectNullableAnnotations = true` rejects an explicit `null` for a non-nullable parameter or property, and `RespectRequiredConstructorParameters = true` rejects a missing parameter; on a settable property, `required` rejects a missing value. Both options are off by default, and the first alone still lets a missing property through. In public methods that other code calls, `ArgumentNullException.ThrowIfNull`. Each `!` you write is a place where you told the compiler to stop checking.
+</details>
+
+## Check at work
+
+**Inspect.** Search your data layer for methods that return `IEnumerable<T>` built from a `DbSet`, and check whether any caller filters or counts the result: each such caller pulls rows into memory. Search for records whose members are `List<T>`, arrays or dictionaries, and check whether anything compares them or uses them as dictionary keys. Then search for `new SqlConnection(`, `new FileStream(` and `new StreamReader(` without `using`, and count the `!` operators: each is a null check you switched off.
+
+**Measure.** Turn on EF Core's SQL logging for one request (`LogTo`, or the `Microsoft.EntityFrameworkCore.Database.Command` category at `Information`) and count the statements: the same `SELECT` twice is a query enumerated twice. To find the rest at build time, enable analyzer CA1851 (possible multiple enumerations of `IEnumerable`, off by default) and count its warnings.
+
+
+---
+
+# Part 1 · Module 8: Web API Basics
+
+_⏱️ Estimated read time: ~10 min · 1680 words (study pace)_
+
+> **What this module makes you able to do.** Wire an ASP.NET Core API without help: give each service the right lifetime, bind and validate configuration at start-up, put the middleware in an order that works, validate input at the edge, and answer with the methods, status codes and headers that clients and proxies act on.
+
+**Time:** reading ≈ 30 min; hands-on ≈ 50 min — the entry check 5 min, the experiment 15, the check at work 30.
+
+## Entry check
+
+*Three questions to answer without notes. All three right: skip to the next module. Otherwise, work through this one.*
+
+**1.** A singleton `PriceCache` takes the scoped `AppDbContext` in its constructor. The service starts and runs in Production. What goes wrong under load, and why does the same code fail at start-up on a developer's machine?
+
+<details>
+<summary>Answer</summary>
+
+The singleton is built once, in the container's root scope, so its `AppDbContext` is resolved there too and lives as long as the process: one context for every request and every thread. Two concurrent requests make EF Core throw *"A second operation was started on this context instance"*, and in between, tracking queries hand back the entities it already tracks, with their old values. In Development, `WebApplicationBuilder` turns on `ValidateScopes` and `ValidateOnBuild`, so `builder.Build()` throws *"Cannot consume scoped service 'AppDbContext' from singleton 'PriceCache'"*; in Production both are off. Fix: make the consumer scoped, or inject `IServiceScopeFactory` (or `IDbContextFactory<AppDbContext>`) and open a scope per unit of work. [Chapter 2: Captive dependencies — the classic DI bug](#captive-dependencies-the-classic-di-bug).
+</details>
+
+**2.** `Program.cs` calls `app.UseAuthorization()` and then `app.UseAuthentication()`. A request with a valid token reaches an `[Authorize]` endpoint. What does the client get, and why?
+
+<details>
+<summary>Answer</summary>
+
+`401 Unauthorized`. Middleware runs in the order it is registered, and authorization reads `HttpContext.User`, which the authentication middleware fills in. Running first, authorization sees an anonymous user and challenges, so nobody reads the valid token. Register routing, then authentication, then authorization: authorization needs both the user and the endpoint's metadata, which routing attaches. [Chapter 3: Ordering is everything](#ordering-is-everything).
+</details>
+
+**3.** A client times out on `POST /payments` and on `PUT /orders/42`. Which one may it retry automatically, and what would make the other safe to retry?
+
+<details>
+<summary>Answer</summary>
+
+`PUT` is idempotent: the same replacement sent twice leaves the same state, so the retry is safe. `POST` is not: the first attempt may have succeeded with only its response lost, so a retry can create a second payment. It becomes retry-safe with an idempotency key that the server claims under a unique index, in the same transaction as the effect: [Chapter 3: Idempotency Keys: Making POST Retry-Safe](#idempotency-keys-making-post-retry-safe). Idempotency is about the effect on the server, not the response: a second `DELETE` may answer `404` and is still idempotent.
+</details>
+
+## Covers
+
+- service lifetimes, and why a singleton that takes a scoped service (a captive dependency) shares one instance with every request; why Development catches it and Production doesn't;
+- configuration layers and the options pattern: which of `IOptions<T>`, `IOptionsSnapshot<T>` and `IOptionsMonitor<T>` sees a changed value, and why validation belongs at start-up;
+- the middleware pipeline: why the exception handler goes first, and authentication before authorization before the endpoints;
+- model binding and validation, and filters versus middleware: what runs inside the endpoint and what runs around it;
+- HTTP methods (safe versus idempotent), the status codes that matter and the headers worth knowing: what each one tells the client.
+
+## The mechanism to explain without notes
+
+**The host builds the singletons, the options and the middleware chain once, at start-up; then each request runs through that chain, in registration order, inside a DI scope of its own.**
+
+Almost every trap in this module is one of two mistakes: something built once holds on to something that belongs to one request, or something runs before the thing it depends on.
+
+- **Built once versus built per request.** A singleton, a middleware's constructor and `IOptions<T>` are created once, so whatever they capture, they keep for the life of the process. A singleton that asks for a scoped service gets one resolved in the root scope, which no request owns: one instance for every request and every thread. `ValidateScopes` makes the container refuse it, and only Development turns that on.
+- **Options follow the same lifetimes.** `IOptions<T>` is a singleton computed on first use, so an edited `appsettings.json` never reaches it. `IOptionsSnapshot<T>` is scoped: computed once per request. `IOptionsMonitor<T>` is a singleton that recomputes when the configuration reloads. Validation runs when a value is first computed, which is the first request that needs it, unless `ValidateOnStart()` moves it into host start-up, where a bad setting fails the deployment instead of a customer's request.
+- **Registration order is execution order.** Each middleware runs code before and after the rest of the chain, so it sees only what earlier ones set (the endpoint from routing, `HttpContext.User` from authentication) and catches only the exceptions thrown inside it. Hence the exception handler first, then routing, authentication, authorization and the endpoints.
+- **The endpoint is the innermost step.** Model binding, validation and filters run inside it, after all the middleware. `[ApiController]` answers `400` before the action runs; a filter sees the bound arguments and the action's result, which middleware never sees.
+- **Methods and status codes are instructions to machinery.** Retry policies, caches, proxies and browsers act on them without reading the body: they retry idempotent methods, wait for `Retry-After` on `429` and `503`, cache by `Cache-Control`, and re-authenticate on `401`. A `200` with an error in its body is a success to every one of them.
+
+> **Pay attention.** **The captured instance is never disposed: that is the bug.** The usual wrong answer is "the request's scope disposes it, so the singleton throws `ObjectDisposedException`". The container resolves a singleton's dependencies in the root scope, so the captured service is not any request's instance: it is another one, which lives undisposed until the app stops and is shared by every request. `ObjectDisposedException` comes from a different capture, work that outlives its request, such as a `Task.Run` closure still using the request's `DbContext` after the response has gone. Both have the same fix: own the scope you use, with `IServiceScopeFactory.CreateScope()` per unit of work.
+
+## Read (≈ 30 min)
+
+1. [Chapter 2: Dependency Injection](#dependency-injection): the three lifetimes, the captive dependency, and what scope validation checks.
+2. [Chapter 2: The Configuration System](#the-configuration-system): the provider order, and the three options interfaces with their lifetimes.
+3. [Chapter 3: The Middleware Pipeline & Request Lifecycle](#the-middleware-pipeline-request-lifecycle): the canonical order, and what each wrong order does.
+4. [Chapter 3: Routing & Endpoint Routing](#routing-endpoint-routing): why middleware between routing and the endpoint knows which endpoint will run.
+5. [Chapter 3: Model Binding & Validation](#model-binding-validation): binding sources, the automatic `400`, and why an edge validator replaces neither a domain invariant nor a unique index.
+6. [Chapter 3: Filters](#filters): the filter pipeline, and filter versus middleware.
+7. [Chapter 20: How HTTP Works](#how-http-works): statelessness, and safe versus idempotent methods.
+8. [Chapter 20: Status Codes and Headers That Matter](#status-codes-and-headers-that-matter): what each code and header tells the client.
+
+## Prove it
+
+The program registers a scoped `AppDb` and a singleton `PriceCache` that takes one, resolves both in two request scopes, then repeats the resolve with scope validation on. Predict the three lines before you run it.
+
+`verify/path/CaptiveDependency/Program.cs` · run it from `verify/path` with `dotnet run --project CaptiveDependency`:
+
+```csharp
+// Prove it: a singleton that takes a scoped service keeps ONE instance of it for every scope; ValidateScopes refuses it.
+using Microsoft.Extensions.DependencyInjection;
+
+var services = new ServiceCollection()
+    .AddScoped<AppDb>()                    // one per request, like a DbContext
+    .AddSingleton<PriceCache>();           // one per process, and it asks for an AppDb
+
+using (var root = services.BuildServiceProvider())     // ValidateScopes = false: the default outside Development
+{
+    for (int request = 1; request <= 2; request++)
+    {
+        using var scope = root.CreateScope();          // ASP.NET Core opens one scope per request
+        AppDb own = scope.ServiceProvider.GetRequiredService<AppDb>();
+        AppDb captured = scope.ServiceProvider.GetRequiredService<PriceCache>().Db;
+        Console.WriteLine($"request {request}: its own AppDb #{own.Id}, the singleton's AppDb #{captured.Id}");
+    }
+}
+
+using (var root = services.BuildServiceProvider(new ServiceProviderOptions { ValidateScopes = true }))
+using (var scope = root.CreateScope())
+{
+    try { scope.ServiceProvider.GetRequiredService<PriceCache>(); }
+    catch (InvalidOperationException e) { Console.WriteLine($"ValidateScopes = true: {e.GetType().Name}: {e.Message}"); }
+}
+
+sealed class AppDb { private static int s_created; public int Id { get; } = ++s_created; }
+sealed class PriceCache(AppDb db) { public AppDb Db { get; } = db; }
+```
+
+```text
+request 1: its own AppDb #1, the singleton's AppDb #2
+request 2: its own AppDb #3, the singleton's AppDb #2
+ValidateScopes = true: InvalidOperationException: Cannot consume scoped service 'AppDb' from singleton 'PriceCache'.
+```
+
+What to notice:
+
+- **#2 in both requests.** Each scope got its own `AppDb` (#1, then #3), while the singleton holds #2 for both. With a real `DbContext`, that is one context for every request and every thread.
+- **#2 belongs to no request.** It was created with the singleton, in the root scope (the runtime's source calls it a scoped service "promoted to singleton"), so neither request's scope disposed it.
+- **The same registrations, one option apart.** With `ValidateScopes` on, resolving the singleton throws. `WebApplicationBuilder` turns it on, together with `ValidateOnBuild`, only in Development, where `builder.Build()` fails with this message wrapped in an `AggregateException` before the first request. In Production nothing checks, and the bug ships.
+
+## Check at work
+
+**Inspect.** List the singletons in one service: `AddSingleton` registrations, hosted services and convention-based middleware. Check every constructor for a scoped dependency: a `DbContext`, a repository, anything registered with `AddScoped` or `AddDbContext`. Then start the service once with `ASPNETCORE_ENVIRONMENT=Development`: with `ValidateOnBuild` on, a captive dependency fails `Build()` there instead of shipping. In `Program.cs`, check that the exception handler is registered first and authentication before authorization, and that every bound options class calls `ValidateOnStart()`.
+
+**Measure.** Break the `http.server.request.duration` metric (built into ASP.NET Core since .NET 8) down by `http.route` and `http.response.status_code`. A `5xx` on an endpoint that only rejects bad input is a bug that should have been a `400`. An endpoint that never answers anything but `200` deserves a look for errors hidden in its bodies.
+
+
+---
+
+# Part 1 · Module 9: Testing Essentials
+
+_⏱️ Estimated read time: ~10 min · 1394 words (study pace)_
+
+> **What this module makes you able to do.** Write and fix the tests of one service without help: put each test at the level that can prove its claim, use theories and the right test double, test the HTTP surface and the database for real, and remove a flaky test's cause instead of retrying it.
+
+**Time:** reading ≈ 25 min; hands-on ≈ 45 min — the entry check 5 min, the experiment 10, the check at work 30.
+
+## Entry check
+
+*Three questions to answer without notes. All three right: skip to the next module. Otherwise, work through this one.*
+
+**1.** A repository test runs on `UseInMemoryDatabase`, saves two users with the same email, and passes. Production has a unique index on `Email`. What did the test prove, and what would you change?
+
+<details>
+<summary>Answer</summary>
+
+Only that the C# runs. The EF Core in-memory provider executes your LINQ over .NET collections: no SQL is generated, so there is no unique index to violate, no transaction (beginning one throws by default, and silencing that warning makes it a no-op), no raw SQL, and string comparison follows C# rather than the database's collation. Test anything that touches SQL against the production engine in a container (Testcontainers), and keep fakes for business logic. [Chapter 7: In-Memory vs Real Database](#in-memory-vs-real-database).
+</details>
+
+**2.** A test passes on its own and fails when the whole suite runs. What is the usual mechanism in xUnit, and how do you fix it?
+
+<details>
+<summary>Answer</summary>
+
+State that outlives a test. xUnit creates a new instance of the test class for every test, so instance fields are safe; statics, singletons, class and collection fixtures, and database rows are not. By default each test class is its own collection and collections run in parallel, so two classes touching the same rows or static race each other, and the result depends on scheduling. Fix: each test arranges and owns its data (unique keys, its own rows), state is reset between tests, and classes that must share a resource go into one `[Collection]`. [Chapter 7: Flaky Tests](#flaky-tests).
+</details>
+
+**3.** When is `Verify(x => x.Send(...), Times.Once)` the right assertion, and when is it why a refactoring broke forty tests?
+
+<details>
+<summary>Answer</summary>
+
+It is right when the interaction is the observable behaviour at a boundary you own: "exactly one confirmation email is sent", "one `OrderPlaced` event is published". It is wrong as a check of internal calls: it pins the implementation, so a change that keeps the behaviour fails the test. Mock at the boundaries (network, clock, message bus), use real objects or fakes inside, and don't mock types you don't own. [Chapter 7: When NOT to Mock](#when-not-to-mock).
+</details>
+
+## Covers
+
+- what each level of the pyramid proves, and what it can't;
+- xUnit facts and theories, and why every test gets a new class instance;
+- test doubles (dummy, stub, fake, spy, mock), and when not to mock;
+- integration tests with `WebApplicationFactory` and a real database in Testcontainers, and why the EF Core in-memory provider misleads;
+- naming and Arrange-Act-Assert;
+- the usual causes of flaky tests: time, order, shared state, async waits.
+
+## The mechanism to explain without notes
+
+**A test is only as true as the things it runs for real, and only as repeatable as the inputs it controls.**
+
+- **Fidelity: what runs for real.** Each level of the pyramid replaces less. A unit test swaps collaborators for doubles; an integration test runs the real pipeline (routing, middleware, DI, binding, serialization) through `WebApplicationFactory`, against the real database engine in a container; an end-to-end test runs everything. A double encodes an assumption about what it replaces, so the test cannot catch that assumption being wrong. That is why you don't mock types you don't own (`HttpClient`, `DbContext`, a vendor SDK), and why the in-memory provider misleads: it is a fake whose behaviour is not the database's.
+- **Repeatability: what the test controls.** A test that reads the clock, depends on rows or statics another test left behind, or sleeps a fixed time for async work has an input it doesn't control, so it can change colour without a code change. Inject `TimeProvider`, give each test its own data, and await a signal rather than a delay.
+- **Diagnosis: what a failure says.** One behaviour per test, one Act line, and a name that states the requirement make a red test read like a bug report. Assertions on internal calls make it a report about the implementation instead, and the next refactoring breaks it.
+
+> **Pay attention.** **A double tests your assumption, not the dependency.** The usual wrong answer to "why not mock the `DbContext`?" is "it's slow". The real reason is that the mock returns what you told it to, so the query translation, constraints and transactions that fail in production never run. Fix: mock only your own boundary interfaces, and run code that touches SQL against the same engine as production.
+
+## Read (≈ 25 min)
+
+1. [Chapter 7: Why We Test At All](#why-we-test-at-all): what the pyramid's levels buy, and its two failure shapes.
+2. [Chapter 7: Unit Testing with xUnit](#unit-testing-with-xunit): facts and theories, the per-test class instance, fixtures.
+3. [Chapter 7: Test Doubles: The Full Taxonomy](#test-doubles-the-full-taxonomy): the five doubles, and state versus behaviour verification.
+4. [Chapter 7: When NOT to Mock](#when-not-to-mock): mock at the boundaries, not types you don't own.
+5. [Chapter 7: Integration Testing](#integration-testing): `WebApplicationFactory`, the in-memory provider trap, Testcontainers.
+6. [Chapter 7: Craft: Naming, Structure, and Smells](#craft-naming-structure-and-smells): naming, Arrange-Act-Assert, smells, and the causes of flaky tests.
+7. [Chapter 25: Deterministic Tests: Time, Async, and Test Data](#deterministic-tests-time-async-and-test-data): `FakeTimeProvider`, which also drives `Task.Delay` and timers.
+
+## Prove it
+
+The same model, with a unique index on `Email`, saves two users with the same email on the in-memory provider and on in-process SQLite, a real relational engine. No Docker needed. Predict both lines first.
+
+`verify/path/InMemoryProvider/Program.cs` · run it from `verify/path` with `dotnet run --project InMemoryProvider`:
+
+```csharp
+// Prove it: a test on the EF Core in-memory provider passes where a relational engine fails it: a unique index.
+using Microsoft.Data.Sqlite;
+using Microsoft.EntityFrameworkCore;
+
+using var sqlite = new SqliteConnection("DataSource=:memory:");    // a real relational engine, still in-process
+sqlite.Open();
+
+foreach (var (provider, options) in new[]
+{
+    ("InMemory", new DbContextOptionsBuilder<Shop>().UseInMemoryDatabase("shop").Options),
+    ("SQLite  ", new DbContextOptionsBuilder<Shop>().UseSqlite(sqlite).Options),
+})
+{
+    await using var db = new Shop(options);
+    await db.Database.EnsureCreatedAsync();
+    db.Users.AddRange(new User { Email = "ada@example.com" }, new User { Email = "ada@example.com" });
+    try
+    {
+        await db.SaveChangesAsync();
+        Console.WriteLine($"{provider}: saved {await db.Users.CountAsync()} users with the same email");
+    }
+    catch (DbUpdateException e) { Console.WriteLine($"{provider}: {e.InnerException?.Message}"); }
+}
+
+class Shop(DbContextOptions<Shop> options) : DbContext(options)
+{
+    public DbSet<User> Users => Set<User>();
+    protected override void OnModelCreating(ModelBuilder model) => model.Entity<User>().HasIndex(u => u.Email).IsUnique();
+}
+class User { public int Id { get; set; } public string Email { get; set; } = ""; }
+```
+
+```text
+InMemory: saved 2 users with the same email
+SQLite  : SQLite Error 19: 'UNIQUE constraint failed: Users.Email'.
+```
+
+What to notice:
+
+- **The model declares the index; only one engine enforces it.** `HasIndex(...).IsUnique()` is metadata. The relational provider turns it into `CREATE UNIQUE INDEX`, and the engine rejects the second row. The in-memory provider stores objects in .NET collections and has nothing to reject it with, so a "duplicate email is refused" test can only pass for real against an engine.
+- **SQLite is a step, not the destination.** It enforces constraints and transactions, but its SQL dialect and string comparison differ from SQL Server's or PostgreSQL's (SQLite compares case-sensitively, SQL Server's default collation doesn't). For queries, migrations and concurrency, run the production engine in a container.
+
+## Check at work
+
+**Inspect.** In your test projects, search for `UseInMemoryDatabase`, `Thread.Sleep`, `Task.Delay`, `DateTime.Now` and `DateTime.UtcNow`, and for `static` mutable fields in test classes. Sort each hit: a test that touches SQL on the in-memory provider, an uncontrolled clock, a fixed wait, or shared state. Then pick five tests at random and read only their names: can you tell which requirement broke if each one fails?
+
+**Measure.** From your CI history, count the tests that failed and then passed on a rerun of the same commit over the last month, and the suite's run time per level (unit, integration). Each rerun-to-green is a flaky test to fix or quarantine; in a slow integration tier, check how many containers start per run: one per collection, shared through a fixture, is usually enough.
+
+
+---
+
+# Part 1 · Module 10: Design Basics
+
+_⏱️ Estimated read time: ~5 min · 975 words (study pace)_
+
+> **What this module makes you able to do.** Explain each SOLID principle by what breaks without it, name the smell in a piece of code and the refactoring that removes it, and choose between a plain `if`, a Strategy and a Decorator — including when no pattern is the right answer.
+
+**Time:** reading ≈ 35 min; hands-on ≈ 35 min — the entry check 5 min, the check at work 30.
+
+## Entry check
+
+*Three questions to answer without notes. All three right: skip to the next module. Otherwise, work through this one.*
+
+**1.** `Square` inherits from `Rectangle` and overrides both setters to keep the sides equal. Every line compiles. Which principle does it break, and how does a caller find out?
+
+<details>
+<summary>Answer</summary>
+
+Liskov Substitution. A caller written against `Rectangle` relies on its contract: setting `Height` leaves `Width` alone. Set width 5 and height 4 on a `Square` and the area is 16, not 20. The compiler checks that the types fit; only the behaviour shows that the subtype broke the promise, so the failure surfaces as a wrong result far from the class that caused it. The fix is a different model (a shared `IShape`, or no inheritance), not more overrides: [Chapter 5: SOLID](#solid).
+</details>
+
+**2.** A shipping-cost `switch` has gained a fourth case this year, and the same `switch` exists in three files. What do you refactor it into, and what would make you leave it alone?
+
+<details>
+<summary>Answer</summary>
+
+A Strategy: one class (or one `Func<Order, decimal>`) per method, chosen once where the object graph is composed. Adding a method then means adding a class, not editing every copy of the `switch` (Open/Closed). Leave it alone when there is one `switch`, in one place, that rarely changes: the pattern would add indirection to buy flexibility nobody uses (YAGNI). The duplicated `switch` is the pain that pays for it: [Chapter 5: Strategy](#strategy).
+</details>
+
+**3.** You need caching around `IProductRepository` without editing `SqlProductRepository`. How, and why does it satisfy both Single Responsibility and Open/Closed?
+
+<details>
+<summary>Answer</summary>
+
+A Decorator: `CachingProductRepository` implements `IProductRepository` and wraps another instance of it, answering from the cache and delegating misses inward. Callers can't tell the difference because the interface is the same. Caching gets its own class with its own reason to change (SRP), and behaviour is added by adding code, not by editing the tested repository (OCP). Register it with Scrutor's `Decorate`, since the built-in container has no decorator registration: [Chapter 5: Decorator](#decorator).
+</details>
+
+## Covers
+
+- each SOLID letter as the failure it prevents, not as a slogan;
+- names, small functions that do what their name says, and comments that say *why*;
+- the common code smells, and the named refactoring each one points to;
+- Strategy and Decorator, the two patterns used every day;
+- when not to use a pattern: speculative generality and the wrong abstraction.
+
+## The mechanism to explain without notes
+
+**Every design rule here is a bet on where the next change will land: it gathers the code that changes for one reason into one place, behind a seam, and the indirection that costs is repaid only if that change actually comes.**
+
+Read the principles as failures they prevent:
+
+- **Single Responsibility.** Code that changes for different reasons, living in one class, makes every change risk the unrelated one next to it.
+- **Open/Closed.** A conditional copied into many places makes every new case a hunt; a new class per case keeps tested code closed.
+- **Liskov.** A subtype that breaks its base type's contract fails in code that never mentions the subtype.
+- **Interface Segregation.** A fat interface couples every implementer to methods it doesn't use, and invites `NotImplementedException`.
+- **Dependency Inversion.** High-level policy that `new`s its infrastructure can't be tested or recomposed; depending on an abstraction lets the composition root choose.
+
+Strategy and Decorator are those principles as code: Strategy moves a varying algorithm behind an interface, so a new case is a new class; Decorator adds behaviour around an interface without touching what it wraps. Names, small functions and *why*-comments do the same job locally: the reader learns what the code means without reconstructing it.
+
+The bet can lose. An interface with one implementation, a factory for one product, a hierarchy "for flexibility" all charge every reader for a change that never arrives. Write the simple version first, and refactor toward a pattern when the pain is real: the same `switch` edited for the third time, a class with three reasons to change.
+
+## Read (≈ 35 min)
+
+1. [Chapter 5: What a Design Pattern Actually Is](#what-a-design-pattern-actually-is), including *The Danger of Overusing Patterns*: a pattern as a recorded trade-off, and YAGNI.
+2. [Chapter 5: Principles: The Foundation Under the Patterns](#principles-the-foundation-under-the-patterns): SOLID with before-and-after code, then DRY, KISS, YAGNI, Demeter and composition over inheritance.
+3. [Chapter 5: Strategy](#strategy) and [Decorator](#decorator): the two patterns to know cold, and when a `Func<>` is enough.
+4. [Chapter 5: Clean Code & Code Smells](#clean-code-code-smells): naming, functions, comments, the smells table, a worked refactoring, and refactoring under tests.
+
+## Check at work
+
+**Inspect.** Open the class in your service that changes most often (`git log --format= --name-only | sort | uniq -c | sort -rn | head`). List its reasons to change; more than one is a candidate for Extract Class. Then search for `switch` statements on the same type or enum in more than one file, and for interfaces with exactly one implementation and no test double. Good: each is justified in one sentence. Bad: "we might need it".
+
+**Measure.** In your next three pull requests, name every smell you notice from the Chapter 5 table in a review comment, with the refactoring it points to. Count how many the author agreed with; the ones they didn't are where your reasoning needs one more sentence.
+
+
+---
+
+# Part 1 · Module 11: Git and Everyday Tooling
+
+_⏱️ Estimated read time: ~5 min · 1171 words (study pace)_
+
+> **What this module makes you able to do.** Keep a branch current, clean and reviewable without losing anyone's work, get back commits that look lost, and set up the SDK tools, analyzers and formatter so that every machine and the CI build apply the same rules.
+
+**Time:** reading ≈ 15 min; hands-on ≈ 50 min — the entry check 5 min, the reflog drill 15, the check at work 30.
+
+## Entry check
+
+*Three questions to answer without notes. All three right: skip to the next module. Otherwise, work through this one.*
+
+**1.** You rebased your feature branch onto the latest `main`, and now `git push` is rejected, although nobody else has touched the branch. Why, and what do you run?
+
+<details>
+<summary>Answer</summary>
+
+Rebase doesn't move your commits; it writes new ones. A commit's ID is a hash of its content, and the content includes the parent's ID, so the same change replayed on a new parent gets a new ID. The remote branch still points at the old commits, which are not ancestors of your new tip, so the push is not a fast-forward and Git refuses it. Run `git push --force-with-lease`: it replaces the remote branch only if it still points where your last fetch saw it, so a teammate's push isn't silently thrown away. Never do it to a branch others build on, such as `main`. [Chapter 12: Merge vs Rebase](#merge-vs-rebase) explains both halves.
+</details>
+
+**2.** You added `appsettings.Development.json` to `.gitignore`, but `git status` still reports changes to it. Why?
+
+<details>
+<summary>Answer</summary>
+
+`.gitignore` only stops *untracked* files from being added. This file is already tracked: it is in the index and in every commit since it was added, so Git keeps comparing it. Run `git rm --cached appsettings.Development.json` and commit the removal. If the file ever held a secret, rotate the secret, because the old commits still contain it. See [Chapter 12: .gitignore](#gitignore).
+</details>
+
+**3.** `dotnet-counters` works on your laptop, but it is "not found" on the build agent and inside the container. Where does it come from?
+
+<details>
+<summary>Answer</summary>
+
+It is not part of the SDK or the runtime. It is a .NET tool, a NuGet package that contains a console app, and `dotnet tool install -g` put it in `~/.dotnet/tools` on your machine only. Pin it in the repository's tool manifest (`.config/dotnet-tools.json`, installed by `dotnet tool restore`), run it once with `dnx dotnet-counters` on the .NET 10 SDK, or copy its single-file build into a container that has no SDK. It has to run next to the process it watches: it connects through a socket in that container's `/tmp`. See [Chapter 16: The dotnet CLI and Global Tools](#the-dotnet-cli-and-global-tools).
+</details>
+
+## Covers
+
+- Git's model: a commit is a snapshot that names its parent, a branch is a movable pointer, and what follows from that;
+- merge versus rebase: which one rewrites commit IDs, and why you never rewrite shared history;
+- getting "lost" work back with the reflog, and what `.gitignore` can't undo;
+- trunk-based development versus GitFlow, and small pull requests whose description says why;
+- the `dotnet` CLI: SDK commands versus .NET tools (global, local, `dnx`), and where `dotnet-counters`, `dotnet-trace` and `dotnet-dump` come from;
+- IDE refactoring, Roslyn analyzers and `.editorconfig` as one set of rules for the IDE and the CI build.
+
+## The mechanism to explain without notes
+
+**A commit is an immutable snapshot whose ID is a hash of its content, parent IDs included; a branch is only a movable name for one commit.**
+
+Every Git trap in this module follows from that sentence:
+
+- **Merge adds; rebase replaces.** A merge writes one new commit with two parents and moves the branch name forward. No existing ID changes, so it is safe on a shared branch. A rebase replays each of your changes onto a new parent, so every replayed commit gets a new ID. Anyone who based work on the old commits now has a history that disagrees with yours: rebase only what nobody else has built on.
+- **"Lost" commits are only unnamed.** `git reset --hard`, a botched rebase or a deleted branch moves or removes a name. The commits stay in the object store, and the reflog records every position `HEAD` held, so they can be named again for weeks.
+- **Ignoring is not untracking.** `.gitignore` filters what `git add` picks up from *untracked* files. A file that is already in a commit is part of that snapshot for good.
+- **Divergence is the cost.** The longer a branch lives, the further its snapshot drifts from `main`: more conflicts, and a review too big to read. Trunk-based development (branches that live hours, unfinished work behind feature flags) keeps the drift small. GitFlow's long-lived `develop` and release branches postpone it. A small pull request whose description says *why* is the unit a reviewer can actually check.
+
+The tooling half has one mechanism too: **the `dotnet` CLI is a driver.** Built-in commands (`build`, `test`, `format`, `user-secrets`, `watch`) ship with the SDK. Anything else is a .NET tool, installed per user, pinned per repository or run once, and `dotnet-counters`, `dotnet-trace` and `dotnet-dump` are such tools. Analyzers work the same way for code rules: they run inside the compiler, so the IDE, `dotnet build` and CI report the same diagnostics, at the severities `.editorconfig` sets.
+
+## Read (≈ 15 min)
+
+1. [Chapter 12: Git, Properly Understood](#git-properly-understood): the object model first; then merge versus rebase and the reflog, the two you will use every week.
+2. [Chapter 17: The author's responsibilities](#the-authors-responsibilities): small pull requests, and a description that answers *why*.
+3. [Chapter 16: IDEs: Visual Studio, Rider, and VS Code](#ides-visual-studio-rider-and-vs-code).
+4. [Chapter 16: Refactoring & Linting](#refactoring-linting) and [Formatting in CI](#formatting-in-ci): analyzers, `.editorconfig`, and why a rule that only warns is a rule nobody follows.
+5. [Chapter 16: The dotnet CLI and Global Tools](#the-dotnet-cli-and-global-tools): global and local tools, `dnx`, and how the diagnostic tools reach a running process.
+
+## Check at work
+
+**Inspect.** Four commands in your own repository:
+
+- `git log --graph --oneline -40 main`: one line of small merges is trunk-based in practice; long parallel lanes are branches that lived for weeks.
+- `git ls-files | grep -E '(^|/)(bin|obj)/|\.user$|\.env$'`: anything printed is a build output, personal IDE state or a secret file that the repository tracks.
+- Look for `.config/dotnet-tools.json`. CI should run `dotnet tool restore`, not `dotnet tool install -g` with whatever version is newest that day.
+- Check that CI runs `dotnet format --verify-no-changes` and builds with warnings as errors. If it doesn't, the analyzers are advice.
+
+**Do.** In a throwaway clone, run `git reset --hard HEAD~3`, then get the three commits back from `git reflog`, before you ever need to do it for real.
+
+**Measure.** For your last ten merged pull requests, note the lines changed and the hours from the first commit to the merge. Several days or several hundred lines is where reviews turn into "LGTM" and conflicts start to cost more than the change itself.
+
+
+---
+
+# Part 1 · Module 12: Security Essentials
+
+_⏱️ Estimated read time: ~5 min · 1163 words (study pace)_
+
+> **What this module makes you able to do.** Write and review an endpoint so that it checks who the caller is, what this caller may do to this particular record, and treats every input as data; keep secrets out of the repository; and spot the handful of configuration lines that quietly switch a defence off.
+
+**Time:** reading ≈ 20 min; hands-on ≈ 50 min — the entry check 5 min, the review drill 15, the check at work 30.
+
+## Entry check
+
+*Three questions to answer without notes. All three right: skip to the next module. Otherwise, work through this one.*
+
+**1.** `GET /api/invoices/{id}` carries `[Authorize]`. A logged-in customer changes the ID in the URL and sees another customer's invoice. Why didn't `[Authorize]` stop it, and what does?
+
+<details>
+<summary>Answer</summary>
+
+`[Authorize]` runs before the action, so it can only answer "may this caller call this endpoint at all?". It never sees which invoice is loaded, and ownership is a property of that row. This is an insecure direct object reference, the classic form of broken access control. Check ownership per resource: put the owner or tenant in the query (`WHERE Id = @id AND OwnerId = @me`), or load the record and run resource-based authorization. Return `404`, so IDs can't be enumerated. See [Chapter 14: A01: Broken Access Control](#a01-broken-access-control).
+</details>
+
+**2.** `FromSqlRaw($"SELECT * FROM Users WHERE Email = '{email}'")` and `FromSql($"SELECT * FROM Users WHERE Email = {email}")` both take an interpolated string. Why is only the first injectable?
+
+<details>
+<summary>Answer</summary>
+
+`FromSqlRaw` takes a `string`, so the C# compiler formats the interpolation into the SQL text before EF Core sees it: the input becomes part of the code the database parses. `FromSql` takes a `FormattableString`, so EF Core receives the format and the values separately and sends each value as a `DbParameter`, which the database never parses as SQL. Dapper works the same way: `@email` with `new { email }` is a parameter; a concatenated string is not. See [Chapter 14: A03: Injection](#a03-injection).
+</details>
+
+**3.** Which properties of a JWT must the API check before it trusts a single claim in it, and why is "it decodes and has a `sub`" worthless?
+
+<details>
+<summary>Answer</summary>
+
+The signature, with a key from the issuer you trust and an algorithm you allow; the issuer; the audience (the token was minted for *this* API); and the lifetime (`exp`, `nbf`, with a small clock skew). Decoding is only Base64: anyone can write a token with any `sub`. Until the signature is verified, every claim is attacker-controlled; until the audience is checked, a valid token for another API works on yours. See [Chapter 14: Validating JWTs Correctly](#validating-jwts-correctly).
+</details>
+
+## Covers
+
+- authentication versus authorization, and `401` versus `403`;
+- broken access control: authorize per resource, not per endpoint (IDOR);
+- injection: parameters in ADO.NET, EF Core and Dapper, and why concatenation and `FromSqlRaw` reopen the hole;
+- validating a JWT: signature, algorithm, issuer, audience, lifetime, and the settings that switch them off;
+- secrets: nothing in the repository, user-secrets in development, Key Vault with a managed identity in Azure;
+- password hashing with a slow, salted algorithm you didn't write; HTTPS, HSTS and CORS basics.
+
+## The mechanism to explain without notes
+
+**The server trusts only what it verifies itself, on every request: the caller's identity from a credential it validates, access per resource, and input as data, never as code.**
+
+Each trap is a place where something unverified gets trusted:
+
+- **Access control.** Authentication produces a `ClaimsPrincipal`; authorization decides what it may do. Endpoint attributes and policies see the principal, not the record, so the ownership check belongs where the record is: in the query, or after loading it.
+- **Injection.** Concatenation puts input into the command text the database parses. A parameter travels beside the text and is only ever a value. Identifiers (a sort column, a table name) can't be parameters: map them from an allow-list.
+- **Tokens.** A JWT is Base64 claims plus a signature. The bearer handler checks issuer, audience, lifetime and signature by default; the vulnerabilities come from switching a check off to make a `401` go away, or from never pinning the algorithm.
+- **Secrets.** Everything in the repository reaches every clone, forever, through history. Development secrets live outside the tree (user-secrets); production secrets live in a vault the app reaches with a managed identity, so there is no secret to fetch the secret.
+- **Passwords.** Store a slow, salted, versioned hash so a stolen table costs years of guessing; use ASP.NET Core Identity's `PasswordHasher<T>`, never a fast hash and never encryption.
+- **The browser.** HSTS makes the browser refuse plain HTTP to your site; CORS lets a browser show your API's responses to another origin's script. Both protect users in browsers. Neither protects the API from `curl`.
+
+> **Pay attention.** **CORS doesn't stop the request.** For a "simple" cross-origin request (a `GET`, or a form-encoded `POST`), the browser sends it, your server runs it, and only then does the browser hide the response from the calling script. A denied CORS check has already changed your data; that is why state-changing endpoints with cookie authentication still need anti-forgery tokens. See [Chapter 14: CORS Done Right](#cors-done-right).
+
+## Read (≈ 20 min)
+
+1. [Chapter 14: The Security Mindset](#the-security-mindset): four decision rules; secure by default is the one the rest of the list tests.
+2. [Chapter 14: A01: Broken Access Control](#a01-broken-access-control) and [A03: Injection](#a03-injection).
+3. [Chapter 3: Policy-based and role-based authorization](#policy-based-and-role-based-authorization): where a resource-based handler fits.
+4. [Chapter 14: Authentication vs. Authorization](#authentication-vs-authorization).
+5. [Chapter 14: What a JWT Is](#what-a-jwt-is) and [Validating JWTs Correctly](#validating-jwts-correctly): what each check stops, and which property does *not* do what its name suggests.
+6. [Chapter 14: Secrets Management](#secrets-management).
+7. [Chapter 14: Password Hashing](#password-hashing): salt, work factor, and the parameters stored with the hash.
+8. [Chapter 14: HTTPS, TLS, HSTS, and Certificates](#https-tls-hsts-and-certificates) and [CORS Done Right](#cors-done-right).
+
+## Check at work
+
+**Inspect.** Search your service:
+
+- every action with an `{id}` in its route: does the query filter by the caller's owner or tenant, or does it load by ID alone?
+- `FromSqlRaw(`, `ExecuteSqlRaw(`, `SqlQueryRaw(`, and SQL built with `+` or `$"`: each hit needs a reason, and any identifier in it needs an allow-list;
+- `ValidateAudience = false`, `ValidateIssuer = false`, `RequireSignedTokens = false`, a custom `SignatureValidator`, or `ServerCertificateCustomValidationCallback` that returns `true`: each one disables a check;
+- secrets in `appsettings*.json` and in history: `git log -p -S "Password=" -- '*.json'`;
+- `AllowAnyOrigin()`, or a policy that echoes the request's `Origin` back.
+
+**Do.** Review one endpoint with three questions: who is the caller, what proves they may touch *this* record, and which inputs reach a parser (SQL, a shell, a URL fetch)? Write the answers into the pull request.
+
+**Measure.** Count the endpoints that allow anonymous access, from your route table or OpenAPI document. Then set a fallback policy that requires an authenticated user, so that opening an endpoint takes an explicit `[AllowAnonymous]`.
+
+
+---
+
+# Part 1 · Module 13: Dates, Money and Strings
+
+_⏱️ Estimated read time: ~10 min · 1219 words (study pace)_
+
+> **What this module makes you able to do.** Store and compute times, amounts and identifiers so that the result doesn't depend on the server's time zone, the user's culture, or a rounding rule nobody chose; and test code that depends on "now".
+
+**Time:** reading ≈ 20 min; hands-on ≈ 50 min — the entry check 5 min, the experiment 15, the check at work 30.
+
+## Entry check
+
+*Three questions to answer without notes. All three right: skip to the next module. Otherwise, work through this one.*
+
+**1.** A job runs "every day at 02:30 Europe/Berlin". What happens on 29 March 2026 and on 25 October 2026?
+
+<details>
+<summary>Answer</summary>
+
+On 29 March the clocks jump from 02:00 to 03:00: 02:30 never happens, and `TimeZoneInfo.ConvertTimeToUtc` throws `ArgumentException` for it. On 25 October they fall back from 03:00 to 02:00: 02:30 happens twice, at two different instants, and the conversion silently picks the second (standard-time) one. Depending on the scheduler, the job runs twice, once, or not at all. Schedule in UTC, or write down the policy for the gap and the overlap. See [Chapter 26: Daylight Saving Time: gaps and overlaps](#daylight-saving-time-gaps-and-overlaps).
+</details>
+
+**2.** Why is `Math.Round(2.5)` equal to `2`, and why does `Math.Round(1.005, 2, MidpointRounding.AwayFromZero)` give `1` rather than `1.01`?
+
+<details>
+<summary>Answer</summary>
+
+`Math.Round` defaults to `MidpointRounding.ToEven` (banker's rounding): a midpoint goes to the even neighbour. The second one is a `double` problem: the literal 1.005 is stored as the nearest binary fraction, 1.00499999999999989342, which is below the midpoint, so no rounding mode can take it up. With `decimal`, `1.005m` is exact and rounds to `1.01`. See [Chapter 26: Money and Numbers](#money-and-numbers).
+</details>
+
+**3.** What is wrong with `if (role.ToLower() == "admin")`, and what do you write instead?
+
+<details>
+<summary>Answer</summary>
+
+`ToLower()` uses the current culture. Under Turkish (`tr-TR`), `"ADMIN".ToLower()` is `"admın"` with a dotless ı, so the check fails on a machine or request with that culture. An identifier is not text for humans: compare it ordinally, `string.Equals(role, "admin", StringComparison.OrdinalIgnoreCase)`. See [Chapter 26: String comparison and sorting: the quiet catastrophe](#string-comparison-and-sorting-the-quiet-catastrophe).
+</details>
+
+## Covers
+
+- `DateTime` versus `DateTimeOffset` versus `DateOnly` and `TimeOnly`, and why server code never reads `DateTime.Now`;
+- storing and computing in UTC; daylight saving gaps and overlaps; IANA versus Windows zone IDs;
+- `TimeProvider` for code and tests that depend on time;
+- money: `decimal`, never `double`; `Math.Round`'s banker's default; minor units plus a currency;
+- culture-aware formatting for people, invariant formats for data;
+- string comparison: ordinal for identifiers, a culture for display, and the overloads that pick a culture silently.
+
+## The mechanism to explain without notes
+
+**A value is correct only together with the context that gives it meaning: an instant needs UTC or an offset, a wall-clock time needs a zone, an amount needs a currency and a rounding rule, a comparison needs a declared kind.**
+
+When the context is implicit, the machine supplies one, and every trap is that substitution:
+
+- **Time.** `DateTime.Now` takes the server's zone; a `DateTime` with `Kind = Unspecified` takes whatever zone the next conversion assumes. Store instants as UTC or `DateTimeOffset`, keep the user's IANA zone ID beside any wall-clock value you must keep, and convert at the edge. A local day can be 23 or 25 hours long, so local arithmetic is wrong twice a year.
+- **"Now".** `TimeProvider` makes the clock an injected dependency, so a test can fix it and move it.
+- **Money.** `double` stores the nearest binary fraction, so most cents are not stored exactly; `decimal` stores a whole number and a power-of-ten scale, so they are. Rounding is a business rule: `Math.Round` defaults to half-to-even, formatting with `"F2"` rounds half away from zero, and splitting a total leaves remainders that a rule must place.
+- **Culture.** `CurrentCulture` decides decimal marks, date order and casing. Text for people uses it; data for machines (JSON, logs, file names, keys) uses `CultureInfo.InvariantCulture` and ISO 8601.
+- **Strings.** `==` and `Equals` are ordinal, but `ToUpper()`, `ToLower()`, `string.Compare`, `StartsWith(string)` and `IndexOf(string)` use the current culture unless you pass a `StringComparison`.
+
+## Read (≈ 20 min)
+
+1. [Chapter 26: Date and Time Done Right](#date-and-time-done-right): the four types, UTC, DST gaps and overlaps, zone IDs, NodaTime, `TimeProvider`, parsing.
+2. [Chapter 26: Money and Numbers](#money-and-numbers): `decimal`, rounding modes, minor units with a currency, culture-aware number formatting.
+3. [Chapter 26: CurrentCulture vs CurrentUICulture](#currentculture-vs-currentuiculture).
+4. [Chapter 26: String comparison and sorting: the quiet catastrophe](#string-comparison-and-sorting-the-quiet-catastrophe).
+
+## Prove it
+
+Money first: predict each line before you run it. It needs only the .NET 10 SDK.
+
+`verify/path/MoneyAndRounding/Program.cs` · run it from `verify/path` with `dotnet run --project MoneyAndRounding`:
+
+```csharp
+// Prove it: double cannot store most decimal fractions, decimal can; Math.Round sends a midpoint to
+// the even neighbour unless told otherwise, and ToString("F2") does not round the way Math.Round does.
+double d = 0.1 + 0.2;
+decimal m = 0.1m + 0.2m;
+Console.WriteLine($"0.1 + 0.2: double {d} (== 0.3: {d == 0.3}), decimal {m} (== 0.3: {m == 0.3m})");
+
+double priceAsDouble = 1.005;
+Console.WriteLine($"1.005 to cents, AwayFromZero: double {Math.Round(priceAsDouble, 2, MidpointRounding.AwayFromZero)}, " +
+    $"decimal {Math.Round(1.005m, 2, MidpointRounding.AwayFromZero)}");
+Console.WriteLine($"  the double 1.005 is really {priceAsDouble:F20}");
+
+Console.WriteLine($"Math.Round(2.5m) = {Math.Round(2.5m)}, Math.Round(3.5m) = {Math.Round(3.5m)} (half to even: the default)");
+Console.WriteLine($"Math.Round(2.5m, MidpointRounding.AwayFromZero) = {Math.Round(2.5m, MidpointRounding.AwayFromZero)}");
+Console.WriteLine($"Math.Round(2.345m, 2) = {Math.Round(2.345m, 2)}, but 2.345m.ToString(\"F2\") = {2.345m.ToString("F2")}");
+
+decimal share = Math.Round(100.00m / 3, 2);
+Console.WriteLine($"100.00 split three ways: {share} each, {share * 3} in total; the missing cent needs a rule");
+```
+
+```text
+0.1 + 0.2: double 0.30000000000000004 (== 0.3: False), decimal 0.3 (== 0.3: True)
+1.005 to cents, AwayFromZero: double 1, decimal 1.01
+  the double 1.005 is really 1.00499999999999989342
+Math.Round(2.5m) = 2, Math.Round(3.5m) = 4 (half to even: the default)
+Math.Round(2.5m, MidpointRounding.AwayFromZero) = 3
+Math.Round(2.345m, 2) = 2.34, but 2.345m.ToString("F2") = 2.35
+100.00 split three ways: 33.33 each, 99.99 in total; the missing cent needs a rule
+```
+
+The output is from `verify/path/reference-runs/money-and-rounding.txt` (.NET 10.0.12, Linux x64); it is the same on any machine, because none of it depends on the clock or the culture. What to notice:
+
+- **The double was never 1.005.** An explicit `AwayFromZero` can't fix a value that is already below the midpoint. Equality fails for the same reason: `0.1 + 0.2` and `0.3` are two different binary approximations.
+- **Two rounding rules in one invoice.** `Math.Round` keeps 2.34 (half to even), while `"F2"` prints 2.35 (half away from zero). Round once, with an explicit `MidpointRounding`, and format the rounded value, or the document disagrees with the ledger by a cent.
+- **`decimal` is exact only for decimal fractions.** A third of 100.00 has no finite decimal form. Allocation needs a rule, such as giving the remainder cent to the first share, so that the parts add up to the total.
+
+## Check at work
+
+**Inspect.** Search your service for `DateTime.Now`, `DateTime.Parse(` and `ToString(` without a culture or format, `double` or `float` on any amount, `Math.Round(` without a `MidpointRounding`, and `.ToLower()` / `.ToUpper()` / `string.Compare(` in comparisons. In the database, look for money in `float` columns and for instants in `datetime`/`datetime2` columns whose zone nobody wrote down.
+
+**Measure.** Run your test suite with another zone and culture: `TZ=Pacific/Chatham dotnet test` on Linux (UTC+12:45 in winter, +13:45 in summer), and one test fixture that sets `CultureInfo.CurrentCulture = new CultureInfo("tr-TR")`. Every new failure is a place where the machine's context leaked into a result.
+
+
+---
+
+# Part 1 · Pay Attention To
+
+_⏱️ Estimated read time: ~5 min · 1435 words (study pace)_
+
+> **What this page is for.** The traps behind the most common wrong answers in Part 1, one row each: what the trap looks like, the mechanism that makes it bite, and the fix. Reread it before an interview or a review; the module in the first column explains the row in full.
+
+| Module | Trap | Why it bites | The fix |
+|---|---|---|---|
+| [1](#part-1-module-1-async-essentials) | `async void` for fire-and-forget | There is no `Task` to carry the exception: the method builder rethrows it on the captured context or a thread-pool thread, the caller's `catch` never runs, and the process exits. | Return `Task`. Real fire-and-forget goes through a queue or a `BackgroundService` that observes failures; `async void` only for event handlers, with a `try/catch` around the whole body. |
+| [1](#part-1-module-1-async-essentials) | `await Task.WhenAll(...)` logs one failure | `await` rethrows only the first stored exception; the others stay on the task. | Keep the `WhenAll` task in a variable and log `task.Exception?.InnerExceptions` (null when it was cancelled). |
+| [1](#part-1-module-1-async-essentials) | `.Result`, `.Wait()`, `.GetAwaiter().GetResult()` on a request path | Each call pins a pool thread for the whole wait; the continuations that would free it queue behind new requests, and the pool adds threads slowly. Every endpoint slows while the CPU stays low. | Async all the way down; chart the thread-pool queue length and thread count. |
+| [1](#part-1-module-1-async-essentials) | `new HttpClient()` per call | Every client brings its own connection pool; every closed connection holds a port in `TIME_WAIT` (60 s on Linux), and App Service has 128 SNAT ports per instance and destination. | `IHttpClientFactory`, or one long-lived client with `PooledConnectionLifetime`. |
+| [2](#part-1-module-2-ef-core-essentials) | Lazy loading, or a navigation read in a loop | Every navigation access is a statement: 1 + N round trips, each with a cheap plan, so no single plan shows the cost. | `Include` or a projection; count statements per request; turn lazy loading off. |
+| [2](#part-1-module-2-ef-core-essentials) | Tracking queries on read-only endpoints | The change tracker keeps a snapshot and an identity-map entry for every row returned, and nothing ever saves them. | `AsNoTracking()` or a projection. |
+| [3](#part-1-module-3-sql-and-indexes) | A composite index in the wrong order | The index is sorted left to right. Without the leading column there is no contiguous range, so it scans; with a range first, the equality column becomes a row-by-row filter. | Equality columns first, then the range or sort column; check that both appear in the seek predicate. |
+| [3](#part-1-module-3-sql-and-indexes) | A function or a conversion on the column | `LOWER(Email)`, or a `varchar` column compared with an `nvarchar` parameter, asks about values the index doesn't store, so it scans (888 reads against 3 in the experiment). | Compare the raw column with a parameter of the right type (`IsUnicode(false)`, `DbString { IsAnsi = true }`); a case-insensitive collation instead of `LOWER`. |
+| [4](#part-1-module-4-messaging-and-long-running-work) | A handler that runs longer than its lock | The lock is a lease (1 minute by default, 5 at most); when it expires, another consumer gets the message while you are still working. | `ServiceBusProcessor` with lock renewal, no oversized batches or prefetch, and an idempotent handler. |
+| [4](#part-1-module-4-messaging-and-long-running-work) | Check-then-act deduplication | Two concurrent copies both pass the check before either records the ID; a crash between the effect and the record repeats the effect. | Claim first: insert the ID under a unique key in the effect's transaction; pass the key to external APIs. |
+| [4](#part-1-module-4-messaging-and-long-running-work) | "Duplicate detection makes us idempotent" | It drops repeated *sends* within its window; a redelivery is the same message, which it never sees. | Keep it for producers; make every handler idempotent anyway. |
+| [4](#part-1-module-4-messaging-and-long-running-work) | A bare `202` with no `Location` | The client can't find the result, and a retried `POST` starts a second job. | `202` with `Location` and `Retry-After`; the status resource answers 200, then 303; an idempotency key on the `POST`. |
+| [5](#part-1-module-5-working-like-a-middle-developer) | A review comment without a condition | "This could be a problem" can't be checked, so arguing or ignoring it is cheaper than acting on it. | Condition → mechanism → cost → fix, labelled `blocking:`, `suggestion:`, `nit:` or `question:`. |
+| [5](#part-1-module-5-working-like-a-middle-developer) | A padded point estimate | The steps you can't picture are missing from the sum, so the error runs one way, and padding hides which assumption drives the number. | A range anchored on actuals for similar work, its driving assumption named, re-estimated the day it breaks. |
+| [5](#part-1-module-5-working-like-a-middle-developer) | Starting a vague ticket as written | The wrong interpretation surfaces after the code exists, when it costs the most. | A short problem statement with your questions, before any code. |
+| [6](#part-1-module-6-exceptions-logging-and-first-diagnosis) | `throw ex;` | It restarts the stack trace at the rethrow, so the frame that threw disappears and the log blames the catch block. | `throw;`, or wrap with the original as `InnerException`. |
+| [6](#part-1-module-6-exceptions-logging-and-first-diagnosis) | Log-and-rethrow in every layer | One failure becomes N `Error` entries, each with a partial story. | Log once, at the boundary that handles it. |
+| [6](#part-1-module-6-exceptions-logging-and-first-diagnosis) | `LogInformation($"…")` | The provider gets a finished string: no properties to query, and every value becomes a new message template. | Message templates; `[LoggerMessage]` on hot paths. |
+| [7](#part-1-module-7-c-essentials) | `==` on `object` or in a `where T : class` generic | Operators bind at compile time, so it compares references, with no warning. | Compare through the real type, or use `Equals`. |
+| [7](#part-1-module-7-c-essentials) | An EF query declared as `IEnumerable<T>` | It binds `Enumerable.Where`: later filters run in C#, and each enumeration runs the SQL again. | Keep `IQueryable<T>` until filtered; materialise once. |
+| [7](#part-1-module-7-c-essentials) | Trusting nullable annotations on deserialized data | They are compile-time only; the serializer writes `null` into a non-nullable property. | `required`, `RespectNullableAnnotations`, `ArgumentNullException.ThrowIfNull`. |
+| [8](#part-1-module-8-web-api-basics) | A singleton that takes a scoped `DbContext` | It is resolved from the root scope and never disposed: one context shared by every request and thread. The check runs only in Development. | A scoped consumer, or `IServiceScopeFactory` / `IDbContextFactory`; `ValidateOnBuild` in Development. |
+| [8](#part-1-module-8-web-api-basics) | `UseAuthorization` before `UseAuthentication` or `UseRouting` | Authorization reads a `User` and endpoint metadata that aren't set yet: 401 for valid tokens, or a 500. | Routing, then authentication, then authorization. |
+| [9](#part-1-module-9-testing-essentials) | Tests on the EF in-memory provider | No SQL runs: unique indexes, collation and transactions never apply, so the tests pass code the real engine rejects. | The production engine in Testcontainers for anything that touches SQL. |
+| [9](#part-1-module-9-testing-essentials) | Passes alone, fails in the suite | Test classes run in parallel and share statics, fixtures and database rows. | Each test owns its data; a `[Collection]` for classes that share a resource. |
+| [10](#part-1-module-10-design-basics) | A pattern "for flexibility" | Every reader pays for the indirection; the change it prepares for rarely comes. | Write the simple version; refactor toward the pattern when the pain repeats. |
+| [11](#part-1-module-11-git-and-everyday-tooling) | Rebasing a branch someone else has pulled | A rebase replaces commits with new IDs; the next push must be forced and overwrites their work. | Merge on shared branches; rebase only your own unpushed work. |
+| [11](#part-1-module-11-git-and-everyday-tooling) | Adding a committed file to `.gitignore` | Ignoring filters only untracked files; the file stays in every commit, secrets included. | `git rm --cached`, and rotate any secret that was ever committed. |
+| [12](#part-1-module-12-security-essentials) | Authorizing the endpoint, not the record | The policy sees the user, not whose order `id` 42 is, so any signed-in user reads any order. | Check ownership in the query (`WHERE OwnerId = @user`), every time. |
+| [12](#part-1-module-12-security-essentials) | Relying on CORS to protect an endpoint | The browser still sends a simple cross-origin request; CORS only hides the response from the calling script. | Authorization and anti-forgery on the server; CORS for what browsers may read. |
+| [13](#part-1-module-13-dates-money-and-strings) | `double` for money | Most cents have no exact binary form, so sums and comparisons drift, and rounding can't recover a value already below the midpoint. | `decimal`, minor units with a currency, one explicit rounding rule. |
+| [13](#part-1-module-13-dates-money-and-strings) | `DateTime.Now` or `Kind = Unspecified` in storage | The value means a different instant on every server and around every DST change. | Store UTC or `DateTimeOffset`; keep the user's zone separately; `TimeProvider` for "now". |
+
+
+---
+
+# Part 2: Middle → Senior
+
+_⏱️ Estimated read time: ~5 min · 495 words (study pace)_
+
+> **What Part 2 makes you able to do.** Explain why the platform behaves the way it does under load, keep data and messages consistent across services and over time, choose an architecture and defend its trade-offs, run what you build in production, and make the decisions a team trusts a senior with: what to build, what to defer, and what to write down.
+
+**Time:** reading ≈ 6 h 45 min of linked chapter sections, hands-on ≈ 38 h, labs included; with a second read, about 52 hours, or ten to eleven weeks at five hours a week. The labs are most of it: take them in the order of the modules, or start with the module your work needs now.
+
+## How Part 2 Works
+
+Part 2 assumes [Part 1](#part-1-junior-middle): it doesn't repeat what `await` does, why a queue redelivers or what an index seek is. Each module goes one level down (the internals behind Part 1's rules) and one level out (the same mechanism across services, under load and over months), then asks you to decide.
+
+1. **Read the mechanism, then the linked sections.**
+2. **Practise.** Part 2 practises on labs, exercises and your own system rather than on 30-line programs: the slow-query lab, the emulator-verified Service Bus exercises, an instrumented service, an ADR.
+3. **Answer the three questions without notes.** They are the follow-ups a senior is asked: *why does it break, what would you watch, what would you choose.*
+4. **Decide.** Each module ends with a situation that has two or three defensible answers. Write your choice and the condition that would change it before you open the reasoning.
+5. **Do the check at work.**
+
+Your own write-ups, decisions and evidence belong in your own public portfolio repository, not in this one, and stories about a real employer stay private.
+
+Before an interview, reread [Part 2 · Pay Attention To](#part-2-pay-attention-to).
+
+## The Modules of Part 2
+
+| # | Module | Reading | Hands-on |
+|---|---|---|---|
+| 1 | [Runtime and Concurrency Internals](#part-2-module-1-runtime-and-concurrency-internals) | 45 min | 2 h 25 min |
+| 2 | [Data in Depth](#part-2-module-2-data-in-depth) | 1 h 5 min | 7 h 40 min |
+| 3 | [Distributed Consistency](#part-2-module-3-distributed-consistency) | 45 min | 3 h 50 min |
+| 4 | [Architecture, API Evolution and System Design](#part-2-module-4-architecture-api-evolution-and-system-design) | 1 h | 3 h 50 min |
+| 5 | [Observability and Testing at Scale](#part-2-module-5-observability-and-testing-at-scale) | 55 min | 6 h 35 min |
+| 6 | [Production and the Cloud](#part-2-module-6-production-and-the-cloud) | 1 h 30 min | 5 h 35 min |
+| 7 | [Senior Behaviours](#part-2-module-7-senior-behaviours) | 45 min | 8 h 20 min |
+
+## Beyond Part 2
+
+The chapters Part 2 does not route through are still worth reading when your work needs them: specialised testing, compliance and cost, front-end work, AI systems, and the Trusted Advisor part for client-facing work. The [Full book](#the-middle-senior-net-developer-handbook) tab lists every chapter.
+
+
+---
+
+# Part 2 · Module 1: Runtime and Concurrency Internals
+
+_⏱️ Estimated read time: ~15 min · 2715 words (study pace)_
+
+> **What this module makes you able to do.** Predict how a .NET service behaves when its threads block or its heap churns, prove it from counters and a dump, and choose between tuning the runtime and changing the code, with the cost of each spelled out for the team that will live with the choice.
+
+**Time:** reading ≈ 45 min; hands-on ≈ 2 h 25 min — the counters, the dump and the trace 1 h, Chapter 8's exercises 20, the questions 20, the decision 15, the check at work 30.
+
+## Covers
+
+- what the async method builder does with a result, an exception and a captured context, and what `ConfigureAwait` changes;
+- how fast the thread pool adds threads for `.Result`, for `Thread.Sleep` and for CPU work, and why `SetMinThreads` is a stopgap, not a fix;
+- the rules behind `ValueTask`, back-pressure with a bounded `Channel<T>`, `lock` and `System.Threading.Lock`, `Interlocked`, and the memory model;
+- why a 100 KB buffer per request turns into gen2 collections, and what Server GC and DATAS change;
+- `Span<T>` and pooling as "no allocation, no collection";
+- reading a live process: `dotnet-counters` first, then `dotnet-dump` or `dotnet-trace`.
+
+## The mechanism to explain without notes
+
+**Every request shares two runtime resources, a small pool of threads and a generational heap, and both are tuned for short work: a thread held while waiting, or an object kept a little too long, becomes a delay for everyone else.**
+
+Part 1's async essentials module showed the state machine. This module is what the runtime does around it.
+
+- **The builder owns the outcome.** The compiler moves the method body into `MoveNext`, inside one `try/catch`, and the builder turns the outcome into the returned `Task` with `SetResult` or `SetException`. `await` later calls `GetResult()`, which rethrows the first stored exception through `ExceptionDispatchInfo`. An `async void` builder has no task to fill, so it rethrows on the captured `SynchronizationContext` or, when there is none, on a pool thread, where nothing catches it. The context is captured where the continuation is registered; `ConfigureAwait(false)` tells that one `await` not to post back to it. ASP.NET Core installs no context, so there it changes nothing.
+- **The pool grows on a schedule, not on demand.** Up to its minimum, one thread per core by default, it creates threads as work arrives. Above the minimum, three mechanisms add threads, each slower than the one before:
+  - *Blocking compensation.* Since .NET 6, a pool thread that blocks in `Task.Wait` (which `.Result` and `.GetAwaiter().GetResult()` also use) tells the pool. On .NET 10 the pool adds up to one more thread per core at once, then one at a time: 25 ms before each, 25 ms longer after every further batch of one thread per core, never more than 250 ms (`PortableThreadPool.Blocking.cs`).
+  - *The starvation detector.* Every 500 ms the gate thread adds one thread if queued work has not moved for 500 ms, but only while CPU use is below 80%. Above that, it waits the thread-count goal × 1 s. This is all that `Thread.Sleep`, `SemaphoreSlim.Wait` and a contended `lock` get.
+  - *Hill climbing.* It moves the thread count up and down, keeps the direction that raises completed work per second, and never adds a thread while CPU use is above 95%. It is built for CPU work and rescues no one.
+- **The heap is cheap to allocate from and expensive to keep.** An allocation is a pointer bump in gen0; the cost comes at collection. Survivors are promoted, and a gen2 collection works over the whole heap. Arrays of 85,000 bytes or more go to the Large Object Heap, which is collected only with gen2, so a large buffer per request is gen2 work per request. Server GC, ASP.NET Core's default, gives each core its own heap and GC thread; since .NET 9, DATAS sizes those heaps to the workload instead of committing one per core up front.
+
+The traps in *Covers* all follow. A blocked thread can't run the continuation that would unblock it. An allocation that `Span<T>`, `stackalloc` or `ArrayPool<T>` avoids is collection work that never happens. A bounded `Channel<T>` turns "too much work" into a producer that waits, instead of a heap that grows.
+
+**The memory model, in one paragraph.** Without synchronization, the JIT and the CPU may reorder memory accesses, and the JIT may merge two adjacent reads of the same field into one, so a `while (!_stop)` loop can spin forever. `Volatile.Read` has acquire semantics and `Volatile.Write` has release semantics. Taking a `lock` is an acquire and releasing it a release; every `Interlocked` method is a full fence. Assigning a reference to a fully built object is a release, so another thread that sees the reference also sees the object's fields (dotnet/runtime's `Memory-model.md`). On .NET 9 with C# 13, `lock` on a `System.Threading.Lock` uses that type's faster API. `ConcurrentDictionary` makes each call atomic, not your check-then-act sequence of calls.
+
+> **Pay attention.** **Why `ThreadPool.SetMinThreads` looks like a fix.**
+>
+> - **Below the minimum there is no schedule.** The pool creates a thread for queued work at once, without any of the delays above, so a minimum above the peak number of blocked calls makes starvation vanish from the graphs.
+> - **Nothing stopped blocking.** Every blocked call still holds a thread and its stack. Hill climbing can no longer go below the new minimum, and the old outage returns the day concurrency passes the number you chose, with nothing in the code to say why.
+>
+> Treat a raised minimum as a stopgap sized from a measurement, with a comment that names the blocking call it covers. The fix is to stop blocking.
+
+## Read (≈ 45 min)
+
+1. [Chapter 8: SynchronizationContext and ConfigureAwait](#synchronizationcontext-and-configureawait): where the continuation runs, and why `ConfigureAwait(false)` fixes nothing in ASP.NET Core.
+2. [Chapter 8: Task vs ValueTask](#task-vs-valuetask): three rules, all consequences of a backing object that may be reused.
+3. [Chapter 8: The TPL: Parallelism for CPU-Bound Work](#the-tpl-parallelism-for-cpu-bound-work) and [System.Threading.Channels: Producer/Consumer Pipelines](#systemthreadingchannels-producerconsumer-pipelines): `Parallel.ForEachAsync`'s limit and a bounded channel are the same idea, a cap on work in flight.
+4. [Chapter 8: Thread Safety: Sharing State Correctly](#thread-safety-sharing-state-correctly): `Lock`, `Interlocked`, `GetOrAdd`'s factory, barriers.
+5. [Chapter 2: Garbage Collection](#garbage-collection): generations and the card table, the LOH, Server GC and DATAS, finalization.
+6. [Chapter 2: From IL to Machine Code: the CLR and JIT](#from-il-to-machine-code-the-clr-and-jit): tiered compilation and Dynamic PGO, the reason a fresh instance is slower in its first minute.
+7. [Chapter 1: Span<T>, Memory<T>, and stackalloc](#spant-memoryt-and-stackalloc), then Chapter 15's [Why Allocations Cost](#why-allocations-cost) and [Object Pooling](#object-pooling-reusing-instead-of-reallocating).
+8. [Chapter 15: Profiling: Finding the Bottleneck in a Running System](#profiling-finding-the-bottleneck-in-a-running-system) and [Async Performance](#async-performance).
+9. [Chapter 33: Scenario 3 — Stop-the-world](#scenario-3-stop-the-world-garbage-collector-pauses-are-causing-latency-spikes): the incident, end to end. Its counter names (`% Time in GC`, `LOH Size`) are the .NET 8 EventCounters; on .NET 9 and later, read `dotnet.gc.pause.time`, `dotnet.gc.collections` and `dotnet.gc.last_collection.heap.size`, whose generation attribute includes `loh`.
+
+## Practice
+
+**1. Watch the pool inject threads (30 min).** Re-run Part 1's [`Starvation`](https://github.com/malyna2/dotnet-handbook/tree/main/verify/path/Starvation) experiment in blocking mode, with the counters open:
+
+```bash
+dotnet tool install -g dotnet-counters
+cd verify/path
+dotnet build -c Release Starvation       # build first: the run itself lasts about 12 s
+dotnet run -c Release --project Starvation -- block
+# in a second terminal, as soon as the run starts:
+dotnet-counters monitor -n Starvation --counters System.Runtime
+```
+
+Read `dotnet.thread_pool.thread.count` at every refresh and write down the increase. It jumps first, then climbs in ever smaller steps; compare the curve with the blocking-compensation schedule above. `dotnet.thread_pool.queue.length` stays high until the threads catch up, and `dotnet.process.cpu.time` barely moves. The [reference run](https://github.com/malyna2/dotnet-handbook/tree/main/verify/path/reference-runs) on 4 vCPU reached 68 pool threads and finished in 11.6 s; the `-- await` run peaked at 3 threads and finished in 1.1 s.
+
+If the program ends before the tool attaches, start it under the tool instead. The documentation warns against `dotnet run` in this mode, because the first .NET process to connect is the one monitored:
+
+```bash
+dotnet-counters monitor --counters System.Runtime -- dotnet exec Starvation/bin/Release/net10.0/Starvation.dll block
+```
+
+**2. Find the blocked threads in a dump (20 min).** During another blocking run:
+
+```bash
+dotnet tool install -g dotnet-dump
+dotnet-dump collect -n Starvation
+dotnet-dump analyze <the dump file it names>
+# then, at the analyzer's prompt:
+#   threadpool         the pool's threads and its state
+#   threadpoolqueue    the work items waiting for a thread
+#   parallelstacks     every thread's stack, merged
+```
+
+Most pool threads share one merged stack that ends in `Task.Wait`: that is sync-over-async as a dump shows it, and `threadpoolqueue` lists the work they are starving.
+
+**3. Trace it (10 min).** `dotnet-trace collect -n Starvation` during a third run; stop it after a few seconds. Its default sampling records every thread's stack, waiting or running, so the blocked threads appear even though the CPU is idle. Open the `.nettrace` in PerfView or Visual Studio, or convert it with `dotnet-trace convert --format Speedscope`.
+
+**4. Chapter 8's exercises (20 min).** In [Chapter 8](#chapter-8-asynchronous-concurrent-programming)'s *Exercises*, answer *Find the bug* by naming the pool mechanism behind each defect, then compare with the run verified in [`verify/exercises/Ch08`](https://github.com/malyna2/dotnet-handbook/tree/main/verify/exercises/Ch08): 20 requests took 6 s against 0.8 s for the fix, and the pool grew to 49 threads against 5. *What would you do* is this module's `ConfigureAwait` mechanism, argued in a review.
+
+**Evidence to keep**, in your own public portfolio repo, not in this one: the counters as CSV (`dotnet-counters collect --format csv`), the `parallelstacks` excerpt, and one paragraph that explains your thread-count curve with the schedule above.
+
+Later, if you need it: [Chapter 33's Scenario 7](#scenario-7-the-slow-leak-memory-keeps-growing-until-the-pod-is-oom-killed) (finding a leak with a heap snapshot), [Benchmarking with BenchmarkDotNet](#benchmarking-with-benchmarkdotnet), and the runtime's own [memory model specification](https://github.com/dotnet/runtime/blob/main/docs/design/specs/Memory-model.md).
+
+## Three questions
+
+**1.** Two services block a pool thread per request: one with `.Result`, the other with `SemaphoreSlim.Wait()`. Under the same burst, why does the second recover more slowly, and far more slowly when the CPU is busy? And why does raising `ThreadPool.SetMinThreads` make both graphs look healthy?
+
+<details>
+<summary>Answer</summary>
+
+- **`.Result` is reported; `SemaphoreSlim.Wait()` isn't.** `.Result` blocks in `Task.Wait`, which tells the pool. The pool compensates: one more thread per core at once, then one at a time, with pauses that grow from 25 ms to 250 ms. In the experiment, it took the pool to 68 threads in 11.6 s on 4 cores.
+- **The unreported block gets only the starvation detector.** That is at most one thread per 500 ms while CPU use is below 80%. Above 80%, the wait becomes the thread-count goal × 1 s, so a busy service gets a new thread once a minute or less.
+- **Below the minimum there is no schedule.** The pool creates threads as work arrives, so a minimum above the peak number of blocked calls hides both problems. Nothing stopped blocking: each call still holds a thread, hill climbing can't trim below the minimum, and the outage returns at a higher load.
+
+Fix: stop blocking (`await`, `SemaphoreSlim.WaitAsync`). Keep a raised minimum only as a measured stopgap, with a comment that names what it covers.
+</details>
+
+**2.** A service builds a 100 KB buffer per request before uploading a file. Every few seconds p99 latency spikes, and the counters show gen2 collections climbing along with the LOH. Why does a buffer that lives for one request cause full collections, and what do you change, in what order?
+
+<details>
+<summary>Answer</summary>
+
+- **85,000 bytes is the line.** An array that large is allocated on the Large Object Heap, which is collected only together with gen2. Every buffer dies young, but freeing it takes a full collection, so frequent large allocations mean frequent full collections. Background GC runs most of gen2 alongside the application, but its pauses and the CPU it takes land on the requests in flight.
+- **Change the code first.** Stream the upload so there is no buffer, or rent one from `ArrayPool<byte>.Shared` and return it in a `finally` (it may hand you a larger array, so track the length yourself). Confirm with `dotnet.gc.heap.total_allocated`, gen2 collections per minute and `dotnet.gc.pause.time`, before and after.
+- **Then the configuration, if the counters still say so.** ASP.NET Core already defaults to Server GC; on .NET 9 and later, DATAS adjusts its heaps. Never `GC.Collect()`: it resets the GC's tuning and pauses on purpose.
+</details>
+
+**3.** A worker loop checks a `bool _stop` field that another thread sets. It works in Debug and in every test; in Release under load, one instance never stops. What does the memory model allow here, and what is the smallest correct fix?
+
+<details>
+<summary>Answer</summary>
+
+- **The read can be merged away.** The .NET memory model lets the JIT coalesce adjacent non-volatile reads of the same location. When the loop body gives it no reason to read again (no lock, no `Interlocked`, no call it can't see through), optimized code may read `_stop` once and loop on its own copy. Debug code isn't optimized that way, which is why it "works".
+- **Smallest fix:** `Volatile.Read(ref _stop)` in the loop, or a `volatile` field: an acquire read that can't be coalesced. Pair it with `Volatile.Write` on the writer's side.
+- **Better fix:** a `CancellationToken`. It already gives the visibility guarantee, and it composes with every async API the loop calls.
+</details>
+
+## Decide
+
+An ASP.NET Core service on 8 cores calls a vendor SDK that has only a synchronous API: each call blocks for 200 ms to 2 s on a socket. At peak about 150 calls are in flight, and every endpoint slows down, including those that never touch the vendor. Three options are on the table:
+
+1. Raise `ThreadPool.SetMinThreads` to cover the peak.
+2. Put the SDK behind a bulkhead: a bounded `Channel<T>` drained by a fixed set of dedicated threads (`TaskCreationOptions.LongRunning`). Requests await their result, and get a fast `503` when the channel is full.
+3. Replace the SDK with the vendor's HTTP API, called through `HttpClient` with `await`.
+
+<details>
+<summary>How a senior engineer weighs it</summary>
+
+**What each costs.**
+
+- *Raise the minimum:* one line and a deploy. Up to the new minimum, the pool stops injecting slowly. Every call still blocks a pool thread, hill climbing can't trim below the minimum, and when the peak passes the number, the old outage returns with nothing in the code to explain it.
+- *Bulkhead:* about a day. The blocking is confined to threads that never run anyone else's continuations, so the rest of the service no longer feels the vendor's latency, and overload becomes a fast, visible rejection instead of pool-wide starvation. It costs queueing delay for vendor calls at peak, and a capacity number (threads × calls per second) that someone must own.
+- *Rewrite:* weeks, plus re-implementing what the SDK did for you (authentication, retries, the wire format). It removes the blocking entirely.
+
+**What decides it here:** the other endpoints share the pool. The damage is collateral, not the vendor's latency itself, and isolation removes collateral damage whatever the vendor does.
+
+**The choice.** The bulkhead now, with a raised minimum as a same-day stopgap, sized from the measured peak and removed when the bulkhead ships. The rewrite goes on the roadmap if the vendor's HTTP API is documented and stable.
+
+**What would change it.** If one low-traffic endpoint is the only caller, the raised minimum alone is a fair trade. If the vendor ships an async SDK, adopt it and skip the bulkhead. If a vendor call can't wait in a queue (a payment authorisation with a customer watching), size the dedicated threads for the peak and reject early.
+</details>
+
+## Check at work
+
+**Inspect.** Search the service for `Thread.Sleep`, `.Wait()`, `.Result`, `.GetAwaiter().GetResult()`, `SemaphoreSlim.Wait(` and `lock` blocks around I/O; for `new byte[` and `MemoryStream` on request paths; for `GC.Collect` and `SetMinThreads`. A good result: every block sits in startup code, large buffers are pooled or streamed, and a raised minimum carries a comment naming the blocking call it covers. A bad one: a block on a request or message path, or a minimum nobody can explain.
+
+**Measure.** At your service's peak, run `dotnet-counters monitor -n <process> --counters System.Runtime` for five minutes, or read the same metrics in your APM: `dotnet.thread_pool.queue.length` (near zero), `dotnet.thread_pool.thread.count` (flat, not climbing), `dotnet.gc.pause.time` (seconds paused per minute), `dotnet.gc.collections` for `gen2` per minute, and the `loh` size. On .NET 8, `dotnet-counters` shows the older EventCounters instead, such as `threadpool-queue-length` and `threadpool-thread-count`.
+
+
+---
+
+# Part 2 · Module 2: Data in Depth
+
+_⏱️ Estimated read time: ~15 min · 2680 words (study pace)_
+
+> **What this module makes you able to do.** Choose the isolation, the index, the cache and the migration path for data that many requests, many instances and several releases share, and name the failure each choice prevents and the cost it adds.
+
+**Time:** reading ≈ 1 h 5 min; hands-on ≈ 7 h 40 min — the rest of Lab 37 6 h, the isolation experiment 20 min, the questions 20, the decision 15, the check at work 45.
+
+## Covers
+
+- which anomalies each isolation level allows, including the lost update and write skew, what PostgreSQL and SQL Server really do at each level, and why deadlocks need a retry of the whole transaction;
+- reading a plan in depth: statistics, estimated against actual rows, generic plans and parameter sniffing, and why a plan regresses without a deploy;
+- set-based writes and bulk loads, and everything they bypass;
+- caching: cache-aside, the stampede, invalidation, Redis key design and eviction;
+- schema changes across releases: migrations in the pipeline, expand and contract, and the same rules for messages and documents;
+- data at scale: replicas and their lag, partitioning and sharding, multi-tenancy.
+
+## The mechanism to explain without notes
+
+**Shared data is read by many actors at once and across time — concurrent transactions, a cached copy, a replica, the previous release — and every technique here decides which of them may see a stale or partial state, for how long, and at what cost.**
+
+- **Inside one database, the isolation level picks the interleavings you are protected from.** Chapter 4's table lists dirty, non-repeatable and phantom reads. Two more decide real designs:
+  - *the lost update*: two transactions read a value, both write a new one computed from it, and the first write vanishes. Read Committed allows it, because each read saw committed data;
+  - *write skew*: two transactions read an overlapping set and each writes a different row ("at least one doctor stays on call"). Only Serializable prevents it.
+
+  PostgreSQL implements Repeatable Read as a snapshot: no phantoms, but write skew is possible, and an update of a row another transaction changed fails with `could not serialize access` (SQLSTATE 40001). Its Serializable level detects the dangerous patterns and aborts one transaction with the same code. SQL Server's Read Committed takes shared locks unless the database has `READ_COMMITTED_SNAPSHOT` on, and its Repeatable Read holds them to the end of the transaction. A stricter level therefore doesn't remove failures; it turns silent anomalies into errors your code must retry, from the first read.
+- **The planner decides from statistics, not from your data.** It picks a plan by estimated rows. The estimate comes from statistics sampled at the last analyze and from the parameter values the plan was built for. When either is wrong, the plan is wrong without anything in your code changing: Chapter 37's stale-statistics script plans for 23 rows that are really 306,526.
+- **A cache is a replica you manage by hand.** Cache-aside fills it on a miss. Staleness is bounded by the TTL or by eviction on write, and a stampede is many misses rebuilding the same key at once.
+- **During a rolling deploy, two releases share one schema and one message stream.** Every schema change must work with the code before it and the code after it, so a breaking change becomes expand, migrate, contract. Message and document contracts follow the same rule: add optional fields, ignore unknown ones (the tolerant reader), never reuse a field's identity.
+- **Scaling out moves the stale reader into the infrastructure.** A replica serves reads that lag the primary, so read-your-writes breaks. A shard key decides which queries stay on one node. A tenant's isolation model decides who can slow down or see whom.
+
+> **Pay attention.** **The lost update survives Read Committed, and a stricter level answers with errors, not correctness.**
+>
+> - **The mechanism.** Two requests load stock 10, both compute 9, both save. Each read saw committed data, so Read Committed has nothing to stop.
+> - **What Repeatable Read does instead.** On PostgreSQL, the second update fails with SQLSTATE 40001. On SQL Server, both transactions hold shared locks and both ask to convert them to exclusive ones: a deadlock, and one of them is the victim (error 1205). Either way you need a retry loop around the whole transaction.
+> - **The fix in the code.** Make the read and the write one step: `ExecuteUpdate` with `SET Stock = Stock - 1 WHERE Id = @id AND Stock >= 1`, checking the rows affected; or an optimistic concurrency token with a retry on `DbUpdateConcurrencyException`; or `SELECT … FOR UPDATE` for a short, contended path.
+
+> **Pay attention.** **Why a query gets slow with no deploy.** A plan is chosen at run time and often reused, so three things change it under you:
+>
+> - **Statistics went stale.** Autovacuum analyzes after 10% of a table changes by default, so a 6% bulk load leaves the planner working from the old distribution (Chapter 37's *Break it*).
+> - **The cached plan was built for another value.** PostgreSQL gives a prepared statement five custom plans, then may switch to a generic one (`$1` in the plan). SQL Server compiles a procedure's plan for its first caller's values, and recompiles after a restart, a failover or a statistics update, so "the first caller" can change overnight.
+> - **The data changed shape.** One customer becomes a marketplace seller; the old plan was right for the old distribution.
+>
+> Compare estimated with actual rows on the node that dominates, then remove the choice: an index that is right for every value (Chapter 37's rung 9 and SQL Server script 3). `force_custom_plan`, `OPTION (RECOMPILE)` and a Query Store forced plan are stopgaps.
+
+## Read (≈ 1 h 5 min)
+
+1. [Chapter 4: Isolation Levels](#isolation-levels), [Deadlocks](#deadlocks) and [Concurrency: Optimistic vs Pessimistic](#concurrency-optimistic-vs-pessimistic): the anomalies, the victim, and the two cures for a lost update.
+2. [Chapter 4: PostgreSQL in Practice: Indexes and Query Plans](#postgresql-in-practice-indexes-and-query-plans): MVCC and the visibility map, estimated against actual rows, *When the Plan Is Wrong*, and Npgsql's automatic preparation.
+3. [Chapter 4: Set-Based Updates and Deletes](#set-based-updates-and-deletes-executeupdate-and-executedelete) and [Bulk Inserts and the Limits of SaveChanges](#bulk-inserts-and-the-limits-of-savechanges): what each path bypasses, and the table of when to use which.
+4. [Chapter 4: Caching](#caching): cache-aside, stampedes, HybridCache, Redis key versions, TTL jitter and eviction policy.
+5. [Chapter 4: Migrations in CI/CD](#migrations-in-cicd) and [Chapter 23: Migrations at Scale (Zero-Downtime)](#migrations-at-scale-zero-downtime): where migrations run, and expand and contract.
+6. [Chapter 24: The Core Topic: Schema and Contract Evolution](#the-core-topic-schema-and-contract-evolution), [Versioning Events and Messages](#versioning-events-and-messages) and [A Concrete Example: Evolving an Order Event Safely](#a-concrete-example-evolving-an-order-event-safely): compatibility directions, the change matrix, upcasting.
+7. [Chapter 23: Scaling Reads with Replication](#scaling-reads-with-replication), [Partitioning and Sharding](#partitioning-and-sharding) and [Multi-Tenancy](#multi-tenancy): lag, the shard key, the three isolation models.
+8. Chapter 37's later levels: [Level 2](#level-2-the-index-decides-the-plan-rungs-59), [Level 3](#level-3-beyond-the-harness), and the *Break it* scripts [Stale statistics](#stale-statistics), [The visibility map](#the-visibility-map), [Keyset pagination, written the other way](#keyset-pagination-written-the-other-way) and [A misestimate that doesn't matter](#a-misestimate-that-doesnt-matter).
+
+## Practice
+
+**1. Lab 37 in full ([`labs/37-execution-plans`](https://github.com/malyna2/dotnet-handbook/tree/main/labs/37-execution-plans)).** If you did Part 1's subset (setup, Level 1, rung 6 and SQL Server script 1), the rest takes about 6 h: rungs 5 and 7–9, Level 3 (the server's view, `auto_explain`, pricing `force_custom_plan` against an index, the SQL Server track), *Break it* and the write-up. From scratch, the chapter's time budget adds up to 9 h 30 min – 10 h 30 min. You need Docker, about 6 GB of free RAM (8 GB with SQL Server) and the .NET 10 SDK.
+
+```bash
+cd labs/37-execution-plans
+docker compose up -d --wait
+./seed.sh medium                                      # about 4 minutes
+dotnet run --project src/QueryLab.Cli -- 9            # one rung, with its plan
+docker compose exec -T postgres psql -U lab -d shop -f /lab/break-it-stale-statistics.sql
+docker compose --profile sqlserver up -d && ./sqlserver.sh seed
+```
+
+For every rung: predict the plan, run it, name the mechanism, apply the smallest fix, and price it (build time, size, the cost on every insert). Only then compare with the *Hints and answers* at the end of [Chapter 37](#chapter-37-the-slow-query-lab-reading-execution-plans).
+
+**2. The lost update, live (20 min).** In the lab's PostgreSQL, open two sessions (`docker compose exec postgres psql -U lab -d shop`) and create a scratch table with one row holding a balance of 100. In both sessions: begin, read the balance, then write back the value you read plus 10, and commit. Under the default Read Committed, the final balance is 110: one write was lost. Repeat with `BEGIN ISOLATION LEVEL REPEATABLE READ`: the second session's update fails with `could not serialize access due to concurrent update`. Then do it once more with `UPDATE … SET balance = balance + 10` and no read at all, which gives 120 under either level. Drop the table when you are done.
+
+**Evidence to keep**, in your own public portfolio repo, not in this one: `RESULTS.md` with its environment header, the before and after plans, the price of every index, the rung 9 trade-off paragraph and the SQL Server comparison table, plus the three isolation transcripts.
+
+Later, if you need it: [Dapper: When the ORM Is Too Much](#dapper-when-the-orm-is-too-much), [Chapter 23: Connection Management Under Load](#connection-management-under-load), and [Chapter 50: Choosing the partition key](#choosing-the-partition-key-the-decision-you-cannot-easily-undo) for the same decision in Cosmos DB.
+
+## Three questions
+
+**1.** Two requests decrement the same product's stock with EF Core: load the entity, `Stock -= 1`, `SaveChanges`. Under Read Committed both succeed, and one decrement is lost. Why doesn't Read Committed prevent it, what does Repeatable Read do instead on PostgreSQL and on SQL Server, and what would you ship?
+
+<details>
+<summary>Answer</summary>
+
+- **Read Committed promises committed data, not current data.** Both reads saw stock 10, legitimately. The write is computed from a value that changed in between: a read-modify-write race, which no read guarantee covers.
+- **Repeatable Read turns it into an error.** On PostgreSQL the snapshot makes the second update fail with SQLSTATE 40001. On SQL Server both transactions keep their shared locks, both ask for exclusive ones, and the deadlock monitor kills one (1205). Either way the caller must retry the whole transaction, starting with the read.
+- **Ship one of three, by contention:**
+  - an atomic conditional update (`ExecuteUpdate` with `WHERE Stock >= 1`, checking the rows affected): no read, no race, no retry, but it bypasses the change tracker and interceptors;
+  - an optimistic concurrency token (`[Timestamp]` on SQL Server, `xmin` on PostgreSQL) with a bounded retry on `DbUpdateConcurrencyException`, when the domain logic needs the entity;
+  - `SELECT … FOR UPDATE` in a short transaction, when contention is high and retries would thrash.
+</details>
+
+**2.** A query that took 5 ms for months now takes a second for one customer, and nothing was deployed. Name three mechanisms that change a plan without a code change, how the plan tells them apart, and the durable fix for each.
+
+<details>
+<summary>Answer</summary>
+
+- **Stale statistics.** Estimated and actual rows diverge by orders of magnitude at the scan; running `ANALYZE` (or updating statistics) fixes the estimate. Durable fix: analyze explicitly at the end of bulk loads, and tune the per-table autovacuum thresholds for tables that grow in bursts.
+- **A plan built for another value.** In PostgreSQL, `$1` in the index condition and an estimate fitted to an average value: a generic plan. In SQL Server, the plan's compiled parameter values differ from the runtime ones: parameter sniffing. Durable fix: an index that makes one plan right for every value. Stopgaps: `plan_cache_mode = force_custom_plan`, `OPTION (RECOMPILE)`, a Query Store forced plan.
+- **A cleared visibility map or bloat.** An `Index Only Scan` whose `Heap Fetches` jumped after heavy writes or a rolled-back bulk operation. Durable fix: vacuum keeps up on that table (`autovacuum_vacuum_scale_factor` per table), and write-heavy tables don't rely on index-only scans.
+
+The habit behind all three: compare the plan with its previous self, node by node, before touching an index.
+</details>
+
+**3.** Product pages are cached in Redis with a 10-minute TTL, and a deploy warms all 10,000 keys at once. The database spikes every 10 minutes after each deploy, and a price change takes up to 10 minutes to show. Explain both, and fix both without dropping the cache.
+
+<details>
+<summary>Answer</summary>
+
+- **The spike is a stampede on a schedule.** Keys written together with one TTL expire together, and every miss rebuilds from the database at the same moment. Jitter each TTL by a few percent, and collapse concurrent misses per key: HybridCache does it within one process, and a short `SET NX PX` lock suppresses duplicate rebuilds across instances (an efficiency lock, not a correctness one).
+- **The stale price is invalidation by TTL alone.** Evict the key in the code path that changes the price, *after* the commit, so a reader can't re-cache the old row while the transaction is open. Keep the TTL as the safety net for writers you missed, or drive eviction from CDC.
+- **What remains.** A reader that loaded the old price just before the commit can still write it back after your eviction. That window is bounded by the TTL; where it isn't acceptable (the price at checkout), read from the database, not the cache.
+</details>
+
+## Decide
+
+A multi-tenant SaaS runs on one PostgreSQL primary with a shared schema (`TenantId` on every table). At peak the primary sits at 80% CPU. About 70% of the load is dashboard reads, and one tenant produces 30% of all writes. Three proposals:
+
+1. Add read replicas and route dashboard reads to them.
+2. Shard by `TenantId`.
+3. Move the large tenant to a database of its own and keep everyone else shared.
+
+<details>
+<summary>How a senior engineer weighs it</summary>
+
+**First, the precondition.** 80% CPU can be a handful of statements. Sort `pg_stat_statements` by total time and read the top plans before buying infrastructure: Chapter 23's advice is to scale up until it genuinely hurts.
+
+**What each costs.**
+
+- *Replicas:* days, and no change to the data model. They absorb the dashboard reads that dominate the load. The cost is lag: any read right after a write must go to the primary, so routing becomes a rule in code. Writes still have one node.
+- *Sharding:* months, and a one-way door. It scales writes and data size, and in exchange cross-shard queries become scatter-gather, cross-shard transactions become sagas, and resharding becomes a project.
+- *A dedicated database for the large tenant:* weeks. It removes the noisy neighbour and makes the tenant's own growth its own problem. The cost is a second shape to operate: migrations run against two targets, and the code must route by tenant.
+
+**What decides it here:** where the load comes from. Reads dominate, so replicas address most of it. The large tenant is a noisy-neighbour problem, not yet a scale problem.
+
+**The choice.** Fix the top queries, add replicas for the dashboards with primary pinning after writes, and plan the large tenant's move if its write share keeps growing. Sharding waits until writes or data size outgrow one primary after all of that.
+
+**What would change it.** Write-dominated load, a dataset that no longer fits one node, or a data-residency requirement for the large tenant, which would put it in its own database whatever the load.
+</details>
+
+## Check at work
+
+**Inspect.** Pick one write path that changes a balance, a stock level or a status. What prevents a lost update: an atomic statement, a concurrency token, a lock, or nothing? Does the code retry deadlocks (1205 in SQL Server, 40P01 in PostgreSQL) and serialization failures (40001), and does the retry restart the whole transaction? For the cache: are TTLs jittered, are keys versioned, what is `maxmemory-policy`, and what is the hit rate? For migrations: do they run at startup or in a pipeline step, and does the history show the last breaking change as expand, then contract?
+
+**Measure.** The five statements with the highest total time, from `pg_stat_statements` or Query Store, and for each the estimated against actual rows on its costliest node. If you use replicas, the replication lag at peak.
+
+
+---
+
+# Part 2 · Module 3: Distributed Consistency
+
+_⏱️ Estimated read time: ~10 min · 2403 words (study pace)_
+
+> **What this module makes you able to do.** Design a flow that spans services and a broker so that duplicates, reordering, partial failure and a dependency outage cost nothing worse than latency, and defend what each guarantee costs in storage, throughput and operations.
+
+**Time:** reading ≈ 45 min; hands-on ≈ 3 h 50 min — the emulator exercise 45 min, the written design 1 h 30 min, the questions 20, the decision 15, the check at work 1 h.
+
+## Covers
+
+- the outbox at scale: a polling relay against CDC with Debezium's outbox event router, and what each costs;
+- the inbox: claiming a message ID with the effect, and the retention window that decides how long a duplicate is still recognised;
+- ordering: Service Bus sessions and head-of-line blocking, partition keys, and version checks that drop stale updates;
+- sagas, orchestrated or choreographed, and compensations that can't undo everything;
+- why exactly-once is a myth, and what effectively-once costs;
+- retry with jitter, the circuit breaker and the bulkhead, retry storms, and the theory (CAP, PACELC, consistency models) that changes a decision.
+
+## The mechanism to explain without notes
+
+**Between services, every hop delivers at least once and in no guaranteed order, so correctness has to live in the receiver: an effect that is claimed once, an update that knows its version, and a failure that stays inside its bulkhead.**
+
+Part 1's messaging basics module covered peek-lock, redelivery, the dead-letter queue, claim-first deduplication and the outbox idea. This module is what those become at scale and across services.
+
+- **The outbox moves the dual write into one transaction, and the relay is where the cost lives.**
+  - *A polling relay* reads unpublished rows, publishes, and marks them. Latency is the poll interval. Two instances polling the same table publish twice unless rows are claimed (`FOR UPDATE SKIP LOCKED`, or an atomic `UPDATE … SET LockedBy`). The table needs cleaning.
+  - *CDC* reads the database's log after commit, so nothing polls. Debezium's outbox event router expects an insert-only table: `aggregateid` becomes the Kafka message key, so all events of one aggregate land in one partition, in order; `aggregatetype` names the topic (`outbox.event.<aggregatetype>` by default); `id` travels as a header for deduplication; deletes are ignored, so cleaning the table emits nothing. The cost is a Kafka Connect deployment and a replication slot that holds the log on the database while the connector is down.
+
+  Both are at-least-once: a relay that publishes and crashes before marking the row publishes again.
+- **The inbox makes the effect idempotent, for as long as it remembers.** The consumer inserts the message ID under a unique key in the same transaction as the business change, so the second copy hits the violation and a failed effect releases the claim. The table can't grow forever, and its retention window is a promise: a duplicate that arrives after its ID was purged is processed as new. Natural keys ("does order 42 already have a payment?") and version checks never expire.
+- **Order exists only per key, and only if you pay for it.** A Service Bus session (`SessionId`, say the order ID) gives one receiver an exclusive lock on the whole session, so its messages are processed in order, one at a time. A failing message blocks its session: it is redelivered at the head until it is dead-lettered (10 deliveries by default). Kafka orders within a partition, so the key decides what is ordered. Where strict order isn't needed, carry a version and drop anything older than the state you hold (`UPDATE … WHERE Id = @id AND Version < @v`).
+- **A saga trades atomicity for compensations.** Each step commits locally; a failure runs the compensations of the steps before it. A compensation is a new business action, not a rollback: it must be idempotent, it can fail and need its own retry, and some effects (a sent email, a shipped parcel) can only be answered, not undone.
+- **Resilience patterns keep one failure from becoming everyone's.** Retries with backoff and jitter absorb blips. A circuit breaker fails fast when a dependency is clearly down. A bulkhead caps how much of your threads and connections one dependency can hold.
+
+> **Pay attention.** **Retries multiply across layers.** A gateway, a service and its client library that each make up to 4 attempts (3 retries) can send 4 × 4 × 4 = 64 requests to the bottom dependency for one user action, at exactly the moment it is struggling. That is a retry storm, and jitter doesn't fix it: jitter desynchronises clients, it doesn't reduce the count. Retry at one layer, usually the one closest to the failing call; give the others a total timeout; let a circuit breaker stop the attempts once the failure rate says the dependency is down. Where the breaker sits relative to the retry decides what it counts: inside the retry it sees every attempt, outside it sees only the exhausted sequence (Chapter 21's pipeline puts it outside, and says why).
+
+> **Pay attention.** **The dedup window is shorter than the redelivery window.** An inbox purged after 7 days, and a dead-letter queue resubmitted after three weeks (Chapter 51's Case 6), means every resubmitted message is processed again. Size the retention from the longest path a message can take back to you: lock expiry, dead-letter resubmission, a relay replay, a restored backup. Where that is unbounded, make the effect itself idempotent: a natural key, a version check, or an idempotency key passed to the downstream API.
+
+## Read (≈ 45 min)
+
+1. [Chapter 9: Saga: Managing Long-Running Distributed Transactions](#saga-managing-long-running-distributed-transactions): orchestration against choreography, and a persisted state machine.
+2. [Chapter 9: Resilience Patterns: Retry, Circuit Breaker, Bulkhead](#resilience-patterns-retry-circuit-breaker-bulkhead), [Why Exactly-Once Is (Almost) a Myth](#why-exactly-once-is-almost-a-myth), [Deduplication](#deduplication) and [Consistency in a Distributed World](#consistency-in-a-distributed-world).
+3. [Chapter 21: CAP and PACELC](#cap-and-pacelc-the-physics-of-distributed-state) and [Consistency Models](#consistency-models-what-the-data-is-correct-even-means): PACELC is the trade-off you pay on every request, not only during a partition.
+4. [Chapter 21: Distributed Time](#distributed-time-why-you-cant-trust-the-clock) and [Distributed Locks Are Dangerous](#distributed-locks-are-dangerous): why ordering by timestamps and locking without fencing both fail.
+5. [Chapter 21: Idempotency](#idempotency-the-antidote-to-did-that-actually-happen) and [Detecting Failure and Retrying Without Making It Worse](#detecting-failure-and-retrying-without-making-it-worse): full jitter. The idempotency sample claims the key before the charge, in the same transaction: that order is the whole point.
+6. [Chapter 21: Patterns for Graceful Failure](#patterns-for-graceful-failure) and [A Concrete .NET Resilience Pipeline with Polly](#a-concrete-net-resilience-pipeline-with-polly): the layering of timeouts, breaker and retry.
+7. [Chapter 22: The outbox-driven worker](#the-outbox-driven-worker) and [Scaling workers, at-least-once delivery, and idempotency](#scaling-workers-at-least-once-delivery-and-idempotency): the polling relay and its competing instances.
+8. [Chapter 23: Change Data Capture (CDC)](#change-data-capture-cdc): Debezium as the relay, and outbox against raw CDC.
+9. [Chapter 33: Scenario 2 — The lost write](#scenario-2-the-lost-write-the-user-got-200-but-the-data-never-saved) and [Scenario 4 — The broker is down](#scenario-4-the-broker-is-down-a-critical-dependency-has-failed): the outbox as a durable buffer, and containing a dead dependency.
+10. [Chapter 51: Case 5 — Customers charged twice](#case-5-customers-charged-twice-the-batch-that-outlived-its-locks) and [Case 6 — 40,000 messages in the dead-letter queue](#case-6-40000-messages-in-the-dead-letter-queue-and-nobody-knew).
+
+## Practice
+
+**1. The batch that outlives its locks (45 min).** [Chapter 51](#chapter-51-the-azure-casebook-real-incidents-real-fixes)'s second *Find the bug*: answer it before opening the answer, then read the verified code in [`verify/exercises/Ch51`](https://github.com/malyna2/dotnet-handbook/tree/main/verify/exercises/Ch51). The reference run (a 5-second lock, a 1-second handler) turned 12 messages into 14 handler calls with the batch, and exactly 12 with `ServiceBusProcessor`. To run it yourself you need Docker and the Service Bus emulator:
+
+```bash
+ACCEPT_EULA=Y verify/exercises/Ch51/verify.sh
+```
+
+**2. A written design (1 h 30 min).** One page, for a flow you know or for "place order → reserve stock → charge → ship": the outbox and its relay (polling or CDC, and why), where each consumer claims its message ID and how long the claim is kept, what must be ordered and by which key, the saga's compensations (and the step that can't be compensated), and one retry policy per call with the layer it lives in. Finish with a table: failure, what happens, what the user sees.
+
+**Evidence to keep**, in your own public portfolio repo, not in this one: the design page and your answer to the exercise.
+
+The Practice Gym's planned lab *Idempotent Messaging End to End* (M3 in `PRACTICE_ROADMAP.md`) will become this module's lab when it ships.
+
+Later, if you need it: [Chapter 50: Service Bus](#service-bus) for sessions, duplicate detection and the processor defaults, [Chapter 21: Consensus](#consensus-getting-nodes-to-agree), and [Chapter 22: Ensuring a job runs once across instances](#ensuring-a-job-runs-once-across-instances).
+
+## Three questions
+
+**1.** With Debezium's outbox event router, why does `aggregateid` become the Kafka message key and not the event's own `id`? What ordering do you get end to end, and where can it still break?
+
+<details>
+<summary>Answer</summary>
+
+- **The key picks the partition, and Kafka orders only within a partition.** Keyed by `aggregateid`, all events of order 42 go to one partition in the order they were committed, which the router reads from the log. Keyed by the event ID, they would scatter across partitions and arrive in any order.
+- **End to end, you get per-aggregate order, at least once.** The relay can publish a row again after a crash, so a consumer can see 1, 2, 2, 3: deduplicate on the `id` header.
+- **Where it breaks.** A consumer that processes one partition's messages concurrently (several handlers per partition, or a thread pool behind a single poll) reorders them itself. Changing the partition count moves keys to other partitions, so order across that change isn't guaranteed. And events of *different* aggregates have no order at all: a consumer that needs "the customer before the order" must tolerate either.
+</details>
+
+**2.** A payment consumer deduplicates with an inbox table purged after 7 days. Three weeks after an incident, the team resubmits 40,000 dead-lettered messages, and some customers are charged twice. Why, and what would have prevented it?
+
+<details>
+<summary>Answer</summary>
+
+- **The claim outlived its memory.** Some of those messages had been processed before they were dead-lettered (for example, the effect succeeded and the settlement failed until the delivery count ran out). Their IDs were purged after 7 days, so on resubmission the inbox saw new IDs and the effect ran again.
+- **Size retention from the longest way back.** Dead-letter resubmission, relay replays and restores are all ways back; the window must exceed the longest you allow, or the resubmit tool must refuse anything older than it.
+- **Make the effect itself idempotent.** Pass the payment ID as the provider's idempotency key, or check a natural key ("this order already has a captured payment") in the same transaction. Those never expire. The inbox is the fast path; the natural key is the guarantee.
+</details>
+
+**3.** A downstream service slows down, and within a minute it receives ten times its normal traffic and falls over completely. The callers use retries with exponential backoff and jitter. What happened, and what do you change?
+
+<details>
+<summary>Answer</summary>
+
+- **Retries multiplied.** Every layer that retries multiplies the attempts of the layer above: three layers of 4 attempts each is up to 64 calls per user action. Jitter spread them out in time but didn't reduce them, and the slowdown made each call slower, so in-flight requests piled up as well.
+- **Timeouts made it worse.** A caller that times out and retries leaves the first request running on the server, so the struggling service does both.
+- **Change:** retry at one layer only; give the others a total time budget; put a circuit breaker on the call so the callers stop once the failure ratio crosses its threshold; cap concurrency per dependency with a bulkhead; and on the server, shed load early (`429` or `503` with `Retry-After`) instead of queueing work it can't finish. Retry only idempotent operations.
+</details>
+
+## Decide
+
+An inventory service consumes `OrderPlaced`, `OrderAmended` and `OrderCancelled` events for about two million orders a day, on a Service Bus topic subscription with `MaxConcurrentCalls = 16`. A few times a day an amendment is applied after a cancellation, and stock is reserved for a cancelled order. Three proposals:
+
+1. Turn on sessions with `SessionId` = order ID.
+2. Put a version on every event and apply an event only if it is newer than the state already stored.
+3. Set `MaxConcurrentCalls = 1`.
+
+<details>
+<summary>How a senior engineer weighs it</summary>
+
+**What each costs.**
+
+- *Sessions:* strict per-order order, and still many orders in parallel. Sessions are fixed when the entity is created, so this is a new subscription and a migration of the producers, which must all set `SessionId`. A message that keeps failing blocks its order until it is dead-lettered, and a hot order becomes a hot session.
+- *Version checks:* a version (or a sequence number from the producer's aggregate) in every event, and a conditional update in the consumer. No broker change, no head-of-line blocking, full concurrency. It drops stale updates rather than reordering them, so it only works when the latest state is all you need, and a dropped event must be one you can afford to ignore.
+- *One consumer:* a configuration change, and it doesn't work. Redelivery after a lock expiry or an abandon still puts an older message behind a newer one, and throughput collapses to one message at a time.
+
+**What decides it here:** the consumer needs the latest state of the order, not every intermediate step, and the producer already owns the order aggregate, which can number its versions.
+
+**The choice.** Version checks: the producer stamps each event with the aggregate's version, and the consumer updates only `WHERE Version < @v`, inside the same transaction as its inbox claim.
+
+**What would change it.** If each intermediate event triggers its own effect (an email per amendment), the latest state isn't enough, and sessions are worth their cost. If the producer can't produce a reliable version, sessions are the only way to get order.
+</details>
+
+## Check at work
+
+**Inspect.** For each consumer in your service: where is the duplicate check, does it commit in the same transaction as the effect, and how long is a claim kept against the longest way a message can come back? Which consumers assume order, and what enforces it: a session, a partition key, a version check, or hope? Count the layers that retry one call, from the client to the database, and multiply their attempts.
+
+**Measure.** For one queue or subscription: the share of deliveries with `DeliveryCount > 1`, the dead-letter count and its age, and the outbox's oldest unpublished row at peak, which is your relay's real latency.
+
+
+---
+
+# Part 2 · Module 4: Architecture, API Evolution and System Design
+
+_⏱️ Estimated read time: ~10 min · 2303 words (study pace)_
+
+> **What this module makes you able to do.** Choose where a system's boundaries go — layers, slices, modules, services, API versions — and how contracts change across them without breaking callers, then defend the choice in a design review and write it down so the next team knows why.
+
+**Time:** reading ≈ 1 h; hands-on ≈ 3 h 50 min — the ADR 1 h, the design exercise 1 h 30 min, the questions 20, the decision 15, the check at work 45.
+
+## Covers
+
+- what layered and clean architecture, vertical slices, a modular monolith and microservices each cost, and when each pays;
+- DDD's tactical building blocks, and why an aggregate is a transaction boundary;
+- CQRS, and what MediatR does and doesn't give you;
+- API evolution: what counts as breaking, the tolerant reader, expand and contract, versioning schemes and retirement;
+- REST, gRPC or SignalR for a given caller;
+- a system-design method: requirements, estimates, design, bottlenecks, trade-offs.
+
+## The mechanism to explain without notes
+
+**Architecture is the cost of change, decided in advance: every boundary makes change cheap on one side of it and expensive across it, so the senior decision is to put boundaries where the business changes independently, and to evolve the contracts that cross them without breaking the callers on the other side.**
+
+Part 1's design basics module covered SOLID, dependency injection and the common patterns. Here they become system-level choices.
+
+- **Each style draws the boundary somewhere else.**
+  - *Layered and clean architecture* draw it around technology: the dependency rule points inward, so the domain can be tested without a database and infrastructure can be replaced. The cost is indirection and mapping between layers, paid on every feature.
+  - *Vertical slices* draw it around features: everything one use case needs sits together, so a change touches one folder. The cost is duplication, and shared domain rules need a deliberate home.
+  - *A modular monolith* draws it around business capabilities inside one deployable: each module owns its tables and exposes a narrow API. Calls stay in-process, a transaction is still available, and deployment stays single. The cost is discipline, enforced by tooling, because nothing physical stops a shortcut.
+  - *Microservices* make the boundary physical: independent deployment and scaling, one team per service. The cost is everything in Module 3 — the network, eventual consistency, sagas, idempotency — and an operations bill per service. Conway's law decides whether it pays: services follow teams.
+- **An aggregate is a consistency boundary.** It is the unit that one transaction changes, with its invariants checked inside it. Other aggregates are referenced by ID and updated through domain events, eventually. Bounded contexts are the same idea one level up, and they are the first candidates for module or service boundaries.
+- **CQRS separates the model you write through from the model you read from.** It can be two models over one database, or a separate read store fed by events, which brings eventual consistency with it. MediatR is an in-process dispatcher with a pipeline: it decouples a controller from its handler and gives cross-cutting behaviour one place to live. It doesn't give you CQRS, a read store, scaling or consistency, and new major versions have been commercially licensed since 2025 (Chapter 5).
+- **A contract breaks when a client that worked yesterday fails today**, whatever the schema says. Tightened validation, a new enum value for a strict generated client, a changed status code or error shape, a new default page size: all break someone. The safe path is the same expand and contract as for a database: add the new form, serve both, measure who still uses the old one, and remove it only when nobody does. A new version is for a change in meaning, not for a change in shape.
+- **The protocol follows the caller.** REST for browsers, partners and anything cacheable; gRPC for internal service-to-service calls, with a protobuf contract, HTTP/2 and streaming; SignalR for pushing to browsers, which needs a backplane or a managed service once it scales out.
+
+> **Pay attention.** **A service split doesn't remove coupling; it moves it onto the network.** Two services that share a database deploy together, because a schema change breaks both. A synchronous chain of three services, each available 99.9% of the time, is available about 99.7% of the time (0.999³), and as slow as the sum of its calls. That is a distributed monolith: the costs of microservices with the coupling of a monolith. Before splitting, check that the candidate owns its data, can answer its requests without calling its neighbours synchronously, and changes on a different schedule from them.
+
+> **Pay attention.** **Whether a change breaks is decided by the client's reader, not by your schema.** A tolerant reader (ignore unknown fields, map unknown enum values to a default) survives an added field or enum value. A client generated from your OpenAPI document into closed enums and strict models doesn't. "Adding is safe" holds only for clients you know are tolerant; for the rest, a new enum value needs the same care as a removed field.
+
+## Read (≈ 1 h)
+
+1. [Chapter 6: Why Architecture Matters: Coupling and Cohesion](#why-architecture-matters-coupling-and-cohesion), [Layered / N-Tier Architecture](#layered-n-tier-architecture) and [Clean, Onion, and Hexagonal Architecture](#clean-onion-and-hexagonal-architecture): the dependency rule, and what a project structure enforces.
+2. [Chapter 6: Domain-Driven Design](#domain-driven-design): aggregates as consistency boundaries, bounded contexts.
+3. [Chapter 6: CQRS and Event Sourcing](#cqrs-and-event-sourcing), [Vertical Slice Architecture](#vertical-slice-architecture), [Monolith vs Microservices vs Modular Monolith](#monolith-vs-microservices-vs-modular-monolith) and [API Gateway and Backend for Frontend](#api-gateway-and-backend-for-frontend).
+4. Chapter 5's application patterns: [Repository & Unit of Work](#repository-unit-of-work), [Specification](#specification) and [Mediator](#mediator), for MediatR, its pipeline and its licence. The CQRS subsection under *Enterprise & Application Patterns* is worth the two minutes too.
+5. [Chapter 3: API Versioning & Backward Compatibility](#api-versioning-backward-compatibility): the breaking-change table, the tolerant reader, schemes, expand and contract, retiring a version.
+6. [Chapter 3: gRPC](#grpc) and [Choosing between REST, gRPC, and SignalR](#choosing-between-rest-grpc-and-signalr).
+7. [Chapter 27: System Design Fundamentals](#system-design-fundamentals): the repeatable approach, the building blocks, and a worked URL shortener.
+8. [Chapter 32: The Capstone: One Project, Growing Up](#the-capstone-one-project-growing-up): one system taken from monolith to services, step by step.
+
+## Practice
+
+**1. An ADR for one decision (1 h).** Take a decision your team made, or the one in *Decide* below, and write it in the shape of [Chapter 17's Architecture Decision Records](#architecture-decision-records-adrs): context, the options with their costs, the decision, the consequences, and what would make you revisit it. Keep it to one page; an ADR is read by someone in a hurry.
+
+**2. A system design in 90 minutes (1 h 30 min).** Pick a prompt you haven't seen designed, for example "deliver webhooks to partners, with retries, at a few hundred thousand events a day". Follow Chapter 27's approach and write each step down: requirements (functional and not), estimates (requests per second, storage per year), the API, the data model, the components, the first two bottlenecks, and for each major choice the option you rejected and why. Then mark every place where Module 3's guarantees (outbox, idempotency, ordering) apply.
+
+**3. The capstone, as a longer project.** [Chapter 32](#chapter-32-putting-it-all-together-a-capstone-learning-path)'s Steps 6 and 7 ([Refactor Toward Clean Architecture and DDD](#step-6-refactor-toward-clean-architecture-and-ddd) and [Split Into Microservices](#step-7-split-into-microservices)) are this module's material built for real; write an ADR for each split you make.
+
+**Evidence to keep**, in your own public portfolio repo, not in this one: the ADRs and the design write-up. Decisions about a real employer's system stay private; publish a version about the capstone or an invented system.
+
+Later, if you need it: [Chapter 6: The 12-Factor App](#the-12-factor-app), [.NET Aspire](#net-aspire), and [Chapter 24: Versioning Strategies for REST APIs](#versioning-strategies-for-rest-apis).
+
+## Three questions
+
+**1.** A team split its monolith into five services, and now every release still needs all five deployed together, and an outage in one takes the others down. What went wrong, and how do you tell a real service boundary from a fake one?
+
+<details>
+<summary>Answer</summary>
+
+- **The coupling moved instead of disappearing.** Usually the services share a database (a schema change breaks all of them), or call each other synchronously in chains (one slow service stalls the rest), or share a library of domain types that must be upgraded in lockstep. That is a distributed monolith.
+- **A real boundary has three properties.** The service owns its data, and nobody else reads its tables. It can serve its requests from its own state, getting other services' data through events it has already received rather than through calls on the request path. And it changes on its own schedule, which usually means one team owns it.
+- **The way back.** Merge services that always change together into one, or into a module of a modular monolith; move shared tables behind one owner; replace synchronous chains with events and local copies of the data (Module 3's outbox and idempotent consumers).
+</details>
+
+**2.** A team says it does CQRS because every request goes through MediatR. What does MediatR give them, what doesn't it, and what would real CQRS change?
+
+<details>
+<summary>Answer</summary>
+
+- **What MediatR gives.** An in-process dispatch from a request object to its single handler, so controllers don't depend on services directly, and pipeline behaviours that wrap every request with validation, logging or a transaction.
+- **What it doesn't.** Separate models: the commands and queries may still share one entity model and one `DbContext`. It adds no read store, no scaling, no consistency guarantee, and a level of indirection on every call. New major versions are commercially licensed.
+- **What CQRS changes.** Queries read a model shaped for the screen (a projection, a view, or a separate store), and commands go through the domain model that enforces invariants. With a separate store, reads become eventually consistent, and the UI and the business rules must tolerate that. It pays where reads and writes have very different shapes or loads; for CRUD, it is ceremony.
+</details>
+
+**3.** A public API returns `customerName`. The business now wants `givenName` and `familyName`. How do you ship it without a v2, which steps break whom, and how do you know when the old field can go?
+
+<details>
+<summary>Answer</summary>
+
+- **Expand.** Add `givenName` and `familyName` to responses next to `customerName`, and accept either form on requests. Adding response fields is safe for tolerant readers; check that your known clients are.
+- **Migrate.** Mark `customerName` deprecated in the OpenAPI document and the changelog, tell the consumers, and log which consumers still read or send it, on logs or traces rather than metric tags if there are many consumers.
+- **Contract.** Remove `customerName` only when that telemetry has shown no use for an agreed period, after the announced date.
+- **When a version is right instead.** If the meaning changes (a name is no longer one string anywhere in the domain), or the old field can't be derived from the new ones, a new version with a published retirement date for the old one is more honest than a field that lies.
+</details>
+
+## Decide
+
+A team of twelve developers works on one ASP.NET Core monolith with one database. Deploys take an afternoon, merge conflicts are frequent, and a bug in invoicing blocked a release of the catalogue last month. Three proposals:
+
+1. Split it into six microservices along the current folders.
+2. Turn it into a modular monolith: modules with their own schemas and narrow APIs, boundaries checked by architecture tests, still one deployable.
+3. Keep the structure and fix the delivery pipeline: faster tests, trunk-based development, feature flags.
+
+<details>
+<summary>How a senior engineer weighs it</summary>
+
+**What each costs.**
+
+- *Six services:* months of work and a permanent operations bill (pipelines, monitoring, on-call, contracts and versioning between services, Module 3's consistency machinery). The folders are not known to be business boundaries, so the split risks a distributed monolith. It is also the only option that lets parts deploy and scale independently.
+- *Modular monolith:* weeks to draw and enforce boundaries, with a lot of untangling where modules read each other's tables. It addresses merge conflicts and the blast radius of a bug, keeps one deployment and transactions across modules, and makes a later split cheap, because a module with its own schema and API is most of a service.
+- *Fix the pipeline:* days to weeks. It addresses the slow deploys and blocked releases directly (a feature flag would have shipped the catalogue with invoicing switched off), and changes nothing about coupling.
+
+**What decides it here:** the pains are delivery and coupling, not scale. Nothing says one part needs to scale or deploy independently of the others.
+
+**The choice.** Fix the pipeline first, because it pays within weeks, and move to a modular monolith in parallel, one module at a time, starting with the most independent one. Record both decisions as ADRs.
+
+**What would change it.** A part with a genuinely different scaling or availability profile, a separate team that must ship on its own schedule, or a compliance boundary would justify extracting that one module into a service — and the modular boundary is what makes that extraction cheap.
+</details>
+
+## Check at work
+
+**Inspect.** Does your domain project reference EF Core, ASP.NET Core or an HTTP client? Which modules or services read another's tables? Which decisions of the last year exist only in someone's memory? Pick one and write its ADR. For your API: is there a written list of what counts as a breaking change, and does anything in the pipeline (an OpenAPI diff, contract tests) catch one before release?
+
+**Measure.** For each API version or deprecated field you serve: how many consumers called it in the last 30 days. For a request path that crosses services: how many synchronous calls it makes, and the end-to-end latency against the sum of its parts.
+
+
+---
+
+# Part 2 · Module 5: Observability and Testing at Scale
+
+_⏱️ Estimated read time: ~15 min · 2723 words (study pace)_
+
+> **What this module makes you able to do.** Decide what a service must emit so that a page at 3 a.m. leads to a cause in minutes, set an SLO and alert on how fast its budget burns instead of on CPU, and choose which expensive tests (contract, load, chaos, mutation, property-based) earn their cost for the system in front of you.
+
+**Time:** reading ≈ 55 min; hands-on ≈ 6 h 35 min — instrumenting a service 2 h, the load test 2 h, the chaos experiment 1 h, the mutation run 30, the questions 20, the decision 15, the check at work 30.
+
+## Covers
+
+- RED for symptoms and USE for causes, and why an unbounded tag on a metric (a user ID, a raw URL) multiplies the bill instead of the insight;
+- how one trace ID crosses HTTP, a queue and a sampler (W3C `traceparent`, `Activity`, OpenTelemetry), and the three places it breaks;
+- SLIs, SLOs and error budgets, and paging on how fast the budget burns rather than on a cause such as CPU;
+- the 3 a.m. walk from alert to cause: metric, then trace, then logs, then a profiler when the time is spent inside one process;
+- testing what unit tests can't see: contract tests between teams, load tests against the SLO, chaos experiments on failure paths, mutation and property-based tests on the tests themselves — what each catches and what it costs.
+
+## The mechanism to explain without notes
+
+**One user-visible SLI is the yardstick for everything in this module, and one propagated trace ID is the thread from a breached SLI to its cause.**
+
+Telemetry trades cost for context. A metric is an aggregate: it keeps a number per time series and throws the requests away, so it is cheap enough to keep always on and to alert on. Through bounded tags (route, status code) it can say *that* something is wrong and *where*. Every distinct combination of tag values is a separate series, which is why a user ID on a metric explodes the backend's cost. A span or a log line keeps one request's detail, so it is expensive, sampled and capped, and it is the only signal that can say *which hop* and *why*. RED (rate, errors, duration) on each request path gives you the symptom; USE (utilization, saturation, errors) on each pool, queue and CPU gives you the cause to look for once a symptom has fired. Part 1's module on exceptions, structured logging and first diagnosis covers the log line itself; this module starts where the request leaves the process.
+
+The trace ID is the join between the signals. `Activity` is the .NET span, and W3C `traceparent` carries the trace ID and the parent span over HTTP with no code from you: `HttpClient` injects it and ASP.NET Core reads it. It breaks in three places, and each one ends the 3 a.m. walk early:
+
+- **a broker hop** where nobody injected the context into the message's properties, so the worker starts a new trace (Chapter 13, *Correlation Across Services*);
+- **a sampler** that ignores the caller's decision (the callout below);
+- **an ingestion cap** that stops all telemetry once an incident multiplies the volume — retries log every failure, so the cap trips exactly when you need the data (Chapter 51, Case 15).
+
+The SLI is what users feel: the share of requests that succeed fast enough. The SLO is its target over a window, so the error budget (1 − SLO) is a quantity the team can spend. The **burn rate** is how fast it is being spent: the observed error ratio divided by the budget ratio. At a burn rate of 1 the budget lasts exactly the window; at 14.4, one hour spends 2% of a 30-day budget (14.4 hours out of 720). Page on that, because it measures user pain against the promise, whatever the cause. CPU measures one cause, pages when nobody is hurt and stays silent for every failure that doesn't use CPU. Testing at scale uses the same yardstick: a load test fails the build on the SLI's thresholds, a chaos experiment's steady state *is* the SLI, and the remaining budget decides how much risk the team may ship. Contract, mutation and property-based tests aim at what neither production signals nor unit tests reveal: an interface that drifted between services deployed independently, a test that runs code but asserts nothing, an input nobody thought to write.
+
+> **Pay attention.** **The sampler that splits your traces.** Chapter 13's example sets `TraceIdRatioBasedSampler(0.1)` directly. The OpenTelemetry specification says that sampler *must ignore* the parent's sampled flag, so every service makes its own decision. The decisions line up only while every service runs the same ratio and the same algorithm. Change the ratio in one service and you get traces with holes: spans whose parent was dropped, and kept traces missing a hop. The fix is `new ParentBasedSampler(new TraceIdRatioBasedSampler(0.1))` in every service: the root decides and everyone downstream follows the `traceparent` flag (the SDK's default is `ParentBased` around always-on). Keep the errors and the slow traces with tail sampling in the Collector.
+
+## Read (≈ 55 min)
+
+1. [Chapter 13: Metrics](#metrics): the three instrument types, the cardinality pitfall, and RED against USE.
+2. [Chapter 13: Distributed Tracing](#distributed-tracing): `traceparent`, `Activity` as the span, the end-to-end setup and sampling.
+3. [Chapter 13: Centralized Logging](#centralized-logging) and [Correlation Across Services](#correlation-across-services): the trace ID on every log line, and why a broker hop needs explicit inject and extract.
+4. [Chapter 13: Alerting, SLIs, SLOs, SLAs, and Error Budgets](#alerting-slis-slos-slas-and-error-budgets): symptoms against causes.
+5. [Chapter 13: The 3 a.m. Walk: One Incident, Three Signals](#the-3-am-walk-one-incident-three-signals): metric, trace, logs, and the trace ID joining them.
+6. [Chapter 51: Case 15 — Blind in the middle of the incident](#case-15-blind-in-the-middle-of-the-incident): a telemetry cost control that fails when the volume spikes.
+7. [Chapter 15: Profiling: Finding the Bottleneck in a Running System](#profiling-finding-the-bottleneck-in-a-running-system): `dotnet-counters` first, then the tool its reading points to.
+8. [Chapter 15: Load Testing: Proving It Under Pressure](#load-testing-proving-it-under-pressure) and [Chapter 25: Load & Performance Testing](#load-performance-testing): thresholds that fail the build, and where each kind of run belongs in CI.
+9. [Chapter 25: Contract Testing: Killing the Integration Test Explosion](#contract-testing-killing-the-integration-test-explosion): consumer-driven contracts, provider states, and `can-i-deploy` as the gate.
+10. [Chapter 21: Verifying Resilience: Chaos Engineering in Practice](#verifying-resilience-chaos-engineering-in-practice): steady state, hypothesis, blast radius and abort condition, then game days.
+11. [Chapter 25: Mutation Testing: Testing Your Tests](#mutation-testing-testing-your-tests) and [Property-Based Testing: Asserting the Rules, Not the Examples](#property-based-testing-asserting-the-rules-not-the-examples): what coverage can't tell you, and shrinking.
+12. [Chapter 25: Choosing Your Instruments](#choosing-your-instruments): the defect class each technique uniquely catches, and its price.
+
+## Practice
+
+**1. Instrument a service end to end (2 h).** Take a service of your own, or a sample with an API, a queue and a worker. Follow Chapter 13's [Instrumenting a .NET App End to End](#instrumenting-a-net-app-end-to-end): traces, RED metrics with bounded tags, and logs stamped with the trace ID, exported over OTLP to a local backend (the chapter's *Local dev tip* names the Aspire dashboard). Then make the queue hop carry the context: inject at publish, extract at consume. Done when one request shows up as **one** trace from the HTTP call through the worker, and one trace ID finds every log line of that request.
+
+**2. A load test against an SLO (2 h).** Write an SLO for one endpoint: the SLI (requests that succeed under [threshold] ms, over all valid requests), the target and the window. Encode it as k6 `thresholds` (`http_req_duration` on `p(99)`, `http_req_failed` on `rate`), and generate the load with an arrival-rate executor, so a slow server can't slow the test down (question 3 explains why). Raise the rate step by step until a threshold fails: that rate is the knee. Run it again at the knee and read the process:
+
+```bash
+dotnet-counters monitor -p <pid> --counters System.Runtime,Microsoft.AspNetCore.Hosting
+dotnet-trace collect -p <pid> --duration 00:00:20
+```
+
+Name the resource that saturated first (USE), and write the result down with the environment it ran on: CPU, RAM, runtime version, data scale, cache state.
+
+**3. One chaos experiment (1 h).** In staging, run Chapter 21's six steps against one dependency with a Polly chaos strategy: the SLI as steady state, the hypothesis written down before you start, a 1–5% injection rate and an abort switch you have tested. If the team has never run one, run a game day instead; the chapter explains why it finds more.
+
+**4. A mutation run (30 min).** Run Stryker.NET on one core domain project, only on what changed since `main`:
+
+```bash
+dotnet tool install -g dotnet-stryker
+dotnet stryker --since:main
+```
+
+For three surviving mutants, write the test that kills each, or argue why the mutant is equivalent.
+
+The script, the SLO, the knee, the experiment's hypothesis and result, and what you changed afterwards belong in **your own public portfolio repo**, not in this one; anything about a real employer's system stays private. The Practice Gym's planned incident gym (M4 in [`PRACTICE_ROADMAP.md`](https://github.com/malyna2/dotnet-handbook/blob/main/PRACTICE_ROADMAP.md)) will become this module's lab: eight injected faults, diagnosed from logs, metrics and traces only, timed and written up as post-mortems.
+
+Later, if you need it: [Chapter 13: Health Checks: The Tie-In](#health-checks-the-tie-in), [Chapter 50: Observability: Application Insights and KQL](#observability-application-insights-and-kql), [Chapter 33: The Incident Cheat Card](#the-incident-cheat-card), and Chapter 25's [End-to-End, UI, and API Testing](#end-to-end-ui-and-api-testing) and [Deterministic Tests](#deterministic-tests-time-async-and-test-data).
+
+## Three questions
+
+**1.** The SLO is 99.9% of requests succeed over 30 days. Why does an alert on "error rate above 1% for 5 minutes" both wake you for nothing and sleep through a real outage, and what do you alert on instead?
+
+<details>
+<summary>Answer</summary>
+
+- **The budget.** 99.9% leaves 0.1% of requests to fail in 30 days. The burn rate is the observed error ratio divided by 0.001, and the share of the budget an episode spends is its burn rate times its duration over the window.
+- **It wakes you for nothing.** 1% for 5 minutes is a burn rate of 10 for 5 of the window's 43,200 minutes: about 0.12% of the month's budget.
+- **It sleeps through the outage.** A steady 0.5% never crosses 1%, yet it burns at 5× and spends the whole budget in 6 days.
+- **Alert on the burn rate over two windows.** For example, page when the last hour spent at least 2% of the budget (burn rate 14.4) *and* the last 5 minutes are still burning that fast, so the alert clears soon after the fix. Open a ticket for slow burns, such as 10% of the budget over 3 days (burn rate 1). The thresholds are a policy choice; the arithmetic makes them comparable.
+- **Low traffic breaks the ratio.** At 20 requests an hour, one failure is a 5% error ratio, a burn rate of 50. Add a minimum request count or synthetic probes.
+
+CPU, memory and pool saturation belong on the dashboard you diagnose with (USE), not on the pager.
+</details>
+
+**2.** A request crosses an API, a queue and a worker. In the trace backend you find the API's trace and, separately, the worker's; and some API traces lose a hop in the middle. What breaks each, and what does it cost you during an incident?
+
+<details>
+<summary>Answer</summary>
+
+- **The split at the queue.** HTTP propagation is automatic: `HttpClient` injects `traceparent` and ASP.NET Core extracts it. A broker carries only what is in the message. Unless your client library does it for you, the producer must inject the context into the message properties, and the consumer must extract it and start its span with that parent. Without it, the slow trace ends at "publish", and the worker's logs carry a different trace ID.
+- **The holes.** A `TraceIdRatioBasedSampler` set directly decides per service and ignores the caller's flag. A service with a different ratio drops spans of kept traces and keeps spans of dropped ones. Wrap it in `ParentBasedSampler` everywhere, and keep errors and slow traces with tail sampling in the Collector.
+- **The cost.** The trace ID is the only join between metric, trace and logs. Wherever it breaks, the two-minute pivot of the 3 a.m. walk becomes a search by timestamp across services, during the incident.
+</details>
+
+**3.** A load test with 200 virtual users reports p99 of 180 ms, inside the SLO. In production, at the same request rate, p99 is several seconds. Name the mechanisms that make the test lie, and how you would make its number trustworthy.
+
+<details>
+<summary>Answer</summary>
+
+- **A closed model slows down with the server.** A virtual user sends its next request only after the previous response arrives. When the server slows, the test sends less: the requests that would have queued are never sent, so their latency is never measured (often called *coordinated omission*). Real users arrive whether or not you are slow. Use an open model — k6's arrival-rate executors, NBomber's `Inject` — and check the achieved rate against the target.
+- **The wrong environment.** A shared CI runner, a small database, warm caches and a single instance move the knee. Run against production-like topology and data volume, and publish the environment with the number.
+- **The generator is the bottleneck.** Chapter 25's NBomber sample creates a `new HttpClient()` per iteration. That opens a connection per request (Part 1 covers why), so the test measures connection setup and can run out of local ports on the load generator. Share one client, and watch the generator's CPU and connection count during the run.
+</details>
+
+## Decide
+
+Checkout calls Payments and Inventory, each owned by another team and deployed on its own schedule. Last quarter brought three incidents: twice a renamed field in a Payments response broke checkout, and once p99 latency collapsed during a promotion. You have one engineer for six weeks. Which goes first?
+
+- **A.** Consumer-driven contract tests: Pact for checkout's calls to Payments and Inventory, a broker, and `can-i-deploy` in all three pipelines.
+- **B.** A nightly load test against checkout's SLO in a production-like environment, with profiling at the knee.
+- **C.** A shared staging environment with end-to-end tests of the checkout journey.
+
+<details>
+<summary>Answer</summary>
+
+**The cost of each.**
+- **A** costs a broker, provider-state endpoints, and — the expensive part — the other teams' time, because the provider has to run verification in its own pipeline.
+- **B** costs a production-like environment (money) and noisy results to triage. It is fully under your control.
+- **C** costs the most for the least: slow, brittle, and every team must deploy compatible versions into one place at once. It would catch the renamed field only if someone deployed it to staging first, and it catches latency only at staging's scale.
+
+**What decides it here: the incident classes and their recurrence.** Two of three incidents were interface drift, and drift recurs with every independent deploy of Payments. The latency collapse needs a traffic event to recur, and you can schedule a load test before the next promotion.
+
+**The choice: A, starting with Payments.** It is the provider with the record. Then a short B before the next promotion: one scenario, an open-model rate at the promotion's expected peak, the SLO as thresholds. Skip C. Keep one or two end-to-end journeys only where behaviour, not wiring, needs proving.
+
+**What would change it.**
+- If the Payments team won't run provider verification, contract tests protect nothing: fall back to a tolerant reader in checkout plus schema checks on the published API, and spend the rest on B.
+- If the next promotion is in three weeks, B goes first.
+</details>
+
+## Check at work
+
+**Inspect.** For your most important endpoint, find three things. The SLI and the SLO: are they written down? The alert that fires when it breaks: on a symptom (burn rate, error ratio, latency) or on a cause (CPU, memory, one pod)? And the trail of one real request through a queue: does its trace ID reach the worker's logs? Good: one SLO, a burn-rate alert linked to a runbook, an unbroken trace. Bad: CPU alerts, and a trail that ends at the queue.
+
+**Measure.** Read the last 30 days: the SLI, the share of the error budget spent, and the number of pages that led to no action. Every page that led to no action is a candidate for deletion or for demotion to a ticket.
+
+
+---
+
+# Part 2 · Module 6: Production and the Cloud
+
+_⏱️ Estimated read time: ~15 min · 2575 words (study pace)_
+
+> **What this module makes you able to do.** Decide how a .NET service runs, connects, authenticates and ships on Azure — which compute, which identity, which network path, which deployment strategy — and diagnose the incidents that come from the platform rather than from the code: a timeout you didn't set, a port budget you didn't know you had, a token from the wrong identity, a DNS answer from the wrong zone.
+
+**Time:** reading ≈ 1 h 30 min; hands-on ≈ 5 h 35 min — Chapter 51's two bugs 1 h, its two decisions 45, the pipeline 2 h 30, the questions 20, the decision 15, the check at work 45.
+
+## Covers
+
+- App Service's limits that cause real incidents — the 230-second front end, 128 SNAT ports per instance and destination, the order of a slot swap — and why none of them shows up on a CPU graph;
+- Functions: why scale-out multiplies concurrency against everything downstream, and how to bound it;
+- identity end to end: managed identity, the `DefaultAzureCredential` chain, role assignments that take minutes to apply, and private endpoints whose DNS decides whether they work;
+- Azure SQL and Cosmos DB at the decision level: failovers you must retry through, and a partition key you can't change later;
+- containers and Kubernetes as a senior backend developer needs them: namespaces and cgroups, probes, requests and limits, the shutdown signal;
+- CI/CD that makes a small change cheap and a rollback cheaper; zero trust, workload identity and mTLS; the supply chain and Linux as the next layer down.
+
+## The mechanism to explain without notes
+
+**In production your code runs inside platform mechanisms it never calls — a front end with a timeout, a NAT with a port budget, a token endpoint, a DNS zone, a scheduler that scales, kills and moves it — and most cloud incidents are one of them doing exactly what its documentation says.**
+
+Each mechanism has a limit, a timer or an identity, and none of them is in your code:
+
+- **The front end** closes any App Service request without a response at 230 seconds, while your code keeps running (Chapter 51, Case 11).
+- **SNAT** gives an instance 128 preallocated ports per destination for outbound connections to public addresses, and holds each port for four minutes after its connection closes. The ceiling is on *new connections per four minutes*, so CPU and memory stay green while requests time out (Case 3).
+- **A slot swap** applies settings, restarts, warms up, switches routing, and only then recycles the old production code. Every "minute of 500s after a deployment" is one of those steps (Case 4).
+- **A token** comes from a local endpoint, for whichever identity the credential chain found first; a role assignment takes minutes to apply; a private endpoint works only if its name resolves to the private IP *from where the app runs* (Case 10).
+- **Azure SQL** moves your database between nodes routinely, so transient errors are the normal case and the retry belongs in the design (Case 14).
+- **Kubernetes** kills a container at its memory limit, throttles it at its CPU limit, restarts it when liveness fails and sends `SIGTERM` with a grace period before it moves it.
+
+So diagnosis starts from the symptom and the platform's mechanism — Chapter 51's triage card — not from the business logic. The same view makes change and trust cheap. Build one immutable artifact and promote it; separate deploy from release with flags; keep schema changes expand-then-contract so the previous build still runs; then rollback is faster than a fix forward, changes get smaller, and each failure is small. On the security side, network position confers no trust: each workload gets a platform-attested identity with short-lived tokens (managed identity, workload identity federation in CI, mTLS inside a mesh), and every call is authorized for that identity, so a leaked credential expires before it is useful. The supply chain (Chapter 35) applies the same idea to what you build from, and Linux (Chapter 31) is the layer under all of it: signals, permissions, cgroups.
+
+> **Pay attention.** **Serverless scale multiplies your concurrency against everything downstream.** The Service Bus trigger runs up to `maxConcurrentCalls` messages per instance — 16 by default, effectively multiplied by the core count — and the platform adds instances while the queue is deep. At 40 two-core instances that is 1,280 concurrent executions against one database (Chapter 50's arithmetic). The queue was supposed to level the load; unbounded consumers pass the burst straight through. Fix: write down each consumer's maximum concurrency (per-instance concurrency × maximum instance count), size it against the downstream limit, and cap both settings (Chapter 51, Case 7).
+
+## Read (≈ 1 h 30 min)
+
+1. [Chapter 51: The Azure Triage Card](#the-azure-triage-card): start from the symptom; keep it open while you read the rest.
+2. [Chapter 50: Compute: Choosing It and Running It](#compute-choosing-it-and-running-it): the decision table; App Service (the plan, the swap order, health check, the 230-second and SNAT limits); Functions (isolated worker, plans, concurrency, Durable Functions); Container Apps.
+3. [Chapter 51: Case 3](#case-3-intermittent-timeouts-under-load-with-every-dashboard-green), [Case 4](#case-4-a-minute-of-500s-after-every-deployment), [Case 7](#case-7-functions-scaled-out-and-took-the-database-down) and [Case 11](#case-11-large-uploads-fail-at-almost-exactly-four-minutes): the compute limits as incidents.
+4. [Chapter 50: Identity: Entra ID, Managed Identity and RBAC, Mechanically](#identity-entra-id-managed-identity-and-rbac-mechanically): the objects, the token endpoint, the credential chain, RBAC's delay, protecting your own API, federation in CI.
+5. [Chapter 50: Networking for Application Developers](#networking-for-application-developers) and [Chapter 51: Case 10](#case-10-the-private-endpoint-that-made-things-worse): inbound against outbound, and DNS as the part that breaks.
+6. [Chapter 50: Azure SQL Database](#azure-sql-database) and [Chapter 51: Case 14](#case-14-the-database-is-not-currently-available-every-few-days): failover as routine, and the execution strategy.
+7. [Chapter 50: The model: partitions and request units](#the-model-partitions-and-request-units) and [Choosing the partition key](#choosing-the-partition-key-the-decision-you-cannot-easily-undo): Cosmos DB at the level of the one decision you can't undo.
+8. [Chapter 51: Case 16 — The region went down](#case-16-the-region-went-down-a-design-review-after-the-fact): availability as a property of the whole request path.
+9. [Chapter 11: What a Container Actually Is](#what-a-container-actually-is), [Kubernetes Fundamentals](#kubernetes-fundamentals) and [Kubernetes YAML for a .NET Deployment](#kubernetes-yaml-for-a-net-deployment): namespaces and cgroups, probes, requests and limits, the autoscaler.
+10. [Chapter 12: What CI/CD Actually Means](#what-cicd-actually-means), [Deployment Strategies](#deployment-strategies), [Feature Flags](#feature-flags) and [DORA: four metrics, and exactly how each is gamed](#dora-four-metrics-and-exactly-how-each-is-gamed), with [Chapter 4: Migrations in CI/CD](#migrations-in-cicd) for expand-then-contract.
+11. [Chapter 14: Zero Trust and Workload Identity](#zero-trust-and-workload-identity): attestation instead of secrets, SPIFFE, mTLS, OIDC federation in CI.
+
+## Practice
+
+**1. Chapter 51's two *Find the bug* samples (1 h).** In the *Exercises* of [Chapter 51](#chapter-51-the-azure-casebook-real-incidents-real-fixes), review both samples as pull requests before you open the answers: the lost update on a shared blob, and the batch that outlives its locks. Then run the tests that show each defect on the buggy code and its absence on the fix, against Azurite and the Service Bus emulator ([`verify/exercises/Ch51`](https://github.com/malyna2/dotnet-handbook/tree/main/verify/exercises/Ch51); needs the .NET 10 SDK and Docker, and both emulators have EULAs):
+
+```bash
+ACCEPT_EULA=Y verify/exercises/Ch51/verify.sh
+```
+
+**2. Chapter 51's two *What would you do* (45 min).** Answer the second — the document-processing service — as a one-page decision before you read the chapter's: the compute, the path around the 230-second limit, scaling and its cap, identity, and what would change your mind. The first — "just give the app Owner" — practises the answer you give under deadline pressure.
+
+**3. A deployment pipeline that makes rollback cheap (2 h 30).** Chapter 12 has no exercise section; this one is built on it. Start from its [A Complete GitHub Actions Workflow for .NET](#a-complete-github-actions-workflow-for-net) (or the Azure Pipelines one) and extend it for one service:
+
+- build and test once, publish one immutable artifact, and promote that same artifact through the environments;
+- sign in to Azure with workload identity federation, so the pipeline stores no secret;
+- deploy to a staging slot, warm it up on a health endpoint that touches the database, swap, and roll back by swapping again;
+- run migrations as a gated step, expand-then-contract, so the previous build still runs against the new schema;
+- put one change behind a feature flag and release it without a deployment.
+
+Done when you can show a rollback in minutes and no stored secret. Chapter 32's capstone takes the same route in its steps 4 and 8 ([The Capstone](#the-capstone-one-project-growing-up)).
+
+The pipeline, your decision memo and your notes belong in **your own public portfolio repo**, not in this one; anything about a real employer's system stays private.
+
+Later, if you need it: Chapter 31's [Processes, Signals, Graceful Shutdown](#processes-signals-graceful-shutdown), [Permissions](#permissions-why-your-container-app-cant-write-that-file) and [Live Container Triage](#live-container-triage-a-walkthrough); Chapter 35, starting with [The Build Is Part of the Attack Surface](#the-build-is-part-of-the-attack-surface); Chapter 50's [Configuration and Secrets](#configuration-and-secrets-key-vault-and-app-configuration) with Chapter 51's [Case 13](#case-13-secret-rotation-took-production-down); Chapter 11's [Containerizing a .NET Application](#containerizing-a-net-application); then the rest of Chapter 51's cases.
+
+## Three questions
+
+**1.** An App Service API calls a partner's public API. Under load, intermittent connection timeouts appear; CPU sits at 30%. Scaling out from 2 to 4 instances makes them disappear for a few weeks. Why does scaling "fix" it, why does it come back, and what is the real fix?
+
+<details>
+<summary>Answer</summary>
+
+- **The mechanism.** Every new outbound connection to a public address takes a SNAT port. An instance has 128 preallocated per destination, and a closed connection's port returns only four minutes later. The ceiling is on new connections per four minutes, per instance and destination, so CPU and memory stay green. A new `HttpClient`, SQL connection without pooling or SDK client per request means a new connection per request.
+- **Why scaling out hides it.** Each instance brings its own ports: twice the instances, twice the budget. Traffic grows into the new budget, and the timeouts return, on a bigger bill.
+- **The fix, in order.** Reuse connections (`IHttpClientFactory` or one long-lived client, singleton SDK clients), so the steady state needs a handful of ports. Use private endpoints for Azure services, whose traffic stays in the VNet and skips SNAT. Add a NAT gateway (64,512 ports per public IP) only if the rate of genuinely new connections still exceeds the budget. Confirm with *Diagnose and solve problems → SNAT Port Exhaustion*.
+</details>
+
+**2.** A function app with a Service Bus trigger drains a deep import queue, and the Azure SQL database it shares with checkout starts returning error 10928. Walk through the mechanism, and say what you change.
+
+<details>
+<summary>Answer</summary>
+
+- **Concurrency is instances × per-instance concurrency.** The trigger runs up to `maxConcurrentCalls` messages per instance (16 by default, effectively per core), and the platform scales out on queue depth. Dozens of instances turn into over a thousand concurrent executions, each with a connection and a session.
+- **The database has a fixed ceiling.** 10928 is the worker limit: the import has taken every worker, and checkout fails on the same database.
+- **The fix.** Cap `maxConcurrentCalls` in `host.json` and the maximum instance count, and size their product from the database's limits with headroom for checkout. Batch the writes (one round trip per batch). Isolate the workload: a separate database, an elastic pool with per-database limits, or a time window.
+- **The principle.** A queue levels load only if its consumers drain it at a bounded rate. Unbounded consumers make the queue a delay line in front of the same overload.
+</details>
+
+**3.** Your team says it can always roll back by redeploying the previous build. Name three kinds of change that make that false, and what keeps rollback cheap.
+
+<details>
+<summary>Answer</summary>
+
+- **A schema change the old build can't run against:** a dropped or renamed column, a new `NOT NULL` column. Expand then contract: add it nullable, backfill, switch the code, and remove the old shape in a later release (Chapter 4).
+- **A contract change others already depend on:** a renamed response field or message property. Rolling back the producer doesn't recall the messages already in queues, and consumers may have deployed against the new shape. Make changes additive (expand–contract on the API, Chapter 3) and readers tolerant.
+- **Settings and data that moved:** a setting that wasn't a slot setting followed the build into production (Chapter 51, Case 4), or a data migration rewrote rows. Mark environment settings sticky; make data migrations idempotent, and decide in advance whether they are reversible or fix-forward only.
+
+What keeps rollback cheap: one immutable artifact, release separated from deploy by a flag (so many rollbacks are a flag flip), a schema that stays compatible with the previous build for one release, and a rollback you have actually rehearsed.
+</details>
+
+## Decide
+
+Orders (App Service) calls Pricing (Container Apps); both are your team's and sit in the same VNet. Today Pricing checks a shared API key that both read from Key Vault. A security review asks you to "move to zero trust" this quarter. Which do you do?
+
+- **A.** Keep the key, rotate it monthly, and restrict Pricing's ingress to the VNet.
+- **B.** Managed identity and Entra ID: Orders requests a token for Pricing's application ID URI with its managed identity; Pricing validates it and authorizes on an app role assigned to Orders' identity.
+- **C.** Move both services to AKS with a service mesh, and use mTLS with mesh authorization policies.
+
+<details>
+<summary>Answer</summary>
+
+**The cost of each.**
+- **A** is the cheapest change and keeps the castle-and-moat: anything inside the VNet that holds the key *is* Orders, a leaked key works until the next rotation, and every rotation is a chance to take production down (Chapter 51, Case 13). It answers the review with a schedule, not an architecture.
+- **B** costs an app registration for Pricing with an app role, a role assignment to Orders' identity (an admin with the right to grant it), token validation in Pricing, and the propagation delay on the first deployment (a user-assigned identity created before the deployment avoids it). It removes the secret, issues short-lived tokens per caller, and lets Pricing authorize each caller separately.
+- **C** costs a cluster and a mesh to operate — full Kubernetes responsibility — to solve an authentication problem for two services. mTLS authenticates the service, not the user, so you would still need token-based authorization for user context.
+
+**What decides it here:** the platform you already run and the size of the estate. Two services on App Service and Container Apps already have platform-attested identities; the platform's own mechanism is the cheapest correct one.
+
+**The choice: B.** Then turn the API key off, so nothing can fall back to it.
+
+**What would change it.** Dozens of services on Kubernetes with a platform team: a mesh for mTLS between workloads, with B-style tokens still carrying authorization. A caller outside Azure: workload identity federation from its own identity provider, still with no shared secret.
+</details>
+
+## Check at work
+
+**Inspect.** Walk Chapter 51's triage card over one service of your own. Which identity does each environment's app run as — decode a token's `oid`, or list the identity's role assignments — and is any key or secret-bearing connection string still in its settings? From inside the app, does each private endpoint's name resolve to a private IP? Which settings are slot settings? For each queue consumer, write per-instance concurrency × maximum instances, and compare it with the downstream database's limit.
+
+**Measure.** The time from "roll back" to the previous version serving users, from your last real rollback. If there was none, schedule a rehearsal: a rollback you have never run is a hope. On App Service, also open *Diagnose and solve problems → SNAT Port Exhaustion* for your busiest app.
+
+
+---
+
+# Part 2 · Module 7: Senior Behaviours
+
+_⏱️ Estimated read time: ~15 min · 2487 words (study pace)_
+
+> **What this module makes you able to do.** Make decisions other people act on and keep them sound over time: review the design before the lines, write decisions down so they can be revisited instead of relitigated, turn tech debt into a cost the business can prioritise, estimate a project from the outside view as well as the inside, change legacy code without breaking it, grow the people around you, and keep the bar where it is when an AI writes the first draft.
+
+**Time:** reading ≈ 45 min; hands-on ≈ 8 h 20 min — the story-bank lab's first level 4 h 30, the ADR 1 h, the review 1 h, the estimate 45, the questions 20, the decision 15, the check at work 30.
+
+## Covers
+
+- reviewing a design, not its lines: which questions come before the diff, and why reversibility decides how much rigour a decision needs;
+- writing decisions down (ADRs, design docs, runbooks), and making tech debt visible as cost and risk rather than as taste;
+- estimating a project: three-point estimates and PERT, the reference class, and why a bottom-up plan comes in low;
+- changing legacy code safely: characterization tests, seams, the strangler fig, and hotspots from churn and complexity;
+- mentoring, influence without authority, ownership, on-call and follow-through;
+- a story bank and evidence portfolio, and working with AI tools without lowering the verification bar.
+
+## The mechanism to explain without notes
+
+**A senior's output is decisions that other people act on, so the job is to make each decision visible, checked against evidence and as reversible as it can be — the design before the lines, the outside view before the plan, the current behaviour before the change — and to keep the trust that lets you influence decisions you don't own.**
+
+The cost of being wrong grows with how much has been built on a decision and how many people act on it, so every senior behaviour moves a check earlier or makes a decision cheaper to revisit:
+
+- **Review the design before the code exists.** A design doc or a five-minute conversation costs little to change; a 40-file pull request has already spent the budget, and line comments can only polish it. How hard to look depends on reversibility: a two-way door gets a quick decision, a one-way door (a schema, a public contract, a vendor) gets alternatives on paper (Chapter 63, *Reversibility*).
+- **Write the decision down.** An ADR keeps the context and the rejected alternatives, so eighteen months later the team can supersede the decision on purpose instead of arguing it again from memory.
+- **Price the debt.** "The code is ugly" is taste and gets ignored; "changes here take longer and put billing at risk, and this is what fixing it buys" is a trade-off the business can schedule (Chapter 17, *Making tech debt visible to the business*). Hotspots — high churn times high complexity — say where the price is real.
+- **Estimate from two views.** The inside view sums the tasks you can see; the outside view asks how long similar work actually took. Each corrects the other's blind spot.
+- **Pin behaviour before changing it.** A characterization test asserts what legacy code *does*, not what it should do, so a refactor that changes anything by accident fails loudly.
+- **Hold the bar on generated code.** An assistant makes producing code cheap and leaves verifying it exactly as expensive: never merge what you haven't read, keep diffs small enough to review, and review the tests as hard as the code (Chapter 18).
+
+Influence runs on the same mechanism over a longer time: trust compounds from estimates that were honest, reviews that were fair and commitments that landed or were renegotiated early. Part 1's module on working habits covers the single review comment, the estimate as a range and the vague ticket; this module is about the decisions above them.
+
+> **Pay attention.** **Why a bottom-up plan comes in low, three times over.** First, task durations are skewed: a task can overrun by far more than it can underrun, so the sum of most-likely values is below the expected total — PERT's (O + 4M + P) / 6 puts the skew back. Second, summing standard deviations as a root of squares assumes independent tasks; tasks that share a cause (the same unfamiliar codebase, the same thin tests) overrun together, so the real spread is wider than the formula says. Third, the largest error is usually a missing row — environments, access, data, deployment, stabilisation — which no per-task arithmetic can fix. The outside view catches all three: compare the total with how long similar work really took (Chapter 63).
+
+## Read (≈ 45 min)
+
+1. [Chapter 17: 17.5 Technical Writing & Documentation](#175-technical-writing-documentation): the ADR template, design docs and runbooks.
+2. [Chapter 63: 6.3.5 Reversibility: Matching Rigor to the Door](#635-reversibility-matching-rigor-to-the-door) and [6.3.7 After the Decision: Writing It Down](#637-after-the-decision-writing-it-down): how much rigour a decision deserves, and the record it leaves.
+3. [Chapter 17: 17.7 Safe Change, Refactoring & Tech Debt](#177-safe-change-refactoring-tech-debt) and [Chapter 30: Making Technical Debt Visible and Deliberate](#making-technical-debt-visible-and-deliberate): debt in the business's units.
+4. [Chapter 30: Characterization Tests](#characterization-tests-pinning-down-behavior), [Seams](#seams-places-to-change-behavior-without-editing), [The Strangler Fig Pattern](#the-strangler-fig-pattern) and [Finding Hotspots: Churn × Complexity](#finding-hotspots-churn-complexity).
+5. [Chapter 63: Reference-Class Estimates: the Outside View](#reference-class-estimates-the-outside-view) and [Three-Point Estimates and PERT](#three-point-estimates-and-pert): the worked example and what its numbers show.
+6. [Chapter 17: 17.8 Mentoring, Pairing & Growing Others](#178-mentoring-pairing-growing-others), [17.10 Judgment & Influence](#1710-judgment-influence), [17.11 Ownership & Professionalism](#1711-ownership-professionalism) and [17.12 Career Growth: Toward Senior and Staff](#1712-career-growth-toward-senior-and-staff).
+7. [Chapter 36: Mining Everyday Work for Stories](#mining-everyday-work-for-stories), [How a STAR Answer Is Scored](#how-a-star-answer-is-scored), [The Weekly Brag Doc](#the-weekly-brag-doc) and [Honesty Rules](#honesty-rules).
+8. [Chapter 18: Verification and Trust Discipline](#verification-and-trust-discipline) and [Anti-Patterns and Failure Modes](#anti-patterns-and-failure-modes): the bar for generated code.
+
+## Practice
+
+**1. Chapter 36's story-bank lab, Level 1 (≈ 4 h 30 min).** [Chapter 36](#chapter-36-the-story-bank-evidence-portfolio) is a Practice Gym lab with a kit in [`labs/36-evidence-portfolio`](https://github.com/malyna2/dotnet-handbook/tree/main/labs/36-evidence-portfolio): set up the two repos, mine a year of your own work for candidates, and draft five STAR worksheets. Levels 2 and 3 (mock interviews, a published evidence index) follow at the pace of its time budget. Your stories, numbers and worksheets go in your private story bank and **your own public portfolio repo**, never in this one; stories about a real employer stay private.
+
+**2. Write an ADR (1 h).** Pick a decision your team made recently without a record — or your answer to an earlier module's *Decide*. Use Chapter 17's template: context, decision, consequences (including the negative ones), alternatives considered, and one line on what would make you supersede it. Then ask someone who wasn't there whether they could reconstruct *why* from the ADR alone.
+
+**3. Review a real pull request for its design first (1 h).** Before reading any line, write down: the problem it solves, whether that problem needed solving now, what it makes hard to change later, and whether a one-way door is hidden in it (a schema, a public contract, a new dependency). Then review the lines with Chapter 18's [reviewer's rubric](#judging-ai-generated-code-a-reviewers-rubric) — written for generated code, and just as good for human code. Done when every comment names its condition, its cost and its label, and the design questions came first.
+
+**4. Estimate one piece of work twice (45 min).** For your next multi-week task, make a three-point estimate per task with PERT, then an outside-view estimate from the actual duration of the last few similar pieces of work. Write down where they disagree and why, and the range and commitment level you would give. Keep the actual result next to it when the work is done: that is the start of your own reference class.
+
+The Practice Gym's planned code-review gym (M5 in [`PRACTICE_ROADMAP.md`](https://github.com/malyna2/dotnet-handbook/blob/main/PRACTICE_ROADMAP.md)) will become this module's lab: ten seeded pull requests, including one clean one, scored for both detection and severity calibration.
+
+Later, if you need it: Chapter 63's [6.3.2 The Options Memo](#632-the-options-memo) and [The Cone of Uncertainty](#the-cone-of-uncertainty); Chapter 30's [Sprout Method and Sprout Class](#sprout-method-and-sprout-class) and [The EOL Treadmill](#the-eol-treadmill-legacy-is-a-verb); Chapter 18's [Measuring Whether Any of This Is Working](#measuring-whether-any-of-this-is-working); and the rest of Chapter 36, from [The Mock Interview Protocol](#the-mock-interview-protocol).
+
+## Three questions
+
+**1.** A pull request adds a notifications module with a generic plugin framework: 40 files, green tests, clean code. Every line comment you could write is a nit. Why is "approve with nits" the wrong outcome, and what should have happened instead?
+
+<details>
+<summary>Answer</summary>
+
+- **The decision is in the design, not the lines.** The question is whether a plugin framework was needed for the one or two channels that exist (YAGNI), and what it costs every future change. Line review can't ask that; it can only polish the answer.
+- **The review came too late.** By the time 40 files exist, rejecting the design throws away a week, so reviewers approve. The cheap moment was a short design doc or a conversation before the code.
+- **Reversibility sets the bar.** An internal abstraction is a two-way door: a request-changes for the simpler shape, or an agreed follow-up, is enough. If it adds a one-way door — a public contract, a schema, a vendor — block it until the alternatives are written down.
+- **What to do now.** Leave one design-level comment: the problem, the simpler alternative, the cost of each. Ask for a short ADR if the framework stays, and agree on a design check before code for work of this size.
+</details>
+
+**2.** A bottom-up plan sums its most-likely task estimates to 40 days. Why is the expected effort higher, why isn't the sum of the pessimistic estimates a useful ceiling, and what do you tell the person who asked?
+
+<details>
+<summary>Answer</summary>
+
+- **Skew.** A task can overrun by far more than it can underrun, so each task's expected value (O + 4M + P) / 6 is above its most-likely value, and so is their sum. In Chapter 63's worked example, the sum of most-likely values is 68 person-days and the expected total about 75.
+- **The pessimistic sum assumes everything goes wrong at once.** A percentile comes from the spread: with independent tasks, P90 ≈ E + 1.28σ. But tasks that share a cause overrun together, so the real spread is wider than the formula, and missing rows add effort no task carries.
+- **The outside view corrects both.** Check the total against how long similar work actually took.
+- **What to say.** A range and a commitment level with its assumptions — "[low]–[high] days; we'd commit to [P80 value] if [assumption] holds; we'll narrow it after [decision]" — not a single number, which will be remembered as a promise.
+</details>
+
+**3.** You must change the pricing rules in a large class that has no tests and that the business calls critical. An AI assistant offers to write unit tests for it first. Why are those tests not the safety net you need, and what is the safe sequence?
+
+<details>
+<summary>Answer</summary>
+
+- **Tests written from an understanding assert the understanding.** An assistant (or a person) writing "correct" tests encodes what it *believes* the code should do. Where the belief is wrong, the tests either fail on today's behaviour or pass while pinning the wrong rule.
+- **A characterization test asserts what the code does now.** Call it, let the failure tell you the real value, and encode that value, right or wrong. Now any accidental change during the refactor fails a test.
+- **The sequence.** Characterize the behaviour around the change. Find or make a seam. Refactor under the green suite, in commits separate from behaviour changes. Then change the rule, with a normal test for the new behaviour, sprouting new code beside the old where the class resists. An assistant can speed up each step, as long as you read every assertion it writes.
+- **Where to stop.** Refactor only the part the change touches. If the class is also a hotspot (high churn, high complexity), the clean-up has a business case of its own.
+</details>
+
+## Decide
+
+Your team owns a reporting module that is your repository's top hotspot: it changes every sprint, it is the most complex code you have, and it caused two incidents this year. Product wants a new export feature in it next quarter. Which do you propose?
+
+- **A.** Stop and rewrite the module first, then build the export on the new code.
+- **B.** Strangler fig: build the export as a new component behind a routing seam, with characterization tests around the old module, and move pieces across as features touch them.
+- **C.** Build the export in the old module, and record the debt in the backlog with its cost, to revisit later.
+
+<details>
+<summary>Answer</summary>
+
+**The cost of each.**
+- **A** costs months of no visible output and the classic rewrite risk: the old module's undocumented behaviour has to be rediscovered, and the business keeps asking for features meanwhile, so the rewrite chases a moving target (Chapter 30, *Why Big-Bang Rewrites Usually Fail*).
+- **B** costs a routing seam, characterization tests, and a period of running two implementations side by side. Every step ships, and every step can stop.
+- **C** costs nothing now and adds to the hotspot's interest: the next feature is slower again, and a "revisit later" without an owner and a trigger is never revisited.
+
+**What decides it here: churn.** A hotspot that changes every sprint repays every hour of clean-up quickly, because the next change uses it. The export is new code that can live outside the old module from day one.
+
+**The choice: B.** Present it in the business's units: what each change in the module costs now, the incident risk, and what the first increment buys. Write an ADR for the seam and the migration path.
+
+**What would change it.** If the module will be frozen after this feature (being replaced, or rarely touched), C with a written record is honest and cheap. If the platform under it is reaching end of support, the migration plan has a deadline, and that deadline sets the pace of B.
+</details>
+
+## Check at work
+
+**Inspect.** List the last three significant technical decisions in your team. For each: is there an ADR or design doc, and could a new joiner learn *why* from it? Then rank your repository's files by churn and compare the top of the list with what the team complains about:
+
+```bash
+# Files ranked by number of commits touching them (last 12 months), from Chapter 30
+git log --since="12 months ago" --name-only --pretty=format: \
+  | grep '\.cs$' | sort | uniq -c | sort -rn | head -30
+```
+
+**Measure.** Your own estimates against actuals for the last five pieces of work you estimated: how often the actual fell inside your range, and in which direction you missed. That list is your first reference class, and the start of your calibration.
+
+
+---
+
+# Part 2 · Pay Attention To
+
+_⏱️ Estimated read time: ~5 min · 695 words (study pace)_
+
+> **What this page is for.** The traps behind the most common wrong answers in Part 2, one row each: what the trap looks like, the mechanism that makes it bite, and the fix. The module in the first column explains the row in full.
+
+| Module | Trap | Why it bites | The fix |
+|---|---|---|---|
+| [1](#part-2-module-1-runtime-and-concurrency-internals) | `SetMinThreads` as the starvation fix | Below the minimum the pool injects at once, so the graphs look healthy, but every call still blocks and the outage returns at a higher load. | Stop blocking; keep a raised minimum only as a measured stopgap. |
+| [1](#part-2-module-1-runtime-and-concurrency-internals) | `SemaphoreSlim.Wait` or `Thread.Sleep` on the pool | They don't report blocking to the pool, so only the starvation detector adds threads: at most one per 500 ms. | `WaitAsync` and async I/O. |
+| [1](#part-2-module-1-runtime-and-concurrency-internals) | A 100 KB buffer per request | Arrays of 85,000 bytes or more go to the large object heap, collected only with gen 2. | Stream, or rent from `ArrayPool<T>`. |
+| [2](#part-2-module-2-data-in-depth) | A lost update under Read Committed | Both transactions read committed data and both write; Repeatable Read only turns it into serialization or deadlock errors. | An atomic conditional update, a concurrency token, or `FOR UPDATE`. |
+| [2](#part-2-module-2-data-in-depth) | A query that got slow without a deploy | Stale statistics, or a cached plan built for a different parameter value. | Compare estimated and actual rows; an index that is right for every value; fix the statistics before the query. |
+| [3](#part-2-module-3-distributed-consistency) | Retries at every layer | 4 × 4 × 4 = 64 calls per user action; jitter spreads them but doesn't reduce them. | Retry at one layer, behind a circuit breaker and a total timeout. |
+| [3](#part-2-module-3-distributed-consistency) | Purging the inbox before dead-lettered messages are resubmitted | The duplicate looks new and the effect runs again. | Size retention to the longest way back; natural keys and downstream idempotency keys. |
+| [4](#part-2-module-4-architecture-api-evolution-and-system-design) | Services split over a shared database | A distributed monolith: every deploy is coupled, and three services at 99.9% in a synchronous chain give about 99.7%. | Each service owns its data and publishes events; start with a modular monolith. |
+| [4](#part-2-module-4-architecture-api-evolution-and-system-design) | "Adding a field or an enum value is safe" | Strict generated clients reject what they don't know. | Know your readers; expand and contract, with consumer telemetry. |
+| [5](#part-2-module-5-observability-and-testing-at-scale) | Alerting on "error rate > X% for 5 minutes", or on CPU | It isn't tied to the SLO: blips page, and a slow, steady burn never does. | Page on error-budget burn rate over a long and a short window. |
+| [5](#part-2-module-5-observability-and-testing-at-scale) | A ratio sampler set directly | Each service ignores the caller's decision, so traces have holes. | `ParentBasedSampler` everywhere; tail sampling to keep the errors. |
+| [5](#part-2-module-5-observability-and-testing-at-scale) | A load test with a fixed number of virtual users | The closed model slows down with the server, so the latency of queued requests is never measured. | An arrival-rate (open-model) executor; check the achieved rate. |
+| [6](#part-2-module-6-production-and-the-cloud) | Scaling out to "fix" SNAT timeouts | Each instance adds 128 ports per destination, so the problem hides until traffic grows again. | Reuse connections; private endpoints; a NAT gateway. |
+| [6](#part-2-module-6-production-and-the-cloud) | Unbounded Functions consumers | Instances × `maxConcurrentCalls` overwhelms the database behind them. | Cap both and size their product against the downstream limit. |
+| [6](#part-2-module-6-production-and-the-cloud) | "We can always redeploy the previous build" | A changed schema, contract or setting makes the old build fail too. | Expand then contract; release behind flags; rehearse the rollback. |
+| [7](#part-2-module-7-senior-behaviours) | The sum of the most-likely estimates | Skew, correlated overruns and forgotten tasks all push the real effort up. | PERT plus the outside view; a range and a commitment level. |
+| [7](#part-2-module-7-senior-behaviours) | AI-written "correct" tests on legacy code | They assert the behaviour someone believes, not the behaviour the code has. | Characterization tests first; read every assertion. |
 
 
 ---
