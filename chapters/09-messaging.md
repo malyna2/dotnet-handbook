@@ -333,9 +333,28 @@ This is where distributed systems get genuinely hard — and where interviews an
 
 ### Idempotent Consumers
 
-Foundational, so we start here. In a distributed system you will receive duplicate messages (we'll see why under delivery guarantees). An **idempotent** consumer produces the same result whether it processes a message once or five times. The standard mechanism is deduplication: check whether this message's ID has already been processed, skip it if so, and record it once the work is done. Chapter 21 covers the mechanics of idempotency and idempotency keys in depth; here the point is that idempotent consumers are what make at-least-once delivery safe to live with.
+You will receive duplicate messages (*Delivery Guarantees* below explains why). An **idempotent** consumer produces the same result whether it processes a message once or five times, and that is what makes at-least-once delivery safe to live with.
 
-> **Best practice:** design every consumer to be idempotent *by default*. It's cheaper than trying to guarantee exactly-once delivery (which, as we'll see, is nearly impossible). Use natural keys where you can — "does an order with this ID already exist?" is more robust than a separate processed-messages table.
+> **Pay attention.** **Check-then-act deduplication does the work twice.** "If this message ID was processed, return; do the work; record the ID" leaves a window between the check and the record. Two copies delivered at the same time — two instances, `MaxConcurrentCalls` above 1, or a redelivery overlapping a slow first attempt — both pass the check before either records the ID, and both do the work. A crash between the work and the record loses the record, so the redelivery does the work again. The fix is to make the record *be* the check: insert the ID under a unique key first, in the same transaction as the effect.
+
+```csharp
+public async Task Consume(ConsumeContext<OrderPlaced> context)
+{
+    CancellationToken ct = context.CancellationToken;
+    await using var tx = await _db.Database.BeginTransactionAsync(ct);
+    _db.ProcessedMessages.Add(new ProcessedMessage(context.MessageId!.Value));  // unique key on MessageId
+    try { await _db.SaveChangesAsync(ct); }                                       // the claim: a duplicate stops here
+    catch (DbUpdateException e) when (IsUniqueViolation(e)) { return; }           // 2601/2627 SQL Server, 23505 PostgreSQL
+
+    _db.LoyaltyPoints.Add(LoyaltyPoints.For(context.Message));                    // the effect, in the same transaction
+    await _db.SaveChangesAsync(ct);
+    await tx.CommitAsync(ct);
+}
+```
+
+Walk the second copy through it. Its insert waits on the first copy's uncommitted key. If the first commits, the insert fails with a duplicate-key error and the consumer returns before the effect; if the first rolls back, the claim disappears with it, and the second copy does the work. [Chapter 3: Idempotency Keys](#idempotency-keys-making-post-retry-safe) walks the same mechanism for HTTP. An effect outside your database, such as a payment API, can't join the transaction: pass the message's key to it as the provider's idempotency key as well.
+
+> **Best practice:** design every consumer to be idempotent *by default*; it's cheaper than chasing exactly-once delivery. Use natural keys where you can: a consumer that inserts the order under a unique order ID has its claim built in, with no separate processed-messages table.
 
 ### The Transactional Outbox
 
