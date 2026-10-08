@@ -337,7 +337,7 @@ Foundational, so we start here. In a distributed system you will receive duplica
 
 > **Best practice:** design every consumer to be idempotent *by default*. It's cheaper than trying to guarantee exactly-once delivery (which, as we'll see, is nearly impossible). Use natural keys where you can — "does an order with this ID already exist?" is more robust than a separate processed-messages table.
 
-### The Outbox Pattern
+### The Transactional Outbox
 
 Here's a subtle, vicious bug. Your consumer does two things: writes to the database *and* publishes a message. What if it crashes between them?
 
