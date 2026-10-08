@@ -364,7 +364,7 @@ public IActionResult Get(int id) => Ok(_service.GetAsync(id).Result);  // sync-o
 
 `.Result`, `.Wait()` and `GetAwaiter().GetResult()` block a thread-pool thread until the async operation finishes. Under load the pool starves, and because it injects new threads slowly, latency collapses long before CPU does — the classic "it was fine in testing" outage. Three more in the same family:
 
-- **`async void`** anywhere that isn't an event handler. Its exceptions don't surface to a caller; they go to the synchronization context and take the process down.
+- **`async void`** anywhere that isn't an event handler. Its exceptions can't reach a caller: they are rethrown on the captured synchronization context or, when there is none (ASP.NET Core), on a thread-pool thread, where nothing catches them and the process goes down.
 - **`Task.Run` wrapped around I/O in ASP.NET.** It doesn't add throughput — the request is already on a pool thread. It moves the work to a *second* pool thread and loses the ambient request context. Net loss.
 - **A `CancellationToken` accepted and never passed on.** Nearly universal in generated code, because the signature came from your surrounding code while the body came from the training data:
 
