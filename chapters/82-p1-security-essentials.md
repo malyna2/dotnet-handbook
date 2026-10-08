@@ -1,0 +1,82 @@
+# Part 1 · Module 12: Security Essentials
+
+> **What this module makes you able to do.** Write and review an endpoint so that it checks who the caller is, what this caller may do to this particular record, and treats every input as data; keep secrets out of the repository; and spot the handful of configuration lines that quietly switch a defence off.
+
+**Time:** reading ≈ 15 min; hands-on ≈ 50 min — the entry check 5 min, the review drill 15, the check at work 30.
+
+## Entry check
+
+*Three questions to answer without notes. All three right: skip to the next module. Otherwise, work through this one.*
+
+**1.** `GET /api/invoices/{id}` carries `[Authorize]`. A logged-in customer changes the ID in the URL and sees another customer's invoice. Why didn't `[Authorize]` stop it, and what does?
+
+<details>
+<summary>Answer</summary>
+
+`[Authorize]` runs before the action, so it can only answer "may this caller call this endpoint at all?". It never sees which invoice is loaded, and ownership is a property of that row. This is an insecure direct object reference, the classic form of broken access control. Check ownership per resource: put the owner or tenant in the query (`WHERE Id = @id AND OwnerId = @me`), or load the record and run resource-based authorization. Return `404`, so IDs can't be enumerated. See [Chapter 14: A01: Broken Access Control](#a01-broken-access-control).
+</details>
+
+**2.** `FromSqlRaw($"SELECT * FROM Users WHERE Email = '{email}'")` and `FromSql($"SELECT * FROM Users WHERE Email = {email}")` both take an interpolated string. Why is only the first injectable?
+
+<details>
+<summary>Answer</summary>
+
+`FromSqlRaw` takes a `string`, so the C# compiler formats the interpolation into the SQL text before EF Core sees it: the input becomes part of the code the database parses. `FromSql` takes a `FormattableString`, so EF Core receives the format and the values separately and sends each value as a `DbParameter`, which the database never parses as SQL. Dapper works the same way: `@email` with `new { email }` is a parameter; a concatenated string is not. See [Chapter 14: A03: Injection](#a03-injection).
+</details>
+
+**3.** Which properties of a JWT must the API check before it trusts a single claim in it, and why is "it decodes and has a `sub`" worthless?
+
+<details>
+<summary>Answer</summary>
+
+The signature, with a key from the issuer you trust and an algorithm you allow; the issuer; the audience (the token was minted for *this* API); and the lifetime (`exp`, `nbf`, with a small clock skew). Decoding is only Base64: anyone can write a token with any `sub`. Until the signature is verified, every claim is attacker-controlled; until the audience is checked, a valid token for another API works on yours. See [Chapter 14: Validating JWTs Correctly](#validating-jwts-correctly).
+</details>
+
+## Covers
+
+- authentication versus authorization, and `401` versus `403`;
+- broken access control: authorize per resource, not per endpoint (IDOR);
+- injection: parameters in ADO.NET, EF Core and Dapper, and why concatenation and `FromSqlRaw` reopen the hole;
+- validating a JWT: signature, algorithm, issuer, audience, lifetime, and the settings that switch them off;
+- secrets: nothing in the repository, user-secrets in development, Key Vault with a managed identity in Azure;
+- password hashing with a slow, salted algorithm you didn't write; HTTPS, HSTS and CORS basics.
+
+## The mechanism to explain without notes
+
+**The server trusts only what it verifies itself, on every request: the caller's identity from a credential it validates, access per resource, and input as data, never as code.**
+
+Each trap is a place where something unverified gets trusted:
+
+- **Access control.** Authentication produces a `ClaimsPrincipal`; authorization decides what it may do. Endpoint attributes and policies see the principal, not the record, so the ownership check belongs where the record is: in the query, or after loading it.
+- **Injection.** Concatenation puts input into the command text the database parses. A parameter travels beside the text and is only ever a value. Identifiers (a sort column, a table name) can't be parameters: map them from an allow-list.
+- **Tokens.** A JWT is Base64 claims plus a signature. The bearer handler checks issuer, audience, lifetime and signature by default; the vulnerabilities come from switching a check off to make a `401` go away, or from never pinning the algorithm.
+- **Secrets.** Everything in the repository reaches every clone, forever, through history. Development secrets live outside the tree (user-secrets); production secrets live in a vault the app reaches with a managed identity, so there is no secret to fetch the secret.
+- **Passwords.** Store a slow, salted, versioned hash so a stolen table costs years of guessing; use ASP.NET Core Identity's `PasswordHasher<T>`, never a fast hash and never encryption.
+- **The browser.** HSTS makes the browser refuse plain HTTP to your site; CORS lets a browser show your API's responses to another origin's script. Both protect users in browsers. Neither protects the API from `curl`.
+
+> **Pay attention.** **CORS doesn't stop the request.** For a "simple" cross-origin request (a `GET`, or a form-encoded `POST`), the browser sends it, your server runs it, and only then does the browser hide the response from the calling script. A denied CORS check has already changed your data; that is why state-changing endpoints with cookie authentication still need anti-forgery tokens. See [Chapter 14: CORS Done Right](#cors-done-right).
+
+## Read (≈ 15 min)
+
+1. [Chapter 14: The Security Mindset](#the-security-mindset): four decision rules; secure by default is the one the rest of the list tests.
+2. [Chapter 14: A01: Broken Access Control](#a01-broken-access-control) and [A03: Injection](#a03-injection).
+3. [Chapter 3: Policy-based and role-based authorization](#policy-based-and-role-based-authorization): where a resource-based handler fits.
+4. [Chapter 14: Authentication vs. Authorization](#authentication-vs-authorization).
+5. [Chapter 14: What a JWT Is](#what-a-jwt-is) and [Validating JWTs Correctly](#validating-jwts-correctly): what each check stops, and which property does *not* do what its name suggests.
+6. [Chapter 14: Secrets Management](#secrets-management).
+7. [Chapter 14: Password Hashing](#password-hashing): salt, work factor, and the parameters stored with the hash.
+8. [Chapter 14: HTTPS, TLS, HSTS, and Certificates](#https-tls-hsts-and-certificates) and [CORS Done Right](#cors-done-right).
+
+## Check at work
+
+**Inspect.** Search your service:
+
+- every action with an `{id}` in its route: does the query filter by the caller's owner or tenant, or does it load by ID alone?
+- `FromSqlRaw(`, `ExecuteSqlRaw(`, `SqlQueryRaw(`, and SQL built with `+` or `$"`: each hit needs a reason, and any identifier in it needs an allow-list;
+- `ValidateAudience = false`, `ValidateIssuer = false`, `RequireSignedTokens = false`, a custom `SignatureValidator`, or `ServerCertificateCustomValidationCallback` that returns `true`: each one disables a check;
+- secrets in `appsettings*.json` and in history: `git log -p -S "Password=" -- '*.json'`;
+- `AllowAnyOrigin()`, or a policy that echoes the request's `Origin` back.
+
+**Do.** Review one endpoint with three questions: who is the caller, what proves they may touch *this* record, and which inputs reach a parser (SQL, a shell, a URL fetch)? Write the answers into the pull request.
+
+**Measure.** Count the endpoints that allow anonymous access, from your route table or OpenAPI document. Then set a fallback policy that requires an authenticated user, so that opening an endpoint takes an explicit `[AllowAnonymous]`.
