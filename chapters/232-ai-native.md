@@ -1,28 +1,12 @@
 # Chapter 32: The AI-Native Developer — Thriving in the AI Era
 
-@@TODO: write this chapter's introduction (what it makes the reader able to do, how its sections connect), then remove every @@ line.@@
-
-@@SRC: introduction of old Chapter 18: The AI-Native Developer — Thriving in the AI Era@@
-
 For most of your career the deal has been simple: you learn to write code, and in exchange the industry pays you well to write it. That deal is being renegotiated in real time. By 2025 and into 2026, a competent AI coding assistant can produce a working REST endpoint, a unit test suite, an EF Core migration, or a plausible refactor faster than you can open the file. The raw act of turning a clear specification into syntactically correct C# — the thing you spent years getting good at — has largely been commoditized. That is not a threat to be defended against. It is a promotion, if you understand what you are being promoted into.
 
-This chapter is about that promotion, in two parts. **Part I** is about *value*: where your worth as a developer now comes from when the machine can type, and how to deliberately build the kinds of judgment, context, and design sense that appreciate rather than depreciate. **Part II** is about *working productively with AI day to day* — the practical craft of driving these tools well, reviewing their output at scale, and not letting them make you slower or dumber. The third act — *building AI systems yourself*, moving from consumer to author — is a different discipline entirely, and it gets its own chapter next (Chapter 19).
+This chapter makes you able to answer two questions with evidence rather than slogans. The first is about *value*: where your worth as a developer comes from when the machine can type, and how to build the judgment, context and design sense that appreciate rather than depreciate. The second is about *craft*: how to drive AI coding agents well day to day — context engineering, plan-first specs, parallel and background agents, and a reviewer's rubric for the predictable ways generated .NET code goes wrong — without letting them make you slower or erode the judgment the first half says you now trade on. Building AI *into* the software you ship is a different discipline, and it is [Chapter 33: Building AI-Powered Systems](#chapter-33-building-ai-powered-systems).
 
-We start with Part I because it is the foundation. If you get the value question wrong — if you keep competing on the axis the machine now dominates — nothing that follows will save you. If you get it right, the rest is leverage. Let's talk about what makes a developer valuable when the code writes itself.
+The value question comes first because it is the foundation: if you keep competing on the axis the machine now dominates, no workflow will save you. If you get it right, the rest is leverage.
 
-@@SRC: old Chapter 16: Tooling & Productivity@@
-## AI-Assisted Development
-
-Tools like GitHub Copilot and Claude are now part of the workflow. Used well, they accelerate boilerplate, test scaffolding, unfamiliar-API exploration, and first-draft refactors. Used badly, they introduce subtle bugs, insecure patterns, and code you don't understand.
-
-The senior mindset: **the AI drafts, you own.** Treat generated code exactly like a pull request from a fast but unvetted contributor. Read every line, question anything you can't explain, and never merge code you couldn't have written yourself. Give it context (the surrounding code, the constraints), and be specific in prompts. Watch for confidently wrong API calls, outdated patterns, and missing edge cases.
-
-> **Tip:** If you can't explain why the AI's code works, you're not ready to merge it. Your name is on the commit, not the model's.
-
-> **This chapter is about using tools to code faster. Chapter 18 goes much deeper on the *AI-native* workflow — agentic coding, parallel sub-agents, AFK flows — and Chapter 19 covers building AI *into* your products.**
-
-@@SRC: old Chapter 18: The AI-Native Developer — Thriving in the AI Era@@
-## Part I — Becoming Valuable When AI Can Write the Code
+## Becoming Valuable When AI Can Write the Code
 
 ### The value shift: what commoditizes and what appreciates
 
@@ -44,13 +28,13 @@ But there is something genuinely different this time, and pretending otherwise i
 
 The single most reliable way to be valuable in the AI era is embarrassingly old-fashioned: **understand the business and the customer better than anyone else on the engineering team.** AI can write a caching layer. AI cannot tell you that your caching layer is optimizing a screen that three customers use while the checkout flow — where the revenue actually lives — quietly times out under load. That is a judgment call rooted in context, and context is where your value now concentrates.
 
-Chapter 17 already made the case for *outcome-thinking* over *output-thinking* — measuring your week in moved business levers (revenue gained, cost removed, risk reduced) rather than story points and merged PRs. The AI-era twist is that the case just got an order of magnitude stronger: when AI can generate output on demand, output is no longer scarce and therefore no longer impressive. Outcomes are still scarce, because producing them requires knowing which output actually matters — and that knowledge lives in context the model doesn't have.
+[Chapter 16: Working Like a Middle Developer](#chapter-16-working-like-a-middle-developer) already made the case for *outcome-thinking* over *output-thinking* — measuring your week in moved business levers (revenue gained, cost removed, risk reduced) rather than story points and merged PRs. The AI-era twist is that the case just got an order of magnitude stronger: when AI can generate output on demand, output is no longer scarce and therefore no longer impressive. Outcomes are still scarce, because producing them requires knowing which output actually matters — and that knowledge lives in context the model doesn't have.
 
 Which leads to a skill most developers are actively bad at: **saying no and killing low-value work.** In a world where building anything used to be expensive, the constraint was capacity, so prioritization happened naturally — you couldn't build everything, so you built the loudest thing. AI collapses the cost of building, which sounds great but is a trap: now you *can* build the low-value thing, quickly, and feel productive doing it. The developer who ships ten AI-generated features nobody needed has produced negative value — every one of those features is now code someone has to maintain, secure, and understand. The developer who talked the team out of eight of them and shipped the two that mattered created enormous value and has almost nothing to show for it in a commit graph. Learn to be the second developer, and learn to make that value legible to the people who evaluate you.
 
 > Your job is not to maximize the code you produce. It's to maximize the value the system delivers per unit of complexity it carries. Often the highest-value move is deletion, a well-placed "we shouldn't build this," or a smaller solution than the one requested.
 
-Finally, **measure impact and say it out loud** — instrument your features, know the before-and-after number, and get comfortable with "this work resulted in X." Chapter 17 covered why this matters for your career; here it doubles as training yourself to think in outcomes.
+Finally, **measure impact and say it out loud** — instrument your features, know the before-and-after number, and get comfortable with "this work resulted in X." [Chapter 36](#chapter-36-senior-behaviours-career-and-interviews) covers why this matters for your career; here it doubles as training yourself to think in outcomes.
 
 ### Bringing expertise AI doesn't have: the context moat
 
@@ -63,7 +47,7 @@ Call it a **context moat**: the accumulated, mostly-tacit knowledge of a specifi
 - **Cross-team context.** You know that the platform team is mid-migration, that the mobile team can't take a breaking change until Q3, that the DBA will veto anything that adds a synchronous cross-shard query. AI optimizes locally; you know the global constraints.
 - **Organizational reality.** Who actually decides. What has been tried and failed. Where the political landmines are. Which "temporary" system is load-bearing.
 
-To turn this into a durable moat, do two things. First, *go toward* the messy, human, contextual parts of the work that AI can't touch — sit in the domain conversations, read the old incident reviews, talk to the customer-facing teams. Second, become the person who *captures and transmits* context — the design docs, "why" comments, and ADRs whose mechanics Chapter 17 covered. Counterintuitively, writing down your context does not make you replaceable — it makes you the author and steward of the map everyone (including the AI) now navigates by. In the AI era, well-structured context is a primary work product, not a chore you do afterward.
+To turn this into a durable moat, do two things. First, *go toward* the messy, human, contextual parts of the work that AI can't touch — sit in the domain conversations, read the old incident reviews, talk to the customer-facing teams. Second, become the person who *captures and transmits* context — the design docs, "why" comments, and ADRs whose mechanics [Chapter 16](#chapter-16-working-like-a-middle-developer) covers. Counterintuitively, writing down your context does not make you replaceable — it makes you the author and steward of the map everyone (including the AI) now navigates by. In the AI era, well-structured context is a primary work product, not a chore you do afterward.
 
 ### Seeing potential problems: risk sensing and failure-mode thinking
 
@@ -74,9 +58,9 @@ The core mental move is **failure-mode thinking**: for any proposed change, ask 
 - **Edge cases and boundaries.** Empty collection, null, one item, a million items, duplicate items, Unicode, negative numbers, the leap-second, the timezone, the concurrent writer. AI-generated code handles the central case beautifully and the boundaries carelessly.
 - **Scale.** Fine at 100 rows, quadratic at 100,000. That LINQ query that does an N+1 against the database. The in-memory list that assumes the result set is small.
 - **Security.** Is this input trusted? Is that string going into a SQL query, a shell command, a file path, an HTML page? Does this endpoint check authorization or just authentication? AI will cheerfully write injectable code because injectable code is well-represented in its training data.
-- **Cost and operability.** What does this cost to run at production volume? Chapter 17's reliability questions — how will this fail, and how will we know? — apply doubly here, because generated code never volunteers the log, the metric, or the rollback plan on its own.
+- **Cost and operability.** What does this cost to run at production volume? Chapter 16's ownership questions — how will this fail, and how will we know? — apply doubly here, because generated code never volunteers the log, the metric, or the rollback plan on its own.
 
-A concrete practice worth adopting is the **pre-mortem** — the forward-looking sibling of Chapter 17's post-mortem: before building, imagine the project has failed catastrophically six months from now and write the story of *why*. It inverts your brain from "how do I make this work" to "what would kill this," while the risks are still cheap to address.
+A concrete practice worth adopting is the **pre-mortem** — the forward-looking sibling of the blameless post-mortem from [Chapter 16](#chapter-16-working-like-a-middle-developer): before building, imagine the project has failed catastrophically six months from now and write the story of *why*. It inverts your brain from "how do I make this work" to "what would kill this," while the risks are still cheap to address.
 
 > AI is confidently wrong more often than it is uncertainly wrong. Its failure mode is fluent plausibility. The scarce, valuable skill is *calibrated suspicion* — knowing which parts of a confident answer to trust and which to interrogate.
 
@@ -88,7 +72,7 @@ If AI is the world's fastest implementer, then the highest-leverage thing you ca
 
 **Frame the problem before you solve it.** The most expensive mistakes in software are not bugs; they are elegantly-built solutions to the wrong problem. When someone hands you a request, resist the urge to immediately prompt the AI for a solution — first understand what they are actually trying to achieve underneath it. The classic example: a stakeholder asks for a faster horse, and the job is to notice they want to get somewhere quickly. AI is a faster-horse machine — ask it for a horse and it will give you a magnificent one at high speed. Problem framing is the human's job, and it is where enormous value is created or destroyed.
 
-**Choose what not to build.** Chapter 17 taught the YAGNI discipline — every line of code is a liability, so add complexity only when a real, present need proves it. The AI-era twist: cheap generated code removes the natural friction that used to enforce that discipline, so it now has to be deliberate. Prefer the solution with the least new complexity — sometimes a config change, a manual process, or reusing what exists.
+**Choose what not to build.** [Chapter 10: Design Basics](#chapter-10-design-basics) taught the YAGNI discipline — every line of code is a liability, so add complexity only when a real, present need proves it. The AI-era twist: cheap generated code removes the natural friction that used to enforce that discipline, so it now has to be deliberate. Prefer the solution with the least new complexity — sometimes a config change, a manual process, or reusing what exists.
 
 **Think in total cost of ownership, and design for change.** The cost of a system is dominated not by writing it but by living with it. Since the code is now cheap to produce, optimize the design for the things that stay expensive: comprehensibility, changeability, operability. Ask of any design, "what is likely to change, and does this make that change easy or agonizing?"
 
@@ -105,18 +89,17 @@ Put it together and a new senior skill stack comes into focus. The old stack was
 
 Notice these are the classic markers of *seniority*, just intensified. That is the reframe: **the AI era doesn't change what senior means — it makes everyone need to be senior sooner.** The juniors' traditional job (produce lots of straightforward code under supervision) is the part most automated. The path forward is to climb the judgment ladder faster.
 
-For career strategy, a few deliberate bets. Aim to be a **force multiplier** — someone whose context, judgment, and design sense make an AI-augmented team of five as effective as a team of twenty. That is where the outsized value and compensation will sit. Cultivate a **T-shape**: deep enough in something real (your domain, a system, a technical area) to have genuine expertise AI can't fake, and broad enough to connect the dots across business, product, and operations. And double down on the **ownership** and **trust** Chapter 17 already made central — the AI-era twist is that accountability is precisely the thing you cannot delegate to a model, and in a world drowning in cheap plausible output, a person whose "this is good, ship it" or "no, this is wrong" is reliable becomes disproportionately valuable.
+For career strategy, a few deliberate bets. Aim to be a **force multiplier** — someone whose context, judgment, and design sense make an AI-augmented team of five as effective as a team of twenty. That is where the outsized value and compensation will sit. Cultivate a **T-shape**: deep enough in something real (your domain, a system, a technical area) to have genuine expertise AI can't fake, and broad enough to connect the dots across business, product, and operations. And double down on the **ownership** and **trust** that Chapters 16 and 36 make central — the AI-era twist is that accountability is precisely the thing you cannot delegate to a model, and in a world drowning in cheap plausible output, a person whose "this is good, ship it" or "no, this is wrong" is reliable becomes disproportionately valuable.
 
 What should you deliberately practice? Reviewing code critically. Writing clear specs and design docs. Learning your business domain like it's a technology. Doing pre-mortems. Framing problems before solving them. Saying "we shouldn't build this." Measuring the impact of your work in business terms. None of these require the AI's permission, and every one of them appreciates as the code gets cheaper.
 
 > The developers who thrive in this era won't be the ones who resist AI or the ones who blindly accept its output. They'll be the ones who use it to operate a level higher than they could alone — trading the keyboard for judgment, and typing for taste.
 
-With that foundation in place — a clear-eyed view of where your value actually comes from — we can turn to the daily craft. Part II is about working productively *with* these tools: how to drive them, review them, and integrate them into your workflow without letting them erode the very judgment that now defines your worth.
+With that foundation in place — a clear-eyed view of where your value actually comes from — we can turn to the daily craft: working productively *with* these tools: how to drive them, review them, and integrate them into your workflow without letting them erode the very judgment that now defines your worth.
 
-@@SRC: old Chapter 18: The AI-Native Developer — Thriving in the AI Era@@
-## Part II — Working Productively with AI: The Agentic Developer Workflow
+## Working Productively with AI: The Agentic Developer Workflow
 
-Part I was about staying valuable. This part is about the other half of the equation: becoming dramatically more productive by working *with* AI instead of merely near it. The difference between a developer who has an AI subscription and one who has an AI *workflow* is enormous — often several times the throughput on the same hardware, the same codebase, and the same brain. The skills below are the ones that separate the two.
+The first half of this chapter was about staying valuable. This half is about the other side of the equation: becoming dramatically more productive by working *with* AI instead of merely near it. The difference between a developer who has an AI subscription and one who has an AI *workflow* is enormous — often several times the throughput on the same hardware, the same codebase, and the same brain. The skills below are the ones that separate the two.
 
 None of this replaces the engineering judgment you spent years building. It amplifies it. A senior engineer with a disciplined agentic workflow is, in 2025-2026, one of the most leveraged individual contributors that has ever existed. Let's build that workflow.
 
@@ -136,7 +119,7 @@ The jump from 3 to 4 is qualitative, not incremental. Modes 1-3 make *you* faste
 
 > **Key shift:** With agentic coding, your job moves up the stack — from writing every line to *specifying intent, supplying context, and verifying results*. Your scarcest resource is no longer typing speed; it's the quality of your instructions and the rigor of your review.
 
-That reframing drives everything else in this part.
+That reframing drives everything else in this half of the chapter.
 
 ### The tools of the era
 
@@ -156,7 +139,7 @@ You don't need to master all of these, but you should know the categories so you
 
 ### Context engineering: the core skill
 
-If you take one thing from this part, take this. The community's center of gravity has moved from *prompt engineering* (wording a single clever request) to **context engineering** (assembling the right information in the model's working set at the right time). Modern models are strong reasoners; they rarely fail because you phrased a sentence poorly. They fail because they lack — or are drowning in — context.
+If you take one thing from this half of the chapter, take this. The community's center of gravity has moved from *prompt engineering* (wording a single clever request) to **context engineering** (assembling the right information in the model's working set at the right time). Modern models are strong reasoners; they rarely fail because you phrased a sentence poorly. They fail because they lack — or are drowning in — context.
 
 The model only knows what's in its context window: your message, the files it has read, tool outputs, and any standing instructions. Everything else is a guess based on training data that may be stale or generic. Context engineering is the discipline of curating that window.
 
@@ -180,7 +163,7 @@ Keep it short and true. A bloated, aspirational rules file is worse than none be
 
 ### Workflow assets: making the setup a team artifact
 
-Everything in this part so far is a technique *you* apply. The step that separates a productive individual from a productive team is turning those techniques into **artifacts that live in the repository**, reviewed and versioned like code. The test is simple: if a new hire clones the repo and starts an agent, do they get your team's workflow, or do they get the defaults?
+Everything in this half so far is a technique *you* apply. The step that separates a productive individual from a productive team is turning those techniques into **artifacts that live in the repository**, reviewed and versioned like code. The test is simple: if a new hire clones the repo and starts an agent, do they get your team's workflow, or do they get the defaults?
 
 Four kinds of asset are worth maintaining:
 
@@ -271,7 +254,7 @@ Set up this way, overnight runs become genuinely useful: you queue three well-sc
 
 ### MCP for development
 
-The **Model Context Protocol (MCP)** is an open standard for connecting agents to external tools and data through a uniform interface. Instead of every tool inventing its own integration, an agent speaks MCP to any compliant *server*, and each server exposes a set of tools the agent can call. Think of it as a universal adapter between your agent and the rest of your stack. (Building MCP servers into your *own products* is a Chapter 19 topic; here we care about consuming them to code better.)
+The **Model Context Protocol (MCP)** is an open standard for connecting agents to external tools and data through a uniform interface. Instead of every tool inventing its own integration, an agent speaks MCP to any compliant *server*, and each server exposes a set of tools the agent can call. Think of it as a universal adapter between your agent and the rest of your stack. (Building MCP servers into your *own products* is a topic for [Chapter 33](#chapter-33-building-ai-powered-systems); here we care about consuming them to code better.)
 
 For a working .NET developer, the useful development-time MCP servers include:
 
@@ -309,7 +292,7 @@ The uncomfortable question, and the one a senior engineer should be able to answ
 You don't need a research programme to do better than vibes, but you do need to measure the *outcome*, not the activity:
 
 - **The wrong metrics** are lines of code, number of PRs, and percentage of code AI-generated. Every one of them improves when the agent writes verbose, duplicative code that a human then has to review and later maintain. Optimizing them makes things worse while the dashboard turns green.
-- **The right metrics** are the ones you already track for delivery (Chapter 12): cycle time from start to merge, change failure rate, and how often changes get reverted. If AI is helping, work gets to production faster *without* the defect rate rising. If change failure rate climbs while cycle time drops, you have found the trade you're actually making.
+- **The right metrics** are the ones you already track for delivery ([Chapter 26: Delivery and Platform](#chapter-26-delivery-and-platform) covers the DORA metrics and how each is gamed): cycle time from start to merge, change failure rate, and how often changes get reverted. If AI is helping, work gets to production faster *without* the defect rate rising. If change failure rate climbs while cycle time drops, you have found the trade you're actually making.
 - **Review time is the leading indicator.** The bottleneck moves to verification, so watch time-to-first-review and how long diffs sit. If PRs are appearing faster than they're being read, throughput hasn't increased — the queue has.
 - **Token spend per merged PR** is the honest cost metric, and worth knowing before someone in finance asks. It also tells you when parallel agents and huge contexts have stopped paying for themselves.
 
@@ -317,7 +300,7 @@ You don't need a research programme to do better than vibes, but you do need to 
 
 ### Verification and trust discipline
 
-Everything above accelerates *producing* code. The bottleneck moves to *verifying* it, and this is where senior engineers earn their keep. The single most important rule in the entire agentic workflow:
+Everything above accelerates *producing* code. The bottleneck moves to *verifying* it, and this is where senior engineers earn their keep. The mindset that makes the rest work is **the AI drafts, you own**: treat generated code exactly like a pull request from a fast but unvetted contributor, because your name is on the commit, not the model's. That gives the single most important rule in the entire agentic workflow:
 
 > **Never merge code you haven't read and understood.** "The tests pass and it looks right" is how subtle, expensive bugs enter production. If a diff is too large to review properly, it's too large to merge — send it back to be split.
 
@@ -343,7 +326,7 @@ The rule above — never merge what you haven't understood — is the easy part 
 
 None of that is a syntax error. It compiles, it survives a smoke test, and it is subtly wrong *for this codebase*. That's the signature of the whole class: **plausible, compiling, locally sensible, globally wrong.** The rest of this section is the checklist that catches it.
 
-**Data access (Chapter 4).** The most expensive category, because the damage shows up only at production data volumes.
+**Data access ([Chapter 7](#chapter-7-data-access); [Chapter 18](#chapter-18-data-in-depth) for the depth).** The most expensive category, because the damage shows up only at production data volumes.
 
 ```csharp
 var orders = await _db.Orders.Where(o => o.TenantId == tenantId).ToListAsync(ct);
@@ -370,7 +353,7 @@ The rest of the data-access list, each with its tell:
 - **Unbounded queries** — an endpoint returning `ToListAsync()` over a whole table with no `Skip`/`Take`. Instant on the dev seed data, a table scan and an OOM on ten million rows.
 - **`ToList()` before the filter** — `(await _db.Orders.ToListAsync(ct)).Where(o => o.CreatedAt > cutoff)`. The `Where` now runs in your process against every row in the table. The tell is any LINQ operator appearing *after* an `await` on a materializing call.
 
-**Async (Chapter 8, and Chapter 3 for the request-pipeline consequences).**
+**Async ([Chapter 4: Async Essentials](#chapter-4-async-essentials)).**
 
 ```csharp
 public IActionResult Get(int id) => Ok(_service.GetAsync(id).Result);  // sync-over-async
@@ -393,7 +376,7 @@ public async Task<Order?> GetAsync(int id, CancellationToken ct)
 
 Cheap check: count occurrences of the parameter name in the body. One (the signature) means nothing downstream can be cancelled, and a client disconnect keeps the whole chain running.
 
-**Dependency injection (Chapter 2).**
+**Dependency injection ([Chapter 3](#chapter-3-how-net-runs-your-code)).**
 
 ```csharp
 builder.Services.AddSingleton<OrderCache>();
@@ -404,7 +387,7 @@ A **captive dependency**: the singleton resolves the scoped `DbContext` once and
 
 The other DI smell is **service location** — `_provider.GetRequiredService<IThing>()` inside a method body instead of a constructor parameter. It compiles, it works, and it hides the dependency graph from every tool and every reader, turning a startup-time failure into a runtime one.
 
-**Error handling (Chapter 5).**
+**Error handling ([Chapter 9](#chapter-9-exceptions-logging-and-first-diagnosis)).**
 
 ```csharp
 try { await _payments.ChargeAsync(order, ct); }
@@ -414,7 +397,7 @@ catch (Exception ex) { throw ex; }          // stack trace reset to this line
 
 `throw ex;` assigns a *new* stack trace starting at the rethrow, so the frame where the failure actually happened is gone from your logs — `throw;` preserves it. An empty catch is worse: it converts a loud failure into a silent data corruption. And watch for exceptions used as control flow — a `NotFoundException` thrown on a lookup miss that happens on every other request is both slow and a permanent source of noise in the traces you'll need during an incident.
 
-**Tests (Chapter 7).** This category matters most, because a bad test doesn't just fail to catch bugs — it actively certifies them.
+**Tests ([Chapter 8: Testing](#chapter-8-testing)).** This category matters most, because a bad test doesn't just fail to catch bugs — it actively certifies them.
 
 ```csharp
 [Fact]
@@ -433,10 +416,10 @@ This asserts that the code called the mock — a restatement of the implementati
 
 Two siblings:
 
-- **Tests written after the code, by reading the code.** The model infers the expectation from the implementation, so every test is a photograph of current behaviour including its bugs. They're green on day one and never go red again. This is why "let the agent write tests first" (earlier in this part) is a correctness practice, not a ceremony.
+- **Tests written after the code, by reading the code.** The model infers the expectation from the implementation, so every test is a photograph of current behaviour including its bugs. They're green on day one and never go red again. This is why "let the agent write tests first" (earlier in this chapter) is a correctness practice, not a ceremony.
 - **Over-mocking.** Every collaborator replaced by a mock couples the test to the structure rather than the behaviour, so a pure refactor breaks forty tests and a real regression breaks none.
 
-**Security and configuration (Chapter 14).** All four of these appear constantly, for the same reason: they're the versions that work on the first try without the reader configuring anything, so they're what tutorials contain.
+**Security and configuration ([Chapter 12: Security Essentials](#chapter-12-security-essentials)).** All four of these appear constantly, for the same reason: they're the versions that work on the first try without the reader configuring anything, so they're what tutorials contain.
 
 ```csharp
 var conn = "Server=prod-sql;Database=Orders;User Id=sa;Password=P@ssw0rd!";
@@ -457,17 +440,17 @@ Hardcoded credentials, string-concatenated SQL, disabled certificate validation,
 
 | Signal in the diff | Open and check |
 | --- | --- |
-| A new `PackageReference` | Does the solution already solve this? Who maintains it? (Chapter 16) |
-| `foreach` over a materialized query result | N+1 — read the generated SQL in the logs (Chapter 4) |
+| A new `PackageReference` | Does the solution already solve this? Who maintains it? (Chapter 27) |
+| `foreach` over a materialized query result | N+1 — read the generated SQL in the logs (Chapter 7) |
 | Any LINQ operator after `await ...ToListAsync()` | Filtering moved to the client |
-| `.Result`, `.Wait()`, `GetAwaiter().GetResult()` | Sync-over-async on a request path (Chapter 8) |
+| `.Result`, `.Wait()`, `GetAwaiter().GetResult()` | Sync-over-async on a request path (Chapter 4) |
 | `CancellationToken` in a signature | Count its uses in the body; one means it's dropped |
-| `AddSingleton<` | Walk the constructor graph for scoped services (Chapter 2) |
-| `catch (Exception` | Swallowed? `throw ex;`? Control flow? (Chapter 5) |
-| `Mock<`, `.Verify(` | Does any assertion name a value the code computed? (Chapter 7) |
-| `Server=`, `AccountKey=`, `Bearer ` in a literal | Secrets in source (Chapter 14) |
-| `$"SELECT`, string concatenation into SQL | Injection (Chapter 14) |
-| `AllowAnyOrigin`, a validation callback returning `true` | Security defaults disabled (Chapter 14) |
+| `AddSingleton<` | Walk the constructor graph for scoped services (Chapter 3) |
+| `catch (Exception` | Swallowed? `throw ex;`? Control flow? (Chapter 9) |
+| `Mock<`, `.Verify(` | Does any assertion name a value the code computed? (Chapter 8) |
+| `Server=`, `AccountKey=`, `Bearer ` in a literal | Secrets in source (Chapter 12) |
+| `$"SELECT`, string concatenation into SQL | Injection (Chapter 12) |
+| `AllowAnyOrigin`, a validation callback returning `true` | Security defaults disabled (Chapter 12) |
 | A new file named `*Helper`, `*Utils`, `*Mapper`, `Base*` | Does an equivalent already exist? |
 | A new interface with exactly one implementation | Abstraction added without a second case to justify it |
 | `IHostingEnvironment`, `WebHost.`, `Newtonsoft.` | Version drift against the target framework |
@@ -482,9 +465,9 @@ Hardcoded credentials, string-concatenated SQL, disabled certificate validation,
 
 Only then read line by line — and only the parts that survived. Most weak diffs are already rejected by step 1 or step 3.
 
-> **Best practice — the falsification move.** The cheapest verification is not reading the code, it's *breaking* it. Invert the condition, delete the line, hardcode the guard to `return true;` — then run the tests. Whatever stays green was never testing that code. Thirty seconds tells you what an hour of reading the test names cannot, and it's the only reliable way to distinguish tests that pin behaviour from tests that pin structure. This is mutation testing done by hand, which is fine: you only need it on the two or three lines that carry the risk. (Chapter 7 covers automating it with tools like Stryker.NET.)
+> **Best practice — the falsification move.** The cheapest verification is not reading the code, it's *breaking* it. Invert the condition, delete the line, hardcode the guard to `return true;` — then run the tests. Whatever stays green was never testing that code. Thirty seconds tells you what an hour of reading the test names cannot, and it's the only reliable way to distinguish tests that pin behaviour from tests that pin structure. This is mutation testing done by hand, which is fine: you only need it on the two or three lines that carry the risk. ([Chapter 25](#chapter-25-observability-and-testing-at-scale) covers automating it with Stryker.NET.)
 
-**Making the model wrong less often.** The rubric is the last line of defence; the cheaper move is to shift the generated code's centre of gravity toward your repo before it's written. Context engineering earlier in this part covers the mechanics — four applications of it matter specifically here:
+**Making the model wrong less often.** The rubric is the last line of defence; the cheaper move is to shift the generated code's centre of gravity toward your repo before it's written. Context engineering earlier in this chapter covers the mechanics — four applications of it matter specifically here:
 
 - **A conventions file** that states the patterns this repo actually uses, in the form of corrections rather than aspirations ("we do not use a generic repository; query `DbContext` from the handler").
 - **Point at the file to imitate.** "Follow `OrdersController` and `OrderService` exactly" is the single cheapest override available, because a concrete in-repo example outweighs a paragraph of description — it puts your codebase, not the corpus, in the model's immediate context.
@@ -493,7 +476,7 @@ Only then read line by line — and only the parts that survived. Most weak diff
 
 > **Best practice.** The second time you correct the model about the same thing, that correction belongs in the conventions file rather than in your next prompt. Prompts are disposable; the rules file compounds.
 
-> **Gotcha — scrutiny is usually applied backwards.** The least reliable thing a model produces is the part the compiler can't check. Code has a brutal feedback loop: it builds or it doesn't, tests pass or they don't, and every stage of training pushed it toward code that survives that loop. Prose has no such loop. So the numbers in the explanation ("this cuts allocations by about 40%", "dictionary lookup is O(1) so this scales fine"), the benchmark claims, the version facts, and the citations are exactly the outputs with no corrective pressure behind them — and they arrive in the same confident register as the code. Most reviewers do the reverse of what they should: they interrogate the code, which already has three safety nets, and nod along at the performance claim, which has none. Treat every unverified number in an AI explanation as a hypothesis, and either attach a benchmark to it (Chapter 15) or delete it.
+> **Gotcha — scrutiny is usually applied backwards.** The least reliable thing a model produces is the part the compiler can't check. Code has a brutal feedback loop: it builds or it doesn't, tests pass or they don't, and every stage of training pushed it toward code that survives that loop. Prose has no such loop. So the numbers in the explanation ("this cuts allocations by about 40%", "dictionary lookup is O(1) so this scales fine"), the benchmark claims, the version facts, and the citations are exactly the outputs with no corrective pressure behind them — and they arrive in the same confident register as the code. Most reviewers do the reverse of what they should: they interrogate the code, which already has three safety nets, and nod along at the performance claim, which has none. Treat every unverified number in an AI explanation as a hypothesis, and either attach a benchmark to it ([Chapter 17](#chapter-17-runtime-internals-and-performance)) or delete it.
 
 That rubric is what makes "never merge what you haven't read" survive contact with volume. It is not a substitute for understanding the diff — it's what buys you the time to understand the parts that deserve it.
 
@@ -506,7 +489,7 @@ Name them so you recognize them early:
 - **Giant unreviewable diffs.** The agent did "everything" in one shot and now nobody can review it, so it gets rubber-stamped. *Fix:* spec smaller increments; enforce diff-size limits; reject and re-scope.
 - **Agent thrash.** The agent loops — fixing test A breaks test B, fixing B breaks A — burning tokens and going nowhere. *Fix:* stop it, read what's actually happening, give it the missing context or the constraint it's ignoring, or take the wheel. Thrash usually means the agent lacks a key piece of context or the task is under-specified.
 - **Cost blowups.** Parallel agents, huge contexts, and long autonomous runs multiply token spend fast. *Fix:* right-size the model to the task (a smaller/faster model for routine edits), watch usage, prefer focused context over kitchen-sink pastes, and don't parallelize what doesn't need it.
-- **Skill atrophy.** Delegating everything erodes the judgment you need to review the delegations — the exact problem Part I warned about. *Fix:* keep doing hard problems by hand sometimes; understand what the agent produced well enough to have written it.
+- **Skill atrophy.** Delegating everything erodes the judgment you need to review the delegations — the exact problem the first half of this chapter warned about. *Fix:* keep doing hard problems by hand sometimes; understand what the agent produced well enough to have written it.
 
 ### A day in the life
 
