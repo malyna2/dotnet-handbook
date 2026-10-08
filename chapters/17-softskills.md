@@ -103,15 +103,15 @@ Code review is where craft, teaching, and team culture intersect every single da
 
 ### Giving feedback: kind, specific, actionable
 
-Every review comment should be at least two of those three, and ideally all three. The gold standard: explain the *why*, offer a concrete alternative, and keep the tone collaborative.
+A comment gets acted on when the author can check it without asking you anything. That takes four parts: the **condition** under which the code misbehaves, the **mechanism** that makes it misbehave, the **cost** when it does, and the **fix**. Kind is the tone; specific and actionable are those four parts.
 
 > *Bad:* "This is wrong."
 
 > *Bad:* "Why would you do it this way??"
 
-> *Good:* "This `async void` will swallow exceptions — if `SendAsync` throws, we'll never see it and the message is silently lost. Can we make it `async Task` and let the caller await it? See how `NotificationService` does it."
+> *Good:* "blocking: if `SendAsync` throws, this `async void` method has no `Task` to carry the exception, so the `try/catch` around the call never sees it. ASP.NET Core has no `SynchronizationContext`, so the runtime rethrows it on a thread-pool thread, nothing catches it there, and the process terminates with every in-flight request. Can we make it `async Task` and await it, as `NotificationService` does?"
 
-The good version names the concrete risk, explains the consequence, proposes a fix, and points at a local example. The author knows exactly what to do and *why*.
+The good version gives the condition (`SendAsync` throws), the mechanism (no `Task`, so the exception is rethrown on the captured `SynchronizationContext` or, when there is none, on a thread-pool thread; [Chapter 8](#the-compiler-generated-state-machine) traces the path), the cost (an unhandled exception ends the process) and a fix with a local example to copy. The author can verify it in a minute, which makes acting on it cheaper than arguing with it.
 
 ### Conventional comments: label your intent
 
