@@ -2,7 +2,7 @@
 
 > **What this module makes you able to do.** Store and compute times, amounts and identifiers so that the result doesn't depend on the server's time zone, the user's culture, or a rounding rule nobody chose; and test code that depends on "now".
 
-**Time:** reading ≈ 15 min; hands-on ≈ 50 min — the entry check 5 min, the experiment 15, the check at work 30.
+**Time:** reading ≈ 20 min; hands-on ≈ 50 min — the entry check 5 min, the experiment 15, the check at work 30.
 
 ## Entry check
 
@@ -53,7 +53,7 @@ When the context is implicit, the machine supplies one, and every trap is that s
 - **Culture.** `CurrentCulture` decides decimal marks, date order and casing. Text for people uses it; data for machines (JSON, logs, file names, keys) uses `CultureInfo.InvariantCulture` and ISO 8601.
 - **Strings.** `==` and `Equals` are ordinal, but `ToUpper()`, `ToLower()`, `string.Compare`, `StartsWith(string)` and `IndexOf(string)` use the current culture unless you pass a `StringComparison`.
 
-## Read (≈ 15 min)
+## Read (≈ 20 min)
 
 1. [Chapter 26: Date and Time Done Right](#date-and-time-done-right): the four types, UTC, DST gaps and overlaps, zone IDs, NodaTime, `TimeProvider`, parsing.
 2. [Chapter 26: Money and Numbers](#money-and-numbers): `decimal`, rounding modes, minor units with a currency, culture-aware number formatting.
