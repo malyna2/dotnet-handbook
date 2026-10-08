@@ -1,0 +1,11 @@
+# Environment: Intel(R) Xeon(R) Processor @ 2.80GHz, 4 vCPU, 16 GB RAM, Ubuntu 24.04.5 LTS, .NET runtime 10.0.12, SDK 10.0.112
+# Captured: 2026-10-08 05:38 UTC by capture.sh
+# Program: LogTemplate, Release build
+
+message:  Order 42 placed
+  OrderId = 42 (Int32)
+  {OriginalFormat} = Order {OrderId} placed (String)
+message:  Order 42 placed
+  {OriginalFormat} = Order 42 placed (String)
+[process time: wall 0.216 s, user CPU 0.088 s, system CPU 0.029 s]
+[exit code 0]
