@@ -183,7 +183,7 @@ mark.find-hit{background:var(--accent);color:var(--accent-fg);border-radius:3px;
 
 /* inline code */
 #content :not(pre)>code{background:var(--code-bg);border:1px solid var(--border);
-  padding:.12em .38em;border-radius:6px;font-family:var(--mono);font-size:.86em}
+  padding:.12em .38em;border-radius:6px;font-family:var(--mono);font-size:.86em;overflow-wrap:anywhere}
 
 /* tables */
 .table-wrap{overflow-x:auto;margin:1.1em 0}
