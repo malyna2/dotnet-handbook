@@ -10,6 +10,7 @@ This page is the handbook's changelog. When a new release lands, a popup announc
 - Clicking a link to a section now lands its heading below both bars instead of under them.
 - Long code identifiers in prose now wrap on phone screens instead of widening the page.
 - Every short program printed on a learning-path page is compiled and tested in the repository, and a new checker resolves every in-book link the way the site does.
+- Long web addresses in reading lists now wrap on phone screens instead of widening the page.
 
 **📖 Content updates**
 
@@ -73,6 +74,15 @@ This page is the handbook's changelog. When a new release lands, a popup announc
 - [Chapter 25: Advanced & Specialized Testing](#chapter-25-advanced-specialized-testing) — Corrected: one HTTP client for the whole load test, and Stryker's `--break-at`.
 - [Chapter 26: Real-World Engineering Essentials](#chapter-26-real-world-engineering-essentials) — Audited: DST gaps, two rounding rules and the overloads that pick a culture.
 - [Chapter 50: Azure in Depth for .NET Developers](#chapter-50-azure-in-depth-for-net-developers) — Service Bus: the processor's abandon rule and the duplicate-detection window's default.
+- [Chapter 3: ASP.NET Core Web APIs](#chapter-3-aspnet-core-web-apis) — Corrected: idempotency keys now commit the claim before an external charge, so the in-flight `409` can actually happen.
+- [Chapter 5: Design Patterns, Principles & Clean Code](#chapter-5-design-patterns-principles-clean-code) — Exception cost measured on .NET 10, including how much reading the stack trace adds.
+- [Chapter 4: Data Access & Databases](#chapter-4-data-access-databases) — Since EF Core 9, `Migrate()` takes a database-wide lock; what that fixes and what it doesn't.
+- [Chapter 15: Performance & Optimization](#chapter-15-performance-optimization) — What the default `dotnet-trace` session samples, and how to get a CPU-only profile.
+- [Chapter 33: Real-World Scenarios](#chapter-33-real-world-scenarios-architectural-decisions) — Scenario 3 now reads the .NET 9+ GC metric names.
+- [Chapter 34: Interview Questions & How to Answer Them](#chapter-34-interview-questions-how-to-answer-them) — Why the new thread-pool metrics show a rate on .NET 9 and 10, and which counters to read instead.
+- [Chapter 13: Observability](#chapter-13-observability) — Corrected: the Service Bus SDK does carry trace context, behind an experimental switch.
+- [Chapter 4: Data Access & Databases](#chapter-4-data-access-databases) — PgBouncer 1.21+ keeps protocol-level prepared statements working in transaction mode.
+- [Chapter 4: Data Access & Databases](#chapter-4-data-access-databases) — New: the window a concurrency token covers, and the fix for web edit forms.
 
 ## Release — September 27, 2026
 

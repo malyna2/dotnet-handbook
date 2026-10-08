@@ -1,6 +1,6 @@
 # Chapter 15: Performance & Optimization
 
-_⏱️ Estimated read time: ~35 min ·     5380 words (study pace)_
+_⏱️ Estimated read time: ~35 min · 5601 words (study pace)_
 
 Performance engineering is the discipline where good intentions go to die. Every experienced developer has, at some point, spent an afternoon lovingly hand-optimizing a loop that ran once at startup, only to discover the real bottleneck was a database query fired sixty times per request. This chapter is about not being that developer. It is about building the instincts, the tooling literacy, and the mechanical knowledge of the .NET runtime that separate a mid-level engineer who *thinks* their code is fast from a senior engineer who *knows*.
 

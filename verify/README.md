@@ -15,6 +15,8 @@ Package versions are pinned centrally in `Directory.Packages.props`; emulator im
 
 **Last verified:** 2026-09-24. Environment: Ubuntu 24.04 container, 4 vCPU, 15 GB RAM, .NET SDK 10.0.112, Docker 29.3.1, Azurite 3.37.0, Service Bus emulator 2.0.1 with SQL Server 2022 CU27, Bicep CLI 0.47.16.
 
+`snippets/Azure/` (with Bicep CLI 0.47.16), `exercises/Ch04`, `Ch08` and `Ch51`, and `measurements/ExceptionCost` were last run on 2026-10-08 in the same container class, .NET SDK 10.0.112.
+
 `path/` was last verified on 2026-10-07: same container class, .NET SDK 10.0.112, Docker 29.8.2, SQL Server 2022 CU27 and Service Bus emulator 2.0.1 (details in its README).
 
 **Emulators are not Azure.** They are enough to show a lost update or an expired lock. They cannot show anything about identity, networking, quotas, throttling or pricing. The chapters say which claims rest on Microsoft's documentation instead of on a run here.

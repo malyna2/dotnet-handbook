@@ -1,6 +1,6 @@
 # Chapter 23: Data at Scale & Multi-Tenancy
 
-_⏱️ Estimated read time: ~24 min ·     4325 words (study pace)_
+_⏱️ Estimated read time: ~25 min · 4361 words (study pace)_
 
 For most of a system's life, a single well-tuned database is enough. You add indexes, you cache the hot paths, you buy a bigger machine, and the graphs stay green. Then one day they don't. The write-ahead log can't flush fast enough, a nightly report locks a table that customers need, connections pile up faster than the pool can hand them out, and your one biggest customer's traffic starts starving everyone else. Scaling data is the art of pushing that day as far into the future as possible, and knowing what to do when it finally arrives.
 

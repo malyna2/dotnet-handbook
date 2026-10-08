@@ -1,6 +1,6 @@
 # Chapter 34: Interview Questions & How to Answer Them
 
-_⏱️ Estimated read time: ~40 min · 7782 words (study pace)_
+_⏱️ Estimated read time: ~40 min · 7900 words (study pace)_
 
 This chapter is a recall-and-rehearse bank. Every topic here is taught in depth earlier in the book; the goal now is to turn that knowledge into crisp spoken answers under pressure. Read a question, cover the answer, and say your version out loud. If it comes out rambling, tighten it. Each section starts with a *Revise* pointer to the chapter(s) that teach the material. **Red flag** lines show the wrong answer interviewers hear from juniors — if your spoken version sounds like one, go back and re-read.
 
