@@ -177,7 +177,7 @@ If the relay crashes after publishing but before marking a row processed, it rep
 ### How to prevent it
 
 - **Never dual-write.** One transactional store per write; propagate via outbox.
-- **Make `200` mean durably committed.** If you must go async, return `202 Accepted` with a status URL, and back it with a durable queue/outbox — not a fire-and-forget `Task`.
+- **Make `200` mean durably committed.** If you must go async, return `202 Accepted` with a status URL, and back it with a durable queue/outbox — not a fire-and-forget `Task` ([Chapter 22: Async Request-Reply](#async-request-reply-202-a-status-resource-and-retry-after) has the full contract).
 - **Reconciliation jobs as a standing safety net.** A scheduled job that compares counts/checksums across services and alerts (or auto-heals) on drift. Even a perfect design benefits from a smoke detector.
 - **Idempotency everywhere** writes can be retried — from the public API down to internal consumers.
 

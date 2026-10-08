@@ -384,7 +384,7 @@ A public IP in the answer settles it: the problem is DNS, and nothing in RBAC or
 
 Chapter 50's `UploadUrlIssuer` shows step 2. The browser uploads in blocks, so it can resume after a failure, and upload time is limited only by the SAS expiry, which should be long enough for a slow connection but no longer. The API's requests now take milliseconds. Route the `BlobCreated` event through a Service Bus queue rather than straight to the worker, so that bursts are buffered and processing gets peek-lock and dead-lettering.
 
-**Prevent it.** A design rule: *no request does work proportional to user-controlled size or duration*. Anything that can exceed a few seconds becomes "accept, then process asynchronously" ([Chapter 22](#chapter-22-background-processing-scheduling-the-actor-model)).
+**Prevent it.** A design rule: *no request does work proportional to user-controlled size or duration*. Anything that can exceed a few seconds becomes "accept, then process asynchronously" ([Chapter 22: Async Request-Reply](#async-request-reply-202-a-status-resource-and-retry-after)).
 
 **Interview angle.** A classic system-design follow-up ("how would you handle large file uploads?"). Name the limit, the SAS scoping (one blob, create and write only, short expiry), and the event-driven completion.
 

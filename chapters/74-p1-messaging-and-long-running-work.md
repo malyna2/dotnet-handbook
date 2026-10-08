@@ -2,7 +2,7 @@
 
 > **What this module makes you able to do.** Put a queue between two parts of a system, and write a handler that stays correct when a message arrives twice, late or out of order. Move work that takes longer than a request into a worker behind `202 Accepted`, without losing or duplicating it.
 
-**Time:** reading ≈ 35 min; hands-on ≈ 1 h 25 min — the experiments 25 min, the chapter exercise 15, the questions 15, the check at work 30.
+**Time:** reading ≈ 40 min; hands-on ≈ 1 h 25 min — the experiments 25 min, the chapter exercise 15, the questions 15, the check at work 30.
 
 ## Covers
 
@@ -28,7 +28,7 @@ In peek-lock mode, receiving a message locks it for the entity's lock duration: 
 
 > **Pay attention.** **Duplicate detection is not idempotency.** Service Bus duplicate detection drops a newly *sent* message whose `MessageId` it has already seen within its window: a guard against a producer that retries a send. A redelivery after an expired lock or a crash is the *same* message delivered again, which duplicate detection never sees. Keep it for producers, and make every handler idempotent anyway.
 
-## Read (≈ 35 min)
+## Read (≈ 40 min)
 
 1. [Chapter 9: Why Messaging at All?](#why-messaging-at-all): temporal coupling, and what a queue costs.
 2. [Chapter 9: Competing Consumers](#competing-consumers), [Dead-Letter Queues (DLQ)](#dead-letter-queues-dlq) and [Message Ordering](#message-ordering).
@@ -37,8 +37,8 @@ In peek-lock mode, receiving a message locks it for the entity's lock duration: 
 5. [Chapter 50: Service Bus](#service-bus): the peek-lock diagram, the lock duration, sessions, duplicate detection and the processor defaults.
 6. [Chapter 51: Case 5 — Customers charged twice](#case-5-customers-charged-twice-the-batch-that-outlived-its-locks) and [Case 6 — 40,000 messages in the dead-letter queue](#case-6-40000-messages-in-the-dead-letter-queue-and-nobody-knew).
 7. [Chapter 3: Idempotency Keys: Making POST Retry-Safe](#idempotency-keys-making-post-retry-safe): why the claim goes in *before* the effect, under a unique index, in the same transaction. The same reasoning applies to a message ID.
-8. [Chapter 22: `IHostedService` and `BackgroundService`](#ihostedservice-and-backgroundservice): the worker.
-9. [Chapter 26: Tie it together: offload the heavy work](#tie-it-together-offload-the-heavy-work) and [Chapter 51: Case 11 — Large uploads fail at almost exactly four minutes](#case-11-large-uploads-fail-at-almost-exactly-four-minutes): the 230-second front-end limit.
+8. [Chapter 51: Case 11 — Large uploads fail at almost exactly four minutes](#case-11-large-uploads-fail-at-almost-exactly-four-minutes): the 230-second front-end limit, and why long work leaves the request.
+9. [Chapter 22: `IHostedService` and `BackgroundService`](#ihostedservice-and-backgroundservice) and [Async Request-Reply: 202, a Status Resource, and Retry-After](#async-request-reply-202-a-status-resource-and-retry-after): the worker, and the HTTP contract around it end to end.
 
 ## Prove it
 
