@@ -101,6 +101,20 @@ That framing invites information rather than triggering defense. And when the de
 
 Code review is where craft, teaching, and team culture intersect every single day. Done well it spreads knowledge and raises the floor. Done badly it becomes a gauntlet of ego and bikeshedding.
 
+### Finding What to Say in a Review
+
+A diff that compiles and passes its tests can still be wrong under a condition its tests never create. Reading line by line for style rarely finds that. Asking the same five questions of every changed line usually does, because each question supplies a condition the tests left out:
+
+| Ask of each change | The condition | Typical defect it exposes |
+|---|---|---|
+| What if it runs **twice**? | A retry, a redelivery, a double-clicked button | A handler that isn't idempotent; a `POST` with no idempotency key |
+| What if it runs **concurrently**? | Two requests, two instances, `MaxConcurrentCalls` above 1 | Check-then-act; a `DbContext` shared across threads; mutable static state |
+| What if it runs **slowly**? | A slow dependency, a held lock, peak load | `.Result` on a request path; no timeout; a `CancellationToken` not passed on |
+| What if it **fails halfway**? | A crash between two writes, an exception mid-loop | Save, then publish, with no outbox; `async void`; `catch { }` |
+| What if it meets **100× the data**? | Production volume instead of seed data | N+1; an unbounded `ToListAsync()`; a filter applied after materialising |
+
+Each "yes, that breaks" is the condition of a comment; the mechanism, the cost and the fix follow from it (next section). Two moves cover what the questions miss: compare the change with the file that already does the closest thing, since divergence from it is where new defects hide, and use [Chapter 18's rubric](#judging-ai-generated-code-a-reviewers-rubric) for the full order of reading a diff. If all five questions come back clean, approve and say which risks you checked ("retries and concurrency look safe: the claim is atomic"). The author learns what was verified, and the next reviewer knows what wasn't.
+
 ### Giving feedback: kind, specific, actionable
 
 A comment gets acted on when the author can check it without asking you anything. That takes four parts: the **condition** under which the code misbehaves, the **mechanism** that makes it misbehave, the **cost** when it does, and the **fix**. Kind is the tone; specific and actionable are those four parts.
