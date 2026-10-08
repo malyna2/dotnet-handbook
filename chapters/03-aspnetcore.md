@@ -6,11 +6,9 @@ ASP.NET Core is the beating heart of most .NET server-side work. If you've been 
 
 ## The Middleware Pipeline & Request Lifecycle
 
-Everything in ASP.NET Core is built on one deceptively simple idea: **a request flows through a chain of components, each of which can do work before and after the next one runs.** This chain is the *middleware pipeline*, and understanding it is the single most important mental model in the framework.
+**A request flows through a chain of components, each of which can do work before and after the next one runs.** This chain is the *middleware pipeline*. A component can also short-circuit: answer without calling the rest. On the way out, the response passes back through the same components in reverse order, so the outermost middleware wraps everything inside it.
 
-Think of the pipeline like airport security lanes arranged in a line. Each checkpoint can inspect you, stamp your passport, send you back early (short-circuit), or wave you through to the next checkpoint. On the way *out*, you pass back through those same checkpoints in reverse order. That "in one order, out in reverse" behavior is often drawn as a set of Russian nesting dolls (matryoshka): the outermost middleware wraps everything inside it.
-
-A middleware component is fundamentally just a function that takes the current `HttpContext` and a delegate to "the rest of the pipeline" (`RequestDelegate`, usually called `next`).
+A middleware component is a function that takes the current `HttpContext` and a delegate to "the rest of the pipeline" (`RequestDelegate`, usually called `next`).
 
 ```csharp
 public class RequestTimingMiddleware
@@ -70,7 +68,7 @@ There's also `Map` / `MapWhen` for branching the pipeline based on path or a pre
 
 ### Ordering is everything
 
-The order in which you add middleware *is* the order requests flow through. This is the most common source of subtle bugs.
+The order in which you add middleware *is* the order requests flow through.
 
 > **Best practice — canonical ordering.** Exception handling first (so it wraps everything), then HSTS/HTTPS redirection, static files, routing, CORS, authentication, authorization, and finally your endpoints. Authentication must come before authorization: you can't check *what someone is allowed to do* before you know *who they are*.
 
@@ -87,7 +85,7 @@ app.UseAuthorization();         // Are you allowed?
 app.MapControllers();           // Terminal: executes the endpoint.
 ```
 
-That registration order creates the matryoshka nesting from the start of the chapter:
+That registration order creates this nesting:
 
 ```
        request                                    response
@@ -105,7 +103,15 @@ That registration order creates the matryoshka nesting from the start of the cha
 +------------------------------------------------------------+
 ```
 
-If you put `UseAuthorization` before `UseRouting`, the authorization middleware has no endpoint metadata to inspect and your `[Authorize]` attributes silently do nothing. If you put `UseCors` after the endpoint that handles the request, preflight requests break. **When something "just doesn't apply," suspect ordering first.**
+Each middleware sees only what the ones before it have set, so a wrong order fails in a predictable way:
+
+- **`UseAuthorization` before `UseAuthentication`:** authorization reads `HttpContext.User`, which authentication has not filled in yet. The user looks anonymous, so every `[Authorize]` endpoint answers `401`, even to a valid token.
+- **`UseAuthorization` before `UseRouting`:** no endpoint has been selected yet, so there is no `[Authorize]` metadata to evaluate. The endpoint middleware notices that authorization never saw the endpoint and throws *"Endpoint … contains authorization metadata, but a middleware was not found that supports authorization"*: a `500` on every protected endpoint, not a silent bypass. It runs the same check for CORS metadata.
+- **`UseExceptionHandler` anywhere but first:** it works by wrapping `await next(context)` in a `try`, so it can't catch what middleware registered before it throws.
+
+**When something "just doesn't apply," suspect ordering first.**
+
+> **Pay attention.** **`WebApplication` orders the defaults for you, until you call one yourself.** With no explicit calls, `WebApplicationBuilder` wraps your middleware: `UseDeveloperExceptionPage` (Development only), `UseRouting`, then `UseAuthentication` and `UseAuthorization` when their services are registered, then everything in `Program.cs`, then the endpoints. That is why a minimal app with `AddAuthentication()` works with no `Use…` calls at all. Call `app.UseRouting()`, `UseAuthentication()` or `UseAuthorization()` yourself and the automatic one is skipped: your order is now the order, with the failures above. Either call none of them or call all three, in order.
 
 ## Minimal APIs vs Controllers (MVC)
 
@@ -196,7 +202,9 @@ public class CreateProductRequest
 }
 ```
 
-With `[ApiController]`, a failing model automatically produces a `400 Bad Request` with a validation `ProblemDetails` payload — you never write `if (!ModelState.IsValid)`. In Minimal APIs there's no automatic model-state check by default (you opt in via the validation support added in .NET 10, or validate manually / with a filter).
+With `[ApiController]`, a failing model automatically produces a `400 Bad Request` with a validation `ProblemDetails` payload — you never write `if (!ModelState.IsValid)`. Minimal APIs validate nothing by default. Since .NET 10, `builder.Services.AddValidation()` runs the same DataAnnotations (and `IValidatableObject`) on query, header and body parameters and answers `400` with the error details; before that, validate manually or with a filter.
+
+> **Pay attention.** **The automatic `400` is an action filter, so your action never runs.** `[ApiController]` adds a filter that checks `ModelState` after binding and before the action: a breakpoint in the action never hits, and a log line in it never prints. Binding failures land in the same place: an unparseable body or a wrong JSON type is a `400` from that filter, not an exception. To change the response shape, configure `ApiBehaviorOptions.InvalidModelStateResponseFactory`, rather than adding `if (!ModelState.IsValid)` checks that can never be reached.
 
 ### FluentValidation
 
@@ -573,7 +581,7 @@ app.UseRateLimiter();
 
 **REST** is a set of constraints, not a law, but a few principles pay dividends: model your API around **resources** (nouns) not actions; use HTTP **verbs** for intent (GET read, POST create, PUT replace, PATCH partial update, DELETE remove); make GET/PUT/DELETE **idempotent**; and lean on the **status code** to communicate outcome.
 
-Use the right codes: `200 OK`, `201 Created` (with a `Location` header), `204 No Content` for a successful DELETE, `400` for malformed input, `401` unauthenticated, `403` authenticated-but-forbidden, `404` not found, `409` conflict, `422` semantic validation failure, `429` rate limited, `500` for your bugs. Returning `200` with an error body inside is a common anti-pattern that breaks clients and tooling.
+Use the right codes: `200 OK`, `201 Created` (with a `Location` header), `204 No Content` for a successful DELETE, `400` for malformed input, `401` unauthenticated, `403` authenticated-but-forbidden, `404` not found, `409` conflict, `422` semantic validation failure, `429` rate limited, `500` for your bugs. ASP.NET Core's automatic validation answers `400`, not `422`; if you adopt `422`, change it everywhere, so clients see one convention. Returning `200` with an error body inside is a common anti-pattern: retry policies, caches and error-rate dashboards read the status code, never the body, so all of them count the failure as a success.
 
 ### Idempotency Keys: Making POST Retry-Safe
 

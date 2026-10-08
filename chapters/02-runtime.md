@@ -296,9 +296,7 @@ A **strong name** is a cryptographic identity for an assembly: the assembly is s
 
 ## The Configuration System
 
-Modern .NET replaced the old `app.config`/`web.config` XML world with a flexible, layered **configuration system** built around `IConfiguration`. The core idea: configuration is a set of **key-value pairs** assembled from multiple **providers**, layered so that later providers override earlier ones.
-
-Common providers, typically layered in this order:
+`IConfiguration` is a set of **key-value pairs** assembled from several **providers**; a later provider overrides an earlier one. `WebApplication.CreateBuilder` layers them in this order:
 
 1. `appsettings.json` (base settings)
 2. `appsettings.{Environment}.json` (e.g., `appsettings.Production.json`)
@@ -326,7 +324,7 @@ int port = builder.Configuration.GetValue<int>("Email:Port");
 
 ### The Options pattern and binding
 
-Reading individual string keys everywhere is fragile. The **Options pattern** binds a configuration section to a strongly-typed C# class, giving you type safety, IntelliSense, validation, and testability.
+The **Options pattern** binds a configuration section to a typed class, so the rest of the code never reads string keys, and the values can be validated.
 
 ```csharp
 public sealed class EmailOptions
@@ -345,11 +343,13 @@ builder.Services
     .ValidateOnStart();                 // fail fast at startup, not first use
 ```
 
-You then inject one of three options interfaces, and the difference between them is a common senior-level interview question:
+You then inject one of three options interfaces; their lifetimes decide which one sees a changed value (`CreateBuilder` reloads `appsettings*.json` on change by default):
 
-- **`IOptions<T>`** — a singleton, computed once. Fine for values that don't change during the process lifetime. Can be injected into singletons.
-- **`IOptionsSnapshot<T>`** — recomputed **per request** (it's a scoped service). Reflects config changes (e.g., an edited JSON file) and supports named options. Cannot be injected into a singleton (it's scoped — see captive dependencies below).
-- **`IOptionsMonitor<T>`** — a singleton that supports **change notifications** via `OnChange` callbacks and always returns the current value. Use it when a singleton needs live-reloading config.
+- **`IOptions<T>`** — a singleton, computed on first use and never again: an edited file never reaches it. Safe to inject anywhere.
+- **`IOptionsSnapshot<T>`** — a **scoped** service, computed once per request, so it sees reloaded values; supports named options. Cannot be injected into a singleton (see captive dependencies below).
+- **`IOptionsMonitor<T>`** — a singleton that recomputes when the configuration reloads, exposes `CurrentValue`, and raises `OnChange`. Use it when a singleton needs live config.
+
+> **Pay attention.** **Binding never fails on a missing or misspelt key; it leaves the default.** The binder copies the keys it finds onto matching properties and ignores the rest, so `"SmtpHots"` in JSON, or a forgotten environment variable, yields `SmtpHost = ""` and no error. Validation is what turns that into a failure, and it runs when the options are first computed: on the first request that needs them, possibly hours after a deployment that looked healthy. `ValidateOnStart()` moves it into host start-up (`Host.StartAsync` runs it before any hosted service starts), so a bad setting fails the deployment instead of a customer's request. `BinderOptions.ErrorOnUnknownConfiguration = true` additionally rejects keys that match no property.
 
 ```csharp
 public class Mailer(IOptions<EmailOptions> options)
@@ -360,17 +360,13 @@ public class Mailer(IOptions<EmailOptions> options)
 
 ## Dependency Injection
 
-.NET has a built-in **DI container** (`Microsoft.Extensions.DependencyInjection`) at the heart of the modern hosting model. DI inverts control: instead of a class constructing its own dependencies, it *declares* them (usually as constructor parameters) and the container supplies them. This decouples classes from concrete implementations, makes them testable, and centralizes wiring.
-
-You register services against a `IServiceCollection`, then the container builds an `IServiceProvider` that *resolves* them. Resolution is recursive: to build `OrderService`, the container sees it needs an `IRepository`, builds that, sees the repository needs a `DbContext`, builds that, and so on down the dependency graph.
+A class *declares* its dependencies (usually as constructor parameters) and the built-in container (`Microsoft.Extensions.DependencyInjection`) supplies them. You register services on an `IServiceCollection`; the container builds an `IServiceProvider` that *resolves* them recursively: to build `OrderService` it builds the `IRepository` it needs, then the `DbContext` the repository needs, and so on down the graph.
 
 ### Service lifetimes
 
-The lifetime you choose controls how long an instance lives and how often it's created:
-
-- **Transient** — a **new instance every time** it's requested. Use for lightweight, stateless services. If `A` and `B` both depend on a transient `C`, they each get their own `C`.
-- **Scoped** — **one instance per scope**. In ASP.NET Core, a scope is created per HTTP request, so a scoped service is shared within a request but distinct across requests. `DbContext` is the archetypal scoped service — you want one unit-of-work per request.
-- **Singleton** — **one instance for the entire application** lifetime, created once and shared by everyone. Use for stateless services, caches, and expensive-to-create objects. Must be thread-safe, since concurrent requests share it.
+- **Transient** — a **new instance every time** it's requested. If `A` and `B` both depend on a transient `C`, they each get their own `C`.
+- **Scoped** — **one instance per scope**. ASP.NET Core creates a scope per HTTP request, so a scoped service is shared within a request and distinct across requests. `DbContext` is the archetype: one unit of work per request.
+- **Singleton** — **one instance for the application's lifetime**, shared by every request at once, so it must be thread-safe. For stateless services, caches and expensive-to-create objects.
 
 ```csharp
 builder.Services.AddSingleton<IClock, SystemClock>();
@@ -382,11 +378,13 @@ builder.Services.AddTransient<IEmailValidator, EmailValidator>();
 
 Because the container resolves dependencies recursively, a longer-lived service that captures a shorter-lived one **freezes** the shorter-lived one for its own lifetime. This is a **captive dependency**, and it's a frequent production bug.
 
-Consider a **singleton that depends on a scoped `DbContext`**. The singleton is created once, so it resolves the `DbContext` once, and then *holds that same `DbContext` forever* — across all requests, all threads. `DbContext` is not thread-safe and is meant to be short-lived, so you get corrupted state, `ObjectDisposedException`s, and concurrency errors that are maddening to reproduce.
+Consider a **singleton that depends on a scoped `DbContext`**. The singleton is created once, so it resolves the `DbContext` once, and then *holds that same `DbContext` forever* — across all requests, all threads. `DbContext` is not thread-safe, so two concurrent requests get EF Core's *"A second operation was started on this context instance"*, and tracking queries keep handing back entities loaded long ago, with their old values.
 
 > **The rule:** a service may only depend on services with an **equal or longer** lifetime. Singleton → Singleton is fine. Scoped → Singleton is fine. Singleton → Scoped is a bug. Transient captured by a Singleton effectively becomes a Singleton.
 
-The built-in container helps catch this: in the Development environment, ASP.NET Core enables **scope validation**, which throws if you try to resolve a scoped service from the root (singleton) scope.
+> **Pay attention.** **The captured instance belongs to no request, so nothing ever disposes it.** The container builds a singleton in the *root* scope and resolves the singleton's dependencies there too; a scoped service resolved in the root scope is, in the runtime's own words, "promoted to singleton". It is a separate instance from every request's own, lives until the app stops, and is shared by all of them, which is why the symptom is concurrency and stale data, not `ObjectDisposedException`. That exception comes from the opposite capture: work that outlives its request, such as a `Task.Run` closure still using the request's `DbContext` after the response has gone and the scope has disposed it. One fix covers both: whoever outlives the request creates and owns its own scope.
+
+The built-in container can catch the first capture. **`ValidateScopes`** makes it throw when a singleton consumes a scoped service (*"Cannot consume scoped service 'X' from singleton 'Y'"*) or when a scoped service is resolved from the root provider. **`ValidateOnBuild`** checks every registration when the provider is built, so `builder.Build()` fails at start-up instead of on the first resolve. `WebApplicationBuilder` turns both on **only in the Development environment**; in Production nothing checks, and the bug ships.
 
 ```csharp
 // If a singleton genuinely needs a scoped service, inject the FACTORY,
@@ -402,7 +400,7 @@ public class BackgroundProcessor(IServiceScopeFactory scopeFactory)
 }
 ```
 
-The container also manages **disposal**: if a resolved service implements `IDisposable`, the container disposes it when its scope ends (per-request for scoped, at app shutdown for singletons). This is why you should let the container own service lifetimes rather than `new`-ing services yourself — you'd lose automatic disposal.
+The container also **disposes** what it creates: an `IDisposable` service is disposed when its scope ends (per request for scoped, at shutdown for singletons). A service you `new` up yourself gets none of that.
 
 ## The Generic Host and Background Services
 
@@ -531,15 +529,15 @@ Order? o = JsonSerializer.Deserialize(json, AppJsonContext.Default.Order);
 Microsoft ships a **new major .NET version every November**, on a predictable cadence, alternating between two support tracks:
 
 - **LTS (Long-Term Support)** releases are supported for **3 years**. These are the **even-numbered** versions: .NET 6, **.NET 8**, **.NET 10**.
-- **STS (Standard-Term Support)** releases — formerly "Current" — are supported for **18 months**. These are the **odd-numbered** versions: .NET 7, **.NET 9**.
+- **STS (Standard-Term Support)** releases are supported for **2 years** — 18 months up to .NET 7, extended to two years from .NET 9. These are the **odd-numbered** versions: .NET 7, **.NET 9**, **.NET 11**.
 
-Both LTS and STS are equally *stable and production-ready*; the difference is purely the **support window**, not quality. STS releases often preview features that later land in the next LTS.
+Both tracks follow the same engineering and release process; the difference is purely the **support window**. The last six months of each window are *maintenance*: security fixes only. Patches ship monthly, on Patch Tuesday.
 
-As of this writing (mid-2026), the relevant versions are:
+As of October 2026 (`releases-index.json` in the `dotnet/core` repository):
 
-- **.NET 8** (LTS, Nov 2023) — the workhorse for most production systems; supported into late 2026.
-- **.NET 9** (STS, Nov 2024) — performance and feature refinements; support ends mid-2026.
-- **.NET 10** (LTS, Nov 2025) — the current long-term-support release, the recommended target for new long-lived systems.
+- **.NET 8** (LTS, Nov 2023) and **.NET 9** (STS, Nov 2024) — both in maintenance; support for both ends on **November 10, 2026**. The longer STS window is why they end together.
+- **.NET 10** (LTS, Nov 2025) — the active long-term-support release, supported until **November 14, 2028**; the target for anything new.
+- **.NET 11** (STS) — at release candidate (RC1, September 2026, supported in production as "go-live"); GA is due in November 2026.
 
 > **Best practice for teams:** standardize on **LTS releases** for products with long maintenance horizons — you get three years before a forced upgrade and a smaller upgrade treadmill. Choose **STS** only when you specifically need a feature that shipped there. Whatever you pick, plan upgrades *before* the support window closes: running on an out-of-support runtime means no security patches, which is an audit and compliance problem.
 

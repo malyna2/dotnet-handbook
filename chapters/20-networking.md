@@ -109,19 +109,17 @@ Cache-Control: max-age=60
 
 Every request has a **method** (verb), a **path**, **headers** (metadata as key-value pairs), and an optional **body**. Responses have a **status code**, headers, and a body.
 
-**Statelessness** is the crucial architectural property. HTTP itself remembers nothing between requests. Each request must carry everything the server needs to understand it. Cookies, tokens, and sessions all exist to *simulate* state on top of a stateless protocol. This statelessness is exactly what makes horizontal scaling possible — any server can handle any request because none of them hold conversation state (assuming you keep session data in a shared store, not in-process memory).
+**Statelessness** is the crucial property: each request carries everything the server needs, and cookies, tokens and sessions *simulate* state on top. It is what makes horizontal scaling possible — any server can handle any request, as long as session data lives in a shared store, not in-process memory.
 
 ### HTTP Methods and Idempotency
 
-The methods carry semantic meaning that the whole ecosystem (caches, proxies, retries) relies on:
+Caches, proxies and retry policies act on two properties of the method (RFC 9110):
 
-- **GET** — read, no side effects, *safe* and *cacheable*.
-- **POST** — create or "do something"; **not** idempotent.
-- **PUT** — replace a resource wholesale; idempotent.
-- **PATCH** — partial update.
-- **DELETE** — remove; idempotent.
+- **Safe** — the client asks for no state change: `GET`, `HEAD`, `OPTIONS`, `TRACE`. Safe responses can be cached and prefetched.
+- **Idempotent** — N identical requests have the same effect on the server as one: every safe method, plus `PUT` and `DELETE`. It is about the effect, not the response: a second `DELETE` may answer `404` and is still idempotent.
+- **Neither** — `POST` ("process this"), and `PATCH` unless you design it to be.
 
-> **Best practice:** *Idempotency* means calling N times has the same effect as calling once. It is not academic — it decides whether it is safe to auto-retry. A proxy or your Polly retry policy can safely retry a GET or PUT after a timeout; retrying a POST might charge a credit card twice. Design your APIs so that anything retriable is idempotent, and use idempotency keys for POSTs that must not double-execute (Chapter 21 covers the mechanics).
+> **Pay attention.** **Idempotency decides who may retry without asking.** After a timeout the client can't know whether the request ran, so HTTP lets clients and proxies repeat idempotent requests automatically and tells them not to repeat the others. Retrying a `PUT` is harmless; retrying a `POST` may charge a card twice. Make every retriable operation idempotent, and give a `POST` that must not run twice an idempotency key ([Chapter 3: Idempotency Keys: Making POST Retry-Safe](#idempotency-keys-making-post-retry-safe)).
 
 ## HTTP/1.1 vs HTTP/2 vs HTTP/3: A History of Fixing Head-of-Line Blocking
 
@@ -210,7 +208,7 @@ app.UseCors("api");
 
 ## Status Codes and Headers That Matter
 
-Status codes group into five families. Senior developers use them *precisely* because tooling depends on them:
+Status codes group into five families. Clients, proxies and dashboards act on the code without reading the body:
 
 - **1xx** Informational (rare; `101 Switching Protocols` for WebSocket upgrade).
 - **2xx** Success — `200 OK`, `201 Created` (with a `Location` header), `204 No Content`.
@@ -218,7 +216,7 @@ Status codes group into five families. Senior developers use them *precisely* be
 - **4xx** Client error — `400` bad request, `401` unauthenticated, `403` authenticated-but-forbidden, `404` not found, `409` conflict, `422` unprocessable, `429` too many requests.
 - **5xx** Server error — `500` unhandled, `502` bad gateway (proxy got garbage upstream), `503` unavailable (overloaded/deploying), `504` gateway timeout.
 
-> **Best practice:** The `401` vs `403` distinction trips people up. `401` means "I don't know who you are — authenticate." `403` means "I know who you are, and you may not do this." Returning the wrong one confuses clients and leaks information.
+> **Best practice:** The `401` vs `403` distinction trips people up. `401` means "I don't know who you are — authenticate", and it must carry a `WWW-Authenticate` header naming how; clients react by refreshing a token or prompting. `403` means "I know who you are, and you may not do this": re-authenticating won't help, so clients shouldn't try.
 
 Headers worth knowing cold: `Content-Type` and `Accept` (content negotiation), `Authorization`, `Cache-Control` and `ETag` (caching, below), `Content-Encoding` (gzip/brotli compression), `Retry-After` (paired with `429`/`503`), and `X-Forwarded-For`/`X-Forwarded-Proto` (the client's real IP/scheme, injected by proxies — trust these only from proxies you control).
 
