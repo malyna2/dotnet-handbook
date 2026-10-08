@@ -2,7 +2,7 @@
 
 > **What this module makes you able to do.** Take a vague ticket, a request for an estimate or a pull request, and send back something a teammate can act on without a meeting: a problem statement with your questions, a range with the assumption that drives it, a review comment with its condition and its fix, a request for help that shows what you tried.
 
-**Time:** reading ≈ 35 min; hands-on ≈ 2 h 15 min — the four written tasks 1 h, the questions 15, the check at work 1 h.
+**Time:** reading ≈ 40 min; hands-on ≈ 2 h 15 min — the four written tasks 1 h, the questions 15, the check at work 1 h.
 
 ## Covers
 
@@ -29,7 +29,7 @@ Every habit in this module applies both facts:
 
 > **Pay attention.** **A missed estimate has two causes, and padding fixes neither.** Either the work was harder than you pictured, or you estimated a different scope from the one the asker meant. In the first, the steps you couldn't picture were never in the sum, so the error runs one way: long. The fix is a range anchored on how long similar work actually took, with the assumption behind its top named. In the second, the estimate was right for the wrong ticket; the fix is the problem statement and its questions before any number.
 
-## Read (≈ 35 min)
+## Read (≈ 40 min)
 
 1. [Chapter 17: 17.1 From Solving Tickets to Creating Leverage](#171-from-solving-tickets-to-creating-leverage): the table. Each right-hand answer removes a surprise for someone else, and that habit is what lets a middle developer work without supervision.
 2. [Chapter 61: The Request Is Not the Need](#the-request-is-not-the-need) and [The One-Page Problem Statement](#the-one-page-problem-statement): written for consultants, but a ticket is a request too. For a ticket, keep *Problem*, *Constraints*, *Out of scope*, *Success looks like* and *Open questions*.
@@ -37,7 +37,7 @@ Every habit in this module applies both facts:
 4. [Chapter 17: 17.3 Code Review Mastery](#173-code-review-mastery), then [What would you do — the review](#what-would-you-do-the-review): the five questions in *Finding What to Say in a Review*, the comment formula, the labels, and how much to say to someone new.
 5. [Chapter 18: Judging AI-generated code: a reviewer's rubric](#judging-ai-generated-code-a-reviewers-rubric): read it as the checklist of *what to look for*; the defects are the same in human-written code. Keep its *Signal → check* table and its order for reading a diff.
 6. [Chapter 17: 17.6 Methodical Debugging & Problem Solving](#176-methodical-debugging-problem-solving): the hypothesis loop and the 30-minute rule.
-7. [Chapter 17: Written communication as async leverage](#written-communication-as-async-leverage), [Running meetings that don't waste an hour × N people](#running-meetings-that-dont-waste-an-hour-n-people) and [Disagreeing productively and managing up](#disagreeing-productively-and-managing-up): the ask in the first line, decisions written down, disagree and commit.
+7. [Chapter 17: Written communication as async leverage](#written-communication-as-async-leverage), [Running meetings that don't waste an hour × N people](#running-meetings-that-dont-waste-an-hour-n-people), [Asking Questions That Unblock You](#asking-questions-that-unblock-you) and [Disagreeing productively and managing up](#disagreeing-productively-and-managing-up): the ask in the first line, a question that carries what you tried and the assumption you are testing, decisions written down, disagree and commit.
 
 ## Prove it
 

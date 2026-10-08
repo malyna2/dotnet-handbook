@@ -87,6 +87,24 @@ A meeting checklist:
 - **End with:** decisions made, action items with owners and dates, and where they're written down.
 - **If it could have been a doc, make it a doc.**
 
+### Asking Questions That Unblock You
+
+A question unblocks you when the person answering doesn't have to ask you three questions back first. Send the state of your thinking, not only the gap in it.
+
+**In writing**, when you are stuck past your timebox ([17.6](#176-methodical-debugging-problem-solving)) or a ticket is vague:
+
+- **The goal, not only your attempted fix.** "How do I make the CI step wait 30 seconds?" gets you a sleep; "the integration tests start before the database is ready" gets you a health check. Asking about your attempted solution instead of the problem is the *XY problem*: helpers solve the wrong thing well.
+- **What you tried, and what each attempt ruled out.** The helper skips your first half hour and often spots the wrong assumption at a glance.
+- **The exact error, pasted, and one specific ask:** a yes or no, a name, a pointer.
+- **For a vague ticket,** a short problem statement (symptom and evidence, target, constraints, out of scope; [Chapter 61](#the-one-page-problem-statement) has the full template) with your questions at the end, before any code.
+
+**In meetings:**
+
+- **Prepare one question from the agenda.** The one you think of an hour later costs another meeting.
+- **Ask early.** Once the room has converged on a plan, a question sounds like an objection, and people defend what they have just said in public.
+- **State the assumption you are testing.** "I'm assuming the export only needs the current month. Is that right?" gets a yes or a correction; "how does the export work?" gets a tour.
+- **Confirm in writing afterwards:** "To confirm: current month only, nightly, [name] owns it." Everyone leaves a meeting remembering it differently, and a written line gets corrected while that is still cheap.
+
 ### Disagreeing productively and managing up
 
 To disagree without turning it into a fight, argue about the problem, not the person, and lead with curiosity:
