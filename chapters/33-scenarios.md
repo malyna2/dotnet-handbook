@@ -14,7 +14,7 @@ This is the page to open at 3 a.m. — one row per scenario, each row expanded i
 |---|---|---|
 | p95/p99 climbs, then errors; DB CPU pinned; connection pool exhausted; health checks flap (Scenario 1) | The primary database | 1. Scale out the stateless tier. 2. Feature-flag off non-critical load. 3. Serve from cache/CDN and rate-limit at the edge — fast 429s, not slow failures. |
 | "It said it worked" tickets; DB and broker disagree; downstream saw events with no upstream record (Scenario 2) | An accurate list of affected records | 1. Reconcile the two stores to enumerate the gap. 2. Recover from the durable source (payment records, events). 3. Disable the fire-and-forget path. |
-| Periodic p99 spikes with a flat p50; % Time in GC high; Gen 2 count and LOH climbing (Scenario 3) | Heap headroom | 1. Confirm it's really GC with `dotnet-counters`. 2. Switch to Server GC with background collection. 3. Raise a too-tight container memory limit. |
+| Periodic p99 spikes with a flat p50; GC pause time high; Gen 2 count and LOH climbing (Scenario 3) | Heap headroom | 1. Confirm it's really GC with `dotnet-counters`. 2. Switch to Server GC with background collection. 3. Raise a too-tight container memory limit. |
 | Publishes hang; thread-pool starvation spreads to unrelated endpoints; retries storm the dead broker (Scenario 4) | Request threads | 1. Trip the circuit breaker — fail fast, stop blocking. 2. Buffer locally via the outbox; keep accepting orders. 3. Back off with jitter to kill the retry storm. |
 | Primary unreachable or corrupt; replicas faithfully mirrored the damage (Scenario 5) | The last restorable backup | 1. Stop writes — fence the primary. 2. Pick the recovery target and locate the backup chain. 3. Restore to a *new* instance; state the RPO gap to stakeholders now. |
 | A field rename in another language's service silently breaks deserialization in production (Scenario 6) | A written contract per boundary | 1. Map every cross-language boundary: who calls whom, sync or async, payload. 2. Flag shared-database couplings as debt. 3. Standardize one integration style per boundary type. |
@@ -194,13 +194,13 @@ A trading-adjacent API has a strict p99 SLA of 50 ms. Most of the time it sits a
 ### Symptoms / how you notice
 
 - Periodic latency spikes uncorrelated with request content; a "sawtooth" p99 while p50 is flat.
-- `dotnet-counters` shows high **Gen 2 GC count**, rising **% Time in GC**, and a large/growing **LOH size**.
+- `dotnet-counters` shows a high **Gen 2 collection rate**, rising **GC pause time**, and a large or growing **LOH size**.
 - Memory climbs then drops sharply (a full collection), repeatedly.
 - CPU spikes during pauses even though the app "isn't doing anything."
 
 ### Immediate response (stop the bleeding)
 
-1. **Confirm it's really GC.** Attach `dotnet-counters monitor -p <pid> System.Runtime` and watch `% Time in GC`, `Gen 2 GC Count`, `LOH Size`, and `Allocation Rate`. If GC time is single-digit percent, GC is *not* your problem — look elsewhere (lock contention, thread-pool starvation, a chatty dependency).
+1. **Confirm it's really GC.** Attach `dotnet-counters monitor -p <pid> --counters System.Runtime` and watch four metrics. On .NET 9 and later they are `dotnet.gc.pause.time` (seconds paused per second of wall time), `dotnet.gc.collections` with `gc.heap.generation=gen2`, `dotnet.gc.last_collection.heap.size` with `gc.heap.generation=loh`, and `dotnet.gc.heap.total_allocated` (bytes per second). On .NET 8 the same four are the EventCounters `% Time in GC`, `Gen 2 GC Count`, `LOH Size` and `Allocation Rate`. If pause time stays under about 0.05 s per second (single-digit percent), GC is *not* your problem — look elsewhere (lock contention, thread-pool starvation, a chatty dependency).
 2. **Switch to Server GC** if you are on Workstation GC in a server workload — this is often a one-line, high-impact change (below).
 3. **Ensure concurrent/background GC is on** so Gen 2 collections run mostly off the request path.
 4. **Give it headroom.** If the container memory limit is so tight that GC runs constantly, raise it — GC frequency scales with how quickly you fill the heap.
@@ -278,7 +278,7 @@ GC.Collect(); // deliberate, rare, e.g. after a large batch job — never in the
 - **Pick Server + background GC intentionally** for services and document why.
 - **Watch container memory limits** — GC frequency is a function of headroom; a too-tight limit manufactures GC pressure.
 
-> **In an interview:** "First I confirm it's actually GC with dotnet-counters — if % time in GC is low, the spikes are thread-pool starvation or contention wearing a GC mask, and I chase that instead. If it is GC, I make sure I'm on Server GC with background collection so Gen 2 doesn't stop the world, then I attack the real cause: allocation pressure. I pool buffers with ArrayPool, use Span and structs to cut per-request garbage, and kill LOH churn since large arrays trigger expensive Gen 2 collections. GC tuning caps the symptom; reducing allocations removes it. And I know exactly-once GC tricks like LOH compaction are last resorts, not hot-path tools."
+> **In an interview:** "First I confirm it's actually GC with dotnet-counters — if GC pause time is low, the spikes are thread-pool starvation or contention wearing a GC mask, and I chase that instead. If it is GC, I make sure I'm on Server GC with background collection so Gen 2 doesn't stop the world, then I attack the real cause: allocation pressure. I pool buffers with ArrayPool, use Span and structs to cut per-request garbage, and kill LOH churn since large arrays trigger expensive Gen 2 collections. GC tuning caps the symptom; reducing allocations removes it. And I know exactly-once GC tricks like LOH compaction are last resorts, not hot-path tools."
 
 ---
 

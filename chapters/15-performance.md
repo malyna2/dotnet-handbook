@@ -122,7 +122,7 @@ Here is the toolbox and, crucially, *what each tool is for*:
 | Tool | What it does | Reach for it when... |
 |------|-------------|---------------------|
 | **dotnet-counters** | Live, near-zero-overhead metrics: CPU, allocation rate, GC pauses, thread-pool queue, exceptions/sec, ASP.NET request rate. | You want a quick "vital signs" readout of a running process. First responder. |
-| **dotnet-trace** | Captures CPU sampling and runtime events over a window; produces a trace you analyze offline. | You need to know which *methods* consume CPU without installing a GUI on the server. |
+| **dotnet-trace** | Samples every thread's stack and records runtime events over a window; produces a trace you analyze offline. | You need to know which *methods* consume CPU without installing a GUI on the server. |
 | **dotnet-dump** | Captures and analyzes a process memory dump with SOS commands (`dumpheap`, `gcroot`). | You have a hang, a deadlock, or need to inspect the managed heap and object roots. |
 | **dotnet-gcdump** | Captures a lightweight snapshot of the live GC heap for memory analysis. | You suspect a **memory leak** and want to see which types are accumulating. |
 | **PerfView** | Powerful, free Windows ETW-based profiler for CPU, allocations, and GC. Steep learning curve, deep insight. | You need serious allocation and GC analysis on Windows. |
@@ -135,12 +135,15 @@ A typical field workflow: start with **dotnet-counters** to confirm the symptom 
 # Watch live vital signs of a running process (PID 12345)
 dotnet-counters monitor -p 12345 --counters System.Runtime,Microsoft.AspNetCore.Hosting
 
-# Collect a 20-second CPU trace, then open trace.nettrace in a viewer
+# Collect a 20-second trace; it writes <process>_<timestamp>.nettrace for PerfView,
+# Visual Studio, or speedscope after `dotnet-trace convert --format Speedscope`
 dotnet-trace collect -p 12345 --duration 00:00:20
 
 # Snapshot the heap to hunt a leak; open in dotMemory or PerfView
 dotnet-gcdump collect -p 12345
 ```
+
+> **Gotcha.** The default `dotnet-trace` session samples the stacks of *all* threads about 100 times a second, waiting ones included (on dotnet-trace 10 the profile is called `dotnet-sampled-thread-time`). That is what makes it good at a hang or thread-pool starvation, where blocked threads pile up on the same frame, and what misleads a CPU investigation: a thread parked in `Monitor.Wait` collects as many samples as one spinning in a hot loop. For CPU on Linux, dotnet-trace 10 adds `dotnet-trace collect-linux --profile cpu-sampling`, which samples through the kernel's `perf_events` and so sees only threads that are running (it needs admin rights); on Windows, PerfView's CPU stacks do the same.
 
 > **Best practice:** Profile in an environment that resembles production as closely as you can — same runtime version, Release build, representative data volumes. Profiling a 10-row dev database will never reveal the query that dies at 10 million rows.
 

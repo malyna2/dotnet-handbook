@@ -47,7 +47,7 @@ The traps in *Covers* all follow. A blocked thread can't run the continuation th
 6. [Chapter 2: From IL to Machine Code: the CLR and JIT](#from-il-to-machine-code-the-clr-and-jit): tiered compilation and Dynamic PGO, the reason a fresh instance is slower in its first minute.
 7. [Chapter 1: Span<T>, Memory<T>, and stackalloc](#spant-memoryt-and-stackalloc), then Chapter 15's [Why Allocations Cost](#why-allocations-cost) and [Object Pooling](#object-pooling-reusing-instead-of-reallocating).
 8. [Chapter 15: Profiling: Finding the Bottleneck in a Running System](#profiling-finding-the-bottleneck-in-a-running-system) and [Async Performance](#async-performance).
-9. [Chapter 33: Scenario 3 — Stop-the-world](#scenario-3-stop-the-world-garbage-collector-pauses-are-causing-latency-spikes): the incident, end to end. Its counter names (`% Time in GC`, `LOH Size`) are the .NET 8 EventCounters; on .NET 9 and later, read `dotnet.gc.pause.time`, `dotnet.gc.collections` and `dotnet.gc.last_collection.heap.size`, whose generation attribute includes `loh`.
+9. [Chapter 33: Scenario 3 — Stop-the-world](#scenario-3-stop-the-world-garbage-collector-pauses-are-causing-latency-spikes): the incident, end to end, with the GC counters to read on .NET 9 and later and their .NET 8 names.
 
 ## Practice
 

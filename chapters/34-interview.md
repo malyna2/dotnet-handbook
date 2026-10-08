@@ -37,7 +37,7 @@ Talk about trade-offs, failure modes, operability, and cost — not just the hap
 1. **Reproduce and quantify.** Get a percentile (p95/p99), a throughput figure and the conditions (endpoint, payload, load): "slow" is not a number.
 2. **Measure, don't guess.** The cost usually hides where nobody looked (a serializer, a logging call, a chatty ORM), and a baseline is what proves a fix helped.
 3. **Classify the bottleneck.** CPU, memory/GC, disk I/O, network, database, or lock contention: each has its own tools and fixes.
-4. **Go from cheap metrics to expensive profilers.** Always-on signals first (APM dashboards, `dotnet-counters`), then `dotnet-trace` (CPU sampling), `dotnet-dump` (heap, thread stacks) and query plans once you've narrowed the suspect.
+4. **Go from cheap metrics to expensive profilers.** Always-on signals first (APM dashboards, `dotnet-counters`), then `dotnet-trace` (sampled thread stacks), `dotnet-dump` (heap, thread stacks) and query plans once you've narrowed the suspect.
 5. **Fix one thing, verify, repeat.** Change a single variable and re-measure against the baseline.
 
 **Red flag:** "I'd add caching and make everything async": naming fixes before measuring anything is optimizing on a guess.
@@ -57,7 +57,7 @@ Check CPU while the endpoint is slow. High CPU with low throughput → CPU-bound
 
 **Which tools, concretely, in a .NET app?**
 - `dotnet-counters monitor`: CPU, GC counts, allocation rate, thread-pool queue length and thread count. Add `Microsoft.AspNetCore.Hosting` to `--counters` for request metrics. First stop, zero setup.
-- `dotnet-trace`: a sampled CPU profile, to find hot methods without a full profiler.
+- `dotnet-trace`: sampled stacks of every thread, to find hot or blocked methods without a full profiler.
 - `dotnet-dump` / `dotnet-gcdump`: heap snapshots for leaks and retention; `dotnet-dump` also has every thread's stack.
 - APM (Application Insights, OpenTelemetry, Datadog): distributed traces show *which hop* in a request eats the time.
 - DB: `EXPLAIN`/`EXPLAIN ANALYZE` (Postgres), the actual execution plan (SQL Server), the slow-query log.
@@ -111,7 +111,7 @@ The variable, not its value at capture time. This bites in loops:
 var actions = new List<Action>();
 for (int i = 0; i < 3; i++)
     actions.Add(() => Console.Write(i));
-foreach (var a in actions) a();   // prints 333 (pre-C# 5 foreach) — here: 333
+foreach (var a in actions) a();   // prints 333: a for loop has one i for all iterations
 ```
 
 Each lambda closes over the *same* `i`, so all print its final value, `3`. Fix by copying into a loop-local: `int copy = i;` and capture `copy`. (Note: `foreach` variables are per-iteration since C# 5, but classic `for` loops still share the counter.)
@@ -189,7 +189,7 @@ Multithreading uses multiple threads to do work in parallel (CPU-bound). Async i
 It tells the continuation not to resume on the captured synchronization context, resuming on a thread-pool thread instead. Use it in library code to avoid deadlocks and unnecessary context hops. In ASP.NET Core there's no sync context, so it matters less there, but it's still good hygiene for reusable libraries.
 
 **Why does `.Result` deadlock?**
-On a platform with a single-threaded sync context (classic UI, legacy ASP.NET), blocking on `.Result`/`.Wait()` holds that thread while the awaited continuation is queued to run *on the same thread* — mutual wait, deadlock. The fix is to be async all the way down and never block on async code. ASP.NET Core lacks that context so it deadlocks less, but sync-over-async still starves the thread pool.
+On a platform with a single-threaded sync context (classic UI, legacy ASP.NET), blocking on `.Result`/`.Wait()` holds that thread while the awaited continuation is queued to run *on the same thread* — mutual wait, deadlock. The fix is to be async all the way down and never block on async code. ASP.NET Core has no synchronization context, so continuations run on any pool thread and this deadlock can't happen there; sync-over-async still blocks one pool thread per waiting request, which starves the thread pool under load.
 
 **Red flag:** "Wrap it in `Task.Run(...).Result` to make it safe" — that just burns an extra thread; the fix is async all the way down.
 

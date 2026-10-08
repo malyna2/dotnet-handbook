@@ -2348,7 +2348,7 @@ The through-line of this chapter is that ASP.NET Core is a **pipeline of composa
 
 # Chapter 4: Data Access & Databases
 
-_⏱️ Estimated read time: ~1 h 15 min · 11660 words (study pace)_
+_⏱️ Estimated read time: ~1 h 15 min · 11758 words (study pace)_
 
 Almost every non-trivial application is, underneath all its features, a machine for moving data in and out of a database safely and quickly. You can write flawless business logic and beautiful APIs, but if your data access layer holds locks too long, fires a thousand queries where one would do, or corrupts a balance under concurrent writes, the whole system fails in ways that are hard to reproduce and harder to fix. This chapter takes you from the mechanics of Entity Framework Core down to the SQL and storage engine underneath it, then back up through caching, NoSQL, and deployment. The goal is that you stop treating the database as a black box and start reasoning about what it actually does.
 
@@ -3243,7 +3243,7 @@ Each migration records what changed and how to reverse it, and EF tracks which h
 
 The strategic question is *when* migrations run in your pipeline. Options:
 
-- **`context.Database.Migrate()` on app startup** — simplest, but risky at scale: if several instances start simultaneously they can race, and a failed migration can crash your whole deployment.
+- **`context.Database.Migrate()` on app startup** — simplest, but risky at scale. Since EF Core 9, `Migrate()` and `MigrateAsync()` take a database-wide lock before applying anything (`sp_getapplock` on SQL Server; on SQLite a row in a `__EFMigrationsLock` table, which a killed process can leave behind), so instances that start together queue instead of corrupting the schema. The lock doesn't remove the other costs: every instance needs DDL rights at runtime, every instance waits while one migrates (long enough, on a big table, for start-up probes to restart them), a failed migration takes the whole deployment down, and since EF Core 9 `Migrate()` throws when the model has changes no migration covers. On EF Core 8 and earlier there is no lock, and simultaneous starts really do race.
 - **A dedicated deployment step** — generate an idempotent SQL script (`dotnet ef migrations script --idempotent`) and run it as an explicit, gated CI/CD stage before the new app version goes live. This is the safest, most auditable approach for production.
 - **Standalone migration tools — DbUp or Flyway** — apply plain, hand-written, ordered SQL scripts. Teams that want full control over the exact SQL (and want DBAs to review it) often prefer these over EF's generated migrations. **DbUp** is a .NET library; **Flyway** is a language-agnostic tool. Both track applied scripts in a metadata table, just like EF.
 
@@ -9916,7 +9916,7 @@ Security is a discipline of layered, deliberate decisions. Adopt the mindset —
 
 # Chapter 15: Performance & Optimization
 
-_⏱️ Estimated read time: ~35 min · 5483 words (study pace)_
+_⏱️ Estimated read time: ~35 min · 5601 words (study pace)_
 
 Performance engineering is the discipline where good intentions go to die. Every experienced developer has, at some point, spent an afternoon lovingly hand-optimizing a loop that ran once at startup, only to discover the real bottleneck was a database query fired sixty times per request. This chapter is about not being that developer. It is about building the instincts, the tooling literacy, and the mechanical knowledge of the .NET runtime that separate a mid-level engineer who *thinks* their code is fast from a senior engineer who *knows*.
 
@@ -10038,7 +10038,7 @@ Here is the toolbox and, crucially, *what each tool is for*:
 | Tool | What it does | Reach for it when... |
 |------|-------------|---------------------|
 | **dotnet-counters** | Live, near-zero-overhead metrics: CPU, allocation rate, GC pauses, thread-pool queue, exceptions/sec, ASP.NET request rate. | You want a quick "vital signs" readout of a running process. First responder. |
-| **dotnet-trace** | Captures CPU sampling and runtime events over a window; produces a trace you analyze offline. | You need to know which *methods* consume CPU without installing a GUI on the server. |
+| **dotnet-trace** | Samples every thread's stack and records runtime events over a window; produces a trace you analyze offline. | You need to know which *methods* consume CPU without installing a GUI on the server. |
 | **dotnet-dump** | Captures and analyzes a process memory dump with SOS commands (`dumpheap`, `gcroot`). | You have a hang, a deadlock, or need to inspect the managed heap and object roots. |
 | **dotnet-gcdump** | Captures a lightweight snapshot of the live GC heap for memory analysis. | You suspect a **memory leak** and want to see which types are accumulating. |
 | **PerfView** | Powerful, free Windows ETW-based profiler for CPU, allocations, and GC. Steep learning curve, deep insight. | You need serious allocation and GC analysis on Windows. |
@@ -10051,12 +10051,15 @@ A typical field workflow: start with **dotnet-counters** to confirm the symptom 
 # Watch live vital signs of a running process (PID 12345)
 dotnet-counters monitor -p 12345 --counters System.Runtime,Microsoft.AspNetCore.Hosting
 
-# Collect a 20-second CPU trace, then open trace.nettrace in a viewer
+# Collect a 20-second trace; it writes <process>_<timestamp>.nettrace for PerfView,
+# Visual Studio, or speedscope after `dotnet-trace convert --format Speedscope`
 dotnet-trace collect -p 12345 --duration 00:00:20
 
 # Snapshot the heap to hunt a leak; open in dotMemory or PerfView
 dotnet-gcdump collect -p 12345
 ```
+
+> **Gotcha.** The default `dotnet-trace` session samples the stacks of *all* threads about 100 times a second, waiting ones included (on dotnet-trace 10 the profile is called `dotnet-sampled-thread-time`). That is what makes it good at a hang or thread-pool starvation, where blocked threads pile up on the same frame, and what misleads a CPU investigation: a thread parked in `Monitor.Wait` collects as many samples as one spinning in a hot loop. For CPU on Linux, dotnet-trace 10 adds `dotnet-trace collect-linux --profile cpu-sampling`, which samples through the kernel's `perf_events` and so sees only threads that are running (it needs admin rights); on Windows, PerfView's CPU stacks do the same.
 
 > **Best practice:** Profile in an environment that resembles production as closely as you can — same runtime version, Release build, representative data volumes. Profiling a 10-row dev database will never reveal the query that dies at 10 million rows.
 
@@ -17702,7 +17705,7 @@ You have the map, you have the capstone, and you have the habits. The only thing
 
 # Chapter 33: Real-World Scenarios & Architectural Decisions
 
-_⏱️ Estimated read time: ~1 h 20 min · 14824 words (study pace)_
+_⏱️ Estimated read time: ~1 h 20 min · 14868 words (study pace)_
 
 Every senior engineer eventually learns that the hard part of the job is not writing code — it is deciding what to do when the code you already shipped meets reality. Reality shows up as a traffic spike you did not plan for, a "successful" request that silently lost data, a p99 latency graph that looks like a seismograph, and a dependency that vanishes at the worst possible moment. This chapter is a war-room playbook. Each scenario is a story you could plausibly live through on a production on-call rotation, framed around one question: *how do you react, and what architectural decision does that push you toward?*
 
@@ -17716,7 +17719,7 @@ This is the page to open at 3 a.m. — one row per scenario, each row expanded i
 |---|---|---|
 | p95/p99 climbs, then errors; DB CPU pinned; connection pool exhausted; health checks flap (Scenario 1) | The primary database | 1. Scale out the stateless tier. 2. Feature-flag off non-critical load. 3. Serve from cache/CDN and rate-limit at the edge — fast 429s, not slow failures. |
 | "It said it worked" tickets; DB and broker disagree; downstream saw events with no upstream record (Scenario 2) | An accurate list of affected records | 1. Reconcile the two stores to enumerate the gap. 2. Recover from the durable source (payment records, events). 3. Disable the fire-and-forget path. |
-| Periodic p99 spikes with a flat p50; % Time in GC high; Gen 2 count and LOH climbing (Scenario 3) | Heap headroom | 1. Confirm it's really GC with `dotnet-counters`. 2. Switch to Server GC with background collection. 3. Raise a too-tight container memory limit. |
+| Periodic p99 spikes with a flat p50; GC pause time high; Gen 2 count and LOH climbing (Scenario 3) | Heap headroom | 1. Confirm it's really GC with `dotnet-counters`. 2. Switch to Server GC with background collection. 3. Raise a too-tight container memory limit. |
 | Publishes hang; thread-pool starvation spreads to unrelated endpoints; retries storm the dead broker (Scenario 4) | Request threads | 1. Trip the circuit breaker — fail fast, stop blocking. 2. Buffer locally via the outbox; keep accepting orders. 3. Back off with jitter to kill the retry storm. |
 | Primary unreachable or corrupt; replicas faithfully mirrored the damage (Scenario 5) | The last restorable backup | 1. Stop writes — fence the primary. 2. Pick the recovery target and locate the backup chain. 3. Restore to a *new* instance; state the RPO gap to stakeholders now. |
 | A field rename in another language's service silently breaks deserialization in production (Scenario 6) | A written contract per boundary | 1. Map every cross-language boundary: who calls whom, sync or async, payload. 2. Flag shared-database couplings as debt. 3. Standardize one integration style per boundary type. |
@@ -17896,13 +17899,13 @@ A trading-adjacent API has a strict p99 SLA of 50 ms. Most of the time it sits a
 ### Symptoms / how you notice
 
 - Periodic latency spikes uncorrelated with request content; a "sawtooth" p99 while p50 is flat.
-- `dotnet-counters` shows high **Gen 2 GC count**, rising **% Time in GC**, and a large/growing **LOH size**.
+- `dotnet-counters` shows a high **Gen 2 collection rate**, rising **GC pause time**, and a large or growing **LOH size**.
 - Memory climbs then drops sharply (a full collection), repeatedly.
 - CPU spikes during pauses even though the app "isn't doing anything."
 
 ### Immediate response (stop the bleeding)
 
-1. **Confirm it's really GC.** Attach `dotnet-counters monitor -p <pid> System.Runtime` and watch `% Time in GC`, `Gen 2 GC Count`, `LOH Size`, and `Allocation Rate`. If GC time is single-digit percent, GC is *not* your problem — look elsewhere (lock contention, thread-pool starvation, a chatty dependency).
+1. **Confirm it's really GC.** Attach `dotnet-counters monitor -p <pid> --counters System.Runtime` and watch four metrics. On .NET 9 and later they are `dotnet.gc.pause.time` (seconds paused per second of wall time), `dotnet.gc.collections` with `gc.heap.generation=gen2`, `dotnet.gc.last_collection.heap.size` with `gc.heap.generation=loh`, and `dotnet.gc.heap.total_allocated` (bytes per second). On .NET 8 the same four are the EventCounters `% Time in GC`, `Gen 2 GC Count`, `LOH Size` and `Allocation Rate`. If pause time stays under about 0.05 s per second (single-digit percent), GC is *not* your problem — look elsewhere (lock contention, thread-pool starvation, a chatty dependency).
 2. **Switch to Server GC** if you are on Workstation GC in a server workload — this is often a one-line, high-impact change (below).
 3. **Ensure concurrent/background GC is on** so Gen 2 collections run mostly off the request path.
 4. **Give it headroom.** If the container memory limit is so tight that GC runs constantly, raise it — GC frequency scales with how quickly you fill the heap.
@@ -17980,7 +17983,7 @@ GC.Collect(); // deliberate, rare, e.g. after a large batch job — never in the
 - **Pick Server + background GC intentionally** for services and document why.
 - **Watch container memory limits** — GC frequency is a function of headroom; a too-tight limit manufactures GC pressure.
 
-> **In an interview:** "First I confirm it's actually GC with dotnet-counters — if % time in GC is low, the spikes are thread-pool starvation or contention wearing a GC mask, and I chase that instead. If it is GC, I make sure I'm on Server GC with background collection so Gen 2 doesn't stop the world, then I attack the real cause: allocation pressure. I pool buffers with ArrayPool, use Span and structs to cut per-request garbage, and kill LOH churn since large arrays trigger expensive Gen 2 collections. GC tuning caps the symptom; reducing allocations removes it. And I know exactly-once GC tricks like LOH compaction are last resorts, not hot-path tools."
+> **In an interview:** "First I confirm it's actually GC with dotnet-counters — if GC pause time is low, the spikes are thread-pool starvation or contention wearing a GC mask, and I chase that instead. If it is GC, I make sure I'm on Server GC with background collection so Gen 2 doesn't stop the world, then I attack the real cause: allocation pressure. I pool buffers with ArrayPool, use Span and structs to cut per-request garbage, and kill LOH churn since large arrays trigger expensive Gen 2 collections. GC tuning caps the symptom; reducing allocations removes it. And I know exactly-once GC tricks like LOH compaction are last resorts, not hot-path tools."
 
 ---
 
@@ -18698,7 +18701,7 @@ Traffic is up roughly 4×. Signups are flat.
 
 # Chapter 34: Interview Questions & How to Answer Them
 
-_⏱️ Estimated read time: ~40 min · 7782 words (study pace)_
+_⏱️ Estimated read time: ~40 min · 7808 words (study pace)_
 
 This chapter is a recall-and-rehearse bank. Every topic here is taught in depth earlier in the book; the goal now is to turn that knowledge into crisp spoken answers under pressure. Read a question, cover the answer, and say your version out loud. If it comes out rambling, tighten it. Each section starts with a *Revise* pointer to the chapter(s) that teach the material. **Red flag** lines show the wrong answer interviewers hear from juniors — if your spoken version sounds like one, go back and re-read.
 
@@ -18735,7 +18738,7 @@ Talk about trade-offs, failure modes, operability, and cost — not just the hap
 1. **Reproduce and quantify.** Get a percentile (p95/p99), a throughput figure and the conditions (endpoint, payload, load): "slow" is not a number.
 2. **Measure, don't guess.** The cost usually hides where nobody looked (a serializer, a logging call, a chatty ORM), and a baseline is what proves a fix helped.
 3. **Classify the bottleneck.** CPU, memory/GC, disk I/O, network, database, or lock contention: each has its own tools and fixes.
-4. **Go from cheap metrics to expensive profilers.** Always-on signals first (APM dashboards, `dotnet-counters`), then `dotnet-trace` (CPU sampling), `dotnet-dump` (heap, thread stacks) and query plans once you've narrowed the suspect.
+4. **Go from cheap metrics to expensive profilers.** Always-on signals first (APM dashboards, `dotnet-counters`), then `dotnet-trace` (sampled thread stacks), `dotnet-dump` (heap, thread stacks) and query plans once you've narrowed the suspect.
 5. **Fix one thing, verify, repeat.** Change a single variable and re-measure against the baseline.
 
 **Red flag:** "I'd add caching and make everything async": naming fixes before measuring anything is optimizing on a guess.
@@ -18755,7 +18758,7 @@ Check CPU while the endpoint is slow. High CPU with low throughput → CPU-bound
 
 **Which tools, concretely, in a .NET app?**
 - `dotnet-counters monitor`: CPU, GC counts, allocation rate, thread-pool queue length and thread count. Add `Microsoft.AspNetCore.Hosting` to `--counters` for request metrics. First stop, zero setup.
-- `dotnet-trace`: a sampled CPU profile, to find hot methods without a full profiler.
+- `dotnet-trace`: sampled stacks of every thread, to find hot or blocked methods without a full profiler.
 - `dotnet-dump` / `dotnet-gcdump`: heap snapshots for leaks and retention; `dotnet-dump` also has every thread's stack.
 - APM (Application Insights, OpenTelemetry, Datadog): distributed traces show *which hop* in a request eats the time.
 - DB: `EXPLAIN`/`EXPLAIN ANALYZE` (Postgres), the actual execution plan (SQL Server), the slow-query log.
@@ -18809,7 +18812,7 @@ The variable, not its value at capture time. This bites in loops:
 var actions = new List<Action>();
 for (int i = 0; i < 3; i++)
     actions.Add(() => Console.Write(i));
-foreach (var a in actions) a();   // prints 333 (pre-C# 5 foreach) — here: 333
+foreach (var a in actions) a();   // prints 333: a for loop has one i for all iterations
 ```
 
 Each lambda closes over the *same* `i`, so all print its final value, `3`. Fix by copying into a loop-local: `int copy = i;` and capture `copy`. (Note: `foreach` variables are per-iteration since C# 5, but classic `for` loops still share the counter.)
@@ -18887,7 +18890,7 @@ Multithreading uses multiple threads to do work in parallel (CPU-bound). Async i
 It tells the continuation not to resume on the captured synchronization context, resuming on a thread-pool thread instead. Use it in library code to avoid deadlocks and unnecessary context hops. In ASP.NET Core there's no sync context, so it matters less there, but it's still good hygiene for reusable libraries.
 
 **Why does `.Result` deadlock?**
-On a platform with a single-threaded sync context (classic UI, legacy ASP.NET), blocking on `.Result`/`.Wait()` holds that thread while the awaited continuation is queued to run *on the same thread* — mutual wait, deadlock. The fix is to be async all the way down and never block on async code. ASP.NET Core lacks that context so it deadlocks less, but sync-over-async still starves the thread pool.
+On a platform with a single-threaded sync context (classic UI, legacy ASP.NET), blocking on `.Result`/`.Wait()` holds that thread while the awaited continuation is queued to run *on the same thread* — mutual wait, deadlock. The fix is to be async all the way down and never block on async code. ASP.NET Core has no synchronization context, so continuations run on any pool thread and this deadlock can't happen there; sync-over-async still blocks one pool thread per waiting request, which starves the thread pool under load.
 
 **Red flag:** "Wrap it in `Task.Run(...).Result` to make it safe" — that just burns an extra thread; the fix is async all the way down.
 
@@ -28373,7 +28376,7 @@ The chapters Part 2 does not route through are still worth reading when your wor
 
 # Part 2 · Module 1: Runtime and Concurrency Internals
 
-_⏱️ Estimated read time: ~15 min · 2715 words (study pace)_
+_⏱️ Estimated read time: ~15 min · 2702 words (study pace)_
 
 > **What this module makes you able to do.** Predict how a .NET service behaves when its threads block or its heap churns, prove it from counters and a dump, and choose between tuning the runtime and changing the code, with the cost of each spelled out for the team that will live with the choice.
 
@@ -28422,7 +28425,7 @@ The traps in *Covers* all follow. A blocked thread can't run the continuation th
 6. [Chapter 2: From IL to Machine Code: the CLR and JIT](#from-il-to-machine-code-the-clr-and-jit): tiered compilation and Dynamic PGO, the reason a fresh instance is slower in its first minute.
 7. [Chapter 1: Span<T>, Memory<T>, and stackalloc](#spant-memoryt-and-stackalloc), then Chapter 15's [Why Allocations Cost](#why-allocations-cost) and [Object Pooling](#object-pooling-reusing-instead-of-reallocating).
 8. [Chapter 15: Profiling: Finding the Bottleneck in a Running System](#profiling-finding-the-bottleneck-in-a-running-system) and [Async Performance](#async-performance).
-9. [Chapter 33: Scenario 3 — Stop-the-world](#scenario-3-stop-the-world-garbage-collector-pauses-are-causing-latency-spikes): the incident, end to end. Its counter names (`% Time in GC`, `LOH Size`) are the .NET 8 EventCounters; on .NET 9 and later, read `dotnet.gc.pause.time`, `dotnet.gc.collections` and `dotnet.gc.last_collection.heap.size`, whose generation attribute includes `loh`.
+9. [Chapter 33: Scenario 3 — Stop-the-world](#scenario-3-stop-the-world-garbage-collector-pauses-are-causing-latency-spikes): the incident, end to end, with the GC counters to read on .NET 9 and later and their .NET 8 names.
 
 ## Practice
 

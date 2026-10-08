@@ -895,7 +895,7 @@ Each migration records what changed and how to reverse it, and EF tracks which h
 
 The strategic question is *when* migrations run in your pipeline. Options:
 
-- **`context.Database.Migrate()` on app startup** — simplest, but risky at scale: if several instances start simultaneously they can race, and a failed migration can crash your whole deployment.
+- **`context.Database.Migrate()` on app startup** — simplest, but risky at scale. Since EF Core 9, `Migrate()` and `MigrateAsync()` take a database-wide lock before applying anything (`sp_getapplock` on SQL Server; on SQLite a row in a `__EFMigrationsLock` table, which a killed process can leave behind), so instances that start together queue instead of corrupting the schema. The lock doesn't remove the other costs: every instance needs DDL rights at runtime, every instance waits while one migrates (long enough, on a big table, for start-up probes to restart them), a failed migration takes the whole deployment down, and since EF Core 9 `Migrate()` throws when the model has changes no migration covers. On EF Core 8 and earlier there is no lock, and simultaneous starts really do race.
 - **A dedicated deployment step** — generate an idempotent SQL script (`dotnet ef migrations script --idempotent`) and run it as an explicit, gated CI/CD stage before the new app version goes live. This is the safest, most auditable approach for production.
 - **Standalone migration tools — DbUp or Flyway** — apply plain, hand-written, ordered SQL scripts. Teams that want full control over the exact SQL (and want DBAs to review it) often prefer these over EF's generated migrations. **DbUp** is a .NET library; **Flyway** is a language-agnostic tool. Both track applied scripts in a metadata table, just like EF.
 
