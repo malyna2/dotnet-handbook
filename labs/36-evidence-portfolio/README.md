@@ -1,6 +1,6 @@
-# Lab kit — Chapter 36: The Story Bank & Evidence Portfolio
+# Lab kit — Chapter 37: The Story Bank & Evidence Portfolio
 
-Templates, prompts and one script for turning what you have done into claims you can prove. Read Chapter 36 first; this folder is the toolbox it refers to.
+Templates, prompts and one script for turning what you have done into claims you can prove. Read Chapter 37 first; this folder is the toolbox it refers to.
 
 > **The portfolio rule.** Nothing you write for this lab goes into *this* repository. Stories about real employers go into a **private** story bank (a private repo or a notes folder). Lab artifacts and your evidence index go into **your own public portfolio repo**.
 

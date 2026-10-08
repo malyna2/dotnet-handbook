@@ -1,6 +1,7 @@
 # Practice Roadmap — Part XI "The Practice Gym"
 
 > **Status: APPROVED 2026-09-24** (all recommendations in §7 accepted). **M1 and M2 done** — see the session log in §8. Next: **M3**.
+> **Renumbered 2026-10-08.** The book is now one sequence in two parts, so the chapter numbers below are the old ones: old 36 is now Chapter 37, old 37 is Chapter 19, old 62 is Chapter 40, and new labs join the Part 2 chapter they practise. The kit folders under `labs/` keep their names.
 > One milestone per session, finished end to end and verified. At the end of each session: tick the boxes below, and report what was verified and what was not.
 
 **Why this exists.** The book is broad on theory and thin on practice: only Chapters 4, 8 and 17 end with `## Exercises`, and nothing asks the reader to produce evidence. The middle→senior gap is rarely knowledge; it is *proof*: incidents handled, decisions defended, systems measured, things written in English. Every addition below must make the reader **do** something and leave an **artifact** they could show in an interview.
