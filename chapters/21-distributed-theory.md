@@ -104,18 +104,28 @@ The escape hatch is **idempotency** — designing an operation so that performin
 For operations that aren't naturally idempotent, use an **idempotency key**: the client generates a unique key (a GUID) for the logical operation and sends it with every retry. The server records processed keys and, on seeing a duplicate, returns the *original stored result* instead of re-executing.
 
 ```csharp
-public async Task<PaymentResult> Charge(string idempotencyKey, decimal amount)
+public async Task<PaymentResult> Charge(string idempotencyKey, decimal amount, CancellationToken ct)
 {
-    var existing = await _store.TryGetResult(idempotencyKey);
-    if (existing is not null) return existing;          // safe replay
+    await using var tx = await _db.Database.BeginTransactionAsync(ct);
+    var record = new IdempotencyRecord { Key = idempotencyKey };            // unique index on Key
+    _db.IdempotencyRecords.Add(record);
+    try { await _db.SaveChangesAsync(ct); }                                 // the claim, BEFORE the effect
+    catch (DbUpdateException e) when (IsUniqueViolation(e))
+    {
+        await tx.RollbackAsync(ct);
+        return await ReplayStoredResultAsync(idempotencyKey, ct);          // safe replay, no second charge
+    }
 
-    var result = await _gateway.Charge(amount);
-    await _store.Save(idempotencyKey, result);          // record before returning
-    return result;
+    record.Result = await _gateway.Charge(amount, idempotencyKey, ct);     // forward the key: the gateway dedupes too
+    await _db.SaveChangesAsync(ct);
+    await tx.CommitAsync(ct);
+    return record.Result;
 }
 ```
 
-Stripe's API famously works exactly this way. This ties directly to the **delivery guarantees** from Chapter 9: networks and message brokers give you *at-least-once* delivery in practice (exactly-once is largely a myth end-to-end). At-least-once means *duplicates will happen*. Idempotent consumers turn the achievable "at-least-once delivery" into the effective "exactly-once *processing*" you actually want.
+The order is the whole trick. The tempting version — look the key up, charge, then save the result — is check-then-act: two retries 20 ms apart both find nothing and both charge. Here the unique index, not a read, decides the winner: a concurrent retry's insert waits on the first attempt's uncommitted key and fails once it commits, so it replays the stored result instead of charging. [Chapter 3: Idempotency Keys](#idempotency-keys-making-post-retry-safe) has the full HTTP version, with request hashing, scoping and retention.
+
+Stripe's API famously works this way. This ties directly to the **delivery guarantees** from Chapter 9: networks and message brokers give you *at-least-once* delivery in practice (exactly-once is largely a myth end-to-end). At-least-once means *duplicates will happen*. Idempotent consumers turn the achievable "at-least-once delivery" into the effective "exactly-once *processing*" you actually want.
 
 > **Best practice:** Make every message consumer and every mutating API endpoint idempotent. It is the single most impactful reliability pattern in a message-driven system, because it lets you retry aggressively without fear.
 
