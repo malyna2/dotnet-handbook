@@ -49,7 +49,7 @@ Check CPU while the endpoint is slow. High CPU with low throughput → CPU-bound
 >
 > Sync-over-async parks pool threads while the continuations that would free them queue behind new requests, and the pool adds threads slowly ([Chapter 8](#the-sync-over-async-deadlock) has the mechanism). Three signals give it away:
 >
-> - **Counters.** Queue length grows and thread count climbs steadily while CPU stays low: `dotnet.thread_pool.queue.length` and `dotnet.thread_pool.thread.count` on .NET 9+, `threadpool-queue-length` and `threadpool-thread-count` on .NET 8.
+> - **Counters.** Queue length grows and thread count climbs steadily while CPU stays low. In `dotnet-counters`, read them as `ThreadPool Queue Length` and `ThreadPool Thread Count` (`threadpool-queue-length`, `threadpool-thread-count`): on .NET 8 they are the default `System.Runtime` view, on .NET 9 and 10 pass `--counters 'EventCounters\System.Runtime'`. The newer `dotnet.thread_pool.queue.length` and `dotnet.thread_pool.thread.count` are published as *monotonic* counters on .NET 9 and 10, so `dotnet-counters` shows their change per second, not the value: a pool that has grown to dozens of threads reads a small number each second, and a draining queue reads negative. The runtime's main branch already declares both as up-down counters. Before you trust a dashboard built on them, check whether it plots the value or a rate.
 > - **Every endpoint slows down**, including ones that never call the slow dependency. With async code, a slow dependency delays only its own callers.
 > - **Stacks.** `dotnet-stack report` (or `parallelstacks` in `dotnet-dump analyze`) shows most pool threads parked in `Task.InternalWait`.
 >

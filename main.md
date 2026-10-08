@@ -18717,7 +18717,7 @@ Traffic is up roughly 4×. Signups are flat.
 
 # Chapter 34: Interview Questions & How to Answer Them
 
-_⏱️ Estimated read time: ~40 min · 7808 words (study pace)_
+_⏱️ Estimated read time: ~40 min · 7900 words (study pace)_
 
 This chapter is a recall-and-rehearse bank. Every topic here is taught in depth earlier in the book; the goal now is to turn that knowledge into crisp spoken answers under pressure. Read a question, cover the answer, and say your version out loud. If it comes out rambling, tighten it. Each section starts with a *Revise* pointer to the chapter(s) that teach the material. **Red flag** lines show the wrong answer interviewers hear from juniors — if your spoken version sounds like one, go back and re-read.
 
@@ -18766,7 +18766,7 @@ Check CPU while the endpoint is slow. High CPU with low throughput → CPU-bound
 >
 > Sync-over-async parks pool threads while the continuations that would free them queue behind new requests, and the pool adds threads slowly ([Chapter 8](#the-sync-over-async-deadlock) has the mechanism). Three signals give it away:
 >
-> - **Counters.** Queue length grows and thread count climbs steadily while CPU stays low: `dotnet.thread_pool.queue.length` and `dotnet.thread_pool.thread.count` on .NET 9+, `threadpool-queue-length` and `threadpool-thread-count` on .NET 8.
+> - **Counters.** Queue length grows and thread count climbs steadily while CPU stays low. In `dotnet-counters`, read them as `ThreadPool Queue Length` and `ThreadPool Thread Count` (`threadpool-queue-length`, `threadpool-thread-count`): on .NET 8 they are the default `System.Runtime` view, on .NET 9 and 10 pass `--counters 'EventCounters\System.Runtime'`. The newer `dotnet.thread_pool.queue.length` and `dotnet.thread_pool.thread.count` are published as *monotonic* counters on .NET 9 and 10, so `dotnet-counters` shows their change per second, not the value: a pool that has grown to dozens of threads reads a small number each second, and a draining queue reads negative. The runtime's main branch already declares both as up-down counters. Before you trust a dashboard built on them, check whether it plots the value or a rate.
 > - **Every endpoint slows down**, including ones that never call the slow dependency. With async code, a slow dependency delays only its own callers.
 > - **Stacks.** `dotnet-stack report` (or `parallelstacks` in `dotnet-dump analyze`) shows most pool threads parked in `Task.InternalWait`.
 >
@@ -26398,7 +26398,7 @@ Part 1 stops at the boundary of one service and at the mechanism you need to get
 
 # Part 1 · Module 1: Async Essentials
 
-_⏱️ Estimated read time: ~20 min · 2700 words (study pace)_
+_⏱️ Estimated read time: ~20 min · 2724 words (study pace)_
 
 > **What this module makes you able to do.** Write and review async request code that loses no exceptions, threads or sockets: say where an exception from `async void` or `Task.WhenAll` goes, why `.Result` slows every endpoint, what a `CancellationToken` actually stops, and why an `HttpClient` must be reused.
 
@@ -26677,7 +26677,7 @@ A test makes a handful of requests, one after another, so neither resource runs 
 
 **Inspect.** Search your service for `async void`, `.Result`, `.Wait()`, `.GetAwaiter().GetResult()` and `new HttpClient(`. Sort every hit into one of three bins: an event handler, start-up code, or a request or message path, which is a latent outage. Then follow one endpoint's `await` chain from the action down to its database or HTTP call: a `CancellationToken` that stops halfway leaves everything below it uncancellable.
 
-**Measure.** Check that something charts the service's thread-pool queue length and thread count: `dotnet.thread_pool.queue.length` and `dotnet.thread_pool.thread.count` on .NET 9+, `threadpool-queue-length` and `threadpool-thread-count` in `dotnet-counters` on .NET 8. Without them, starvation looks exactly like a slow database. Read both at your traffic peak: a queue that grows while the thread count climbs is the starvation fingerprint.
+**Measure.** Check that something charts the service's thread-pool queue length and thread count: `dotnet.thread_pool.queue.length` and `dotnet.thread_pool.thread.count` in an APM on .NET 9+ (check it plots the value, not a rate), `ThreadPool Queue Length` and `ThreadPool Thread Count` in `dotnet-counters` (on .NET 9 and 10 with `--counters 'EventCounters\System.Runtime'`; [Chapter 34](#diagnosing-a-performance-problem-a-worked-methodology) explains why). Without them, starvation looks exactly like a slow database. Read both at your traffic peak: a queue that grows while the thread count climbs is the starvation fingerprint.
 
 
 ---
@@ -27368,7 +27368,7 @@ days and the history follow.
 
 # Part 1 · Module 6: Exceptions, Logging and First Diagnosis
 
-_⏱️ Estimated read time: ~15 min · 2005 words (study pace)_
+_⏱️ Estimated read time: ~15 min · 2010 words (study pace)_
 
 > **What this module makes you able to do.** Decide where a failure is caught and what the caller sees, write log events that a log store can query and join across services, and take the first measurement of a slow endpoint before anyone guesses at a fix.
 
@@ -27546,8 +27546,8 @@ Fix: templates everywhere, CA2254 as a warning, and `[LoggerMessage]` on hot pat
 <summary>Answer</summary>
 
 - **Low CPU with high latency means waiting, not computing.** Either a dependency got slow (database, downstream HTTP, a lock), or the thread pool is starved by blocking calls.
-- **What tells them apart.** A slow dependency slows only its own callers, its span dominates the trace, and the pool's queue stays near zero. Starvation slows *every* endpoint, including ones that never touch the dependency, while the thread-pool queue length grows and the thread count climbs (`dotnet.thread_pool.queue.length` and `dotnet.thread_pool.thread.count` on .NET 9+).
-- **First:** `dotnet-counters monitor` on the process (no setup), and the trace of one slow request. If it is starvation, `dotnet-stack report` shows the pool threads parked in `Task.InternalWait`.
+- **What tells them apart.** A slow dependency slows only its own callers, its span dominates the trace, and the pool's queue stays near zero. Starvation slows *every* endpoint, including ones that never touch the dependency, while the thread-pool queue length grows and the thread count climbs (`ThreadPool Queue Length` and `ThreadPool Thread Count` in `dotnet-counters`).
+- **First:** `dotnet-counters monitor --counters 'EventCounters\System.Runtime'` on the process (no setup), and the trace of one slow request. If it is starvation, `dotnet-stack report` shows the pool threads parked in `Task.InternalWait`.
 
 Fix the cause: remove the blocking call (raising the pool's minimum only moves the cliff), or diagnose the dependency (its query plan, its timeout, its retry budget).
 </details>
@@ -28392,7 +28392,7 @@ The chapters Part 2 does not route through are still worth reading when your wor
 
 # Part 2 · Module 1: Runtime and Concurrency Internals
 
-_⏱️ Estimated read time: ~15 min · 2702 words (study pace)_
+_⏱️ Estimated read time: ~15 min · 2749 words (study pace)_
 
 > **What this module makes you able to do.** Predict how a .NET service behaves when its threads block or its heap churns, prove it from counters and a dump, and choose between tuning the runtime and changing the code, with the cost of each spelled out for the team that will live with the choice.
 
@@ -28453,15 +28453,15 @@ cd verify/path
 dotnet build -c Release Starvation       # build first: the run itself lasts about 12 s
 dotnet run -c Release --project Starvation -- block
 # in a second terminal, as soon as the run starts:
-dotnet-counters monitor -n Starvation --counters System.Runtime
+dotnet-counters monitor -n Starvation --counters 'EventCounters\System.Runtime'
 ```
 
-Read `dotnet.thread_pool.thread.count` at every refresh and write down the increase. It jumps first, then climbs in ever smaller steps; compare the curve with the blocking-compensation schedule above. `dotnet.thread_pool.queue.length` stays high until the threads catch up, and `dotnet.process.cpu.time` barely moves. The [reference run](https://github.com/malyna2/dotnet-handbook/tree/main/verify/path/reference-runs) on 4 vCPU reached 68 pool threads and finished in 11.6 s; the `-- await` run peaked at 3 threads and finished in 1.1 s.
+Read `ThreadPool Thread Count` at every refresh and write down the increase. It jumps first, then climbs in ever smaller steps; compare the curve with the blocking-compensation schedule above. `ThreadPool Queue Length` stays high until the threads catch up, and `CPU Usage (%)` barely moves. (Without the `EventCounters\` prefix, .NET 10 shows `dotnet.thread_pool.thread.count` as a change per second, not a count; [Chapter 34](#diagnosing-a-performance-problem-a-worked-methodology) explains why.) The [reference run](https://github.com/malyna2/dotnet-handbook/tree/main/verify/path/reference-runs) on 4 vCPU reached 68 pool threads and finished in 11.6 s; the `-- await` run peaked at 3 threads and finished in 1.1 s.
 
 If the program ends before the tool attaches, start it under the tool instead. The documentation warns against `dotnet run` in this mode, because the first .NET process to connect is the one monitored:
 
 ```bash
-dotnet-counters monitor --counters System.Runtime -- dotnet exec Starvation/bin/Release/net10.0/Starvation.dll block
+dotnet-counters monitor --counters 'EventCounters\System.Runtime' -- dotnet exec Starvation/bin/Release/net10.0/Starvation.dll block
 ```
 
 **2. Find the blocked threads in a dump (20 min).** During another blocking run:
@@ -28482,7 +28482,7 @@ Most pool threads share one merged stack that ends in `Task.Wait`: that is sync-
 
 **4. Chapter 8's exercises (20 min).** In [Chapter 8](#chapter-8-asynchronous-concurrent-programming)'s *Exercises*, answer *Find the bug* by naming the pool mechanism behind each defect, then compare with the run verified in [`verify/exercises/Ch08`](https://github.com/malyna2/dotnet-handbook/tree/main/verify/exercises/Ch08): 20 requests took 6 s against 0.8 s for the fix, and the pool grew to 49 threads against 5. *What would you do* is this module's `ConfigureAwait` mechanism, argued in a review.
 
-**Evidence to keep**, in your own public portfolio repo, not in this one: the counters as CSV (`dotnet-counters collect --format csv`), the `parallelstacks` excerpt, and one paragraph that explains your thread-count curve with the schedule above.
+**Evidence to keep**, in your own public portfolio repo, not in this one: the counters as CSV (`dotnet-counters collect --counters 'EventCounters\System.Runtime' --format csv`), the `parallelstacks` excerpt, and one paragraph that explains your thread-count curve with the schedule above.
 
 Later, if you need it: [Chapter 33's Scenario 7](#scenario-7-the-slow-leak-memory-keeps-growing-until-the-pod-is-oom-killed) (finding a leak with a heap snapshot), [Benchmarking with BenchmarkDotNet](#benchmarking-with-benchmarkdotnet), and the runtime's own [memory model specification](https://github.com/dotnet/runtime/blob/main/docs/design/specs/Memory-model.md).
 
@@ -28548,7 +28548,7 @@ An ASP.NET Core service on 8 cores calls a vendor SDK that has only a synchronou
 
 **Inspect.** Search the service for `Thread.Sleep`, `.Wait()`, `.Result`, `.GetAwaiter().GetResult()`, `SemaphoreSlim.Wait(` and `lock` blocks around I/O; for `new byte[` and `MemoryStream` on request paths; for `GC.Collect` and `SetMinThreads`. A good result: every block sits in startup code, large buffers are pooled or streamed, and a raised minimum carries a comment naming the blocking call it covers. A bad one: a block on a request or message path, or a minimum nobody can explain.
 
-**Measure.** At your service's peak, run `dotnet-counters monitor -n <process> --counters System.Runtime` for five minutes, or read the same metrics in your APM: `dotnet.thread_pool.queue.length` (near zero), `dotnet.thread_pool.thread.count` (flat, not climbing), `dotnet.gc.pause.time` (seconds paused per minute), `dotnet.gc.collections` for `gen2` per minute, and the `loh` size. On .NET 8, `dotnet-counters` shows the older EventCounters instead, such as `threadpool-queue-length` and `threadpool-thread-count`.
+**Measure.** At your service's peak, run `dotnet-counters monitor -n <process> --counters 'EventCounters\System.Runtime'` for five minutes, or read the same metrics in your APM: thread-pool queue length (near zero), thread count (flat, not climbing), time paused by GC per minute, gen 2 collections per minute, and the LOH size. In an APM on .NET 9+ these are `dotnet.thread_pool.queue.length`, `dotnet.thread_pool.thread.count`, `dotnet.gc.pause.time`, `dotnet.gc.collections` for `gen2` and `dotnet.gc.last_collection.heap.size` for `loh`; check that the first two are plotted as values, not rates.
 
 
 ---

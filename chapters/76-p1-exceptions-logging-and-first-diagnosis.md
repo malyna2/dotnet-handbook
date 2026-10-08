@@ -176,8 +176,8 @@ Fix: templates everywhere, CA2254 as a warning, and `[LoggerMessage]` on hot pat
 <summary>Answer</summary>
 
 - **Low CPU with high latency means waiting, not computing.** Either a dependency got slow (database, downstream HTTP, a lock), or the thread pool is starved by blocking calls.
-- **What tells them apart.** A slow dependency slows only its own callers, its span dominates the trace, and the pool's queue stays near zero. Starvation slows *every* endpoint, including ones that never touch the dependency, while the thread-pool queue length grows and the thread count climbs (`dotnet.thread_pool.queue.length` and `dotnet.thread_pool.thread.count` on .NET 9+).
-- **First:** `dotnet-counters monitor` on the process (no setup), and the trace of one slow request. If it is starvation, `dotnet-stack report` shows the pool threads parked in `Task.InternalWait`.
+- **What tells them apart.** A slow dependency slows only its own callers, its span dominates the trace, and the pool's queue stays near zero. Starvation slows *every* endpoint, including ones that never touch the dependency, while the thread-pool queue length grows and the thread count climbs (`ThreadPool Queue Length` and `ThreadPool Thread Count` in `dotnet-counters`).
+- **First:** `dotnet-counters monitor --counters 'EventCounters\System.Runtime'` on the process (no setup), and the trace of one slow request. If it is starvation, `dotnet-stack report` shows the pool threads parked in `Task.InternalWait`.
 
 Fix the cause: remove the blocking call (raising the pool's minimum only moves the cliff), or diagnose the dependency (its query plan, its timeout, its retry budget).
 </details>
