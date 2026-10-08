@@ -2348,7 +2348,7 @@ The through-line of this chapter is that ASP.NET Core is a **pipeline of composa
 
 # Chapter 4: Data Access & Databases
 
-_⏱️ Estimated read time: ~1 h 15 min · 11822 words (study pace)_
+_⏱️ Estimated read time: ~1 h 15 min · 11992 words (study pace)_
 
 Almost every non-trivial application is, underneath all its features, a machine for moving data in and out of a database safely and quickly. You can write flawless business logic and beautiful APIs, but if your data access layer holds locks too long, fires a thousand queries where one would do, or corrupts a balance under concurrent writes, the whole system fails in ways that are hard to reproduce and harder to fix. This chapter takes you from the mechanics of Entity Framework Core down to the SQL and storage engine underneath it, then back up through caching, NoSQL, and deployment. The goal is that you stop treating the database as a black box and start reasoning about what it actually does.
 
@@ -3190,6 +3190,22 @@ catch (DbUpdateConcurrencyException)
 ```
 
 > **Best practice:** Prefer optimistic concurrency for typical web apps — it scales because it holds no locks. Reserve pessimistic locking for genuinely high-contention hotspots.
+
+> **Pay attention.** **The window a concurrency token covers.** EF Core puts the token's *original* value, the one this context read, into the `WHERE`. The sample above therefore guards only the milliseconds between its own `Single` and `SaveChanges`. A web edit has a far longer window. The user's form was built from version 1; someone else saved version 2; the save handler loads the product again, gets version 2, copies the form onto it, and its `UPDATE … WHERE RowVersion = <version 2>` matches one row. Nothing throws, and the other user's change is gone. The fix is to make the original value the one the user saw: send the row version with the form (or as an `ETag`) and set it before saving.
+
+```csharp
+var product = await ctx.Products.SingleAsync(p => p.Id == id, ct);
+ctx.Entry(product).Property(p => p.RowVersion).OriginalValue = form.RowVersion; // the version the user edited
+product.Stock = form.Stock;
+try
+{
+    await ctx.SaveChangesAsync(ct);
+}
+catch (DbUpdateConcurrencyException)
+{
+    return Results.Conflict();   // or 412 Precondition Failed when the version came as If-Match
+}
+```
 
 ## Stored Procedures, Views, and Raw SQL
 
@@ -26668,7 +26684,7 @@ A test makes a handful of requests, one after another, so neither resource runs 
 
 # Part 1 · Module 2: EF Core Essentials
 
-_⏱️ Estimated read time: ~15 min · 1808 words (study pace)_
+_⏱️ Estimated read time: ~15 min · 1818 words (study pace)_
 
 > **What this module makes you able to do.** Write and review EF Core data access that sends the SQL you expect: tracked reads only where you save, related data in one round trip, one `DbContext` per request, and a concurrency token that turns a lost update into an exception.
 
@@ -26703,7 +26719,7 @@ A tracking query stores a snapshot of each entity's original values and returns 
 5. [Chapter 4: Projections: Select Only What You Need](#projections-select-only-what-you-need), then [Include + Projection: The Include Is Silently Ignored](#include-projection-the-include-is-silently-ignored).
 6. [Chapter 4: Split Queries](#split-queries): what two collection `Include`s do to the row count.
 7. [Chapter 4: DbContext Lifetime and Connection Pooling](#dbcontext-lifetime-and-connection-pooling).
-8. [Chapter 4: Concurrency: Optimistic vs Pessimistic](#concurrency-optimistic-vs-pessimistic).
+8. [Chapter 4: Concurrency: Optimistic vs Pessimistic](#concurrency-optimistic-vs-pessimistic): its Pay attention callout is the answer to question 3.
 
 ## Prove it
 

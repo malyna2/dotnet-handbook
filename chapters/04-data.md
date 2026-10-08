@@ -843,6 +843,22 @@ catch (DbUpdateConcurrencyException)
 
 > **Best practice:** Prefer optimistic concurrency for typical web apps — it scales because it holds no locks. Reserve pessimistic locking for genuinely high-contention hotspots.
 
+> **Pay attention.** **The window a concurrency token covers.** EF Core puts the token's *original* value, the one this context read, into the `WHERE`. The sample above therefore guards only the milliseconds between its own `Single` and `SaveChanges`. A web edit has a far longer window. The user's form was built from version 1; someone else saved version 2; the save handler loads the product again, gets version 2, copies the form onto it, and its `UPDATE … WHERE RowVersion = <version 2>` matches one row. Nothing throws, and the other user's change is gone. The fix is to make the original value the one the user saw: send the row version with the form (or as an `ETag`) and set it before saving.
+
+```csharp
+var product = await ctx.Products.SingleAsync(p => p.Id == id, ct);
+ctx.Entry(product).Property(p => p.RowVersion).OriginalValue = form.RowVersion; // the version the user edited
+product.Stock = form.Stock;
+try
+{
+    await ctx.SaveChangesAsync(ct);
+}
+catch (DbUpdateConcurrencyException)
+{
+    return Results.Conflict();   // or 412 Precondition Failed when the version came as If-Match
+}
+```
+
 ## Stored Procedures, Views, and Raw SQL
 
 A **view** is a saved query you can select from like a table — useful for encapsulating a complex join or presenting a simplified shape. A **stored procedure** is precompiled SQL logic living in the database, callable by name.

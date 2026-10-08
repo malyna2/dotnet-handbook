@@ -33,7 +33,7 @@ A tracking query stores a snapshot of each entity's original values and returns 
 5. [Chapter 4: Projections: Select Only What You Need](#projections-select-only-what-you-need), then [Include + Projection: The Include Is Silently Ignored](#include-projection-the-include-is-silently-ignored).
 6. [Chapter 4: Split Queries](#split-queries): what two collection `Include`s do to the row count.
 7. [Chapter 4: DbContext Lifetime and Connection Pooling](#dbcontext-lifetime-and-connection-pooling).
-8. [Chapter 4: Concurrency: Optimistic vs Pessimistic](#concurrency-optimistic-vs-pessimistic).
+8. [Chapter 4: Concurrency: Optimistic vs Pessimistic](#concurrency-optimistic-vs-pessimistic): its Pay attention callout is the answer to question 3.
 
 ## Prove it
 
