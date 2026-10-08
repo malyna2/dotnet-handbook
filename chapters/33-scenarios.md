@@ -1,6 +1,6 @@
 # Chapter 33: Real-World Scenarios & Architectural Decisions
 
-_⏱️ Estimated read time: ~65 min ·    11463 words (study pace)_
+_⏱️ Estimated read time: ~1 h 20 min · 14824 words (study pace)_
 
 Every senior engineer eventually learns that the hard part of the job is not writing code — it is deciding what to do when the code you already shipped meets reality. Reality shows up as a traffic spike you did not plan for, a "successful" request that silently lost data, a p99 latency graph that looks like a seismograph, and a dependency that vanishes at the worst possible moment. This chapter is a war-room playbook. Each scenario is a story you could plausibly live through on a production on-call rotation, framed around one question: *how do you react, and what architectural decision does that push you toward?*
 
@@ -177,7 +177,7 @@ If the relay crashes after publishing but before marking a row processed, it rep
 ### How to prevent it
 
 - **Never dual-write.** One transactional store per write; propagate via outbox.
-- **Make `200` mean durably committed.** If you must go async, return `202 Accepted` with a status URL, and back it with a durable queue/outbox — not a fire-and-forget `Task`.
+- **Make `200` mean durably committed.** If you must go async, return `202 Accepted` with a status URL, and back it with a durable queue/outbox — not a fire-and-forget `Task` ([Chapter 22: Async Request-Reply](#async-request-reply-202-a-status-resource-and-retry-after) has the full contract).
 - **Reconciliation jobs as a standing safety net.** A scheduled job that compares counts/checksums across services and alerts (or auto-heals) on drift. Even a perfect design benefits from a smoke detector.
 - **Idempotency everywhere** writes can be retried — from the public API down to internal consumers.
 

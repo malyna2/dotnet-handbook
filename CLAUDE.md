@@ -6,6 +6,7 @@ A self-contained .NET study handbook: Markdown chapters in `chapters/`, compiled
 
 - Chapters are `chapters/NN-*.md`, auto-discovered by numeric prefix; sidebar grouping comes from `PART_RANGES` in `build_site.py`.
 - After any chapter edit, run `python3 build_site.py` and commit the regenerated `main.md` and `site/content.js` together with the source change.
+- `python3 verify/check_links.py` resolves every in-book link the way the reader app does; run it after any heading or link change.
 - The `_⏱ Estimated read time_` line is regenerated in the outputs on every build; keep the hand-written line in the source chapter roughly in sync when a chapter grows substantially.
 - Chapter cross-links inside Markdown use the chapter's slug: `[Chapter 3: ...](#chapter-3-aspnet-core-web-apis)` (slug = lowercased title, punctuation stripped, spaces → `-`).
 
@@ -30,9 +31,18 @@ How the feature works (for debugging): the site shows the **topmost** `## Releas
 
 - Book voice: senior-engineer prose, `> **Best practice.**` / `> **Pitfall.**` / `> **Gotcha.**` callouts, ASCII diagrams, decision tables for "which tool when" questions, cross-references between chapters by chapter number.
 - Prefer explaining the *mechanism* behind a claim over adding more claims.
+- **`> **Pay attention.**` callouts** spell out a mechanism that is the usual gap behind a wrong answer and behind the interviewer's follow-up "why?": an exception's path, a thread-injection rate, an index's sort order. Give each one a bold title, then the mechanism and the fix. Keep ordinary advice in *Best practice*, *Pitfall* or *Gotcha* callouts.
 - **Exercise blocks.** Some chapters end with a `## Exercises` section in a fixed shape: *Find the bug* (a code sample with a real defect), *What would you do* (a situation plus how a senior engineer reasons about it), and *Go check* (something to run or measure in the reader's own codebase). Answers are hidden in `<details><summary>…</summary>` blocks. The site renderer escapes raw HTML by default and passes through **only** `<details>` and `<summary>` on their own lines (`render()` in `site/app.js`); keep the tags on their own lines, and don't add other raw HTML — it will render as literal text. `main.md` gets working collapsibles on GitHub for free.
-- **Exercise verification.** Every C# *Find the bug* sample is compiled in `verify/exercises/ChNN/`, with a test that shows the defect on the buggy code and its absence on the fix (the suite stays green; a regression in either direction is visible). Non-C# samples are verified with the relevant tool where one runs; otherwise say so in the session report.
+- **Exercise verification.** Every C# *Find the bug* sample is compiled in `verify/exercises/ChNN/`, with a test that shows the defect on the buggy code and its absence on the fix (the suite stays green; a regression in either direction is visible). `verify/exercises/check_samples.py` proves the chapter prints the tested code, token for token. Non-C# samples are verified with the relevant tool where one runs; otherwise say so in the session report.
 - **Headings inside code fences still count.** `headingOwner` in `site/app.js` scans raw lines, so a `## Context` inside a fenced template registers as a heading and can make a real section slug ambiguous across chapters, which silently breaks cross-chapter links to it. In templates, use `**Label**` lines instead of `#` headings.
+
+## Learning path: Part 1 (Junior → Middle) and Part 2 (Middle → Senior)
+
+- Two paths sit on top of the chapters, under the site's top navigation (*Part 1 · Part 2 · Full book*). **Part 1**, chapters 70–84: the basics a developer needs to work as a solid middle without help, inside one service (what happens, the trap, the fix, how to show it). **Part 2**, chapters 85–98: from middle to senior (internals, behavior under load, across services and over time, and decisions made for a team). To place a topic: internals, cross-service guarantees, scale, or deciding for others → Part 2; everything else → Part 1.
+- Page shapes and rules live in `chapters/_module-template.md` (ignored by the build). Each part has an overview page (`70-`, `85-`), module pages (`71`–`83`, `86`–`92`) and a review page with the *Pay attention to* table (`84-`, `93-`). Part 1 modules 1–7 are the core; modules 8–13 are foundation modules that open with an entry check. `build_site.py` derives each entry's `group` and sidebar number from these ranges and titles.
+- Module pages are a path through the chapters, not new reference material: they state the mechanism that ties a module together and link the chapter sections that teach it. An explanation a chapter lacks goes into that chapter (a section or a `Pay attention.` callout), and the module links it.
+- Every ```` ```csharp ```` block on a path page is a *Prove it* program of at most 30 lines, compiled as `verify/path/<Name>/Program.cs` and named on the line above its fence. `verify/path/verify.sh` checks the code, each page's `## Read (≈ …)` time against the build formula, that every program is printed once, and every link; `capture.sh` regenerates `reference-runs/`, the only source of numbers the pages quote.
+- Path pages list topics, never results. Keep anyone's scores, self-assessment answers, employer and other personal context out of them, and out of every other committed file: the repo is public.
 
 ## Practice Gym (Part XI, chapters 36–49)
 

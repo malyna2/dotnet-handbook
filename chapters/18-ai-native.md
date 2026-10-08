@@ -1,6 +1,6 @@
 # Chapter 18: The AI-Native Developer — Thriving in the AI Era
 
-_⏱️ Estimated read time: ~1 h · 11498 words (study pace)_
+_⏱️ Estimated read time: ~1 h · 11514 words (study pace)_
 
 For most of your career the deal has been simple: you learn to write code, and in exchange the industry pays you well to write it. That deal is being renegotiated in real time. By 2025 and into 2026, a competent AI coding assistant can produce a working REST endpoint, a unit test suite, an EF Core migration, or a plausible refactor faster than you can open the file. The raw act of turning a clear specification into syntactically correct C# — the thing you spent years getting good at — has largely been commoditized. That is not a threat to be defended against. It is a promotion, if you understand what you are being promoted into.
 
@@ -364,7 +364,7 @@ public IActionResult Get(int id) => Ok(_service.GetAsync(id).Result);  // sync-o
 
 `.Result`, `.Wait()` and `GetAwaiter().GetResult()` block a thread-pool thread until the async operation finishes. Under load the pool starves, and because it injects new threads slowly, latency collapses long before CPU does — the classic "it was fine in testing" outage. Three more in the same family:
 
-- **`async void`** anywhere that isn't an event handler. Its exceptions don't surface to a caller; they go to the synchronization context and take the process down.
+- **`async void`** anywhere that isn't an event handler. Its exceptions can't reach a caller: they are rethrown on the captured synchronization context or, when there is none (ASP.NET Core), on a thread-pool thread, where nothing catches them and the process goes down.
 - **`Task.Run` wrapped around I/O in ASP.NET.** It doesn't add throughput — the request is already on a pool thread. It moves the work to a *second* pool thread and loses the ambient request context. Net loss.
 - **A `CancellationToken` accepted and never passed on.** Nearly universal in generated code, because the signature came from your surrounding code while the body came from the training data:
 

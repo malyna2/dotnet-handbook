@@ -1,24 +1,24 @@
 # Chapter 12: DevOps & CI/CD
 
-_⏱️ Estimated read time: ~50 min · 7606 words (study pace)_
+_⏱️ Estimated read time: ~1 h · 9459 words (study pace)_
 
 DevOps is not a job title, a tool, or a team you can buy. It is a way of working in which the people who write software and the people who run it in production share responsibility for the whole lifecycle. The practical machinery that makes this possible is automation: version control that lets many people change the same codebase safely, pipelines that build and test every change, and deployment mechanisms that push validated code to users without drama. This chapter takes you from the internals of Git all the way to canary deployments, with .NET as the running example throughout. By the end you should be able to design a pipeline, reason about a branching strategy, and explain to a junior why rebasing a shared branch is a bad idea.
 
 ## Git, Properly Understood
 
-Most developers use Git as a sequence of memorized incantations. To operate at a senior level you need a mental model of what those commands actually do. That model is simpler than the command surface suggests, because Git is built on a tiny, elegant data structure.
+Git's command surface is large; the model underneath is small, and once you have it, every command becomes predictable.
 
 ### The Object Model
 
-Git is, at its heart, a content-addressable key-value store. Everything it stores is an *object*, and every object is identified by the SHA-1 (increasingly SHA-256) hash of its contents. There are four object types, but three matter for understanding day-to-day work.
+Git is a content-addressable store: every *object* is identified by the hash of its contents (SHA-1 by default; Git's published plan for its next major version makes SHA-256 the default for new repositories). Of the four object types, three matter day to day.
 
-A **blob** is the raw contents of a file. Not the filename, not the permissions—just the bytes. If two files in your repo have identical contents, Git stores exactly one blob and points to it twice. The hash *is* the identity; change one byte and you get a completely different blob with a different hash.
+A **blob** is a file's raw bytes, without its name or permissions. Identical contents are stored once; change one byte and you get a different blob with a different hash.
 
-A **tree** represents a directory. It is a list of entries, each mapping a name (like `Program.cs` or `src`) to a hash and a mode. Those hashes point either to blobs (files) or to other trees (subdirectories). A tree is thus a snapshot of a directory's structure at a moment in time.
+A **tree** is a directory: a list of entries, each mapping a name and a mode to the hash of a blob (a file) or of another tree (a subdirectory).
 
-A **commit** points to exactly one tree—the complete snapshot of your project at that instant—plus metadata: author, committer, timestamp, message, and the hashes of its *parent* commit(s). A normal commit has one parent. A merge commit has two or more. The very first commit has none.
+A **commit** points to one tree, the complete snapshot of the project, plus metadata: author, committer, timestamps, message, and the hashes of its *parent* commits (one normally, two or more for a merge, none for the first commit).
 
-This is the crucial insight: **a commit is not a diff. It is a full snapshot.** Git computes diffs on demand by comparing two snapshots, but it stores complete trees. Because each commit references its parent, the commits form a directed acyclic graph (DAG). Follow the parent pointers backward and you walk the entire history.
+The crucial insight: **a commit is not a diff. It is a full snapshot.** Git computes diffs on demand by comparing two snapshots. Each commit references its parent, so the commits form a directed acyclic graph (DAG), and because the parent's hash is part of the commit's content, a commit's ID covers the entire history behind it. Change anything upstream and every ID downstream changes.
 
 > **Key mental model:** A branch is not a container of commits. A branch is a lightweight, movable *pointer* to a single commit—literally a 40-character hash in a small file under `.git/refs/heads/`. `HEAD` is a pointer to the branch you currently have checked out. This is why creating a branch in Git is instantaneous: you are writing one file.
 
@@ -33,7 +33,7 @@ git cat-file -p HEAD          # tree hash, parent hash, author, message
 git cat-file -p <tree-hash>   # lists blobs and subtrees with their hashes
 ```
 
-Understanding that branches are just pointers demystifies nearly every "scary" Git operation. Resetting a branch moves a pointer. Rebasing rewrites commits and moves a pointer. Merging creates a commit and moves a pointer. Nothing is ever truly destroyed immediately—which brings us to the reflog later.
+Since branches are pointers, the "scary" operations are pointer moves. Resetting a branch moves a pointer. Rebasing writes new commits and moves a pointer. Merging creates a commit and moves a pointer. Nothing committed is destroyed immediately (see the reflog, below).
 
 ### .gitignore
 
@@ -66,19 +66,15 @@ appsettings.Development.local.json
 
 ### Branching Strategies: GitFlow vs Trunk-Based
 
-How a team uses branches shapes how fast it can ship. Two philosophies dominate.
+**GitFlow** uses long-lived branches with defined roles: `main` holds released code, `develop` is the integration branch, and short-lived `feature/*`, `release/*`, and `hotfix/*` branches feed into them. It suits discrete versioned releases, such as an application customers install. Its weakness is deferred integration: `develop` and feature branches drift apart, and big-bang merges produce painful conflicts, which is exactly what continuous integration exists to avoid.
 
-**GitFlow** uses long-lived branches with defined roles: `main` holds released code, `develop` is the integration branch, and short-lived `feature/*`, `release/*`, and `hotfix/*` branches feed into them. It is ceremonious and works well when you ship discrete versioned releases (think a boxed product or an on-premise .NET application customers install). Its weakness is that `develop` and `feature` branches drift apart, and big-bang merges produce painful conflicts. Integration is deferred, which is exactly what continuous integration tries to avoid.
-
-**Trunk-based development** keeps everyone committing to a single branch (`main`) many times a day, using very short-lived branches (hours, not weeks) that merge back quickly. Incomplete work is hidden behind feature flags rather than long-lived branches. This is the model that high-performing teams and virtually all continuous-deployment shops use, because small frequent merges are cheap and low-risk.
+**Trunk-based development** keeps everyone committing to a single branch (`main`) many times a day, using very short-lived branches (hours, not weeks) that merge back quickly. Incomplete work is hidden behind feature flags rather than long-lived branches. Continuous-deployment teams use it because small, frequent merges are cheap and low-risk.
 
 > **Best practice:** For a service you deploy continuously, prefer trunk-based development with short-lived branches and feature flags. Reserve GitFlow-style release branches for software with genuine parallel-version maintenance needs. The longer a branch lives, the more expensive its eventual merge.
 
 ### Merge vs Rebase
 
-These two commands both integrate changes from one branch into another, but they do it differently and the difference matters.
-
-`git merge feature` into `main` creates a new *merge commit* with two parents, tying the two histories together. History is preserved exactly as it happened—including the fact that development was concurrent. The downside is a history graph full of merge commits that can be noisy.
+`git merge feature` into `main` creates a new *merge commit* with two parents, tying the two histories together. History is preserved exactly as it happened, at the cost of a noisier graph.
 
 `git rebase main` while on `feature` takes each of your feature commits, sets them aside, moves your branch pointer to the tip of `main`, and *replays your commits on top* one by one. The result is a linear history as if you had started your work from the current `main`. Note that rebasing creates *new* commits with new hashes—the originals are abandoned.
 
@@ -99,9 +95,11 @@ When to use each:
 
 > **The golden rule of rebasing:** Never rebase commits that others have already pulled. Because rebase rewrites history (new hashes), anyone who based work on the old commits will have a divergent history, and the next `git pull` becomes a nightmare of duplicated commits. Rebase private history freely; treat shared history as immutable.
 
+> **Pay attention.** **Why a rebased branch can't be pushed normally.** `git push` only updates a remote branch when the remote's commit is an ancestor of yours (a fast-forward). After a rebase your commits are new objects, so the old remote tip is no longer in your history and the push is rejected. That rejection is the safety net: overriding it with `--force` discards whatever the remote has that you don't, including a teammate's push. On your own pull-request branch, use `git push --force-with-lease`, which overwrites only if the remote still points where your last fetch saw it. A background fetch (some IDEs run one) silently refreshes that expectation, so add `--force-if-includes` as well. On a branch others build on, don't force at all: merge instead.
+
 ### Interactive Rebase
 
-Interactive rebase is the power tool for curating history before you share it. It lets you reorder, combine (squash), edit, or drop commits.
+Interactive rebase curates history before you share it: reorder, combine (squash), edit, or drop commits.
 
 ```bash
 git rebase -i HEAD~4
@@ -162,7 +160,7 @@ git merge --abort          # returns to the pre-merge state
 
 ### The Reflog: Your Safety Net
 
-The single most reassuring fact about Git is that it almost never truly loses committed work. Every time `HEAD` moves—commit, checkout, reset, rebase, merge—Git records the previous position in the **reflog**.
+Git almost never loses *committed* work. Every time `HEAD` moves—commit, checkout, reset, rebase, merge—Git records the previous position in the **reflog**.
 
 ```bash
 git reflog
@@ -179,7 +177,7 @@ git reset --hard 9a8b7c6      # move the branch back to that commit
 git switch -c recovery 9a8b7c6
 ```
 
-Reflog entries are local and expire (default 90 days for reachable, 30 for unreachable), but that is more than enough to rescue almost any "I destroyed my work" panic. Knowing the reflog exists changes your relationship with Git's scarier commands: they become reversible experiments rather than one-way risks.
+Reflog entries are local and expire (by default after 90 days, or 30 for commits no longer reachable from a branch), which is plenty for any "I destroyed my work" moment. The limit is the word *committed*: `git reset --hard` over uncommitted changes discards them for good, because they never became objects. Commit (or stash) before an experiment, and every Git command becomes reversible.
 
 ## What CI/CD Actually Means
 

@@ -1,6 +1,6 @@
 # Chapter 50: Azure in Depth for .NET Developers
 
-_⏱️ Estimated read time: ~1 h 30 min · 13510 words (study pace)_
+_⏱️ Estimated read time: ~1 h 30 min · 13567 words (study pace)_
 
 [Chapter 10](#chapter-10-cloud-aws-azure) gave you the map: what App Service, Functions, Cosmos DB and Service Bus *are*, and how they line up against AWS. A map gets you through a conversation. It does not get you through the first week of owning a production system on Azure, where the questions sound like this: *why does the app get a 403 from Blob Storage when its identity is a Contributor on the subscription? Why did the slot swap cause a minute of 500s? Why does Cosmos DB throttle at 3,000 RU/s when we provisioned 20,000?*
 
@@ -701,9 +701,9 @@ The database tuning skills from [Chapter 37](#chapter-37-the-slow-query-lab-read
 
 ### Service Bus
 
-**Tiers.** *Basic* has queues only. *Standard* adds topics, sessions, transactions and duplicate detection, on shared infrastructure. *Premium* runs on dedicated capacity (messaging units), adds private endpoints and larger messages, and is the tier for production workloads that need predictable latency. Messages are limited to 256 KB on Standard. Premium allows 1 MB by default, and up to 100 MB with large-message support.
+**Tiers.** *Basic* has queues only. *Standard* adds topics, sessions, transactions and duplicate detection, on shared infrastructure. *Premium* runs on dedicated messaging units, with private endpoints and predictable latency. Messages: 256 KB on Basic and Standard; on Premium 1 MB by default, up to 100 MB with large-message support.
 
-**Peek-lock, the default and the one to use.** A receiver gets a message and a **lock** on it. Until the lock expires, no other receiver sees the message. The receiver then *settles* it:
+**Peek-lock, the default and the one to use.** A receiver gets a message and a **lock** on it; until the lock expires, no other receiver sees it. The receiver then *settles* it:
 
 ```
             receive (peek-lock)
@@ -719,18 +719,18 @@ The database tuning skills from [Chapter 37](#chapter-37-the-slow-query-lab-read
 The facts that matter, and that interviewers ask about:
 
 - **The lock duration defaults to 1 minute, with a maximum of 5.** Work that takes longer must *renew* the lock. `ServiceBusProcessor` does this automatically for up to `MaxAutoLockRenewalDuration` (5 minutes by default). If the lock expires, `CompleteMessageAsync` throws `MessageLockLost`, and the message is delivered again, *after your side effects have already happened*. Chapter 51's second *Find the bug* exercise shows this, verified against the Service Bus emulator.
-- **Delivery is at-least-once, always.** Locks expire, processes crash between the side effect and `Complete`, networks drop the settlement. Every consumer must be **idempotent** (Chapter 9's inbox table, or a natural key check).
+- **Delivery is at-least-once, always.** Locks expire, processes crash between the side effect and `Complete`, networks drop the settlement. Every consumer must be **idempotent**: claim the message ID under a unique key in the same transaction as the effect ([Chapter 9: Idempotent Consumers](#idempotent-consumers)), never check first and record afterwards.
 - **The dead-letter queue does not drain itself.** Messages stay there until someone reads them. Put an alert on the dead-letter message count (the `DeadletteredMessages` metric), and have a tool to inspect, fix and resubmit messages. A DLQ nobody watches is a silent data-loss mechanism.
 - **Sessions give ordered processing per key.** Set `SessionId = customerId`, and the queue delivers each session's messages in order to one receiver at a time, while different sessions are processed in parallel. Session state (up to one message's size) lets the receiver keep a small state machine per session.
-- **Duplicate detection** discards a message whose `MessageId` was already seen within a time window (10 minutes by default, 20 seconds to 7 days). It protects against a *sender* that retries after a timeout. It does nothing about consumer-side redelivery, so it does not replace idempotent consumers.
-- **Scheduled messages** (`ScheduledEnqueueTime`) and **transactions** (receive, process and send atomically *within the same namespace*) round out the features. A transaction cannot include your database. That is what the outbox pattern is for.
+- **Duplicate detection** discards a message whose `MessageId` was already seen within a time window (20 seconds to 7 days; the service documents 10 minutes as the default, but the .NET `CreateQueueOptions` sets 1 minute unless you set `DuplicateDetectionHistoryTimeWindow`). It protects against a *sender* that retries after a timeout. A redelivery is the same message delivered again, which it never sees, so it does not replace idempotent consumers.
+- **Scheduled messages** (`ScheduledEnqueueTime`) and **transactions** (settle and send atomically *within one namespace*) round out the features. A transaction cannot include your database; that is what the outbox is for.
 
 **The .NET client.** `ServiceBusClient` owns the AMQP connection, so create one per namespace for the life of the process. Senders, receivers and processors are cheap and share it. Know the processor defaults, because they are conservative:
 
 | `ServiceBusProcessorOptions` | Default | Note |
 |---|---|---|
 | `MaxConcurrentCalls` | **1** | One message at a time. Raise it deliberately, with the downstream capacity in mind. |
-| `AutoCompleteMessages` | `true` | Completes the message when your handler returns, and abandons it when the handler throws. |
+| `AutoCompleteMessages` | `true` | Completes the message when your handler returns. A handler that throws without settling gets its message abandoned whatever this is set to. |
 | `MaxAutoLockRenewalDuration` | 5 minutes | Longer handlers need a larger value. |
 | `PrefetchCount` | 0 | Prefetched messages are *locked while they wait in memory*. A large prefetch plus slow processing means expired locks and redeliveries. |
 | `ReceiveMode` | `PeekLock` | `ReceiveAndDelete` is at-most-once: a crash loses the message. |
@@ -764,7 +764,7 @@ processor.ProcessErrorAsync += args =>
 await processor.StartProcessingAsync();
 ```
 
-Separate *transient* failures (throw, and let the message be retried) from *permanent* ones (dead-letter immediately with a reason). Otherwise, a message that can never succeed burns through all 10 delivery attempts first, and each attempt may repeat a side effect.
+Throw on *transient* failures so the message is retried; dead-letter *permanent* ones at once, with a reason. Otherwise a message that can never succeed burns all 10 delivery attempts, each one possibly repeating a side effect.
 
 ### Event Hubs
 

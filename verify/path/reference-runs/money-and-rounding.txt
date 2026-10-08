@@ -1,0 +1,13 @@
+# Environment: Intel(R) Xeon(R) Processor @ 2.80GHz, 4 vCPU, 16 GB RAM, Ubuntu 24.04.5 LTS, .NET runtime 10.0.12, SDK 10.0.112
+# Captured: 2026-10-08 05:37 UTC by capture.sh
+# Program: MoneyAndRounding, Release build
+
+0.1 + 0.2: double 0.30000000000000004 (== 0.3: False), decimal 0.3 (== 0.3: True)
+1.005 to cents, AwayFromZero: double 1, decimal 1.01
+  the double 1.005 is really 1.00499999999999989342
+Math.Round(2.5m) = 2, Math.Round(3.5m) = 4 (half to even: the default)
+Math.Round(2.5m, MidpointRounding.AwayFromZero) = 3
+Math.Round(2.345m, 2) = 2.34, but 2.345m.ToString("F2") = 2.35
+100.00 split three ways: 33.33 each, 99.99 in total; the missing cent needs a rule
+[process time: wall 0.056 s, user CPU 0.031 s, system CPU 0.013 s]
+[exit code 0]

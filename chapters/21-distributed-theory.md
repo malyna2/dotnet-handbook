@@ -1,6 +1,6 @@
 # Chapter 21: Distributed Systems Theory & Reliability Engineering
 
-_⏱️ Estimated read time: ~21 min ·     3838 words (study pace)_
+_⏱️ Estimated read time: ~35 min · 6072 words (study pace)_
 
 A single-process program lives in a comfortable universe. Memory reads are instantaneous, function calls always return, and if something crashes, the whole thing crashes together — you never have to reason about *half* your program being alive while the other half is dead. The moment you split that program across two machines connected by a network, you leave that comfortable universe forever. Messages get lost. Clocks disagree. One node thinks another is dead when it is merely slow. And crucially, **you can never tell the difference between a slow node and a dead one** — that single fact is the source of most of the pain in this chapter.
 
@@ -104,18 +104,28 @@ The escape hatch is **idempotency** — designing an operation so that performin
 For operations that aren't naturally idempotent, use an **idempotency key**: the client generates a unique key (a GUID) for the logical operation and sends it with every retry. The server records processed keys and, on seeing a duplicate, returns the *original stored result* instead of re-executing.
 
 ```csharp
-public async Task<PaymentResult> Charge(string idempotencyKey, decimal amount)
+public async Task<PaymentResult> Charge(string idempotencyKey, decimal amount, CancellationToken ct)
 {
-    var existing = await _store.TryGetResult(idempotencyKey);
-    if (existing is not null) return existing;          // safe replay
+    await using var tx = await _db.Database.BeginTransactionAsync(ct);
+    var record = new IdempotencyRecord { Key = idempotencyKey };            // unique index on Key
+    _db.IdempotencyRecords.Add(record);
+    try { await _db.SaveChangesAsync(ct); }                                 // the claim, BEFORE the effect
+    catch (DbUpdateException e) when (IsUniqueViolation(e))
+    {
+        await tx.RollbackAsync(ct);
+        return await ReplayStoredResultAsync(idempotencyKey, ct);          // safe replay, no second charge
+    }
 
-    var result = await _gateway.Charge(amount);
-    await _store.Save(idempotencyKey, result);          // record before returning
-    return result;
+    record.Result = await _gateway.Charge(amount, idempotencyKey, ct);     // forward the key: the gateway dedupes too
+    await _db.SaveChangesAsync(ct);
+    await tx.CommitAsync(ct);
+    return record.Result;
 }
 ```
 
-Stripe's API famously works exactly this way. This ties directly to the **delivery guarantees** from Chapter 9: networks and message brokers give you *at-least-once* delivery in practice (exactly-once is largely a myth end-to-end). At-least-once means *duplicates will happen*. Idempotent consumers turn the achievable "at-least-once delivery" into the effective "exactly-once *processing*" you actually want.
+The order is the whole trick. The tempting version — look the key up, charge, then save the result — is check-then-act: two retries 20 ms apart both find nothing and both charge. Here the unique index, not a read, decides the winner: a concurrent retry's insert waits on the first attempt's uncommitted key and fails once it commits, so it replays the stored result instead of charging. [Chapter 3: Idempotency Keys](#idempotency-keys-making-post-retry-safe) has the full HTTP version, with request hashing, scoping and retention.
+
+Stripe's API famously works this way. This ties directly to the **delivery guarantees** from Chapter 9: networks and message brokers give you *at-least-once* delivery in practice (exactly-once is largely a myth end-to-end). At-least-once means *duplicates will happen*. Idempotent consumers turn the achievable "at-least-once delivery" into the effective "exactly-once *processing*" you actually want.
 
 > **Best practice:** Make every message consumer and every mutating API endpoint idempotent. It is the single most impactful reliability pattern in a message-driven system, because it lets you retry aggressively without fear.
 
@@ -270,9 +280,10 @@ builder.Services.AddHttpClient<RecommendationsClient>()
             MinimumThroughput = 10
         });
 
-        // Chaos strategies go OUTERMOST in the pipeline, so the fault is
-        // introduced closest to the dependency and every strategy above
-        // gets to react to it — exactly as it would in a real outage.
+        // Chaos strategies are added LAST, which makes them the innermost
+        // strategies (Polly runs the first-added strategy outermost): the fault
+        // is introduced closest to the dependency, and every strategy added
+        // before it reacts to it, exactly as it would in a real outage.
         var options = context.ServiceProvider
             .GetRequiredService<IOptionsMonitor<ChaosOptions>>();
 
@@ -300,7 +311,7 @@ Three details that decide whether this is safe:
 - **The injection rate is a percentage**, so you can start at 1% of calls and turn it up. That is your blast radius control.
 - **Gate it by environment as well as by flag.** A chaos strategy that can be enabled in production by a config change is a chaos strategy that will be enabled in production by an accidental config change. Belt and braces: `if (env.IsProduction() && !explicitlyApprovedChaosWindow) return;`
 
-> **Gotcha.** Injecting chaos at the *inner*most layer of the pipeline tests nothing useful — you have proven that a fault thrown after the retry policy propagates to the caller. The chaos strategy must sit outside (that is, closer to the dependency than) the strategies whose behaviour you are trying to observe.
+> **Gotcha.** Strategies added earlier wrap the ones added later, so a chaos strategy added *first* sits outermost and tests nothing useful: its fault never passes through the retry or the breaker, and you have only proven that an exception reaches the caller. Add chaos strategies last, so they sit innermost, closest to the dependency, inside the strategies whose behaviour you want to observe.
 
 ### Platform-level injection
 

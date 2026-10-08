@@ -1,0 +1,18 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="xunit.v3" />
+  </ItemGroup>
+
+  <!-- Every experiment folder next to this one is built first and never referenced: each runs as
+       its own process, as the reader runs it. A new <Name>/<Name>.csproj is picked up by the glob. -->
+  <ItemGroup>
+    <ProjectReference Include="../*/*.csproj" Exclude="../Tests/**" ReferenceOutputAssembly="false" />
+  </ItemGroup>
+
+</Project>

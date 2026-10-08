@@ -1,6 +1,6 @@
 # Chapter 6: Architecture & Application Design
 
-_⏱️ Estimated read time: ~35 min · 5066 words (study pace)_
+_⏱️ Estimated read time: ~35 min · 5264 words (study pace)_
 
 You can write correct code and still build a system that becomes miserable to change. Correctness is about whether a single function returns the right answer; architecture is about whether, six months from now, a new feature takes an afternoon or a fortnight. This chapter is about the second question — the shape of the whole, the boundaries between the parts, and the trade-offs that senior engineers weigh almost unconsciously.
 
@@ -430,16 +430,25 @@ The **Outbox Pattern** solves this. In the *same database transaction* that save
 
 ### Idempotency
 
-An operation is **idempotent** if performing it multiple times has the same effect as performing it once. In distributed systems, messages get redelivered, clients retry on timeout, and relays double-publish. If "charge payment" runs twice, you've double-charged a customer. The defense is to make consumers idempotent — typically by tracking a unique message/operation ID and ignoring duplicates.
+An operation is **idempotent** if performing it multiple times has the same effect as performing it once. In distributed systems, messages get redelivered, clients retry on timeout, and relays double-publish. If "charge payment" runs twice, you've double-charged a customer. The defense is to make consumers idempotent — typically by recording a unique message/operation ID and ignoring duplicates.
+
+The obvious version is wrong: "if the ID was processed, return; charge; record the ID" is check-then-act. Two copies delivered at the same time both pass the check before either records the ID, and both charge. The record must *be* the check — insert the ID under a unique key first, in the same transaction as the effect:
 
 ```csharp
-public async Task Handle(ChargePayment cmd)
+public async Task Handle(ChargePayment cmd, CancellationToken ct)
 {
-    if (await _processed.ExistsAsync(cmd.MessageId)) return;   // already handled -> no-op
-    await _payments.ChargeAsync(cmd.OrderId, cmd.Amount);
-    await _processed.MarkAsync(cmd.MessageId);
+    await using var tx = await _db.Database.BeginTransactionAsync(ct);
+    _db.ProcessedMessages.Add(new ProcessedMessage(cmd.MessageId));      // unique key on MessageId
+    try { await _db.SaveChangesAsync(ct); }                               // the claim: a duplicate stops here
+    catch (DbUpdateException e) when (IsUniqueViolation(e)) { return; }   // already handled -> no-op
+
+    _db.Payments.Add(Payment.Requested(cmd.OrderId, cmd.Amount));        // the effect, in the same transaction
+    await _db.SaveChangesAsync(ct);
+    await tx.CommitAsync(ct);
 }
 ```
+
+A second copy's insert waits on the first's uncommitted key, then fails if the first commits; if the effect fails, the rollback releases the claim and the redelivery retries. An effect outside the database (the card network itself) can't join the transaction, so pass the same ID downstream as the provider's idempotency key. [Chapter 9: Idempotent Consumers](#idempotent-consumers) walks the race; [Chapter 3: Idempotency Keys](#idempotency-keys-making-post-retry-safe) applies the same mechanism to HTTP.
 
 > **Idempotency is the safety net that makes at-least-once messaging, retries, and the Outbox pattern viable.** Design every message handler and every mutating API endpoint (via an idempotency key) to tolerate being called more than once. This is non-negotiable in a distributed system.
 

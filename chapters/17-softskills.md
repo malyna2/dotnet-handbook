@@ -1,6 +1,6 @@
 # Chapter 17: Soft Skills & Engineering Practices
 
-_⏱️ Estimated read time: ~29 min ·     5072 words (study pace)_
+_⏱️ Estimated read time: ~40 min · 6896 words (study pace)_
 
 You already know how to write good C#. You can wire up dependency injection, reason about `async`/`await`, tune an EF Core query, and design a clean bounded context. That is the price of admission to being a *middle* engineer. It is not what makes you a senior one.
 
@@ -9,8 +9,6 @@ The uncomfortable truth is that the gap between a mid-level developer and a seni
 This chapter is the practical field guide to those skills. No platitudes — templates, scripts, checklists, and worked examples you can use on Monday.
 
 ## 17.1 From Solving Tickets to Creating Leverage
-
-Here is the mental model that reframes everything else.
 
 A middle engineer is measured by **throughput**: how many tickets they close, how fast, how correctly. That is real and valuable. But it scales linearly — you can only type so fast, and there are only so many hours in a week.
 
@@ -28,7 +26,7 @@ Concretely, the behaviors change like this:
 | "Someone should fix this." | "I filed it, tagged the owner, and proposed a fix." |
 | "That's not my code." | "I'll leave it a little better than I found it." |
 
-None of this requires a title change or permission. You can start acting with leverage today, and the title tends to follow the behavior rather than precede it.
+None of this needs a title or permission; the title tends to follow the behavior.
 
 ## 17.2 Communication: The Real Superpower
 
@@ -87,6 +85,24 @@ A meeting checklist:
 - **End with:** decisions made, action items with owners and dates, and where they're written down.
 - **If it could have been a doc, make it a doc.**
 
+### Asking Questions That Unblock You
+
+A question unblocks you when the person answering doesn't have to ask you three questions back first. Send the state of your thinking, not only the gap in it.
+
+**In writing**, when you are stuck past your timebox ([17.6](#176-methodical-debugging-problem-solving)) or a ticket is vague:
+
+- **The goal, not only your attempted fix.** "How do I make the CI step wait 30 seconds?" gets you a sleep; "the integration tests start before the database is ready" gets you a health check. Asking about your attempted solution instead of the problem is the *XY problem*: helpers solve the wrong thing well.
+- **What you tried, and what each attempt ruled out.** The helper skips your first half hour and often spots the wrong assumption at a glance.
+- **The exact error, pasted, and one specific ask:** a yes or no, a name, a pointer.
+- **For a vague ticket,** a short problem statement (symptom and evidence, target, constraints, out of scope; [Chapter 61](#the-one-page-problem-statement) has the full template) with your questions at the end, before any code.
+
+**In meetings:**
+
+- **Prepare one question from the agenda.** The one you think of an hour later costs another meeting.
+- **Ask early.** Once the room has converged on a plan, a question sounds like an objection, and people defend what they have just said in public.
+- **State the assumption you are testing.** "I'm assuming the export only needs the current month. Is that right?" gets a yes or a correction; "how does the export work?" gets a tour.
+- **Confirm in writing afterwards:** "To confirm: current month only, nightly, [name] owns it." Everyone leaves a meeting remembering it differently, and a written line gets corrected while that is still cheap.
+
 ### Disagreeing productively and managing up
 
 To disagree without turning it into a fight, argue about the problem, not the person, and lead with curiosity:
@@ -101,17 +117,31 @@ That framing invites information rather than triggering defense. And when the de
 
 Code review is where craft, teaching, and team culture intersect every single day. Done well it spreads knowledge and raises the floor. Done badly it becomes a gauntlet of ego and bikeshedding.
 
+### Finding What to Say in a Review
+
+A diff that compiles and passes its tests can still be wrong under a condition its tests never create. Reading line by line for style rarely finds that. Asking the same five questions of every changed line usually does, because each question supplies a condition the tests left out:
+
+| Ask of each change | The condition | Typical defect it exposes |
+|---|---|---|
+| What if it runs **twice**? | A retry, a redelivery, a double-clicked button | A handler that isn't idempotent; a `POST` with no idempotency key |
+| What if it runs **concurrently**? | Two requests, two instances, `MaxConcurrentCalls` above 1 | Check-then-act; a `DbContext` shared across threads; mutable static state |
+| What if it runs **slowly**? | A slow dependency, a held lock, peak load | `.Result` on a request path; no timeout; a `CancellationToken` not passed on |
+| What if it **fails halfway**? | A crash between two writes, an exception mid-loop | Save, then publish, with no outbox; `async void`; `catch { }` |
+| What if it meets **100× the data**? | Production volume instead of seed data | N+1; an unbounded `ToListAsync()`; a filter applied after materialising |
+
+Each "yes, that breaks" is the condition of a comment; the mechanism, the cost and the fix follow from it (next section). Two moves cover what the questions miss: compare the change with the file that already does the closest thing, since divergence from it is where new defects hide, and use [Chapter 18's rubric](#judging-ai-generated-code-a-reviewers-rubric) for the full order of reading a diff. If all five questions come back clean, approve and say which risks you checked ("retries and concurrency look safe: the claim is atomic"). The author learns what was verified, and the next reviewer knows what wasn't.
+
 ### Giving feedback: kind, specific, actionable
 
-Every review comment should be at least two of those three, and ideally all three. The gold standard: explain the *why*, offer a concrete alternative, and keep the tone collaborative.
+A comment gets acted on when the author can check it without asking you anything. That takes four parts: the **condition** under which the code misbehaves, the **mechanism** that makes it misbehave, the **cost** when it does, and the **fix**. Kind is the tone; specific and actionable are those four parts.
 
 > *Bad:* "This is wrong."
 
 > *Bad:* "Why would you do it this way??"
 
-> *Good:* "This `async void` will swallow exceptions — if `SendAsync` throws, we'll never see it and the message is silently lost. Can we make it `async Task` and let the caller await it? See how `NotificationService` does it."
+> *Good:* "blocking: if `SendAsync` throws, this `async void` method has no `Task` to carry the exception, so the `try/catch` around the call never sees it. ASP.NET Core has no `SynchronizationContext`, so the runtime rethrows it on a thread-pool thread, nothing catches it there, and the process terminates with every in-flight request. Can we make it `async Task` and await it, as `NotificationService` does?"
 
-The good version names the concrete risk, explains the consequence, proposes a fix, and points at a local example. The author knows exactly what to do and *why*.
+The good version gives the condition (`SendAsync` throws), the mechanism (no `Task`, so the exception is rethrown on the captured `SynchronizationContext` or, when there is none, on a thread-pool thread; [Chapter 8](#the-compiler-generated-state-machine) traces the path), the cost (an unhandled exception ends the process) and a fix with a local example to copy. The author can verify it in a minute, which makes acting on it cheaper than arguing with it.
 
 ### Conventional comments: label your intent
 
@@ -136,7 +166,9 @@ praise: nice use of a discriminated result type here, much clearer
 than the old bool-and-out-param.
 ```
 
-The distinction between **nitpicks and blockers** is what keeps reviews moving. If everything is presented with equal weight, a whitespace comment stalls a PR as long as a security hole. Be explicit, and let people merge over your nits.
+These labels are a shortened form of [Conventional Comments](https://conventionalcomments.org/), which writes the intent and the severity separately: `issue (blocking):`, `suggestion (non-blocking):`, `nitpick:`. Either form works once the team agrees on one.
+
+The split between **nits and blockers** keeps reviews moving. When everything carries equal weight, a whitespace comment stalls a PR as long as a security hole; when style points are labelled `blocking:`, the author learns your `blocking:` is negotiable and argues the next real one. Label honestly, and let people merge over your nits.
 
 ### The author's responsibilities
 
@@ -144,7 +176,7 @@ Review quality is a two-way street. As the author:
 
 - **Keep PRs small.** A 200-line PR gets a real review; a 2,000-line PR gets a "LGTM 👍" that catches nothing. Slice work so PRs stay reviewable.
 - **Write a description that answers *why*.** What problem, what approach, what you considered and rejected, how to test it. Link the ticket.
-- **Review your own diff first.** Half your reviewers' comments were things you'd have caught by reading it yourself.
+- **Review your own diff first.** Many review comments are things the author would have caught by reading the diff once.
 - **Leave breadcrumbs** on tricky lines: a comment on the PR saying "did it this way because X" pre-empts the question.
 
 ### Receiving feedback without ego
@@ -170,6 +202,8 @@ Techniques that actually help:
 - **Buffer for the invisible work:** code review, testing, meetings, the CI flake, the environment that's down. The coding is often the smallest slice.
 - **Communicate estimates as forecasts, not promises.** "Based on what I know now, I expect this in the first half of next week. The biggest risk is the payment vendor's sandbox — if that's flaky, add two days." You've given a number *and* the assumptions it rests on.
 
+> **Pay attention.** **Why estimates run long, and why padding doesn't fix it.** You estimate from the inside: you list the steps you can picture and add them up. The steps that blow estimates are the ones you can't picture yet (the sandbox that's down, the migration nobody mentioned), so they are missing from the sum, and the error runs one way: work rarely finishes much faster than its known steps allow, but it can run several times longer. Padding is a guess about that error that nobody can check. Anchor on the *outside view* instead, how long similar work actually took according to your tracker, and give a range whose top depends on one named assumption. When that assumption breaks, the estimate is void: re-estimate that day, before more plans are built on the old date. Daniel Kahneman's *Thinking, Fast and Slow* describes both views.
+
 Avoid the **sunk-cost trap**: "we've already spent three weeks on this approach" is not a reason to spend a fourth. Past effort is gone regardless; decide based on the cost and value *from here*. A senior says out loud, "I know we've invested a lot, but continuing is the more expensive path now."
 
 ## 17.5 Technical Writing & Documentation
@@ -183,27 +217,27 @@ An ADR is a short, immutable document recording one significant decision, its co
 A template:
 
 ```markdown
-# ADR-014: Use Outbox Pattern for Order Event Publishing
+**ADR-014: Use Outbox Pattern for Order Event Publishing**
 
 - Status: Accepted
 - Date: 2026-07-21
 - Deciders: Payments team
 - Supersedes: —
 
-## Context
+**Context**
 We publish an "OrderPlaced" event to the message bus after saving an
 order. Currently we save to the DB and publish in the same method,
 without a shared transaction. If the publish fails after the DB commit,
 downstream services never learn about the order — we've seen 3 such
 drops this quarter (INC-198, INC-201, INC-217).
 
-## Decision
+**Decision**
 Adopt the Transactional Outbox pattern: within the same DB transaction
 that saves the order, insert an event row into an `Outbox` table. A
 background dispatcher polls the table and publishes to the bus, marking
 rows as sent. This makes DB write and event intent atomic.
 
-## Consequences
+**Consequences**
 Positive:
 - Event publishing is now at-least-once and crash-safe.
 - The DB transaction remains the single source of truth.
@@ -213,7 +247,7 @@ Negative / trade-offs:
 - New moving part (dispatcher) to run and monitor.
 - Consumers must be idempotent (at-least-once => possible duplicates).
 
-## Alternatives considered
+**Alternatives considered**
 - 2-phase commit across DB and broker: rejected, operationally heavy,
   poor support in our stack.
 - Publish-then-save: rejected, inverts the source-of-truth problem.
@@ -248,7 +282,7 @@ Junior engineers debug by changing things and hoping. Seniors debug like scienti
 
 The loop:
 
-1. **Reproduce it first.** A bug you can reproduce on demand is 80% solved. A bug you can't reproduce, you can't verify you fixed. Invest in a reliable repro before anything else.
+1. **Reproduce it first.** A bug you can't reproduce, you can't verify you fixed. A reliable repro comes before anything else.
 2. **Read the actual error.** The full message, the full stack trace, the inner exception. The answer is astonishingly often right there in text people skimmed past.
 3. **Form a hypothesis.** "I think the null comes from the cache returning a stale entry." A specific, falsifiable statement.
 4. **Test the one hypothesis.** Change one thing. If you change five things and it works, you've learned nothing and may have added two new bugs.
@@ -256,7 +290,7 @@ The loop:
 
 **Rubber-ducking** works because explaining the problem out loud forces you to make your assumptions explicit, and the wrong one usually reveals itself mid-sentence. Explain it to a colleague, a literal duck, or a comment box — the medium doesn't matter, the articulation does.
 
-> **The 30-minute rule: struggle productively on your own for about 30 minutes, then ask for help.** Less, and you rob yourself of the learning that comes from wrestling with it. More, and you're just burning the team's time on something a colleague could unstick in two minutes. When you ask, show what you tried and what you expected — a good question is itself a sign of seniority, not weakness.
+> **The 30-minute rule: struggle productively on your own for about 30 minutes, then ask for help.** Less, and you skip the search that teaches you the system. More, and you spend hours on what a colleague could unstick in two minutes. Set the limit before you start: once you're stuck, every next attempt looks like the one that will work, so a decision made then always says "one more try." When you ask, send what you tried and what it ruled out ([Asking Questions That Unblock You](#asking-questions-that-unblock-you)); a good question is a sign of seniority, not weakness.
 
 ### Blameless post-mortems
 

@@ -1,16 +1,14 @@
 # Chapter 7: Testing
 
-_⏱️ Estimated read time: ~37 min ·     5292 words (study pace)_
+_⏱️ Estimated read time: ~35 min · 5373 words (study pace)_
 
 Most developers arrive at their first senior interview able to write a test. Far fewer can explain *why* one test is worth writing and another is worth deleting, why a green test suite can still be worthless, or why the team that mocks everything ends up trusting nothing. This chapter is about that second, harder layer of understanding. We will write plenty of code, but the code is in service of judgment. By the end you should be able to look at a pull request and say, with reasons, "this test earns its keep" or "this test is a liability."
 
 ## Why We Test At All
 
-Testing is not about proving your code is correct. You cannot prove correctness with tests; you can only demonstrate the presence of behaviour under specific conditions. What testing actually buys you is **confidence to change code**. A codebase without tests is a codebase where every change is a gamble, and where fear slowly ossifies the design because nobody dares refactor. The real product of a good test suite is not "quality" in the abstract — it is *velocity that doesn't decay*.
+Tests can't prove code correct; they show behaviour under specific conditions. What they buy is **confidence to change code**: without them every change is a gamble, and the design ossifies because nobody dares refactor.
 
-There is a well-worn observation that the cost of fixing a defect rises the later you catch it. A bug caught by a unit test on your machine costs a few minutes. The same bug caught in code review costs a round-trip of two people's attention. Caught in QA, it costs a bug report, a triage meeting, and a context switch back into code you've forgotten. Caught in production, it costs an incident, possibly customer trust, possibly money, and always the most expensive thing of all: debugging a live system under pressure with incomplete information. The exact multipliers are debated and context-dependent, but the *shape* of the curve is real and it is steep. Tests are a mechanism for pushing detection as far left — as early — as possible.
-
-> **The core value proposition:** tests convert "I hope this still works" into "I know this still works, and here's the evidence." Everything else in this chapter is mechanics in support of that sentence.
+The later a defect is caught, the more it costs: minutes on your machine, two people's attention in review, a bug report and a context switch in QA, an incident and live debugging in production. The multipliers are debated; the steep shape of the curve is not. Tests push detection as early as possible.
 
 ### The Testing Pyramid
 
@@ -365,11 +363,13 @@ var client = factory.WithWebHostBuilder(builder =>
 
 The most consequential integration-test decision is what to do about the database. Three options:
 
-1. **EF Core In-Memory provider.** Fast, zero setup — and *dangerous*. It is not a relational database. It ignores relational constraints, doesn't enforce uniqueness the way SQL does, doesn't support transactions or raw SQL, and has different query-translation behaviour. A test that passes against it can fail against real Postgres. Microsoft themselves recommend against it for anything but the simplest cases.
+1. **EF Core In-Memory provider.** Fast, zero setup — and *dangerous*. It is not a relational database: it doesn't enforce unique indexes, doesn't support transactions or raw SQL, and evaluates queries differently. A test that passes against it can fail against real Postgres. The EF Core documentation calls using it as a database fake "highly discouraged".
 2. **SQLite in-memory.** A real relational engine, genuinely fast, supports transactions. A big step up in fidelity — but its SQL dialect and type handling differ from Postgres/SQL Server, so provider-specific features and migrations may not translate.
 3. **The real database engine.** Highest fidelity, catches the bugs that actually happen. Historically this meant a fragile shared test database or a heavyweight local install. **Testcontainers** solved that.
 
-> **Best practice:** test business logic against fast fakes, but test anything that touches SQL — queries, migrations, constraints, concurrency — against the *same engine you run in production*. The in-memory provider's convenience is a trap that lets real database bugs sail through a green suite.
+> **Pay attention.** **The in-memory provider never generates SQL, so nothing a database enforces can fail.** It runs your LINQ over .NET collections. `HasIndex(...).IsUnique()` is metadata only a relational provider turns into `CREATE UNIQUE INDEX`, so two rows with the same email both save (the learning path's *InMemoryProvider* experiment shows it next to SQLite, which rejects the second). String comparison is C#'s, case-sensitive, where SQL Server's default collation is not. A query the real provider can't translate never reaches a translator. Beginning a transaction throws by default; suites that silence that warning get a transaction that does nothing, so a rollback test passes for the wrong reason. Fix: run anything that touches SQL against the production engine.
+
+> **Best practice:** test business logic against fast fakes, but test anything that touches SQL — queries, migrations, constraints, concurrency — against the *same engine you run in production*.
 
 ### Testcontainers for .NET
 
@@ -610,10 +610,10 @@ A **flaky test** passes or fails without any code change — the most corrosive 
 
 Common causes and fixes:
 
-- **Time and dates.** `DateTime.Now` makes behaviour depend on when the test runs. Inject an `IClock`/`TimeProvider` (built into modern .NET) and control time explicitly.
-- **Ordering and shared state.** Tests that pass alone but fail together share mutable state. Isolate them — this is exactly why xUnit's per-test instance model exists.
+- **Time and dates.** `DateTime.Now` makes behaviour depend on when the test runs. Inject `TimeProvider` and control time explicitly ([Chapter 25: Deterministic Tests](#deterministic-tests-time-async-and-test-data)).
+- **Ordering and shared state.** Tests that pass alone but fail together share mutable state. xUnit's new instance per test protects instance fields only; statics, singletons, fixtures and database rows survive from one test to the next.
 - **Async and timing.** `Task.Delay` and "wait a bit then assert" race the scheduler. Await deterministic signals, not wall-clock guesses.
-- **Test parallelism.** Two tests hitting the same database row concurrently. Give each its own data, or serialise them with a collection.
+- **Test parallelism.** By default each test class is its own collection, and collections run in parallel: two classes touching the same row or static race each other, and the outcome depends on scheduling. Give each test its own data, or put the classes in one `[Collection]` to serialise them.
 - **Non-deterministic data.** Unseeded random generators (see Bogus/AutoFixture above).
 - **External dependencies.** A test calling a real network service fails when the network hiccups. Fake the boundary.
 

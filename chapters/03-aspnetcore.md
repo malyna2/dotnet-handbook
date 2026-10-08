@@ -1,16 +1,14 @@
 # Chapter 3: ASP.NET Core & Web APIs
 
-_⏱️ Estimated read time: ~1 h 15 min · 10751 words (study pace)_
+_⏱️ Estimated read time: ~1 h 15 min · 11131 words (study pace)_
 
 ASP.NET Core is the beating heart of most .NET server-side work. If you've been building APIs for a couple of years, you already know how to make an endpoint return JSON. This chapter is about the *why* underneath: how a request actually travels through your application, where the extension points live, and how the senior-level decisions (versioning, resilience, auth, real-time) fit together. By the end you should be able to reason about the framework rather than just use it.
 
 ## The Middleware Pipeline & Request Lifecycle
 
-Everything in ASP.NET Core is built on one deceptively simple idea: **a request flows through a chain of components, each of which can do work before and after the next one runs.** This chain is the *middleware pipeline*, and understanding it is the single most important mental model in the framework.
+**A request flows through a chain of components, each of which can do work before and after the next one runs.** This chain is the *middleware pipeline*. A component can also short-circuit: answer without calling the rest. On the way out, the response passes back through the same components in reverse order, so the outermost middleware wraps everything inside it.
 
-Think of the pipeline like airport security lanes arranged in a line. Each checkpoint can inspect you, stamp your passport, send you back early (short-circuit), or wave you through to the next checkpoint. On the way *out*, you pass back through those same checkpoints in reverse order. That "in one order, out in reverse" behavior is often drawn as a set of Russian nesting dolls (matryoshka): the outermost middleware wraps everything inside it.
-
-A middleware component is fundamentally just a function that takes the current `HttpContext` and a delegate to "the rest of the pipeline" (`RequestDelegate`, usually called `next`).
+A middleware component is a function that takes the current `HttpContext` and a delegate to "the rest of the pipeline" (`RequestDelegate`, usually called `next`).
 
 ```csharp
 public class RequestTimingMiddleware
@@ -70,7 +68,7 @@ There's also `Map` / `MapWhen` for branching the pipeline based on path or a pre
 
 ### Ordering is everything
 
-The order in which you add middleware *is* the order requests flow through. This is the most common source of subtle bugs.
+The order in which you add middleware *is* the order requests flow through.
 
 > **Best practice — canonical ordering.** Exception handling first (so it wraps everything), then HSTS/HTTPS redirection, static files, routing, CORS, authentication, authorization, and finally your endpoints. Authentication must come before authorization: you can't check *what someone is allowed to do* before you know *who they are*.
 
@@ -87,7 +85,7 @@ app.UseAuthorization();         // Are you allowed?
 app.MapControllers();           // Terminal: executes the endpoint.
 ```
 
-That registration order creates the matryoshka nesting from the start of the chapter:
+That registration order creates this nesting:
 
 ```
        request                                    response
@@ -105,7 +103,15 @@ That registration order creates the matryoshka nesting from the start of the cha
 +------------------------------------------------------------+
 ```
 
-If you put `UseAuthorization` before `UseRouting`, the authorization middleware has no endpoint metadata to inspect and your `[Authorize]` attributes silently do nothing. If you put `UseCors` after the endpoint that handles the request, preflight requests break. **When something "just doesn't apply," suspect ordering first.**
+Each middleware sees only what the ones before it have set, so a wrong order fails in a predictable way:
+
+- **`UseAuthorization` before `UseAuthentication`:** authorization reads `HttpContext.User`, which authentication has not filled in yet. The user looks anonymous, so every `[Authorize]` endpoint answers `401`, even to a valid token.
+- **`UseAuthorization` before `UseRouting`:** no endpoint has been selected yet, so there is no `[Authorize]` metadata to evaluate. The endpoint middleware notices that authorization never saw the endpoint and throws *"Endpoint … contains authorization metadata, but a middleware was not found that supports authorization"*: a `500` on every protected endpoint, not a silent bypass. It runs the same check for CORS metadata.
+- **`UseExceptionHandler` anywhere but first:** it works by wrapping `await next(context)` in a `try`, so it can't catch what middleware registered before it throws.
+
+**When something "just doesn't apply," suspect ordering first.**
+
+> **Pay attention.** **`WebApplication` orders the defaults for you, until you call one yourself.** With no explicit calls, `WebApplicationBuilder` wraps your middleware: `UseDeveloperExceptionPage` (Development only), `UseRouting`, then `UseAuthentication` and `UseAuthorization` when their services are registered, then everything in `Program.cs`, then the endpoints. That is why a minimal app with `AddAuthentication()` works with no `Use…` calls at all. Call `app.UseRouting()`, `UseAuthentication()` or `UseAuthorization()` yourself and the automatic one is skipped: your order is now the order, with the failures above. Either call none of them or call all three, in order.
 
 ## Minimal APIs vs Controllers (MVC)
 
@@ -196,7 +202,9 @@ public class CreateProductRequest
 }
 ```
 
-With `[ApiController]`, a failing model automatically produces a `400 Bad Request` with a validation `ProblemDetails` payload — you never write `if (!ModelState.IsValid)`. In Minimal APIs there's no automatic model-state check by default (you opt in via the validation support added in .NET 10, or validate manually / with a filter).
+With `[ApiController]`, a failing model automatically produces a `400 Bad Request` with a validation `ProblemDetails` payload — you never write `if (!ModelState.IsValid)`. Minimal APIs validate nothing by default. Since .NET 10, `builder.Services.AddValidation()` runs the same DataAnnotations (and `IValidatableObject`) on query, header and body parameters and answers `400` with the error details; before that, validate manually or with a filter.
+
+> **Pay attention.** **The automatic `400` is an action filter, so your action never runs.** `[ApiController]` adds a filter that checks `ModelState` after binding and before the action: a breakpoint in the action never hits, and a log line in it never prints. Binding failures land in the same place: an unparseable body or a wrong JSON type is a `400` from that filter, not an exception. To change the response shape, configure `ApiBehaviorOptions.InvalidModelStateResponseFactory`, rather than adding `if (!ModelState.IsValid)` checks that can never be reached.
 
 ### FluentValidation
 
@@ -352,9 +360,7 @@ They are layers, not alternatives. DataAnnotations (or nothing) for trivial DTOs
 
 ## CancellationToken Propagation
 
-Every request carries an implicit expiry: the moment the client disconnects, times out, or navigates away, any work you're still doing on its behalf is wasted. The framework tells you when that happens — `HttpContext.RequestAborted` is a `CancellationToken` that trips when the connection drops — and both Minimal APIs and MVC will bind it for you: declare a `CancellationToken` parameter on your endpoint or action and the framework wires it to `RequestAborted` automatically.
-
-The token only helps if you *pass it through*. EF Core queries, `HttpClient` calls, stream reads — essentially every awaited I/O API — accept one:
+Once the client disconnects, times out or navigates away, work done on its behalf is wasted. `HttpContext.RequestAborted` is a `CancellationToken` that trips when the connection drops, and both Minimal APIs and MVC bind it to any `CancellationToken` parameter of an endpoint or action. It helps only if you *pass it through*: EF Core queries, `HttpClient` calls and stream reads all accept one.
 
 ```csharp
 app.MapGet("/reports/{id:int}", async (int id, AppDbContext db,
@@ -368,11 +374,17 @@ app.MapGet("/reports/{id:int}", async (int id, AppDbContext db,
 });
 ```
 
-When the client disconnects mid-query, EF Core cancels the database command; the connection returns to the pool and the request's threads free up. Without the token, the query runs to completion for a caller that will never read the response.
+When the client disconnects mid-query, EF Core cancels the database command and the connection returns to the pool. Without the token, the query runs to completion for a caller that will never read the response.
 
-Why this matters operationally: picture your API slowing down under load. Clients hit their own timeouts, abandon their requests, and *retry*. If your server doesn't observe cancellation, every abandoned request keeps executing — the original query is still hammering the database while the retry starts a duplicate. Load effectively doubles at precisely the moment the system is already struggling, and a slowdown snowballs into an outage. Propagating the token is what lets abandoned work actually stop, turning a retry storm into a manageable blip instead of a self-inflicted amplification attack.
+This matters most under load. Clients time out, abandon their requests and *retry*; if the server ignores cancellation, each abandoned query keeps running while its retry starts a duplicate. Load doubles exactly when the system is already struggling, and a slowdown snowballs into an outage. Propagating the token lets abandoned work stop.
 
-> **Gotcha:** Not everything should be cancellable. If you've charged a payment and are about to write the outbox record, cancelling *mid-write* because the client hung up is far worse than finishing wasted work — you'd take the money and lose the event. For operations that must run to completion once started, deliberately pass `CancellationToken.None` (or a token decoupled from the request) past that point of no return. The skill isn't "always pass the token"; it's knowing which operations are safe to abandon and which have already committed you.
+> **Pay attention.** **A token stops only the calls it reaches.**
+>
+> Cancellation is cooperative: `Cancel()` sets a flag and runs the callbacks registered on the token, nothing more. Code stops only where it checks the flag, or where an API you passed the token to registered a callback: SqlClient registers one that cancels the running command on the server, and `HttpClient` aborts the request. One method in the chain that takes no token, or doesn't forward it, leaves everything below it running to completion.
+>
+> Fix: accept a `CancellationToken` in every async method on a request path and forward it. Analyzer CA2016 flags a call that could take the token in scope but doesn't; in .NET 10 it is only a suggestion by default, so raise it to a warning in `.editorconfig`.
+
+> **Gotcha:** Not everything should be cancellable. If you've charged a payment and are about to write the outbox record, cancelling *mid-write* because the client hung up is far worse than finishing wasted work: you'd take the money and lose the event. Past such a point of no return, pass `CancellationToken.None` (or a token decoupled from the request). The skill is knowing which operations are safe to abandon and which have already committed you.
 
 ## Filters
 
@@ -463,9 +475,9 @@ For complex rules, implement `IAuthorizationRequirement` plus an `AuthorizationH
 
 ## IHttpClientFactory & Resilience with Polly
 
-Calling other services over HTTP is where many production incidents are born. The naïve `new HttpClient()` per call **exhausts sockets** (each instance holds a connection pool and sockets linger in `TIME_WAIT`); a single static instance **doesn't respect DNS changes**. `IHttpClientFactory` solves both by pooling and rotating the underlying handlers.
+A `new HttpClient()` per call **exhausts sockets**: each opens and closes its own connections, and a closed connection keeps its port for a while ([Chapter 20](#keep-alive-connection-pooling-and-socket-exhaustion) has the TCP mechanism). One static instance avoids that but, by default, never retires a busy connection, so it **misses DNS changes**.
 
-To see *why* that works, you need one fact: `HttpClient` itself is a cheap, disposable wrapper. The real resources — the connection pool, the open sockets — live in the `HttpMessageHandler` underneath it. The factory hands you a fresh `HttpClient` every time, but behind it shares a pool of handlers, so sockets are reused instead of exhausted; and it retires each handler after two minutes (tunable via `SetHandlerLifetime`), so new connections re-resolve DNS and a failed-over dependency doesn't leave you talking to a dead IP.
+`HttpClient` is a cheap wrapper; the connection pool lives in the `HttpMessageHandler` underneath. `IHttpClientFactory` fixes both problems: it hands out a new `HttpClient` each time over a shared handler, so connections are reused (disposing a factory client is harmless, since it doesn't own the handler), and it retires each handler after two minutes (`SetHandlerLifetime`), so new connections re-resolve DNS and a failed-over dependency doesn't leave you talking to a dead IP.
 
 ```
 CatalogClient ──> HttpClient          (new each time — cheap wrapper)
@@ -475,7 +487,7 @@ CatalogClient ──> HttpClient          (new each time — cheap wrapper)
                                        recycled every ~2 min → fresh DNS)
 ```
 
-**Named clients** let you configure a client by string key. **Typed clients** wrap an `HttpClient` in a strongly-typed service — cleaner and my default recommendation:
+**Named clients** are configured by string key. **Typed clients** wrap an `HttpClient` in a strongly typed service, which is cleaner and my default:
 
 ```csharp
 public class CatalogClient
@@ -494,7 +506,7 @@ builder.Services.AddHttpClient<CatalogClient>(c =>
 });
 ```
 
-> **Pitfall — typed clients are transient.** Don't inject a typed client into a singleton. The singleton captures one `HttpClient` — and the handler behind it — forever, which quietly reintroduces the stale-DNS problem the factory exists to solve. Keep the consuming service scoped or transient, or inject `IHttpClientFactory` itself and create clients per use.
+> **Pitfall — typed clients are transient.** A singleton that takes a typed client captures one `HttpClient`, and the handler behind it, forever: the stale-DNS problem is back. Keep the consumer scoped or transient, inject `IHttpClientFactory` and create clients per use, or (.NET 8+) set `PooledConnectionLifetime` through `.UseSocketsHttpHandler(...)` so the connections rotate instead of the handler.
 
 ### Resilience with Polly
 
@@ -569,7 +581,7 @@ app.UseRateLimiter();
 
 **REST** is a set of constraints, not a law, but a few principles pay dividends: model your API around **resources** (nouns) not actions; use HTTP **verbs** for intent (GET read, POST create, PUT replace, PATCH partial update, DELETE remove); make GET/PUT/DELETE **idempotent**; and lean on the **status code** to communicate outcome.
 
-Use the right codes: `200 OK`, `201 Created` (with a `Location` header), `204 No Content` for a successful DELETE, `400` for malformed input, `401` unauthenticated, `403` authenticated-but-forbidden, `404` not found, `409` conflict, `422` semantic validation failure, `429` rate limited, `500` for your bugs. Returning `200` with an error body inside is a common anti-pattern that breaks clients and tooling.
+Use the right codes: `200 OK`, `201 Created` (with a `Location` header), `204 No Content` for a successful DELETE, `400` for malformed input, `401` unauthenticated, `403` authenticated-but-forbidden, `404` not found, `409` conflict, `422` semantic validation failure, `429` rate limited, `500` for your bugs. ASP.NET Core's automatic validation answers `400`, not `422`; if you adopt `422`, change it everywhere, so clients see one convention. Returning `200` with an error body inside is a common anti-pattern: retry policies, caches and error-rate dashboards read the status code, never the body, so all of them count the failure as a success.
 
 ### Idempotency Keys: Making POST Retry-Safe
 
@@ -933,7 +945,7 @@ Reach for SignalR for dashboards, chat, live collaboration, notifications, and p
 
 ## Error Handling with ProblemDetails (RFC 7807)
 
-Every API needs a *consistent* error shape. **RFC 7807 ProblemDetails** is the standard: a JSON object with `type`, `title`, `status`, `detail`, and `instance`. Standardizing on it means clients (and tools) can parse errors uniformly instead of guessing.
+Every API needs *one* error shape. **ProblemDetails** — RFC 7807, since replaced by RFC 9457, which the current ASP.NET Core docs cite — is the standard: a JSON object with `type`, `title`, `status`, `detail` and `instance`, so clients and tools parse every error the same way.
 
 ```csharp
 builder.Services.AddProblemDetails();
@@ -965,9 +977,15 @@ public class ValidationExceptionHandler : IExceptionHandler
 // builder.Services.AddExceptionHandler<ValidationExceptionHandler>();
 ```
 
-> **Tip — `AddExceptionHandler` vs writing your own exception middleware.** These aren't two independent mechanisms: `UseExceptionHandler()` *is* the middleware, and `AddExceptionHandler<T>()` registers handlers that plug into it — called in registration order until one returns `true`, with anything unhandled falling through to the default ProblemDetails response. A hand-rolled `try/catch` middleware can do the same job, but then you own everything the built-in one already does: safe defaults (status 500, cache headers cleared), the awkward edge case where the response has already started streaming, content negotiation via `IProblemDetailsService`, and the diagnostics logs and metrics observability tooling expects. `IExceptionHandler` classes are also plain DI services — unit-testable with no `RequestDelegate` plumbing, one focused class per exception family instead of a growing `switch`. Reserve custom middleware for concerns that aren't "map this exception to an HTTP response" — releasing a resource or enriching telemetry on every failure, say — or for pre-.NET 8 targets, where the `UseExceptionHandler(errorApp => ...)` lambda overload fills the same role.
+> **Tip — `AddExceptionHandler` vs writing your own exception middleware.** `UseExceptionHandler()` *is* the middleware; `AddExceptionHandler<T>()` registers handlers it calls in registration order until one returns `true`, and anything unhandled falls through to the default ProblemDetails response. A hand-rolled `try/catch` middleware makes you own what the built-in one already does: status 500 and cleared cache headers, a response that has already started, content negotiation through `IProblemDetailsService`, and the logs and metrics tooling expects. `IExceptionHandler` classes are plain DI services, testable without `RequestDelegate` plumbing, one class per exception family. Keep custom middleware for work that isn't "map this exception to a response", or for targets before .NET 8, where the `UseExceptionHandler(errorApp => ...)` overload fills the role.
 
-> **Best practice.** Never leak stack traces or internal messages to callers in production. `detail` should be safe to show a client; log the gory details server-side with a correlation ID that the client can quote to support.
+> **Pay attention.** **What reaches the caller, and what reaches the log.**
+>
+> - **The trace id goes out by default.** The default ProblemDetails writer adds `traceId` (`Activity.Current?.Id`, else `HttpContext.TraceIdentifier`) to every body it writes, so write your responses through `IProblemDetailsService` rather than `WriteAsJsonAsync` and the caller always has the key that finds your log entry.
+> - **The stack trace goes out only through the environment.** In Development, `WebApplication` adds the developer exception page itself. A client that doesn't ask for HTML gets a ProblemDetails whose `exception` field holds `ex.ToString()` and *every request header*, `Authorization` included. A production container started with `ASPNETCORE_ENVIRONMENT=Development` serves that to anyone. Pin the environment in deployment, and never call `UseDeveloperExceptionPage` unconditionally.
+> - **The middleware logs too.** It writes its own `Error` entry for each exception it catches. On .NET 10 it skips that entry when an `IExceptionHandler` returned `true` (`ExceptionHandlerOptions.SuppressDiagnosticsCallback` changes the rule); before .NET 10 it always writes it, so a handler that also logs records every failure twice.
+>
+> Put `detail` text that is safe to show a client; the details belong in the one log entry the `traceId` points to.
 
 ## Health Checks
 

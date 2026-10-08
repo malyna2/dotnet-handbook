@@ -1,12 +1,10 @@
 # Chapter 16: Tooling & Productivity
 
-_⏱️ Estimated read time: ~5 min ·     1065 words (study pace)_
+_⏱️ Estimated read time: ~5 min · 1349 words (study pace)_
 
-A senior developer is not just someone who writes good code. It is someone whose *environment* multiplies their output. The tools below are the ones you will actually reach for on a modern .NET team. You don't need all of them, but you should know what each solves so you can pick deliberately rather than by habit.
+The tools below are the ones a modern .NET team actually reaches for. Know what each one solves, so you pick deliberately rather than by habit.
 
 ## IDEs: Visual Studio, Rider, and VS Code
-
-The three mainstream choices trade off differently.
 
 **Visual Studio** (Windows) is the heavyweight. Its debugger is best-in-class, especially for tricky scenarios: mixed-mode debugging, memory dumps, IntelliTrace, and the diagnostic tooling for CPU and allocation profiling. If you work on WPF/WinForms, complex MSBuild setups, or need the deepest debugging experience, it is hard to beat. The cost is that it is heavy and Windows-only.
 
@@ -18,7 +16,7 @@ The three mainstream choices trade off differently.
 
 ## Refactoring & Linting
 
-Code quality tooling in .NET now layers nicely:
+Code-quality tooling comes in layers:
 
 - **Roslyn analyzers** run inside the compiler. They ship with the SDK (the `CAxxxx` rules), come from NuGet packages, and can be authored in-house. They surface issues as build warnings, so they integrate with CI for free.
 - **`.editorconfig`** is the single source of truth for style. It travels with the repo, is understood by VS, Rider, and `dotnet format`, and lets you set naming conventions, `var` usage, and analyzer severities per folder.
@@ -28,13 +26,15 @@ Code quality tooling in .NET now layers nicely:
 
 > **Tip:** Commit an `.editorconfig` early and raise a few key analyzer rules to `error` (e.g. `dotnet_diagnostic.CA2007.severity` in library code). Warnings get ignored; build-breaking errors get fixed.
 
+> **Pay attention.** **What the build actually enforces.** Analyzers run inside the compiler, so a diagnostic is a build warning everywhere the build runs, IDE and CI alike. But by default (`AnalysisMode` `Default`) only a small set of `CA` rules is on as warnings; `<AnalysisMode>Recommended</AnalysisMode>` or `All` turns on more. Style rules (`IDExxxx`) don't run in `dotnet build` at all until `<EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>`. And `AnalysisLevel` defaults to `latest`: a new SDK can switch on new warnings, which `TreatWarningsAsErrors` turns into a build that broke with no code change. Pin `AnalysisLevel` (for example `10.0`) and raise it deliberately.
+
 ## Formatting in CI
 
-Style debates waste review time. Kill them with automation. `dotnet format` reads your `.editorconfig` and rewrites code to match. Run `dotnet format --verify-no-changes` as a CI step: the build fails if someone forgot to format. That turns formatting into a machine's job, not a reviewer's.
+Style debates waste review time. `dotnet format` reads your `.editorconfig` and rewrites code to match. Run `dotnet format --verify-no-changes` as a CI step: the build fails if someone forgot to format. That turns formatting into a machine's job, not a reviewer's.
 
 ## API Testing
 
-You will constantly poke at HTTP endpoints. Options:
+Options for poking at HTTP endpoints:
 
 - **`.http` files** live in your repo and run directly inside VS, Rider, and VS Code. Because they are versioned alongside the code, they double as executable documentation. Prefer these for team-shared, checked-in requests.
 - **Postman** is the feature-rich standard: environments, scripting, collections, and mock servers, though it increasingly pushes cloud accounts.
@@ -45,7 +45,15 @@ You will constantly poke at HTTP endpoints. Options:
 
 ## The dotnet CLI and Global Tools
 
-The `dotnet` CLI is the backbone of automation and CI. Beyond `build`, `test`, and `publish`, learn `dotnet user-secrets`, `dotnet ef`, and `dotnet watch` for a fast inner loop. Global tools (`dotnet tool install -g`) give you reusable utilities; a `dotnet-tools.json` manifest with `dotnet tool restore` pins tool versions per repo so everyone runs the same ones.
+The `dotnet` CLI is the backbone of automation and CI, and it is a driver. Built-in commands ship with the SDK: `build`, `test`, `publish`, `format`, `user-secrets`, `watch`. Everything else is a **.NET tool**, a NuGet package that contains a console app, and you choose where it lives:
+
+- **Global** (`dotnet tool install -g dotnet-ef`): installed once per user in `~/.dotnet/tools` (`%USERPROFILE%\.dotnet\tools` on Windows), which is on `PATH`. Convenient, but every machine has whatever version someone installed.
+- **Local**: `dotnet new tool-manifest` creates `.config/dotnet-tools.json`; `dotnet tool install dotnet-ef` (no `-g`) pins a version in it; a fresh clone or a CI agent runs `dotnet tool restore`. Commit the manifest: the CLI runs whatever it lists.
+- **One-shot** (.NET 10 SDK): `dnx dotnet-counters monitor -p 1234` (or `dotnet tool exec`) runs a tool without installing it, and honours a nearby manifest's version.
+
+A tool whose command starts with `dotnet-` can also be called as `dotnet <rest>`, which is why `dotnet ef` looks built in and isn't.
+
+> **Pay attention.** **Where `dotnet-counters`, `dotnet-trace` and `dotnet-dump` come from, and why they can't see your container.** They are .NET tools from NuGet, not part of the SDK or the runtime. Each one talks to a running process through the runtime's *diagnostic port*: a named pipe `dotnet-diagnostic-{pid}` on Windows, and a Unix domain socket `dotnet-diagnostic-{pid}-…-socket` in `$TMPDIR` (or `/tmp`) on Linux and macOS. A tool on the host can't find a process in a container, because that socket lives in the container's `/tmp` and the PID belongs to the container's namespace. Run the tool inside the container (the docs publish single-file builds for images without an SDK), or share `/tmp` with a sidecar. `DOTNET_EnableDiagnostics=0` closes the port, and with it every one of these tools.
 
 ## Git GUIs
 

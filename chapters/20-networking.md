@@ -1,6 +1,6 @@
 # Chapter 20: Networking & Web Fundamentals
 
-_⏱️ Estimated read time: ~26 min ·     4479 words (study pace)_
+_⏱️ Estimated read time: ~40 min · 6651 words (study pace)_
 
 Most application bugs that keep senior engineers up at night are not really *code* bugs. They are *network* bugs wearing a code costume. A method that works flawlessly on your laptop times out in production. A service that handled a thousand requests per second suddenly throws `SocketException` under load. A cross-origin `fetch` gets blocked by the browser for reasons nobody on the team can quite articulate.
 
@@ -109,19 +109,17 @@ Cache-Control: max-age=60
 
 Every request has a **method** (verb), a **path**, **headers** (metadata as key-value pairs), and an optional **body**. Responses have a **status code**, headers, and a body.
 
-**Statelessness** is the crucial architectural property. HTTP itself remembers nothing between requests. Each request must carry everything the server needs to understand it. Cookies, tokens, and sessions all exist to *simulate* state on top of a stateless protocol. This statelessness is exactly what makes horizontal scaling possible — any server can handle any request because none of them hold conversation state (assuming you keep session data in a shared store, not in-process memory).
+**Statelessness** is the crucial property: each request carries everything the server needs, and cookies, tokens and sessions *simulate* state on top. It is what makes horizontal scaling possible — any server can handle any request, as long as session data lives in a shared store, not in-process memory.
 
 ### HTTP Methods and Idempotency
 
-The methods carry semantic meaning that the whole ecosystem (caches, proxies, retries) relies on:
+Caches, proxies and retry policies act on two properties of the method (RFC 9110):
 
-- **GET** — read, no side effects, *safe* and *cacheable*.
-- **POST** — create or "do something"; **not** idempotent.
-- **PUT** — replace a resource wholesale; idempotent.
-- **PATCH** — partial update.
-- **DELETE** — remove; idempotent.
+- **Safe** — the client asks for no state change: `GET`, `HEAD`, `OPTIONS`, `TRACE`. Safe responses can be cached and prefetched.
+- **Idempotent** — N identical requests have the same effect on the server as one: every safe method, plus `PUT` and `DELETE`. It is about the effect, not the response: a second `DELETE` may answer `404` and is still idempotent.
+- **Neither** — `POST` ("process this"), and `PATCH` unless you design it to be.
 
-> **Best practice:** *Idempotency* means calling N times has the same effect as calling once. It is not academic — it decides whether it is safe to auto-retry. A proxy or your Polly retry policy can safely retry a GET or PUT after a timeout; retrying a POST might charge a credit card twice. Design your APIs so that anything retriable is idempotent, and use idempotency keys for POSTs that must not double-execute (Chapter 21 covers the mechanics).
+> **Pay attention.** **Idempotency decides who may retry without asking.** After a timeout the client can't know whether the request ran, so HTTP lets clients and proxies repeat idempotent requests automatically and tells them not to repeat the others. Retrying a `PUT` is harmless; retrying a `POST` may charge a card twice. Make every retriable operation idempotent, and give a `POST` that must not run twice an idempotency key ([Chapter 3: Idempotency Keys: Making POST Retry-Safe](#idempotency-keys-making-post-retry-safe)).
 
 ## HTTP/1.1 vs HTTP/2 vs HTTP/3: A History of Fixing Head-of-Line Blocking
 
@@ -210,7 +208,7 @@ app.UseCors("api");
 
 ## Status Codes and Headers That Matter
 
-Status codes group into five families. Senior developers use them *precisely* because tooling depends on them:
+Status codes group into five families. Clients, proxies and dashboards act on the code without reading the body:
 
 - **1xx** Informational (rare; `101 Switching Protocols` for WebSocket upgrade).
 - **2xx** Success — `200 OK`, `201 Created` (with a `Location` header), `204 No Content`.
@@ -218,17 +216,13 @@ Status codes group into five families. Senior developers use them *precisely* be
 - **4xx** Client error — `400` bad request, `401` unauthenticated, `403` authenticated-but-forbidden, `404` not found, `409` conflict, `422` unprocessable, `429` too many requests.
 - **5xx** Server error — `500` unhandled, `502` bad gateway (proxy got garbage upstream), `503` unavailable (overloaded/deploying), `504` gateway timeout.
 
-> **Best practice:** The `401` vs `403` distinction trips people up. `401` means "I don't know who you are — authenticate." `403` means "I know who you are, and you may not do this." Returning the wrong one confuses clients and leaks information.
+> **Best practice:** The `401` vs `403` distinction trips people up. `401` means "I don't know who you are — authenticate", and it must carry a `WWW-Authenticate` header naming how; clients react by refreshing a token or prompting. `403` means "I know who you are, and you may not do this": re-authenticating won't help, so clients shouldn't try.
 
 Headers worth knowing cold: `Content-Type` and `Accept` (content negotiation), `Authorization`, `Cache-Control` and `ETag` (caching, below), `Content-Encoding` (gzip/brotli compression), `Retry-After` (paired with `429`/`503`), and `X-Forwarded-For`/`X-Forwarded-Proto` (the client's real IP/scheme, injected by proxies — trust these only from proxies you control).
 
 ## Keep-Alive, Connection Pooling, and Socket Exhaustion
 
-Opening a TCP connection (and worse, a TLS handshake) is expensive — multiple round-trips before a single byte of your data moves. **Keep-alive** (persistent connections, the default in HTTP/1.1) reuses one connection for many requests. **Connection pooling** takes this further: a pool of warm, reused connections shared across requests.
-
-This is where .NET developers hit one of the most infamous bugs in the ecosystem: **socket exhaustion.**
-
-The naive pattern looks innocent:
+Handshakes cost round-trips (TCP, then TLS), so HTTP clients keep connections alive and pool them for requests to share. Skip the pool and you get one of the most infamous bugs in .NET, **socket exhaustion**:
 
 ```csharp
 // DO NOT DO THIS in a loop / per request
@@ -238,9 +232,19 @@ using (var client = new HttpClient())
 }
 ```
 
-`HttpClient` is `IDisposable`, so the instinct is to `using` it. But disposing it does **not** immediately release the underlying TCP socket — the socket lingers in the OS `TIME_WAIT` state for up to ~4 minutes. Under load, you create thousands of sockets faster than the OS reclaims them, exhaust the ephemeral port range, and start throwing `SocketException: Only one usage of each socket address is normally permitted`. Ironically, the "correct-looking" disposal code causes the leak.
+Each `new HttpClient()` gets its own handler and connection pool, so every call opens a connection and `Dispose` closes it. The side that closes first holds the connection in `TIME_WAIT`, so that stray packets can't reach a new one, and its local port with it: 60 s on Linux (a kernel constant), 4 minutes by default on Windows. Open connections faster than ports come back and the ephemeral range runs dry: `HttpRequestException: Cannot assign requested address` on Linux (`SocketError.AddressNotAvailable`), typically *Only one usage of each socket address…* on Windows. The correct-looking `using` is the cause.
 
-**The fix is `IHttpClientFactory`.** It manages a pool of long-lived `HttpMessageHandler` instances (which own the connections) behind short-lived `HttpClient` façades. You get a fresh, cheap `HttpClient` per use, but connections are pooled and reused underneath:
+> **Pay attention.** **Why it passes every test and fails at the peak.**
+>
+> `TIME_WAIT` turns a per-call habit into a ceiling on *new connections per second*:
+>
+> - **Linux:** 28,232 ephemeral ports (32768–60999) ÷ 60 s ≈ 470 per second to each destination.
+> - **Windows:** 16,384 (49152–65535) ÷ 240 s ≈ 68 per second.
+> - **Azure App Service:** 128 preallocated SNAT ports per instance and destination, reclaimed four minutes after close: above about one new connection every two seconds, the instance waits for Azure to allocate more ([Case 3](#case-3-intermittent-timeouts-under-load-with-every-dashboard-green) in Chapter 51).
+>
+> Tests and dev boxes never reach these rates; a traffic peak does. Only a load test with real outbound calls finds it, and only connection reuse fixes it.
+
+**The fix is `IHttpClientFactory`**, which pools the handlers that own the connections behind cheap `HttpClient` façades ([Chapter 3](#ihttpclientfactory-resilience-with-polly) has the design and typed clients). A named client:
 
 ```csharp
 // Registration
@@ -261,7 +265,7 @@ public class GitHubService(IHttpClientFactory factory)
 }
 ```
 
-This also solves the **DNS staleness** problem from earlier. The factory recycles handlers on a configurable schedule (default 2 minutes), forcing periodic DNS re-resolution. If you instead keep a single static `HttpClient` for the whole app lifetime (also valid, and avoids exhaustion), set `PooledConnectionLifetime` on a `SocketsHttpHandler` so pooled connections are retired and DNS is refreshed:
+`HttpClient` resolves DNS only when it opens a connection, and closes a pooled one only after a minute idle, so it never retires a busy connection. The factory's handler rotation (every two minutes by default) is what refreshes DNS, the [gotcha](#dns-resolution) above. One long-lived `HttpClient`, also valid, needs `PooledConnectionLifetime` instead:
 
 ```csharp
 var handler = new SocketsHttpHandler
@@ -272,7 +276,7 @@ var handler = new SocketsHttpHandler
 var client = new HttpClient(handler);
 ```
 
-> **Best practice:** Do **not** create a new `HttpClient` per request, and do **not** wrap it in `using`. Either use `IHttpClientFactory` (preferred, integrates with typed clients and Polly resilience), or use one long-lived instance with `PooledConnectionLifetime` set. The factory also cleanly layers in retries, circuit breakers, and timeouts via `Microsoft.Extensions.Http.Resilience`.
+> **Best practice:** Never `new` up an `HttpClient` per request. Use `IHttpClientFactory` (typed clients, plus resilience via `Microsoft.Extensions.Http.Resilience`), or one long-lived instance with `PooledConnectionLifetime` set.
 
 ## Load Balancers, Reverse Proxies, API Gateways, and CDNs
 

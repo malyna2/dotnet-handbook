@@ -231,6 +231,58 @@ var navEl=document.getElementById("nav");
 var outlineEl=document.getElementById("outline");
 var current=null;
 var pendingFind=null, pendingResume=null, pendingSection=null;
+
+/* ---------------- Learning paths: Part 1 · Part 2 · Full book ----------------
+   build_site.py gives every entry a group: "home", "part1" (Junior → Middle), "part2"
+   (Middle → Senior) or "book" (the chapters). The bar under the top bar picks which group
+   the sidebar lists; opening a Part 1 or Part 2 page switches to its part. The choice is a
+   per-viewer convenience kept in localStorage ("view"), so it may be absent: default "book". */
+var partbar=document.getElementById("partbar");
+var GROUPS={part1:[], part2:[], book:[]};
+BOOK.forEach(function(c){ var g=c.group||(c.part==="__home__"?"home":"book"); c.group=g; if(GROUPS[g]) GROUPS[g].push(c); });
+var view=(function(){ var v=null; try{ v=localStorage.getItem("view"); }catch(e){}
+  return (v && GROUPS[v] && GROUPS[v].length) ? v : "book"; })();
+function partLabel(g){            // "Part 1 — Junior → Middle" -> ["Part 1", "Junior → Middle"]
+  if(g==="book") return ["Full book",""];
+  var first=GROUPS[g][0], s=(first&&first.part||"").split(" — ");
+  return [s[0]||g, s[1]||""];
+}
+function buildPartbar(){
+  var html="";
+  ["part1","part2","book"].forEach(function(g){
+    if(!GROUPS[g].length) return;
+    var l=partLabel(g), target=g==="book"?BOOK[0]:GROUPS[g][0];
+    html+='<a class="pb-tab" href="#/'+target.slug+'" data-group="'+g+'">'+esc(l[0])+
+      (l[1]?'<span class="pb-sub">'+esc(l[1])+'</span>':'')+'</a>';
+  });
+  if(!GROUPS.part1.length && !GROUPS.part2.length) html="";   // nothing to choose between
+  partbar.innerHTML=html;
+  if(!html) document.documentElement.style.setProperty("--bars","56px");
+  partbar.querySelectorAll(".pb-tab").forEach(function(a){
+    a.addEventListener("click",function(ev){
+      ev.preventDefault();
+      var g=a.getAttribute("data-group");
+      setView(g);
+      navigate(g==="book"?BOOK[0].slug:GROUPS[g][0].slug);
+    });
+  });
+  markPartbar();
+}
+function markPartbar(){
+  partbar.querySelectorAll(".pb-tab").forEach(function(a){
+    var on=a.getAttribute("data-group")===view;
+    a.classList.toggle("active",on);
+    if(on) a.setAttribute("aria-current","true"); else a.removeAttribute("aria-current");
+  });
+}
+function setView(g){
+  if(!GROUPS[g] || !GROUPS[g].length || g===view) return;
+  view=g;
+  try{ localStorage.setItem("view",g); }catch(e){}
+  buildNav();
+  if(current) highlightNav(current.slug);
+  markPartbar();
+}
 var _saveT;
 // Per-chapter reading *progress* — a percent, a sticky "finished" flag, and the index of
 // the block you had reached — drives the sidebar bars, ✓ marks, and the Continue button.
@@ -240,7 +292,7 @@ var _saveT;
 function topBlockIndex(){
   var kids=content.children;
   for(var i=0;i<kids.length;i++){
-    if(kids[i].getBoundingClientRect().bottom>100) return i;
+    if(kids[i].getBoundingClientRect().bottom>140) return i;
   }
   return 0;
 }
@@ -269,7 +321,7 @@ function resumeTo(c){
   var d=savedPos(c.slug); if(!d) return;
   if(typeof d.i==="number" && d.i>0 && d.i<content.children.length){
     var el=content.children[d.i];
-    window.scrollTo(0, el.getBoundingClientRect().top+window.pageYOffset-90);
+    window.scrollTo(0, el.getBoundingClientRect().top+window.pageYOffset-130);
   }
 }
 function resetProgress(slug){
@@ -297,16 +349,16 @@ function readTime(md){
 function buildNav(){
   var html="", lastPart=null;
   BOOK.forEach(function(c){
-    if(c.part==="__home__") return;
+    if(c.group!==view) return;
     if(c.part!==lastPart){ html+='<div class="part">'+esc(c.part)+"</div>"; lastPart=c.part; }
     var rt=readTime(c.md);
     var numMatch=c.title.match(/^(Chapter\s+\d+|Appendix\s+[A-Z])/);
-    var num=numMatch?numMatch[1].replace("Chapter ","").replace("Appendix ","App "):"";
+    var num=typeof c.num==="string"?c.num:(numMatch?numMatch[1].replace("Chapter ","").replace("Appendix ","App "):"");
     html+='<a href="#/'+c.slug+'" data-slug="'+c.slug+'"><span class="num">'+esc(num)+
       '</span>'+esc(c.nav)+(rt?'<span class="rt">'+rt+'</span>':'')+navActs(c.slug)+'</a>';
   });
   navEl.innerHTML=html;
-  BOOK.forEach(function(c){ if(c.part!=="__home__") updateNavProgress(c.slug); });
+  BOOK.forEach(function(c){ if(c.group===view) updateNavProgress(c.slug); });
 }
 // Continue / Reset, shown only once a chapter has progress to act on. These live inside
 // the nav <a>, so their handlers must stop the click from also following the link.
@@ -353,13 +405,14 @@ function navigate(slug, sec){
 }
 function scrollToId(id){
   var el=document.getElementById(id); if(!el) return false;
-  window.scrollTo(0, el.getBoundingClientRect().top+window.pageYOffset-70);
+  window.scrollTo(0, el.getBoundingClientRect().top+window.pageYOffset-110);
   return true;
 }
 function go(slug, push){
   saveProgress();
   var c=bySlug[slug]||BOOK[0];
   current=c;
+  if(c.group==="part1"||c.group==="part2") setView(c.group);
   removePopup();
   usedIds={};
   content.innerHTML=render(c.md);
@@ -391,9 +444,23 @@ function postProcess(c){
     });
   });
   if(c.part==="__home__"){
+    if(GROUPS.part1.length || GROUPS.part2.length){
+      var ph=document.createElement("h2"); ph.textContent="Start with a learning path";
+      var pg=document.createElement("div"); pg.className="home-grid paths";
+      ["part1","part2"].forEach(function(g){
+        var list=GROUPS[g]; if(!list.length) return;
+        var l=partLabel(g), modules=list.filter(function(x){ return x.num; }).length;
+        var pa=document.createElement("a"); pa.className="home-card path-card"; pa.href="#/"+list[0].slug;
+        pa.innerHTML='<div class="hc-num">'+esc(l[0])+'</div><div class="hc-ttl">'+esc(l[1])+'</div>'+
+          '<div class="hc-rt">'+modules+' modules</div>';
+        pa.addEventListener("click",function(ev){ ev.preventDefault(); setView(g); navigate(list[0].slug); });
+        pg.appendChild(pa);
+      });
+      content.appendChild(ph); content.appendChild(pg);
+    }
     var grid=document.createElement("div"); grid.className="home-grid";
     BOOK.forEach(function(ch){
-      if(ch.part==="__home__") return;
+      if(ch.group!=="book") return;
       var rt=readTime(ch.md);
       var numMatch=ch.title.match(/^(Chapter\s+\d+|Appendix\s+[A-Z])/);
       var a=document.createElement("a"); a.className="home-card"+(isDone(ch.slug)?" done":""); a.href="#/"+ch.slug;
@@ -436,7 +503,7 @@ function buildOutline(c){
   });
 }
 function buildPager(c){
-  var list=BOOK.filter(function(x){return x.part!=="__home__";});
+  var list=GROUPS[c.group]||[];
   var idx=list.indexOf(c);
   var prev=idx>0?list[idx-1]:null, next=idx>=0&&idx<list.length-1?list[idx+1]:null;
   var p=document.getElementById("pager"); p.innerHTML="";
@@ -720,7 +787,7 @@ window.addEventListener("scroll",function(){
   scheduleSave();
   var links=outlineEl.querySelectorAll("a"); var activeId=null;
   content.querySelectorAll("h2,h3").forEach(function(hd){
-    if(hd.getBoundingClientRect().top<120) activeId=hd.id;
+    if(hd.getBoundingClientRect().top<150) activeId=hd.id;
   });
   links.forEach(function(a){a.classList.toggle("active",a.dataset.id===activeId);});
   var _act=outlineEl.querySelector("a.active");
@@ -813,6 +880,7 @@ wnModal.addEventListener("click",function(e){ if(e.target===wnModal) wnHide(); }
 function currentSlug(){var m=location.hash.match(/^#\/(.+)$/);return m?m[1]:null;}
 window.addEventListener("hashchange",function(){var s=currentSlug();if(s)go(s,false);});
 window.addEventListener("beforeunload", saveProgress);
+buildPartbar();
 buildNav();
 // A shared link's hash still wins; otherwise always start at the front of the book.
 go(currentSlug()||BOOK[0].slug,false);

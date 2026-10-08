@@ -1,0 +1,5 @@
+<Solution>
+  <!-- For IDEs only. verify.sh and capture.sh build Tests/LearningPath.Tests.csproj, which picks up
+       every experiment folder by glob, so a new experiment needs no entry here to be verified. -->
+  <Project Path="Tests/LearningPath.Tests.csproj" />
+</Solution>

@@ -1,6 +1,6 @@
 # Chapter 22: Background Processing, Scheduling & the Actor Model
 
-_⏱️ Estimated read time: ~28 min ·     3883 words (study pace)_
+_⏱️ Estimated read time: ~35 min · 4678 words (study pace)_
 
 Almost every non-trivial system does work that no user is waiting on: sending emails, retrying failed payments, rebuilding search indexes, aggregating metrics, cleaning up expired data. The naive approach - do it inline on the request thread - couples user-facing latency to work that has no business being on the hot path, and it silently loses that work whenever a request is cancelled or a pod restarts.
 
@@ -155,6 +155,72 @@ The moment you run more than one instance of your service - and in any serious d
 You cannot engineer this possibility away entirely. Distributed systems give you **at-least-once** delivery as the practical default; exactly-once is a comforting fiction that, when you look closely, is always at-least-once plus idempotent processing (Chapter 9 explains why). So the senior move is to stop fighting duplicates and instead make processing **idempotent** - safe to run more than once with the same net effect. The implementation - dedupe on a natural or supplied idempotency key, with a unique index as your backstop - is covered in Chapter 21; apply it to every handler a worker runs.
 
 For the polling contention itself, options range from a `SELECT ... FOR UPDATE SKIP LOCKED` (PostgreSQL) to claiming rows with an atomic `UPDATE ... SET LockedBy = @me WHERE ...`, to simply electing a single leader (covered in Part B) so only one instance polls at all. The right answer depends on throughput, but the principle is constant: **assume duplicates and design so they don't hurt.**
+
+## Async Request-Reply: 202, a Status Resource, and Retry-After
+
+Some work doesn't fit in a request: a four-minute report, a transcode, an import. Keep it in the request and three things break. Front ends cut long requests (App Service at 230 seconds: [Chapter 51, Case 11](#case-11-large-uploads-fail-at-almost-exactly-four-minutes)). A client that times out retries, and the server, which never noticed the first client leave, does the work twice. And the final `200` promises work that happens only if nothing crashes first. The Azure Architecture Center's *Asynchronous Request-Reply* pattern replaces the one long request with a short `POST` that creates a job and short `GET`s that read it:
+
+```
+client                                   API                                     worker
+  │ POST /reports                          │ validate: a bad request gets its 400 now
+  │ Idempotency-Key: 5f3b… ───────────────►│ one transaction: job row (Pending) + outbox row
+  │◄── 202 Accepted ───────────────────────│        relay ──► queue ──► claim the job, run it,
+  │    Location: /jobs/7                   │                            Status = Succeeded
+  │    Retry-After: 5                      │
+  │ GET /jobs/7 ──────────────────────────►│ 200 { "status": "Running", … }
+  │ GET /jobs/7 ──────────────────────────►│ 303 See Other, Location: /reports/7
+  │ GET /reports/7 ───────────────────────►│ 200 the report
+```
+
+**The `POST` does only what must be synchronous.** It validates, then records the job and an outbox message in one transaction ([Chapter 9: The Transactional Outbox](#the-transactional-outbox)); publishing to the broker after the commit would be the dual write again. It answers `202 Accepted` with `Location`, the status resource (not the result), and `Retry-After`, the seconds until a poll is worth making. A unique index on the idempotency key turns a retried `POST` into a lookup of the job it already created; [Chapter 3: Idempotency Keys](#idempotency-keys-making-post-retry-safe) has the claim-first mechanics.
+
+```csharp
+app.MapPost("/reports", async (ReportRequest request, [FromHeader(Name = "Idempotency-Key")] string key,
+                               AppDbContext db, HttpResponse response, CancellationToken ct) =>
+{
+    if (!request.TryValidate(out var errors)) return Results.ValidationProblem(errors);
+
+    var job = new Job { Id = Guid.NewGuid(), IdempotencyKey = key, Status = JobStatus.Pending, CreatedAt = DateTimeOffset.UtcNow };
+    db.Jobs.Add(job);
+    db.Outbox.Add(OutboxMessage.For(new GenerateReport(job.Id, request)));   // one SaveChanges, one transaction
+    try { await db.SaveChangesAsync(ct); }
+    catch (DbUpdateException e) when (IsUniqueViolation(e))                 // a retry: this key already has a job
+    {
+        db.ChangeTracker.Clear();
+        job = await db.Jobs.SingleAsync(j => j.IdempotencyKey == key, ct);
+    }
+    response.Headers.RetryAfter = "5";
+    return Results.Accepted($"/jobs/{job.Id}", new { job.Id, job.Status });
+});
+
+app.MapGet("/jobs/{id:guid}", async (Guid id, AppDbContext db, HttpResponse response, CancellationToken ct) =>
+{
+    Job? job = await db.Jobs.FindAsync([id], ct);
+    if (job is null) return Results.NotFound();
+    if (job.Status != JobStatus.Succeeded)
+        return Results.Ok(new { job.Status, job.CreatedAt, job.LastUpdatedAt, job.Error });  // Error: RFC 9457 problem details
+    response.Headers.Location = $"/reports/{job.Id}";       // the Redirect helpers send 301/302/307/308, never 303
+    return Results.StatusCode(StatusCodes.Status303SeeOther);
+});
+```
+
+**The status resource answers `200` until the job is done.** Its body carries a documented set of states (`Pending`, `Running`, `Succeeded`, `Failed`, `Canceled`), the timestamps that tell a slow job from a stuck one, and a problem-details `error` when it fails. On success it answers `303 See Other` to the result. A `303` makes the client follow with a `GET`; on a `302`, some clients replay the original method. Don't answer `404` for "not ready yet": the client can't tell it from a wrong ID.
+
+**The worker is a `BackgroundService`** reading the queue (or a queue-triggered Function). Delivery is at-least-once, so it claims the job with a conditional update before running it:
+
+```csharp
+DateTimeOffset now = DateTimeOffset.UtcNow;
+int claimed = await db.Jobs
+    .Where(j => j.Id == message.JobId
+             && (j.Status == JobStatus.Pending || (j.Status == JobStatus.Running && j.LeaseUntil < now)))
+    .ExecuteUpdateAsync(s => s.SetProperty(j => j.Status, JobStatus.Running)
+                              .SetProperty(j => j.LeaseUntil, now.AddMinutes(15)), ct);
+if (claimed == 0) return;   // another delivery owns it or finished it: complete the message, do nothing
+```
+
+The lease lets a redelivery take over a job whose worker died mid-run, so a rerun must be safe: write the result keyed by the job ID, overwriting any partial one. A transient failure throws, and the broker redelivers the message; a permanent one, such as input that validation couldn't catch, is dead-lettered at once. Either way the job must end `Failed`, with a reason someone can act on: set by the worker on a permanent failure or on the last attempt, by whatever drains the dead-letter queue, or by a sweeper that fails jobs whose `LastUpdatedAt` has stopped moving. A status stuck at `Running` is the HTTP face of a dead-letter queue nobody watches.
+
+**Clients poll, or get called back.** A polling client waits `Retry-After` between `GET`s and gives up at a deadline. A callback (a webhook, a SignalR message) saves the polling, but needs a reachable, authenticated endpoint on the client's side and is itself delivered at-least-once ([Chapter 26](#chapter-26-real-world-engineering-essentials) covers webhook signatures), so keep polling as the fallback. Expose `DELETE /jobs/{id}` if a job can be cancelled, and delete old jobs and results on a retention schedule.
 
 ---
 
@@ -441,6 +507,7 @@ The arc of this chapter is a maturation in how you think about "later" work. A `
 
 - Microsoft Learn — *Worker Services in .NET* and *Background tasks with hosted services in ASP.NET Core* (`IHostedService`, `BackgroundService`, graceful shutdown).
 - Microsoft Learn — *Implement the outbox pattern* and .NET microservices architecture guidance (transactional outbox, at-least-once, idempotency).
+- Azure Architecture Center — *Asynchronous Request-Reply pattern* (`202 Accepted`, `Location`, `Retry-After`, the status endpoint and `303 See Other`); RFC 9110 for the status-code semantics.
 - Microsoft Learn — *Microsoft Orleans documentation*: Overview, Grains, Grain persistence, Silos & clustering, and the "Hello World" / minimal application tutorials (https://learn.microsoft.com/dotnet/orleans/).
 - Hangfire Documentation — Background Methods (fire-and-forget, delayed, recurring, continuations), Dashboard, and persistent storage providers (https://docs.hangfire.io/).
 - Quartz.NET Documentation — Jobs and Triggers, Cron Triggers, and hosted-service integration (https://www.quartz-scheduler.net/documentation/).

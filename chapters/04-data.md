@@ -1,6 +1,6 @@
 # Chapter 4: Data Access & Databases
 
-_⏱️ Estimated read time: ~1 h 5 min · 10117 words (study pace)_
+_⏱️ Estimated read time: ~1 h 15 min · 11660 words (study pace)_
 
 Almost every non-trivial application is, underneath all its features, a machine for moving data in and out of a database safely and quickly. You can write flawless business logic and beautiful APIs, but if your data access layer holds locks too long, fires a thousand queries where one would do, or corrupts a balance under concurrent writes, the whole system fails in ways that are hard to reproduce and harder to fix. This chapter takes you from the mechanics of Entity Framework Core down to the SQL and storage engine underneath it, then back up through caching, NoSQL, and deployment. The goal is that you stop treating the database as a black box and start reasoning about what it actually does.
 
@@ -341,13 +341,13 @@ WHERE o.Status = 'Open';
 
 ### Indexes: Clustered, Non-Clustered, Covering
 
-An index is to a table what the index at the back of a book is to its pages: a sorted structure that lets the engine find rows without scanning everything. Without indexes, a `WHERE` on a million-row table means reading all million rows — a **table scan**.
+An index is a copy of some of a table's columns, kept sorted by its key in a B-tree, so the engine can find rows without reading every page. Without one, a `WHERE` on a million-row table reads all million rows: a **table scan**.
 
-A **clustered index** *is* the table, physically sorted by the index key. Because the data itself is ordered this way, a table can have only one clustered index — usually the primary key. Looking up by the clustered key is the fastest possible read.
+A **clustered index** *is* the table: its leaf pages hold the rows themselves, in key order. A table has only one, usually the primary key (SQL Server makes the primary key clustered unless a clustered index already exists), and a lookup by the clustered key is the cheapest read there is.
 
-A **non-clustered index** is a separate structure holding the indexed columns plus a pointer back to the full row. Finding a row by a non-clustered index takes two steps: search the index, then follow the pointer to fetch the rest of the row — an operation called a **key lookup**.
+A **non-clustered index** is a separate B-tree whose leaf rows hold the indexed columns plus the row's locator: the clustered key, or a row ID on a table without a clustered index. Every column the query needs beyond those costs a **key lookup**: one more descent, through the clustered index, per matching row.
 
-A **covering index** eliminates that second step by *including* the extra columns the query needs directly in the index, via `INCLUDE`:
+A **covering index** removes that step by *including* the extra columns in its leaf rows:
 
 ```sql
 -- Query: SELECT Email, Name FROM Customers WHERE City = 'Berlin'
@@ -356,13 +356,33 @@ CREATE NONCLUSTERED INDEX IX_Customers_City
     INCLUDE (Email, Name);   -- now the index alone answers the query
 ```
 
-The query is *covered* — everything it needs lives in the index, so no key lookups occur.
+The query is *covered*: everything it needs lives in the index, so no key lookups occur. Because the clustered key sits in every non-clustered index, `SELECT Id FROM Customers WHERE Email = @e` is covered by an index on `Email` alone, and a wide clustered key widens every other index.
+
+> **Pay attention.** **Why a composite index serves only its leftmost prefix.** An index on `(City, CreatedAt)` is sorted by `City`, and by `CreatedAt` only within each city, like a phone book sorted by surname and then first name. A seek needs one contiguous range of that order:
+>
+> - `City = @c` is one contiguous block: a seek.
+> - `City = @c AND CreatedAt >= @d` is one range inside that block: a seek on both columns, and the rows come out in date order, so `ORDER BY CreatedAt` needs no sort.
+> - `CreatedAt >= @d` alone has no range: its rows sit in every city's block, so the engine scans the whole index and filters.
+> - In `(CreatedAt, City)`, the range on the *first* column makes the second one useless for seeking: inside a date range the cities are in no order. SQL Server seeks to the start of the range and checks `City` row by row, as a residual `WHERE:` in the seek operator, reading every row of the period to keep one city's.
+>
+> So: equality columns first, then the one range or sort column, and check that every column you meant to seek on appears in the plan's seek predicate. On SQL Server 2022 CU27 (200,000 rows, 4 vCPU, warm cache), `CreatedAt >= @p` scanned `(City, CreatedAt)` for 712 logical reads, while `City = @p AND CreatedAt >= …` sought it for 3 ([`seek-vs-scan.txt`](https://github.com/malyna2/dotnet-handbook/blob/main/verify/path/reference-runs/seek-vs-scan.txt)). Rung 6 of [Chapter 37](#chapter-37-the-slow-query-lab-reading-execution-plans) measures the wrong order on PostgreSQL.
 
 > **Pitfall:** Indexes speed up reads but slow down writes, because every `INSERT`/`UPDATE`/`DELETE` must maintain them. Do not index every column. Index the columns you filter, join, and sort on, and measure.
 
 ### Execution Plans
 
-The execution plan is the database's step-by-step strategy for a query: which indexes it uses, in what order it joins, whether it scans or seeks. An **index seek** (jumping straight to matching rows) is good; an **index scan** or **table scan** on a large table under a selective filter usually signals a missing index. In SQL Server you view it with `SET SHOWPLAN_ALL ON` or the graphical plan in SSMS; watch for scans, expensive key lookups, and warnings about missing indexes.
+The execution plan is the engine's strategy for a query: which indexes it reads, in what order it joins, whether it seeks or scans. An **index seek** jumps to one contiguous range of an index; an **index scan** reads all of it (a clustered index scan is a table scan). A scan of a large table under a selective filter usually means a missing index or a predicate the index can't use.
+
+Read the *actual* plan. In SSMS, *Include Actual Execution Plan* (Ctrl+M); in a script, `SET STATISTICS XML ON` or `SET STATISTICS PROFILE ON`. `SET SHOWPLAN_ALL ON` and the estimated plan don't run the query, so they have no actual row counts. Add `SET STATISTICS IO ON` for each table's **logical reads**: the 8 KB pages the query touched in memory. They measure the work, so unlike milliseconds they come out the same on a laptop and on a server. Then look for scans under a selective filter, key lookups multiplied by many rows, estimates far from actual row counts, and warnings.
+
+A predicate can seek only if it is **sargable**: it compares the stored column itself with a value. Wrap the column in a function (`LOWER(Email)`, `YEAR(CreatedAt) = 2026`), compute with it, or start a `LIKE` with `%`, and the engine must evaluate the expression for every row: a scan. Rewrite the predicate around the bare column (`CreatedAt >= '2026-01-01' AND CreatedAt < '2027-01-01'`), or index the expression (a computed column in SQL Server, an expression index in PostgreSQL).
+
+> **Pay attention.** **A .NET `string` against a `varchar` column can turn a seek into a scan.** SqlClient and Dapper send a C# `string` as `nvarchar`, and so does EF Core for a property mapped as Unicode, the default. `nvarchar` has the higher data-type precedence, so SQL Server converts the *column*, `CONVERT_IMPLICIT(nvarchar(100),[Email],0)`, not the parameter. Whether that still seeks depends on the column's collation:
+>
+> - **Under a SQL collation**, `varchar` is compared with the collation's own sort rules and `nvarchar` with Unicode rules, and the two orders differ: `'a-c' < 'ab'`, but `N'a-c' > N'ab'`. The index's `varchar` order can't answer the converted comparison, so the plan scans the index, and the XML plan carries `<PlanAffectingConvert ConvertIssue="Seek Plan" …>`. `SQL_Latin1_General_CP1_CI_AS` is one: the setup default for US English installations and the default collation of a new Azure SQL database.
+> - **Under a Windows collation** (`Latin1_General_CI_AS`) both types follow the same rules, so the optimizer computes a seek range from the parameter (`GetRangeThroughConvert` in the plan) and still seeks. That is why the same code is fast on one database and slow on another.
+>
+> On SQL Server 2022 CU27 (16.0.4295.3, 200,000 rows, 4 vCPU, warm cache), the `nvarchar` parameter cost an Index Scan and 888 logical reads, the `varchar` one an Index Seek and 3; under a Windows collation the `nvarchar` parameter also read 3 ([`seek-vs-scan.txt`](https://github.com/malyna2/dotnet-handbook/blob/main/verify/path/reference-runs/seek-vs-scan.txt), [`collation.txt`](https://github.com/malyna2/dotnet-handbook/blob/main/verify/path/reference-runs/collation.txt)). The fix is a parameter of the column's type: in EF Core, `.IsUnicode(false).HasMaxLength(100)` on the property (`ToQueryString()` then shows `DECLARE @email varchar(100)` instead of `nvarchar(4000)`); in Dapper, `new DbString { Value = email, IsAnsi = true, Length = 100 }`; in ADO.NET, `SqlDbType.VarChar`. Or make the column `nvarchar`, so both sides agree.
 
 Reading plans is a skill worth acquiring properly rather than by pattern-matching, and it is easiest to learn on PostgreSQL, whose `EXPLAIN` output is plain text and tells you both what it *expected* and what actually *happened*. The next section does that in depth.
 
@@ -437,7 +457,7 @@ B-tree is the default and the right answer most of the time, but Postgres has a 
 
 The B-tree rules that matter in practice:
 
-- **Multi-column indexes obey the leftmost-prefix rule.** An index on `(customer_id, created_at)` serves `WHERE customer_id = ?`, and `WHERE customer_id = ? ORDER BY created_at`, but not `WHERE created_at > ?` alone. Put equality columns first, then the range or sort column.
+- **Multi-column indexes obey the leftmost-prefix rule.** An index on `(customer_id, created_at)` serves `WHERE customer_id = ?`, and `WHERE customer_id = ? ORDER BY created_at`, but not `WHERE created_at > ?` alone. Put equality columns first, then the range or sort column; [Indexes: Clustered, Non-Clustered, Covering](#indexes-clustered-non-clustered-covering) explains why.
 - **An index can supply the sort order.** If the index order matches the `ORDER BY`, the plan has no `Sort` node at all — the rows come out sorted. The direction and `NULLS FIRST/LAST` must match too.
 - **`INCLUDE` makes an index covering**, so the query can be answered without touching the heap.
 - **Partial indexes** index only the rows you actually query, which makes them dramatically smaller and cheaper to maintain.
@@ -929,18 +949,18 @@ This is the **N+1 problem**, twice, nested. It passes the test because 20 orders
 
 Two things make it worse than it looks. First, if lazy loading is *not* enabled, `order.Lines` is an empty collection and the endpoint silently returns wrong data instead of being slow — a worse failure. Second, each of those queries takes a connection from the pool, so this endpoint under concurrency exhausts the pool and degrades endpoints that have nothing to do with it.
 
-The fix is to project what you need in one query:
+The fix is to project the lines in one query and count the orders in another:
 
 ```csharp
-var summary = await db.Orders
+var lines = await db.Orders
     .Where(o => o.CustomerId == id)
     .SelectMany(o => o.Lines)
     .Select(l => new OrderLineDto(l.Sku, l.Quantity, l.Product.Name))
-    .AsNoTracking()
     .ToListAsync();
+var orderCount = await db.Orders.CountAsync(o => o.CustomerId == id);
 ```
 
-Note `AsNoTracking()` — nothing here is being modified, so paying for change tracking on 1,000 entities is pure waste. And note that the projection means EF never materialises the `Product` entity at all; it selects the single column it needs.
+Three statements in all, whatever the customer's size. The projection reads only the columns it names, so EF never materialises an `Order`, `OrderLine` or `Product`, and nothing is tracked: a result without entities is never tracked, so `AsNoTracking()` would change nothing here. A product shared by several lines is lazy-loaded only once per context, so 1,000 is the upper bound for the product queries.
 </details>
 
 ### What would you do

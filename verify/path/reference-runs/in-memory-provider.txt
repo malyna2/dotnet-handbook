@@ -1,0 +1,8 @@
+# Environment: Intel(R) Xeon(R) Processor @ 2.80GHz, 4 vCPU, 16 GB RAM, Ubuntu 24.04.5 LTS, .NET runtime 10.0.12, SDK 10.0.112
+# Captured: 2026-10-08 05:42 UTC by capture.sh
+# Program: InMemoryProvider, Release build
+
+InMemory: saved 2 users with the same email
+SQLite  : SQLite Error 19: 'UNIQUE constraint failed: Users.Email'.
+[process time: wall 1.468 s, user CPU 1.332 s, system CPU 0.100 s]
+[exit code 0]

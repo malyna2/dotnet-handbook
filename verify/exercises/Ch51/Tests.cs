@@ -96,8 +96,9 @@ public sealed class LockExpiryTests
     private const string EmulatorAdmin = "Endpoint=sb://localhost:5300;SharedAccessKeyName=RootManageSharedAccessKey;SharedAccessKey=SAS_KEY_VALUE;UseDevelopmentEmulator=true;";
     private const int MessageCount = 12;
 
-    // Scaled down so the test runs in seconds: a 5-second lock (the emulator's minimum) and a
-    // 1-second handler, instead of the chapter's 1-minute default lock and 2-second handler.
+    // Scaled down so the test runs in seconds: a 5-second lock and a 1-second handler, instead of
+    // the chapter's 1-minute default lock and 2-second handler. 5 s is a choice, not a floor: the
+    // Service Bus emulator 2.0.1 also accepted 1-second and 4-second lock durations.
     private static readonly TimeSpan LockDuration = TimeSpan.FromSeconds(5);
     private static readonly TimeSpan HandlerTime = TimeSpan.FromSeconds(1);
 

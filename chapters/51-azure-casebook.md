@@ -1,6 +1,6 @@
 # Chapter 51: The Azure Casebook — Real Incidents, Real Fixes
 
-_⏱️ Estimated read time: ~55 min · 9463 words (study pace)_
+_⏱️ Estimated read time: ~55 min · 9491 words (study pace)_
 
 [Chapter 50](#chapter-50-azure-in-depth-for-net-developers) explains how Azure works. This chapter is about what happens when it meets production. Each case is a situation that .NET teams on Azure run into again and again. They are composites of common incidents, not one company's post-mortem. For each one you get the same six parts:
 
@@ -119,7 +119,7 @@ properly respond after a period of time ... (payments.example.com:443)
 
 In Application Insights, failed dependency calls cluster by instance, and appear only above a certain request rate.
 
-**What is going on.** **SNAT port exhaustion.** Outbound connections from App Service to the internet go through source NAT, and each instance starts with a preallocated 128 SNAT ports. A code review finds this, called on every request:
+**What is going on.** **SNAT port exhaustion.** Outbound connections from App Service to the internet go through source NAT, and each instance starts with 128 preallocated SNAT ports for each destination address and port. A code review finds this, called on every request:
 
 ```csharp
 public async Task<PaymentResult> ChargeAsync(Charge charge, CancellationToken ct)
@@ -131,9 +131,9 @@ public async Task<PaymentResult> ChargeAsync(Charge charge, CancellationToken ct
 }
 ```
 
-Every call opens a new TCP connection. Disposing the client closes the connection, but the port stays reserved for a while after the close, and at a high request rate new connections arrive faster than ports are freed. Once the pool is empty, new connections wait for a port and then time out. Scaling out "helps a bit" because each instance brings its own ports, which is also a clue in itself.
+Every call opens a new TCP connection to the same host, and the load balancer reclaims a SNAT port only four minutes after its connection closes: above about one new connection every two seconds per instance, the preallocated ports run out ([Chapter 20](#keep-alive-connection-pooling-and-socket-exhaustion) has the arithmetic). New connections then wait for Azure to allocate a port or reclaim one, and under a burst they time out. Scaling out "helps a bit" because each instance brings its own ports, which is itself a clue.
 
-**How to confirm it.** In the portal: App Service → *Diagnose and solve problems* → the **SNAT Port Exhaustion** detector shows allocated and failed SNAT connections per instance. In code: search for `new HttpClient(`, `new BlobServiceClient(`, `new CosmosClient(`, `new ServiceBusClient(` and `new SqlConnection(` outside of start-up code.
+**How to confirm it.** In the portal: App Service → *Diagnose and solve problems* → the **SNAT Port Exhaustion** detector shows allocated and failed SNAT connections per instance. In code: search for `new HttpClient(`, `new BlobServiceClient(`, `new CosmosClient(` and `new ServiceBusClient(` outside of start-up code. (`new SqlConnection(` per call is fine: ADO.NET pools the physical connections.)
 
 **Fix.**
 
@@ -149,7 +149,7 @@ builder.Services.AddHttpClient<PaymentClient>(c => c.BaseAddress = new Uri(build
 
 **Prevent it.** Add an analyzer rule, or a review checklist item, against `new HttpClient()` in request paths. Load-test with realistic *outbound* traffic, not just inbound requests: SNAT problems never appear in tests that mock the providers.
 
-**Interview angle.** This is a good story because the diagnosis runs against intuition: the resource that ran out was not CPU or memory but ports, and the evidence was the per-instance clustering. Mention the [Chapter 20](#chapter-20-networking-web-fundamentals) background (TCP connection lifecycle) if they probe.
+**Interview angle.** This is a good story because the diagnosis runs against intuition: the resource that ran out was not CPU or memory but ports, and the evidence was the per-instance clustering.
 
 ## Case 4 — A minute of 500s after every deployment
 
@@ -384,7 +384,7 @@ A public IP in the answer settles it: the problem is DNS, and nothing in RBAC or
 
 Chapter 50's `UploadUrlIssuer` shows step 2. The browser uploads in blocks, so it can resume after a failure, and upload time is limited only by the SAS expiry, which should be long enough for a slow connection but no longer. The API's requests now take milliseconds. Route the `BlobCreated` event through a Service Bus queue rather than straight to the worker, so that bursts are buffered and processing gets peek-lock and dead-lettering.
 
-**Prevent it.** A design rule: *no request does work proportional to user-controlled size or duration*. Anything that can exceed a few seconds becomes "accept, then process asynchronously" ([Chapter 22](#chapter-22-background-processing-scheduling-the-actor-model)).
+**Prevent it.** A design rule: *no request does work proportional to user-controlled size or duration*. Anything that can exceed a few seconds becomes "accept, then process asynchronously" ([Chapter 22: Async Request-Reply](#async-request-reply-202-a-status-resource-and-retry-after)).
 
 **Interview angle.** A classic system-design follow-up ("how would you handle large file uploads?"). Name the limit, the SAS scoping (one blob, create and write only, short expiry), and the event-driven completion.
 
