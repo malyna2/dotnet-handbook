@@ -949,18 +949,18 @@ This is the **N+1 problem**, twice, nested. It passes the test because 20 orders
 
 Two things make it worse than it looks. First, if lazy loading is *not* enabled, `order.Lines` is an empty collection and the endpoint silently returns wrong data instead of being slow — a worse failure. Second, each of those queries takes a connection from the pool, so this endpoint under concurrency exhausts the pool and degrades endpoints that have nothing to do with it.
 
-The fix is to project what you need in one query:
+The fix is to project the lines in one query and count the orders in another:
 
 ```csharp
-var summary = await db.Orders
+var lines = await db.Orders
     .Where(o => o.CustomerId == id)
     .SelectMany(o => o.Lines)
     .Select(l => new OrderLineDto(l.Sku, l.Quantity, l.Product.Name))
-    .AsNoTracking()
     .ToListAsync();
+var orderCount = await db.Orders.CountAsync(o => o.CustomerId == id);
 ```
 
-Note `AsNoTracking()` — nothing here is being modified, so paying for change tracking on 1,000 entities is pure waste. And note that the projection means EF never materialises the `Product` entity at all; it selects the single column it needs.
+Three statements in all, whatever the customer's size. The projection reads only the columns it names, so EF never materialises an `Order`, `OrderLine` or `Product`, and nothing is tracked: a result without entities is never tracked, so `AsNoTracking()` would change nothing here. A product shared by several lines is lazy-loaded only once per context, so 1,000 is the upper bound for the product queries.
 </details>
 
 ### What would you do
