@@ -334,13 +334,13 @@ builder.Services.AddOpenTelemetry()
         .AddAspNetCoreInstrumentation()          // incoming HTTP spans
         .AddHttpClientInstrumentation()          // outgoing HTTP spans
         .AddEntityFrameworkCoreInstrumentation() // database spans
-        .SetSampler(new TraceIdRatioBasedSampler(0.1)) // sample 10%
+        .SetSampler(new ParentBasedSampler(new TraceIdRatioBasedSampler(0.1))) // follow the caller; roots: 10%
         .AddOtlpExporter(o => o.Endpoint = new Uri("http://collector:4317")));
 ```
 
 The instrumentation packages are what make this genuinely powerful. `AddAspNetCoreInstrumentation` creates a root span for every incoming request. `AddHttpClientInstrumentation` automatically creates child spans for outbound calls *and injects the `traceparent` header* so downstream services join the trace. `AddEntityFrameworkCoreInstrumentation` captures each SQL query as a span, so you can see that the slow request spent 1.8 seconds in a single N+1 query. You wrote none of this glue; you get a full cross-service, cross-database waterfall for free.
 
-**Sampling** deserves attention. Tracing every request in a high-traffic system is expensive to store and process. `TraceIdRatioBasedSampler(0.1)` keeps a representative 10%. Because the sampling decision is based on the trace ID and propagated, either the whole trace is kept or none of it is — you never get half a trace. For more advanced needs, *tail sampling* (done in the OpenTelemetry Collector) can keep 100% of *errors* and slow traces while sampling the boring successful ones, giving you the best of both worlds.
+**Sampling** deserves attention. Tracing every request in a high-traffic system is expensive to store and process. `TraceIdRatioBasedSampler(0.1)` keeps a representative 10% of the traces that *start* in this service. On its own it ignores the caller's decision (the OpenTelemetry specification says a ratio sampler must ignore the parent's sampled flag), so services sampling independently produce traces with holes. Wrapping it in `ParentBasedSampler` makes every service follow the decision that arrived in `traceparent`: the root decides once, and either the whole trace is kept or none of it is. For more advanced needs, *tail sampling* (done in the OpenTelemetry Collector) can keep 100% of *errors* and slow traces while sampling the boring successful ones, giving you the best of both worlds.
 
 ### Exporters: OTLP, Jaeger, Zipkin
 
