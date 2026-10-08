@@ -8,11 +8,11 @@ This chapter builds that reflex. We start with the mindset, walk the OWASP Top 1
 
 ## The Security Mindset
 
-Before any specific technique, internalize four principles. They are not slogans; they are decision procedures you apply when the "how" is unclear.
+Four principles, used as decision procedures when the "how" is unclear:
 
-**Defense in depth.** Assume every single control will eventually fail, and layer independent controls so that one failure is not a breach. A parameterized query stops SQL injection — but you still validate input, run the database account with least privilege, and log anomalies. If an attacker slips past one layer, the next catches them. Never let your entire security posture rest on a single line of code.
+**Defense in depth.** Assume every single control will eventually fail, and layer independent controls so that one failure is not a breach. A parameterized query stops SQL injection — but you still validate input, run the database account with least privilege, and log anomalies.
 
-**Least privilege.** Every component — a user, a service account, a process, a token — gets exactly the permissions it needs to do its job and nothing more. The web app's database login should not be `db_owner`. The background worker that reads a queue should not have write access to the whole storage account. A JWT scoped to `orders:read` should not be able to delete anything. When a component is compromised, least privilege bounds the blast radius.
+**Least privilege.** Every component — a user, a service account, a process, a token — gets exactly the permissions it needs to do its job and nothing more. The web app's database login should not be `db_owner`. The background worker that reads a queue should not have write access to the whole storage account. A JWT scoped to `orders:read` should not be able to delete anything. Least privilege bounds the blast radius of a compromise.
 
 **Secure by default.** The default configuration must be the safe configuration. A new controller action should require authorization unless you deliberately open it. HTTPS should be mandatory out of the box. If a developer forgets to configure something, the system should fail closed (deny) rather than fail open (allow). ASP.NET Core largely embraces this — for example, the framework's HTTPS redirection and HSTS templates ship enabled — but you are responsible for keeping it that way.
 
@@ -28,7 +28,7 @@ The OWASP Top 10 is the industry's consensus list of the most critical web appli
 
 ### A01: Broken Access Control
 
-The most common serious flaw: a user can act on data or functions they should not reach. The classic form is **Insecure Direct Object Reference (IDOR)** — `GET /api/invoices/1005` returns invoice 1005 even though it belongs to another tenant, simply because the code fetched by ID without checking ownership.
+The most common serious flaw, and still A01 in the 2025 edition (which also folds SSRF into it): a user can act on data or functions they should not reach. The classic form is **Insecure Direct Object Reference (IDOR)** — `GET /api/invoices/1005` returns invoice 1005 even though it belongs to another tenant, simply because the code fetched by ID without checking ownership.
 
 The mitigation is to enforce authorization on *every* request at the resource level, server-side. Do not rely on the UI hiding a button.
 
@@ -53,13 +53,15 @@ public async Task<IActionResult> GetInvoice(int id)
 
 For anything beyond trivial checks, use ASP.NET Core's resource-based authorization (`IAuthorizationService.AuthorizeAsync`) so the ownership logic lives in a reusable handler rather than being copy-pasted into every action.
 
+> **Pay attention.** **Why `[Authorize]` can't stop an IDOR.** Attributes and endpoint policies run before the action, against the principal and the route, and the record hasn't been loaded yet. They can answer "may this caller use this endpoint?", never "does invoice 1005 belong to this caller?", because ownership is a column of the row. So the check has to sit where the row is: in the query itself (`Where(i => i.Id == id && i.OwnerId == userId)`, or an EF Core global query filter on the tenant), or in a resource-based check after loading. A query that filters by owner can't forget the check on the next endpoint that loads the same entity.
+
 ### A02: Cryptographic Failures (formerly "Sensitive Data Exposure")
 
 Sensitive data is stored or transmitted without adequate protection: passwords hashed with MD5, PII sent over HTTP, secrets in source control, weak or home-grown crypto. The mitigations are covered in depth in the Cryptography section below, but the headline rules are: enforce TLS everywhere, hash passwords with a slow adaptive algorithm, encrypt sensitive data at rest, and never invent your own cryptography.
 
 ### A03: Injection
 
-Untrusted input is interpreted as code or commands — SQL, OS commands, LDAP, NoSQL queries. **SQL injection** remains the canonical example. The fix is to keep data and code strictly separated using parameterized queries, never string concatenation.
+(A05 in the 2025 edition.) Untrusted input is interpreted as code or commands — SQL, OS commands, LDAP, NoSQL queries. **SQL injection** remains the canonical example. The fix is to keep data and code strictly separated using parameterized queries, never string concatenation.
 
 ```csharp
 // VULNERABLE — never do this
@@ -72,14 +74,16 @@ using var cmd = new SqlCommand(
 cmd.Parameters.Add("@email", SqlDbType.NVarChar, 256).Value = email;
 ```
 
-Entity Framework Core parameterizes automatically for LINQ, and `FromSqlInterpolated` safely parameterizes interpolated strings — but `FromSqlRaw` with a manually built string reintroduces the hole.
+Entity Framework Core parameterizes automatically for LINQ, and `FromSql` (EF Core 7+; `FromSqlInterpolated` before that) safely parameterizes interpolated strings — but `FromSqlRaw` with a manually built string reintroduces the hole. Dapper is the same: `conn.QueryAsync<User>("... WHERE Email = @email", new { email })` sends a parameter; a concatenated or interpolated SQL string does not.
 
 ```csharp
 // SAFE — EF Core turns the interpolation into parameters
 var users = await _db.Users
-    .FromSqlInterpolated($"SELECT * FROM Users WHERE Email = {email}")
+    .FromSql($"SELECT * FROM Users WHERE Email = {email}")
     .ToListAsync();
 ```
+
+> **Pay attention.** **Same syntax, opposite effect.** `FromSql` takes a `FormattableString`, so EF Core receives the format and the values separately and turns each hole into a `DbParameter`; the database never parses the value as SQL. `FromSqlRaw` takes a `string`, so the compiler formats the interpolation *before* EF Core sees it, and the input becomes part of the SQL text. One refactor between the two compiles cleanly and reopens the injection. Identifiers (a sort column, a table name) can't be parameters at all: map the user's choice to a fixed name from an allow-list.
 
 For OS commands, never pass user input to a shell; use `ProcessStartInfo` with an argument list rather than a single command string.
 
@@ -151,8 +155,6 @@ _logger.LogWarning("Failed login for user {UserId} from {IP}",
 Your server fetches a URL supplied by the user, and an attacker points it at internal resources — `http://169.254.169.254/` (cloud metadata endpoints), internal admin panels, or `localhost`. Mitigate by validating and allow-listing destinations, resolving and checking the target IP is not private/loopback/link-local, and disabling redirects on outbound requests that use user-controlled URLs.
 
 ## Authentication vs. Authorization
-
-These two words are constantly confused, so pin them down precisely:
 
 - **Authentication (AuthN)** answers *"Who are you?"* — it establishes and verifies identity. Logging in with a password, presenting a certificate, or validating a JWT are authentication.
 - **Authorization (AuthZ)** answers *"What are you allowed to do?"* — it decides whether an already-identified principal may perform an action. Checking a role, a scope, or resource ownership is authorization.
@@ -244,13 +246,15 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
             ValidateAudience         = true,
             ValidAudience            = "orders-api",
             ValidateLifetime         = true,   // enforce exp / nbf
-            ValidateIssuerSigningKey = true,   // enforce the signature
+            ValidateIssuerSigningKey = true,   // validate the signing KEY too (see below)
             ClockSkew                = TimeSpan.FromSeconds(30), // tolerate small clock drift
         };
     });
 ```
 
-> **Pitfall — the `alg: none` and algorithm-confusion attacks:** Historically, libraries that trusted the token's own `alg` header could be tricked into accepting an unsigned token (`alg: none`) or into verifying an RS256 token using the public key as an HMAC secret. Modern `Microsoft.IdentityModel` libraries reject `none` and require you to specify valid algorithms. Never write validation that reads the algorithm from the untrusted header and trusts it.
+> **Pitfall — the `alg: none` and algorithm-confusion attacks:** Historically, libraries that trusted the token's own `alg` header could be tricked into accepting an unsigned token (`alg: none`) or into verifying an RS256 token using the public key as an HMAC secret. `Microsoft.IdentityModel` rejects unsigned tokens by default (`RequireSignedTokens` is `true`), but `ValidAlgorithms` is `null` by default, which accepts any algorithm the key supports. Pin it (`ValidAlgorithms = [SecurityAlgorithms.RsaSha256]`), and never write validation that reads the algorithm from the untrusted header and trusts it.
+
+> **Pay attention.** **Which setting actually checks the signature.** `ValidateIssuer`, `ValidateAudience` and `ValidateLifetime` already default to `true`, and the signature is verified whenever `RequireSignedTokens` is `true` (the default). `ValidateIssuerSigningKey` is something else, and defaults to `false`: it validates the *key* that signed the token (for example, a certificate carried in the token), not the signature. The real holes are the lines added to make a `401` go away: `ValidateAudience = false` (now any token from that issuer, minted for any API, works on yours), `RequireSignedTokens = false`, or a custom `SignatureValidator` that returns the token unchecked. Read the `IDX` error in the log and fix the configuration instead.
 
 > **Best practice:** Keep `ClockSkew` small (seconds, not the 5-minute default) and keep access-token lifetimes short (minutes). Use refresh tokens for longevity. A stolen short-lived token expires before it's very useful.
 
@@ -268,7 +272,7 @@ The decision axis: **buy vs. host, and standalone app vs. multi-app SSO.** If yo
 
 ### Password Hashing in ASP.NET Core Identity
 
-Identity's `PasswordHasher<T>` uses PBKDF2 with a per-user salt and many iterations by default — a sensible baseline. If you build your own login (generally discouraged), you must replicate this.
+Identity's `PasswordHasher<T>` uses PBKDF2 with HMAC-SHA512, a 128-bit per-user salt and 100,000 iterations by default (the format is versioned inside the stored hash). OWASP's Password Storage Cheat Sheet currently asks for 220,000 iterations with HMAC-SHA512, so raise `PasswordHasherOptions.IterationCount`: verification returns `SuccessRehashNeeded` for any hash with fewer iterations or an older algorithm, and Identity's sign-in rehashes it, so existing users upgrade on their next login.
 
 ### Passkeys (WebAuthn / FIDO2)
 
@@ -280,7 +284,7 @@ Passkeys are public-key credentials standardized by WebAuthn/FIDO2, and they rem
 
 A secret is any value that grants access: connection strings, API keys, client secrets, signing keys, encryption keys. The cardinal rule: **secrets never live in source code or in `appsettings.json` committed to git.** Once a secret is in git history, treat it as compromised and rotate it — deleting the line does not remove it from history.
 
-**In development**, use the .NET **Secret Manager** (`user-secrets`), which stores values in a JSON file *outside* your project tree, keyed by a `UserSecretsId`:
+**In development**, use the .NET **Secret Manager** (`user-secrets`), which stores values in a JSON file in your user profile (`~/.microsoft/usersecrets/<id>/secrets.json`, or under `%APPDATA%\Microsoft\UserSecrets` on Windows), *outside* the project tree, keyed by a `UserSecretsId`. It keeps secrets out of git; it doesn't encrypt them, so it is for development only:
 
 ```bash
 dotnet user-secrets init
@@ -289,7 +293,7 @@ dotnet user-secrets set "ConnectionStrings:Db" "Server=...;Password=..."
 
 These are picked up automatically by the configuration system in Development, so `builder.Configuration["ConnectionStrings:Db"]` just works — with nothing to accidentally commit.
 
-**In production**, use a managed secret store: **Azure Key Vault**, **AWS Secrets Manager**, **HashiCorp Vault**, or Kubernetes secrets. These provide access control, audit logging, and rotation. The application authenticates to the vault using a *managed identity* (no secret needed to fetch secrets — the platform vouches for the workload):
+**In production**, use a managed secret store: **Azure Key Vault**, **AWS Secrets Manager**, **HashiCorp Vault**, or Kubernetes secrets. These provide access control, audit logging, and rotation. The application authenticates to the vault using a *managed identity* (no secret needed to fetch secrets — the platform vouches for the workload). `DefaultAzureCredential` is the development convenience; production should name its credential, as [Chapter 50](#defaultazurecredential-what-the-chain-really-is) explains:
 
 ```csharp
 // Azure Key Vault via managed identity — no secret in code at all
@@ -436,7 +440,7 @@ The goal is not a perfect score. It is that the number of long-lived, broadly-sc
 
 ## HTTPS, TLS, HSTS, and Certificates
 
-**TLS** (Transport Layer Security, the protocol behind HTTPS) provides three guarantees for data in transit: *confidentiality* (eavesdroppers see ciphertext), *integrity* (tampering is detected), and *authentication* (the certificate proves you're talking to the real server). It is non-negotiable for any application handling credentials or personal data.
+**TLS** (Transport Layer Security, the protocol behind HTTPS) provides three guarantees for data in transit: *confidentiality* (eavesdroppers see ciphertext), *integrity* (tampering is detected), and *authentication* (the certificate proves you're talking to the real server).
 
 A **certificate** binds a public key to a domain name and is signed by a Certificate Authority (CA) the client trusts. TLS uses asymmetric crypto for the handshake (to authenticate the server and agree on keys) then switches to fast symmetric encryption for the session.
 
@@ -447,7 +451,9 @@ app.UseHttpsRedirection();
 app.UseHsts(); // production only
 ```
 
-**HSTS** (HTTP Strict Transport Security) sends a response header telling the browser: "for the next *N* seconds, only ever contact this domain over HTTPS, and refuse to proceed if the certificate is invalid." This defeats SSL-stripping attacks where an attacker downgrades the first request to HTTP.
+**HSTS** (HTTP Strict Transport Security) sends a response header telling the browser: "for the next *N* seconds, only ever contact this domain over HTTPS, and refuse to proceed if the certificate is invalid." This defeats SSL-stripping attacks where an attacker downgrades the first request to HTTP. ASP.NET Core's `UseHsts` sends a 30-day `max-age` by default and skips `localhost`.
+
+> **Gotcha.** HSTS and redirection are browser mechanisms. An API client follows a redirect *after* its first request has already crossed the network in clear text, `Authorization` header included, and it ignores HSTS. For APIs, don't listen on HTTP at all, or reject plain HTTP with `400` rather than redirecting.
 
 > **Pitfall:** HSTS is sticky and cached by the browser. Don't enable it (especially with `includeSubDomains` and `preload`) until you're certain *every* subdomain can serve valid HTTPS — otherwise you can lock users out of an HTTP-only subdomain. This is why the default template excludes HSTS in Development.
 
@@ -465,9 +471,9 @@ You will rarely implement a cipher, but you must choose and use cryptographic pr
 
 ### Password Hashing
 
-Passwords require a *special* kind of hashing. General-purpose hashes (SHA-256) are designed to be *fast*, which is exactly wrong for passwords — it lets an attacker who steals your database try billions of guesses per second on a GPU.
+General-purpose hashes (SHA-256) are designed to be *fast*, which is exactly wrong for passwords: an attacker who steals your database can try billions of guesses per second on a GPU.
 
-> **Pitfall:** Never store passwords with MD5, SHA-1, or a plain SHA-256. MD5 and SHA-1 are broken; plain fast hashes are trivially brute-forced even when "salted." This is a resume-generating incident waiting to happen.
+> **Pitfall:** Never store passwords with MD5, SHA-1, or a plain SHA-256. MD5 and SHA-1 are broken; plain fast hashes are trivially brute-forced even when "salted."
 
 Use a **slow, adaptive, salted** password-hashing algorithm designed for the purpose: **Argon2** (the modern winner), **bcrypt**, or **PBKDF2** (what ASP.NET Core Identity uses, and the only one in the BCL). Two properties matter:
 
@@ -511,7 +517,7 @@ public static class Passwords
 }
 ```
 
-Note the two subtleties a senior developer catches: storing the parameters *with* the hash (so you can raise the iteration count later and re-hash on next login), and using `FixedTimeEquals` rather than `==` to avoid leaking information through comparison timing. In practice, prefer `PasswordHasher<T>` from ASP.NET Core Identity, or a vetted library like `BCrypt.Net`, over hand-rolling even this.
+Two subtleties: storing the parameters *with* the hash (so you can raise the iteration count later and re-hash on next login), and using `FixedTimeEquals` rather than `==` to avoid leaking information through comparison timing. In practice, prefer `PasswordHasher<T>` from ASP.NET Core Identity, or a vetted library like `BCrypt.Net`, over hand-rolling even this.
 
 ### Encryption at Rest and in Transit
 
@@ -643,9 +649,9 @@ builder.Services.AddCors(options =>
         .AllowCredentials()));
 ```
 
-> **Pitfall:** `AllowAnyOrigin()` combined with `AllowCredentials()` is invalid and dangerous — the spec forbids it precisely because it would let *any* site make credentialed requests to your API. Never reflect the `Origin` header back blindly, and never wildcard origins on an authenticated API.
+> **Pitfall:** `AllowAnyOrigin()` combined with `AllowCredentials()` is invalid and dangerous — the spec forbids it precisely because it would let *any* site make credentialed requests to your API, and ASP.NET Core's policy builder throws `InvalidOperationException` for it. The workaround people then reach for, reflecting the request's `Origin` header back, recreates the same hole: never do it, and never wildcard origins on an authenticated API.
 
-CORS is enforced by the *browser*, not the server — it is not an authorization mechanism. It stops a malicious site's JavaScript from reading your API in a victim's browser; it does nothing against `curl` or a server-side attacker.
+CORS is enforced by the *browser*, not the server — it is not an authorization mechanism. It stops a malicious site's JavaScript from reading your API in a victim's browser; it does nothing against `curl` or a server-side attacker. And it hides *responses*, not requests: a "simple" cross-origin request (a `GET`, or a `POST` with a form or plain-text body) is sent without a preflight, your server executes it, and only then does the browser withhold the response. State-changing endpoints that use cookies still need anti-forgery protection.
 
 ### Security Headers
 

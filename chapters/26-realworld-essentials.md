@@ -8,18 +8,16 @@ This chapter is a field guide to those details. None of them are conceptually ha
 
 ## Date and Time Done Right
 
-Time is the single richest source of production bugs in business software, because the abstraction most languages hand you — a "date and time" — quietly conflates several genuinely different concepts.
+A "date and time" quietly conflates several different concepts, which makes it one of the richest sources of production bugs in business software.
 
 ### The four types, and what each one means
-
-.NET gives you a family of types. Choosing the right one is 80% of the battle.
 
 - **`DateTime`** — a date and a time, plus a `Kind` flag that is one of `Utc`, `Local`, or `Unspecified`. The `Kind` is the trap: it is easy to lose, easy to ignore, and defaults to `Unspecified`, which means "no one knows what time zone this is."
 - **`DateTimeOffset`** — a date, a time, and an explicit offset from UTC (e.g. `-05:00`). This unambiguously identifies a single instant on the global timeline. **Prefer this for timestamps.**
 - **`DateOnly`** (added in .NET 6) — a calendar date with no time and no zone. Perfect for birthdays, invoice dates, and holidays, where "a time" is meaningless.
 - **`TimeOnly`** (added in .NET 6) — a time of day with no date. Perfect for "the shop opens at 09:00."
 
-Before `DateOnly`/`TimeOnly`, developers modelled a birthday as a `DateTime` at midnight, then spent years fighting phantom time-zone shifts that moved birthdays to the previous day. If a value has no time component, do not give it one.
+A birthday modelled as a `DateTime` at midnight moves to the previous day after the first careless zone conversion. If a value has no time component, don't give it one.
 
 > **`DateTime.Now` is almost always a bug in server code.** It reads the *server's* local clock and time zone. Servers move regions, run in containers set to UTC, and get migrated to the cloud. Business logic that branches on `DateTime.Now` produces different results depending on where the process happens to run. Use `DateTimeOffset.UtcNow` (or a `TimeProvider`, below) instead.
 
@@ -34,15 +32,14 @@ DateTimeOffset createdAt = DateTimeOffset.UtcNow;
 // Store: as UTC. In a database, use a type that preserves offset/UTC
 // (PostgreSQL timestamptz, SQL Server datetimeoffset).
 
-// Render: convert to the user's zone at the boundary.
+// Render: convert to the user's zone at the boundary, and format with the user's
+// culture. Zone and culture are separate settings: a Kyiv user may read English.
 TimeZoneInfo userZone = TimeZoneInfo.FindSystemTimeZoneById("Europe/Kyiv");
 DateTimeOffset localForDisplay = TimeZoneInfo.ConvertTime(createdAt, userZone);
-Console.WriteLine(localForDisplay.ToString("f", userZone.HasSameRules(TimeZoneInfo.Utc)
-    ? CultureInfo.InvariantCulture
-    : CultureInfo.CurrentCulture));
+Console.WriteLine(localForDisplay.ToString("f", userCulture));
 ```
 
-The reason is subtraction. The interval between two instants is only meaningful if both are on the same absolute timeline. Local times are not — because of DST, a "local day" can be 23 or 25 hours long.
+The reason is subtraction: an interval is only meaningful between two instants on the same absolute timeline. Local times are not on one; because of DST, a "local day" can be 23 or 25 hours long.
 
 ### Daylight Saving Time: gaps and overlaps
 
@@ -57,16 +54,18 @@ var springForward = new DateTime(2026, 3, 29, 2, 30, 0, DateTimeKind.Unspecified
 
 Console.WriteLine(zone.IsInvalidTime(springForward)); // True — 02:30 never happened
 
-// Converting an invalid local time doesn't throw; .NET rolls it forward.
-// That silent adjustment is exactly the kind of surprise that produces
-// off-by-one-hour scheduling bugs.
+// TimeZoneInfo.ConvertTimeToUtc(springForward, zone) throws ArgumentException.
+// zone.GetUtcOffset(springForward) does not: it returns the standard offset, +01:00,
+// so code that builds a DateTimeOffset from it gets an instant nobody asked for.
 ```
+
+> **Pay attention.** **What .NET does in the gap and in the overlap.** For a time in the spring gap, `TimeZoneInfo.ConvertTimeToUtc` and `ConvertTime` throw `ArgumentException`, while `GetUtcOffset` quietly returns the standard offset. For a time in the autumn overlap, nothing throws: conversion silently picks the standard-time instant (in Berlin on 25 October 2026, 02:30 becomes 01:30 UTC, the second occurrence), and `GetAmbiguousTimeOffsets` returns both candidates, +01:00 and +02:00. And `DateTime` arithmetic ignores all of it: local midnight to midnight on 29 March 2026 is 23 hours in Berlin, while `AddDays(1)` always adds 24. The fix is the same for all three: compute on instants (UTC or `DateTimeOffset`), and decide explicitly what a wall-clock time in a gap or an overlap means for your business. (Checked on .NET 10.0.12, Linux.)
 
 > **Never schedule recurring jobs on a naive local "02:30 every night."** On transition nights that job either runs twice or not at all. Schedule against UTC, or explicitly decide your policy for the gap/overlap.
 
 Related annual traps: **leap years** (never assume 365 days; use `DateTime.IsLeapYear` and `DateTime.DaysInMonth` rather than hand-rolled math), and the "add one month to January 31" problem — `AddMonths(1)` clamps to February 28/29, which means `date.AddMonths(1).AddMonths(-1)` is not always the original date. Calendar arithmetic is not associative.
 
-**Leap seconds** deserve a note: they exist in UTC (occasionally a minute has 61 seconds) but .NET, like most platforms, historically smeared or ignored them. `DateTime` supports the value `:60` in limited parsing scenarios but does not model leap seconds in arithmetic. For virtually all business software the correct stance is: ignore them, and never rely on a second-precise difference across a potential leap-second boundary.
+**Leap seconds** exist in UTC, but `DateTime` arithmetic doesn't model them. For business software: ignore them, and never rely on a second-precise difference across one.
 
 ### IANA vs Windows time-zone IDs
 
@@ -74,9 +73,11 @@ Time zones have two competing ID systems. Windows uses names like `"Pacific Stan
 
 The good news: since **.NET 6**, `TimeZoneInfo.FindSystemTimeZoneById` accepts **both** forms on **both** platforms and converts between them automatically, backed by ICU. You can also convert explicitly with `TimeZoneInfo.TryConvertIanaIdToWindowsId` and its inverse. Still, **standardize on IANA IDs in your data**: they are the cross-platform lingua franca, and the IANA database is the authoritative, frequently updated source of the world's zone rules (including historical changes and political re-zonings, which happen more often than people expect).
 
+> **Gotcha.** The zone *rules* come from the operating system (the tz database on Linux, the registry on Windows), but the mapping between IANA and Windows IDs comes from ICU. In globalization-invariant mode (`InvariantGlobalization`, `DOTNET_SYSTEM_GLOBALIZATION_INVARIANT=1`, common in slim container images), `FindSystemTimeZoneById("W. Europe Standard Time")` throws `TimeZoneNotFoundException` on Linux while `"Europe/Berlin"` still works. One more reason to store IANA IDs.
+
 ### NodaTime: when the built-in types aren't enough
 
-The BCL's date/time API grew organically and still lets you write nonsense that compiles (adding a `TimeSpan` to a zone-unaware `DateTime`, comparing two `Unspecified` values, etc.). **NodaTime**, by Jon Skeet, is a widely-used library that fixes this by giving each concept its own type, so the compiler stops you from mixing them:
+The BCL lets you write nonsense that compiles (adding a `TimeSpan` to a zone-unaware `DateTime`, comparing two `Unspecified` values). **NodaTime**, by Jon Skeet, gives each concept its own type, so the compiler stops you mixing them:
 
 - **`Instant`** — a point on the global timeline (like `DateTimeOffset.UtcNow`, but with no offset baggage).
 - **`LocalDate` / `LocalTime` / `LocalDateTime`** — wall-clock values with no zone. You cannot accidentally treat these as instants.
@@ -97,11 +98,11 @@ LocalDateTime wallClock = new LocalDateTime(2026, 3, 29, 2, 30);
 ZonedDateTime resolved = kyiv.ResolveLocal(wallClock, Resolvers.LenientResolver);
 ```
 
-Use NodaTime when time is core to your domain (scheduling, calendars, finance, anything cross-zone). Its value is that the *types* prevent the bugs; you can't add a duration to a `LocalDate` because the API simply doesn't offer it.
+Use NodaTime when time is core to your domain (scheduling, calendars, finance, anything cross-zone): the *types* prevent the bugs.
 
 ### `TimeProvider`: testable time (.NET 8+)
 
-Code that calls `DateTimeOffset.UtcNow` directly is untestable — you can't make "now" be a fixed value, and you can't test "what happens at midnight." Historically teams wrapped this in a homegrown `IClock`. .NET 8 standardized the abstraction as **`TimeProvider`**.
+Code that calls `DateTimeOffset.UtcNow` directly can't be tested at a fixed "now", or at midnight. .NET 8 standardized the homegrown `IClock` as **`TimeProvider`**.
 
 ```csharp
 public class SubscriptionService
@@ -125,7 +126,7 @@ fake.Advance(TimeSpan.FromDays(1)); // deterministically move time forward
 
 ### Parsing and formatting across cultures
 
-`DateTime.Parse("03/04/2026")` is a landmine: in the US that's March 4th, in most of Europe it's April 3rd. The result depends on `CultureInfo.CurrentCulture`, which depends on the OS/thread settings.
+`DateTime.Parse("03/04/2026")` is a landmine: in the US that's March 4th, in most of Europe it's April 3rd, because the result depends on `CultureInfo.CurrentCulture`.
 
 > **For machine-to-machine data (JSON, logs, APIs, filenames), always use a fixed, culture-independent format — ISO 8601 (round-trip `"o"`) — and parse with `CultureInfo.InvariantCulture` and `DateTimeStyles`.** Reserve culture-aware formatting for text shown to humans.
 
@@ -150,7 +151,7 @@ Console.WriteLine(0.1m + 0.2m == 0.3m);     // True  (decimal)
 
 ### Rounding, and the surprise of banker's rounding
 
-Rounding is a *business decision*, not a technicality. .NET's default, `Math.Round`, uses **banker's rounding** (round half to even): `Math.Round(2.5m)` is `2`, and `Math.Round(3.5m)` is `4`. This exists to avoid statistical bias when rounding many values, but it surprises people who expect "round half up."
+Rounding is a *business decision*, not a technicality. `Math.Round` defaults to **banker's rounding** (round half to even): `Math.Round(2.5m)` is `2`, and `Math.Round(3.5m)` is `4`. It avoids statistical bias when rounding many values, and surprises everyone who expects "round half up".
 
 ```csharp
 Math.Round(2.5m);                               // 2  (to even — the default!)
@@ -159,6 +160,8 @@ Math.Round(2.345m, 2, MidpointRounding.AwayFromZero); // 2.35
 ```
 
 > **Always specify the `MidpointRounding` mode explicitly, and round only at defined boundaries** (e.g. when presenting a total or posting to a ledger), never repeatedly mid-calculation. Round once, late. Rounding intermediate results compounds error.
+
+> **Pay attention.** **Formatting rounds by a different rule.** `Math.Round(2.345m, 2)` is `2.34` (half to even), but `2.345m.ToString("F2")` prints `2.35` (half away from zero). An invoice that stores the rounded value and prints the unrounded one disagrees with its own ledger by a cent. Round once, with an explicit mode, and format the rounded value. Two more cents go missing in the same places: a `double` is rounded from a value that was never the decimal you typed (`1.005` is stored as `1.00499999999999989342`, so even `AwayFromZero` gives `1.00`), and a split such as 100.00 / 3 rounds to 33.33 three times, 99.99 in total, so an allocation rule must place the remainder.
 
 ### Store money as minor units, and always with its currency
 
@@ -215,12 +218,10 @@ The `"C"` (currency), `"N"` (number), and `"P"` (percent) format specifiers resp
 
 ### `CurrentCulture` vs `CurrentUICulture`
 
-This distinction trips up almost everyone:
-
 - **`CultureInfo.CurrentCulture`** governs *formatting* — dates, numbers, currency, sorting.
 - **`CultureInfo.CurrentUICulture`** governs *which translated resources* are loaded — the language of your UI strings.
 
-They are separate on purpose. A user in Switzerland might want the German language (`CurrentUICulture = de-CH`) but Swiss-franc formatting (`CurrentCulture = de-CH`), while an English-speaking expat in Germany might want English UI text with euro formatting. In ASP.NET Core, the **Request Localization** middleware sets both per request from the `Accept-Language` header, a cookie, or a query string.
+They are separate on purpose: an English-speaking expat in Germany may want English UI text (`CurrentUICulture = en`) with German number and date formatting (`CurrentCulture = de-DE`). In ASP.NET Core, the **Request Localization** middleware sets both per request from the `Accept-Language` header, a cookie, or a query string.
 
 ### Resource files and `IStringLocalizer`
 
@@ -249,31 +250,31 @@ Languages have wildly different plural rules. English has two forms (1 item / 2 
 
 ### String comparison and sorting: the quiet catastrophe
 
-This is the most under-appreciated correctness issue in .NET, and it causes real security bugs.
-
-There are two fundamentally different ways to compare strings:
+This is the most under-appreciated correctness issue in .NET, and it causes real security bugs. There are two fundamentally different ways to compare strings:
 
 - **Ordinal** — compares raw UTF-16 code units. Fast, deterministic, culture-independent. Correct for *program-internal* identifiers: keys, tokens, file paths, protocol values, cache keys.
 - **Culture-aware (linguistic)** — compares by the collation rules of a culture. `"ä"` might sort near `"a"` or after `"z"` depending on the locale. Correct for *displaying a sorted list to a human*.
 
-> **The Turkish-i problem.** In Turkish (`tr-TR`), the uppercase of `i` is `İ` (dotted), and the lowercase of `I` is `ı` (dotless). So `"file".ToUpper()` under a Turkish culture produces `"FİLE"`, and a culture-sensitive comparison of `"FILE" == "file".ToUpper()` **fails**. Code that compared, say, a file extension or an HTTP header this way has broken — and been exploited — on Turkish machines.
+> **The Turkish-i problem.** In Turkish (`tr-TR`), the uppercase of `i` is `İ` (dotted), and the lowercase of `I` is `ı` (dotless). So under a Turkish culture `"file".ToUpper()` produces `"FİLE"`, and `"file".ToUpper() == "FILE"` is **false**. Code that compared, say, a file extension or an HTTP header this way has broken — and been exploited — on Turkish machines.
 
 The fix is to be explicit and to use ordinal comparisons for anything non-linguistic:
 
 ```csharp
-// WRONG for internal logic — culture-dependent, breaks on tr-TR:
-if (ext.ToLower() == ".pdf") { }
-if (header.Equals("Content-Type", StringComparison.CurrentCultureIgnoreCase)) { }
+// WRONG for internal logic — culture-dependent; on tr-TR ".ZIP" lowers to ".zıp":
+if (ext.ToLower() == ".zip") { }
+if (header.Equals("Authorization", StringComparison.CurrentCultureIgnoreCase)) { }
 
 // RIGHT — explicit, culture-independent:
-if (ext.Equals(".pdf", StringComparison.OrdinalIgnoreCase)) { }
-if (header.Equals("Content-Type", StringComparison.OrdinalIgnoreCase)) { }
+if (ext.Equals(".zip", StringComparison.OrdinalIgnoreCase)) { }
+if (header.Equals("Authorization", StringComparison.OrdinalIgnoreCase)) { }
 
 // For case-insensitive normalization, use the invariant culture:
 string normalized = ext.ToUpperInvariant();
 ```
 
-**Rule of thumb: if a human isn't reading the sort order, use `Ordinal`/`OrdinalIgnoreCase`.** Reserve `CurrentCulture` comparisons for UI-facing sorting and searching. Code analyzers (CA1304, CA1305, CA1307, CA1310) will flag culture-implicit calls — turn them on.
+**Rule of thumb: if a human isn't reading the sort order, use `Ordinal`/`OrdinalIgnoreCase`.** Reserve `CurrentCulture` comparisons for UI-facing sorting and searching. Code analyzers (CA1304, CA1305, CA1307, CA1310) flag culture-implicit calls; they are off by default, so turn them on.
+
+> **Pay attention.** **Which overloads pick a culture for you.** `==`, `Equals`, `Contains`, `Replace` and `IndexOf(char)` are ordinal by default. `string.Compare`, `CompareTo`, `StartsWith(string)`, `EndsWith(string)`, `IndexOf(string)`, `LastIndexOf(string)`, `ToUpper()` and `ToLower()` use the *current culture* unless you pass a `StringComparison` or culture, and so do `OrderBy(s => s)` and `List<string>.Sort()` through the default comparer. Since .NET 5, culture-aware operations use ICU on every platform, so results can differ from ordinal ones in surprising ways: the docs' example is `"Hel\0lo".IndexOf("\0")`, which returns `0`, because ICU gives the null character no weight; with `StringComparison.Ordinal` it returns `3`. Pass the comparison explicitly every time, and the default stops mattering.
 
 ### Unicode normalization
 
