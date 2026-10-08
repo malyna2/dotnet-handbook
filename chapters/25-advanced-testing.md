@@ -295,9 +295,12 @@ Functional tests answer "is it correct?"; load tests answer "does it stay correc
 [NBomber](https://nbomber.com) is the natural choice when you want load tests **in C#**, sharing models, auth helpers, and DTOs with your application code. You express load as a *scenario* with an injection rate:
 
 ```csharp
+// One client for the whole run: a new HttpClient per iteration would measure connection
+// setup and can exhaust the load generator's ports (Chapter 20).
+using var client = new HttpClient();
+
 var scenario = Scenario.Create("checkout_load", async context =>
 {
-    using var client = new HttpClient();
     var response = await client.PostAsJsonAsync(
         "https://api.example.com/orders",
         new { productId = 1, quantity = 2 });
@@ -366,7 +369,7 @@ Code coverage lies. A line can be "covered" — executed during a test — while
 Your **mutation score** (killed ÷ total) is a far more honest measure of test *effectiveness* than line coverage. A surviving mutant is a concrete, actionable finding: "if this operator were wrong, no test would tell you." You run Stryker with a simple CLI invocation:
 
 ```
-dotnet stryker --threshold-high 80 --threshold-low 60 --threshold-break 50
+dotnet stryker --threshold-high 80 --threshold-low 60 --break-at 50
 ```
 
 > **Practical note:** mutation testing is computationally expensive — it reruns the suite once per mutant, potentially thousands of times. Don't run it on every commit over the whole solution. Run it **on the diff** in CI (Stryker supports `--since` to mutate only changed code), or on a nightly schedule for critical modules. Point it at your core domain logic, where a missed bug is most costly — not at DTOs and configuration glue.

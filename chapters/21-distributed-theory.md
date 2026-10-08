@@ -280,9 +280,10 @@ builder.Services.AddHttpClient<RecommendationsClient>()
             MinimumThroughput = 10
         });
 
-        // Chaos strategies go OUTERMOST in the pipeline, so the fault is
-        // introduced closest to the dependency and every strategy above
-        // gets to react to it — exactly as it would in a real outage.
+        // Chaos strategies are added LAST, which makes them the innermost
+        // strategies (Polly runs the first-added strategy outermost): the fault
+        // is introduced closest to the dependency, and every strategy added
+        // before it reacts to it, exactly as it would in a real outage.
         var options = context.ServiceProvider
             .GetRequiredService<IOptionsMonitor<ChaosOptions>>();
 
@@ -310,7 +311,7 @@ Three details that decide whether this is safe:
 - **The injection rate is a percentage**, so you can start at 1% of calls and turn it up. That is your blast radius control.
 - **Gate it by environment as well as by flag.** A chaos strategy that can be enabled in production by a config change is a chaos strategy that will be enabled in production by an accidental config change. Belt and braces: `if (env.IsProduction() && !explicitlyApprovedChaosWindow) return;`
 
-> **Gotcha.** Injecting chaos at the *inner*most layer of the pipeline tests nothing useful — you have proven that a fault thrown after the retry policy propagates to the caller. The chaos strategy must sit outside (that is, closer to the dependency than) the strategies whose behaviour you are trying to observe.
+> **Gotcha.** Strategies added earlier wrap the ones added later, so a chaos strategy added *first* sits outermost and tests nothing useful: its fault never passes through the retry or the breaker, and you have only proven that an exception reaches the caller. Add chaos strategies last, so they sit innermost, closest to the dependency, inside the strategies whose behaviour you want to observe.
 
 ### Platform-level injection
 
