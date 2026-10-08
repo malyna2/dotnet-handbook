@@ -1,0 +1,10 @@
+# Environment: Intel(R) Xeon(R) Processor @ 2.80GHz, 4 vCPU, 16 GB RAM, Ubuntu 24.04.5 LTS, .NET runtime 10.0.12, SDK 10.0.112
+# Captured: 2026-10-08 05:38 UTC by capture.sh
+# Program: NPlusOne, Release build
+
+Load() each order's lines in a loop    100 order lines, 51 SQL statement(s)
+Include(o => o.Lines)                  100 order lines,  1 SQL statement(s)
+Select(o => new { o.Id, Skus = ... })  100 order lines,  1 SQL statement(s)
+neither, and no lazy loading             0 order lines,  1 SQL statement(s)
+[process time: wall 3.586 s, user CPU 1.959 s, system CPU 0.135 s]
+[exit code 0]
