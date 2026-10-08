@@ -2,7 +2,7 @@
 
 > **What this module makes you able to do.** Decide where a failure is caught and what the caller sees, write log events that a log store can query and join across services, and take the first measurement of a slow endpoint before anyone guesses at a fix.
 
-**Time:** reading ≈ 35 min; hands-on ≈ 1 h 5 min — the two experiments 20 min, the questions 15, the check at work 30.
+**Time:** reading ≈ 40 min; hands-on ≈ 1 h 5 min — the two experiments 20 min, the questions 15, the check at work 30.
 
 ## Covers
 
@@ -29,10 +29,10 @@ Across services the trace id is the join key: `HttpClient` sends it in the W3C `
 
 A slow endpoint gets the same discipline: measure before changing anything. A busy CPU means profile the CPU. An idle CPU with high latency means the request is *waiting*: on a dependency (its span dominates the trace), or for a thread (the pool's queue grows and every endpoint slows down, as [Chapter 8](#the-sync-over-async-deadlock) explains).
 
-## Read (≈ 35 min)
+## Read (≈ 40 min)
 
 1. [Chapter 5: Exception Handling Strategy](#exception-handling-strategy): classify the failure, then where to catch, *The Mechanics That Bite* (`throw;`, filters, `ExceptionDispatchInfo`), what to log and what to surface.
-2. [Chapter 3: Error Handling with ProblemDetails (RFC 7807)](#error-handling-with-problemdetails-rfc-7807): `UseExceptionHandler` and `IExceptionHandler`, and what never leaves the server.
+2. [Chapter 3: Error Handling with ProblemDetails (RFC 7807)](#error-handling-with-problemdetails-rfc-7807): `UseExceptionHandler` and `IExceptionHandler`, and the *Pay attention* callout on what reaches the caller and what reaches the log.
 3. [Chapter 2: Logging with Microsoft.Extensions.Logging](#logging-with-microsoftextensionslogging): the provider abstraction, placeholders matched by position, scopes.
 4. [Chapter 13: Why Structured Beats String Logging](#why-structured-beats-string-logging), [Log Levels: A Shared Vocabulary](#log-levels-a-shared-vocabulary) and [What Not to Log: Secrets and PII](#what-not-to-log-secrets-and-pii).
 5. [Chapter 13: Correlation Across Services](#correlation-across-services): the trace id over HTTP and through a queue.
