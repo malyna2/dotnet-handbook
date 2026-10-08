@@ -215,27 +215,27 @@ An ADR is a short, immutable document recording one significant decision, its co
 A template:
 
 ```markdown
-# ADR-014: Use Outbox Pattern for Order Event Publishing
+**ADR-014: Use Outbox Pattern for Order Event Publishing**
 
 - Status: Accepted
 - Date: 2026-07-21
 - Deciders: Payments team
 - Supersedes: —
 
-## Context
+**Context**
 We publish an "OrderPlaced" event to the message bus after saving an
 order. Currently we save to the DB and publish in the same method,
 without a shared transaction. If the publish fails after the DB commit,
 downstream services never learn about the order — we've seen 3 such
 drops this quarter (INC-198, INC-201, INC-217).
 
-## Decision
+**Decision**
 Adopt the Transactional Outbox pattern: within the same DB transaction
 that saves the order, insert an event row into an `Outbox` table. A
 background dispatcher polls the table and publishes to the bus, marking
 rows as sent. This makes DB write and event intent atomic.
 
-## Consequences
+**Consequences**
 Positive:
 - Event publishing is now at-least-once and crash-safe.
 - The DB transaction remains the single source of truth.
@@ -245,7 +245,7 @@ Negative / trade-offs:
 - New moving part (dispatcher) to run and monitor.
 - Consumers must be idempotent (at-least-once => possible duplicates).
 
-## Alternatives considered
+**Alternatives considered**
 - 2-phase commit across DB and broker: rejected, operationally heavy,
   poor support in our stack.
 - Publish-then-save: rejected, inverts the source-of-truth problem.
