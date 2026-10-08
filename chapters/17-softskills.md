@@ -10,8 +10,6 @@ This chapter is the practical field guide to those skills. No platitudes — tem
 
 ## 17.1 From Solving Tickets to Creating Leverage
 
-Here is the mental model that reframes everything else.
-
 A middle engineer is measured by **throughput**: how many tickets they close, how fast, how correctly. That is real and valuable. But it scales linearly — you can only type so fast, and there are only so many hours in a week.
 
 A senior engineer is measured by **leverage**: how much better everyone *around* them performs because of their presence. Leverage compounds. A good design doc saves ten engineers a week of rework. A sharp code review teaches a pattern that a junior then applies fifty more times without you. A well-run incident post-mortem prevents a class of outages forever.
@@ -28,7 +26,7 @@ Concretely, the behaviors change like this:
 | "Someone should fix this." | "I filed it, tagged the owner, and proposed a fix." |
 | "That's not my code." | "I'll leave it a little better than I found it." |
 
-None of this requires a title change or permission. You can start acting with leverage today, and the title tends to follow the behavior rather than precede it.
+None of this needs a title or permission; the title tends to follow the behavior.
 
 ## 17.2 Communication: The Real Superpower
 
@@ -168,7 +166,9 @@ praise: nice use of a discriminated result type here, much clearer
 than the old bool-and-out-param.
 ```
 
-The distinction between **nitpicks and blockers** is what keeps reviews moving. If everything is presented with equal weight, a whitespace comment stalls a PR as long as a security hole. Be explicit, and let people merge over your nits.
+These labels are a shortened form of [Conventional Comments](https://conventionalcomments.org/), which writes the intent and the severity separately: `issue (blocking):`, `suggestion (non-blocking):`, `nitpick:`. Either form works once the team agrees on one.
+
+The split between **nits and blockers** keeps reviews moving. When everything carries equal weight, a whitespace comment stalls a PR as long as a security hole; when style points are labelled `blocking:`, the author learns your `blocking:` is negotiable and argues the next real one. Label honestly, and let people merge over your nits.
 
 ### The author's responsibilities
 
@@ -176,7 +176,7 @@ Review quality is a two-way street. As the author:
 
 - **Keep PRs small.** A 200-line PR gets a real review; a 2,000-line PR gets a "LGTM 👍" that catches nothing. Slice work so PRs stay reviewable.
 - **Write a description that answers *why*.** What problem, what approach, what you considered and rejected, how to test it. Link the ticket.
-- **Review your own diff first.** Half your reviewers' comments were things you'd have caught by reading it yourself.
+- **Review your own diff first.** Many review comments are things the author would have caught by reading the diff once.
 - **Leave breadcrumbs** on tricky lines: a comment on the PR saying "did it this way because X" pre-empts the question.
 
 ### Receiving feedback without ego
@@ -201,6 +201,8 @@ Techniques that actually help:
 - **Estimate ranges, not points.** "3 to 5 days" is more honest than "4 days," and it communicates uncertainty. Widen the range when you're less sure.
 - **Buffer for the invisible work:** code review, testing, meetings, the CI flake, the environment that's down. The coding is often the smallest slice.
 - **Communicate estimates as forecasts, not promises.** "Based on what I know now, I expect this in the first half of next week. The biggest risk is the payment vendor's sandbox — if that's flaky, add two days." You've given a number *and* the assumptions it rests on.
+
+> **Pay attention.** **Why estimates run long, and why padding doesn't fix it.** You estimate from the inside: you list the steps you can picture and add them up. The steps that blow estimates are the ones you can't picture yet (the sandbox that's down, the migration nobody mentioned), so they are missing from the sum, and the error runs one way: work rarely finishes much faster than its known steps allow, but it can run several times longer. Padding is a guess about that error that nobody can check. Anchor on the *outside view* instead, how long similar work actually took according to your tracker, and give a range whose top depends on one named assumption. When that assumption breaks, the estimate is void: re-estimate that day, before more plans are built on the old date. Daniel Kahneman's *Thinking, Fast and Slow* describes both views.
 
 Avoid the **sunk-cost trap**: "we've already spent three weeks on this approach" is not a reason to spend a fourth. Past effort is gone regardless; decide based on the cost and value *from here*. A senior says out loud, "I know we've invested a lot, but continuing is the more expensive path now."
 
@@ -280,7 +282,7 @@ Junior engineers debug by changing things and hoping. Seniors debug like scienti
 
 The loop:
 
-1. **Reproduce it first.** A bug you can reproduce on demand is 80% solved. A bug you can't reproduce, you can't verify you fixed. Invest in a reliable repro before anything else.
+1. **Reproduce it first.** A bug you can't reproduce, you can't verify you fixed. A reliable repro comes before anything else.
 2. **Read the actual error.** The full message, the full stack trace, the inner exception. The answer is astonishingly often right there in text people skimmed past.
 3. **Form a hypothesis.** "I think the null comes from the cache returning a stale entry." A specific, falsifiable statement.
 4. **Test the one hypothesis.** Change one thing. If you change five things and it works, you've learned nothing and may have added two new bugs.
@@ -288,7 +290,7 @@ The loop:
 
 **Rubber-ducking** works because explaining the problem out loud forces you to make your assumptions explicit, and the wrong one usually reveals itself mid-sentence. Explain it to a colleague, a literal duck, or a comment box — the medium doesn't matter, the articulation does.
 
-> **The 30-minute rule: struggle productively on your own for about 30 minutes, then ask for help.** Less, and you rob yourself of the learning that comes from wrestling with it. More, and you're just burning the team's time on something a colleague could unstick in two minutes. When you ask, show what you tried and what you expected — a good question is itself a sign of seniority, not weakness.
+> **The 30-minute rule: struggle productively on your own for about 30 minutes, then ask for help.** Less, and you skip the search that teaches you the system. More, and you spend hours on what a colleague could unstick in two minutes. Set the limit before you start: once you're stuck, every next attempt looks like the one that will work, so a decision made then always says "one more try." When you ask, send what you tried and what it ruled out ([Asking Questions That Unblock You](#asking-questions-that-unblock-you)); a good question is a sign of seniority, not weakness.
 
 ### Blameless post-mortems
 
