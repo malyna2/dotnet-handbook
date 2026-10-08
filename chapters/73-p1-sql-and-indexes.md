@@ -2,7 +2,7 @@
 
 > **What this module makes you able to do.** Open the actual plan of a slow query in your own service, name each index operator a seek or a scan and say why, fix the predicate, the parameter type or the index so it seeks, and show the change in logical reads.
 
-**Time:** reading ≈ 15 min; hands-on ≈ 4 h 10 min — the experiment 15 min, the Chapter 4 exercise 10, the lab subset 3 h, the questions 15, the check at work 30.
+**Time:** reading ≈ 20 min; hands-on ≈ 4 h 10 min — the experiment 15 min, the Chapter 4 exercise 10, the lab subset 3 h, the questions 15, the check at work 30.
 
 ## Covers
 
@@ -26,7 +26,7 @@ The pointer explains covering. In SQL Server a non-clustered index row holds its
 
 Joins and transactions sit on top of the same storage: a join is a lookup per row or a pass over two inputs, and both are cheap only when an index serves the join column. A transaction makes a group of statements all-or-nothing; EF Core's `SaveChanges` wraps its statements in one, and two `SaveChanges` calls are two transactions.
 
-## Read (≈ 15 min)
+## Read (≈ 20 min)
 
 1. [Chapter 4: Joins](#joins).
 2. [Chapter 4: Indexes: Clustered, Non-Clustered, Covering](#indexes-clustered-non-clustered-covering): the row locator, and why the leftmost-prefix rule holds.
