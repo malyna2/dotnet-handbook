@@ -31,7 +31,7 @@ A slow endpoint gets the same discipline: measure before changing anything. A bu
 
 ## Read (≈ 40 min)
 
-1. [Chapter 5: Exception Handling Strategy](#exception-handling-strategy): classify the failure, then where to catch, *The Mechanics That Bite* (`throw;`, filters, `ExceptionDispatchInfo`), what to log and what to surface.
+1. [Chapter 5: Exception Handling Strategy](#exception-handling-strategy): classify the failure, then where to catch, *The Mechanics That Bite* (`throw;`, filters, `ExceptionDispatchInfo`), what to log (with the *Pay attention* callout on reading a stack trace) and what to surface.
 2. [Chapter 3: Error Handling with ProblemDetails (RFC 7807)](#error-handling-with-problemdetails-rfc-7807): `UseExceptionHandler` and `IExceptionHandler`, and the *Pay attention* callout on what reaches the caller and what reaches the log.
 3. [Chapter 2: Logging with Microsoft.Extensions.Logging](#logging-with-microsoftextensionslogging): the provider abstraction, placeholders matched by position, scopes.
 4. [Chapter 13: Why Structured Beats String Logging](#why-structured-beats-string-logging), [Log Levels: A Shared Vocabulary](#log-levels-a-shared-vocabulary) and [What Not to Log: Secrets and PII](#what-not-to-log-secrets-and-pii).
