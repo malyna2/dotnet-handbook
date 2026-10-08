@@ -374,10 +374,13 @@ The senior instinct is to **offload them to background processing** (Chapter 22)
 [HttpPost("orders/{id}/invoice")]
 public async Task<IActionResult> Invoice(int id)
 {
-    await _queue.EnqueueAsync(new GenerateInvoiceJob(id)); // durable
-    return Accepted(); // 202 — "I've got it, check back later"
+    Job job = await _jobs.EnqueueAsync(new GenerateInvoiceJob(id));  // durable: a job row and an outbox message
+    Response.Headers.RetryAfter = "5";
+    return AcceptedAtAction(nameof(GetJob), new { jobId = job.Id }, job);  // 202 + Location: where to check back
 }
 ```
+
+A bare `Accepted()` says "check back later" without saying where. The `Location` header names the job's status resource, which the client polls until it redirects to the result. [Chapter 22: Async Request-Reply](#async-request-reply-202-a-status-resource-and-retry-after) walks through the whole contract: the status resource, `303 See Other`, failures, and the idempotency key that makes a retried `POST` safe.
 
 This is the pattern behind every resilient real-world app: **the request path stays thin and fast; anything slow, external, or flaky moves to a background worker that can retry safely.** Combine that with the earlier rules — UTC everywhere, `decimal` for money, ordinal comparisons for internal logic, streamed file bodies, verified webhooks — and you have eliminated the large majority of the mundane bugs that actually take production down.
 
