@@ -1269,7 +1269,7 @@ Internalize these and you can reason from symptoms (a latency spike, a memory le
 
 # Chapter 3: ASP.NET Core & Web APIs
 
-_⏱️ Estimated read time: ~1 h 15 min · 11131 words (study pace)_
+_⏱️ Estimated read time: ~1 h 15 min · 11386 words (study pace)_
 
 ASP.NET Core is the beating heart of most .NET server-side work. If you've been building APIs for a couple of years, you already know how to make an endpoint return JSON. This chapter is about the *why* underneath: how a request actually travels through your application, where the extension points live, and how the senior-level decisions (versioning, resilience, auth, real-time) fit together. By the end you should be able to reason about the framework rather than just use it.
 
@@ -1877,6 +1877,7 @@ public class IdempotencyRecord
     public string Key { get; set; } = default!;         // client-supplied
     public string RequestHash { get; set; } = default!; // SHA-256 of the canonical body
     public int StatusCode { get; set; }                 // 0 while in flight
+    public DateTimeOffset LockedUntil { get; set; }     // the in-flight lease
     public string? ResponseBody { get; set; }
     public DateTimeOffset CreatedAt { get; set; }
 }
@@ -1894,52 +1895,60 @@ Storing the request hash is what makes that last row possible. Without it, a cli
 
 **The concurrency detail that makes it actually work.** The naïve implementation reads the table, sees no row, does the work, then writes the row. That is the same check-then-act race as the uniqueness validator earlier in this chapter, except here the prize is a duplicate charge: two retries arriving 20 ms apart both read "no row" and both charge.
 
-What arbitrates is a **unique index on `(Endpoint, Key)`** combined with the ordering — *insert the key row first, inside the same transaction as the side effect*:
+What arbitrates is a **unique index on `(Endpoint, Key)`** combined with the ordering: *claim the key before the effect*. Where the claim is committed depends on where the effect lives. When the effect is a row in the same database (an order, a ledger entry), the claim and the effect share one transaction, as in [Chapter 9's idempotent consumer](#idempotent-consumers): the second request's insert waits on the first one's uncommitted key, fails once it commits, and replays the result. A card charge is a call to another system, and no database transaction can include it, so the claim is committed on its own, before the call:
 
 ```csharp
-await using var tx = await db.Database.BeginTransactionAsync(ct);
-
 var record = new IdempotencyRecord
 {
-    Endpoint = "POST /payments", Key = key, RequestHash = hash,
-    StatusCode = 0, CreatedAt = DateTimeOffset.UtcNow
+    Endpoint = "POST /payments", Key = key, RequestHash = hash, StatusCode = 0,
+    LockedUntil = DateTimeOffset.UtcNow.AddSeconds(30), CreatedAt = DateTimeOffset.UtcNow
 };
 db.IdempotencyRecords.Add(record);
-
 try
 {
-    await db.SaveChangesAsync(ct);        // The unique index arbitrates HERE.
+    await db.SaveChangesAsync(ct);        // Its own short transaction: the unique index arbitrates HERE.
 }
 catch (DbUpdateException ex) when (IsUniqueViolation(ex))  // 23505 on Npgsql, 2601/2627 on SQL Server
 {
-    await tx.RollbackAsync(ct);
+    db.ChangeTracker.Clear();
     return await ReplayOrConflictAsync(key, hash, ct);      // The loser never reaches the charge.
 }
 
-var payment = await _payments.ChargeAsync(request, ct);     // The side effect.
+Payment payment;
+try
+{
+    payment = await _payments.ChargeAsync(request, idempotencyKey: key, ct); // The side effect.
+}
+catch
+{
+    db.IdempotencyRecords.Remove(record); // No deterministic outcome: release the key.
+    await db.SaveChangesAsync(CancellationToken.None);
+    throw;
+}
 
 record.StatusCode = StatusCodes.Status201Created;
 record.ResponseBody = JsonSerializer.Serialize(payment);
 await db.SaveChangesAsync(ct);
-await tx.CommitAsync(ct);
 ```
 
-The ordering is the entire trick, so walk the second concurrent request through it. It attempts the same insert; the unique index rejects it, so it learns — atomically, with no read-then-write window anywhere — that it lost the race. It rolls back and reads the existing row. If that row carries a status code, the first attempt finished and the loser replays it. If the status is still `0`, the first attempt is in flight and the loser answers `409` with `Retry-After: 1`. Either way it never reaches `ChargeAsync`.
+The ordering is the entire trick, so walk the second concurrent request through it. It attempts the same insert. The claim was committed before the charge started, so the unique index rejects it at once, and it learns, atomically and with no read-then-write window anywhere, that it lost the race. It reads the existing row. If that row carries a status code, the first attempt finished and the loser replays it. If the status is still `0` and the lease is live, the first attempt is in flight and the loser answers `409` with `Retry-After: 1`. Either way it never reaches `ChargeAsync`.
 
-Now invert the order and do the work first: both requests charge the card, and *then* one of them discovers it lost. The damage is already done and you are writing a refund. The row must go in before the effect, in the same transaction, or the pattern buys you nothing.
+> **Pay attention.** **Why the claim is committed on its own.** Wrap the claim, the charge and the result in one transaction and no other request ever sees status `0`. The second insert blocks on the first one's uncommitted key, holding its connection for as long as the charge takes, then replays or, if the first rolled back, charges. The `409` row can never fire, a crash leaves no row to reclaim, and a commit that fails after a successful charge erases the only record that the charge happened. Commit the claim first, and forward the key to the payment provider: the one window left, a crash after the charge and before the result is stored, is then closed downstream.
+
+Now invert the order and do the work first: both requests charge the card, and *then* one of them discovers it lost. The damage is already done and you are writing a refund. The claim must be committed before the effect starts, or the pattern buys you nothing.
 
 ```
-request A ──┬─ INSERT (POST /payments, key) ──► accepted ──► charge ──► store 201 ──► COMMIT
+request A ──┬─ INSERT (POST /payments, key) + COMMIT ──► charge (key forwarded) ──► UPDATE: 201
             │
 request B ──┴─ INSERT (POST /payments, key) ──► unique violation
                                                     │
-                                       status 0? ───┴──► 409 + Retry-After
+                                status 0, lease live? ──┴──► 409 + Retry-After
                                        status set? ────► replay stored response
 ```
 
 Two loose ends remain.
 
-**A first attempt that never finishes.** If the process dies between the insert and the update, the row sits at status `0` forever and every retry gets a `409`. Give the record a lease — store a `LockedUntil` and treat an expired in-flight row as reclaimable — or run a sweeper that ages stale rows out. Whether reclaiming is safe depends on whether re-running the side effect is safe, which is why the strongest version of this pattern forwards the same key downstream: most payment gateways accept an idempotency key of their own, so you hand yours through and let them deduplicate the charge you may or may not have made.
+**A first attempt that never finishes.** If the process dies between the claim and the update, the row sits at status `0`, and without a lease every retry would get a `409` forever. `LockedUntil` is that lease: once it has passed, a retry reclaims the row with a conditional update (`SET LockedUntil = @newLease WHERE … AND StatusCode = 0 AND LockedUntil < @now`, so only one reclaimer wins) and runs the charge again. Whether reclaiming is safe depends on whether re-running the side effect is safe, which is why the strongest version of this pattern forwards the same key downstream: most payment gateways accept an idempotency key of their own, so you hand yours through and let them deduplicate the charge you may or may not have made.
 
 **Retention.** Idempotency records are a cache, not an audit log. Keep them long enough to cover any plausible retry window — Stripe uses 24 hours, and 24–72 hours suits most systems — then delete them from a background job with a batched `ExecuteDeleteAsync`, never a cascade on the request path. This table takes a write on the hot path of every mutating request, so unbounded growth is a genuine operational problem rather than a tidiness concern.
 
