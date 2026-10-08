@@ -1,0 +1,9 @@
+# Environment: Intel(R) Xeon(R) Processor @ 2.80GHz, 4 vCPU, 16 GB RAM, Ubuntu 24.04.5 LTS, .NET runtime 10.0.12, SDK 10.0.112
+# Captured: 2026-10-08 05:37 UTC by capture.sh
+# Program: CaptiveDependency, Release build
+
+request 1: its own AppDb #1, the singleton's AppDb #2
+request 2: its own AppDb #3, the singleton's AppDb #2
+ValidateScopes = true: InvalidOperationException: Cannot consume scoped service 'AppDb' from singleton 'PriceCache'.
+[process time: wall 0.096 s, user CPU 0.087 s, system CPU 0.009 s]
+[exit code 0]
