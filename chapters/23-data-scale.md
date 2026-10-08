@@ -157,7 +157,7 @@ Two layers of pooling save you:
 - **Application-level pooling.** ADO.NET / Npgsql pool connections per process, reusing them across requests instead of opening a new one each time (opening a Postgres connection is expensive — a TCP handshake plus a process fork). This is on by default; the trap is *misconfiguring the max pool size* so that a slow query storm exhausts it and requests queue.
 - **An external pooler like PgBouncer.** This sits between your app fleet and Postgres and multiplexes thousands of client connections onto a small pool of real database connections. In **transaction pooling** mode, a real connection is only held for the duration of a transaction, so hundreds of mostly-idle clients share a handful of backends. Serverless and autoscaling architectures — where instance count balloons unpredictably — essentially *require* a pooler to avoid overwhelming the database.
 
-> **Pitfall:** PgBouncer's transaction-pooling mode breaks anything that relies on session state spanning multiple statements — session-level `SET`, prepared statements, `LISTEN/NOTIFY`, advisory locks held across statements. Know your pooling mode and its constraints before you deploy it.
+> **Pitfall:** PgBouncer's transaction-pooling mode breaks anything that relies on session state spanning multiple statements — session-level `SET`, SQL-level `PREPARE`, `LISTEN/NOTIFY`, advisory locks held across statements. Protocol-level prepared statements, which Npgsql uses, survive only from PgBouncer 1.21 on with `max_prepared_statements` above 0 (the default since 1.24). Know your pooling mode and its constraints before you deploy it.
 
 ## Polyglot Persistence, CQRS Read Stores, and Caching
 

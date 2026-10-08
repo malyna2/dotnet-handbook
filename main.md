@@ -2348,7 +2348,7 @@ The through-line of this chapter is that ASP.NET Core is a **pipeline of composa
 
 # Chapter 4: Data Access & Databases
 
-_⏱️ Estimated read time: ~1 h 15 min · 11758 words (study pace)_
+_⏱️ Estimated read time: ~1 h 15 min · 11822 words (study pace)_
 
 Almost every non-trivial application is, underneath all its features, a machine for moving data in and out of a database safely and quickly. You can write flawless business logic and beautiful APIs, but if your data access layer holds locks too long, fires a thousand queries where one would do, or corrupts a balance under concurrent writes, the whole system fails in ways that are hard to reproduce and harder to fix. This chapter takes you from the mechanics of Entity Framework Core down to the SQL and storage engine underneath it, then back up through caching, NoSQL, and deployment. The goal is that you stop treating the database as a black box and start reasoning about what it actually does.
 
@@ -2931,7 +2931,7 @@ Getting the SQL out of EF Core is the first step; `LogTo` will print it, and in 
 Two Npgsql behaviours are worth knowing:
 
 - **Automatic preparation.** Npgsql promotes a statement to a server-side prepared statement after it has been executed a few times (`Max Auto Prepare`). This saves parse and plan time, but after five executions Postgres may switch to a **generic plan** built without knowing your parameter values — which is a poor trade for a column with skewed data. `plan_cache_mode = force_custom_plan` is the escape hatch.
-- **Connection poolers change the rules.** PgBouncer in transaction-pooling mode multiplexes connections across transactions, which breaks prepared statements and any other session-level state. Chapter 23 covers pooling under load; the point here is that a plan-caching win at the driver level can disappear entirely depending on what sits between you and the server.
+- **Connection poolers change the rules.** PgBouncer in transaction-pooling mode multiplexes connections across transactions, which breaks session-level state. Prepared statements were the classic casualty: a statement prepared on one server connection didn't exist on the next. Since PgBouncer 1.21 it tracks protocol-level prepared statements (the kind Npgsql uses) and re-prepares them on whichever server connection a transaction lands on; 1.24 turned this on by default (`max_prepared_statements = 200`). SQL-level `PREPARE`/`EXECUTE` still break, and on an older PgBouncer, or with the setting at 0, so does driver-level preparation. Chapter 23 covers pooling under load; the point here is that a plan-caching win at the driver level can disappear entirely depending on what sits between you and the server.
 
 Finally, three mapping choices that prevent whole categories of problem: store timestamps as `timestamptz` and never `timestamp` (see Chapter 26 on why "local time" is not a thing you can store); use `jsonb` rather than `json` for anything you will query, and index it with GIN; and reach for `citext` or a case-insensitive collation instead of scattering `ToLower()` through your LINQ.
 
@@ -8749,7 +8749,7 @@ None of these practices is exotic. Their power is cumulative: together they turn
 
 # Chapter 13: Observability
 
-_⏱️ Estimated read time: ~30 min · 5197 words (study pace)_
+_⏱️ Estimated read time: ~30 min · 5283 words (study pace)_
 
 Imagine you are the pilot of a modern aircraft. You cannot see the engines, you cannot feel the air pressure at 35,000 feet with your bare skin, and you certainly cannot inspect every one of the thousands of moving parts in real time. Yet you fly with confidence. Why? Because in front of you sits a cockpit full of instruments: altimeters, fuel gauges, temperature readouts, and warning lights that scream at you the moment something drifts out of tolerance. The aircraft is a black box, but the instruments make it *observable*.
 
@@ -9132,7 +9132,7 @@ using (LogContext.PushProperty("TraceId", Activity.Current?.TraceId.ToString()))
 
 Now a single trace ID lets you pivot: see the slow trace in Jaeger, copy its ID, paste it into Seq, and read every log line from every service for that exact request. This is the payoff of observability.
 
-**Messaging** needs the same discipline, and here the framework will not save you — message brokers do not automatically carry `traceparent`. When you publish to a queue (RabbitMQ, Azure Service Bus, Kafka), you must **inject** the trace context into the message headers, and the consumer must **extract** it to continue the trace:
+**Messaging** needs the same discipline, and whether the framework helps depends on the client library. A broker stores bytes and properties; the trace context crosses a queue only if the producer's client writes it into the message and the consumer's client reads it back. The Azure Service Bus SDK does both. On send it writes the current activity's W3C id into the message's `Diagnostic-Id` application property (and into `traceparent` as well once activity-source tracing is on), and `ServiceBusProcessor` makes that context the parent of its processing span. Its tracing is still experimental, so OpenTelemetry sees those spans only after `AppContext.SetSwitch("Azure.Experimental.EnableActivitySource", true)` and `AddSource("Azure.Messaging.ServiceBus.*")`. With a client that doesn't propagate (check yours, for RabbitMQ and Kafka alike) or a hand-rolled transport, you **inject** the trace context into the message headers, and the consumer **extracts** it to continue the trace:
 
 ```csharp
 // Producer
@@ -13731,7 +13731,7 @@ The arc of this chapter is a maturation in how you think about "later" work. A `
 
 # Chapter 23: Data at Scale & Multi-Tenancy
 
-_⏱️ Estimated read time: ~25 min · 4341 words (study pace)_
+_⏱️ Estimated read time: ~25 min · 4361 words (study pace)_
 
 For most of a system's life, a single well-tuned database is enough. You add indexes, you cache the hot paths, you buy a bigger machine, and the graphs stay green. Then one day they don't. The write-ahead log can't flush fast enough, a nightly report locks a table that customers need, connections pile up faster than the pool can hand them out, and your one biggest customer's traffic starts starving everyone else. Scaling data is the art of pushing that day as far into the future as possible, and knowing what to do when it finally arrives.
 
@@ -13888,7 +13888,7 @@ Two layers of pooling save you:
 - **Application-level pooling.** ADO.NET / Npgsql pool connections per process, reusing them across requests instead of opening a new one each time (opening a Postgres connection is expensive — a TCP handshake plus a process fork). This is on by default; the trap is *misconfiguring the max pool size* so that a slow query storm exhausts it and requests queue.
 - **An external pooler like PgBouncer.** This sits between your app fleet and Postgres and multiplexes thousands of client connections onto a small pool of real database connections. In **transaction pooling** mode, a real connection is only held for the duration of a transaction, so hundreds of mostly-idle clients share a handful of backends. Serverless and autoscaling architectures — where instance count balloons unpredictably — essentially *require* a pooler to avoid overwhelming the database.
 
-> **Pitfall:** PgBouncer's transaction-pooling mode breaks anything that relies on session state spanning multiple statements — session-level `SET`, prepared statements, `LISTEN/NOTIFY`, advisory locks held across statements. Know your pooling mode and its constraints before you deploy it.
+> **Pitfall:** PgBouncer's transaction-pooling mode breaks anything that relies on session state spanning multiple statements — session-level `SET`, SQL-level `PREPARE`, `LISTEN/NOTIFY`, advisory locks held across statements. Protocol-level prepared statements, which Npgsql uses, survive only from PgBouncer 1.21 on with `max_prepared_statements` above 0 (the default since 1.24). Know your pooling mode and its constraints before you deploy it.
 
 ## Polyglot Persistence, CQRS Read Stores, and Caching
 

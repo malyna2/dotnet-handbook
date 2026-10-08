@@ -383,7 +383,7 @@ using (LogContext.PushProperty("TraceId", Activity.Current?.TraceId.ToString()))
 
 Now a single trace ID lets you pivot: see the slow trace in Jaeger, copy its ID, paste it into Seq, and read every log line from every service for that exact request. This is the payoff of observability.
 
-**Messaging** needs the same discipline, and here the framework will not save you — message brokers do not automatically carry `traceparent`. When you publish to a queue (RabbitMQ, Azure Service Bus, Kafka), you must **inject** the trace context into the message headers, and the consumer must **extract** it to continue the trace:
+**Messaging** needs the same discipline, and whether the framework helps depends on the client library. A broker stores bytes and properties; the trace context crosses a queue only if the producer's client writes it into the message and the consumer's client reads it back. The Azure Service Bus SDK does both. On send it writes the current activity's W3C id into the message's `Diagnostic-Id` application property (and into `traceparent` as well once activity-source tracing is on), and `ServiceBusProcessor` makes that context the parent of its processing span. Its tracing is still experimental, so OpenTelemetry sees those spans only after `AppContext.SetSwitch("Azure.Experimental.EnableActivitySource", true)` and `AddSource("Azure.Messaging.ServiceBus.*")`. With a client that doesn't propagate (check yours, for RabbitMQ and Kafka alike) or a hand-rolled transport, you **inject** the trace context into the message headers, and the consumer **extracts** it to continue the trace:
 
 ```csharp
 // Producer
