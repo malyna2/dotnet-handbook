@@ -352,9 +352,7 @@ They are layers, not alternatives. DataAnnotations (or nothing) for trivial DTOs
 
 ## CancellationToken Propagation
 
-Every request carries an implicit expiry: the moment the client disconnects, times out, or navigates away, any work you're still doing on its behalf is wasted. The framework tells you when that happens — `HttpContext.RequestAborted` is a `CancellationToken` that trips when the connection drops — and both Minimal APIs and MVC will bind it for you: declare a `CancellationToken` parameter on your endpoint or action and the framework wires it to `RequestAborted` automatically.
-
-The token only helps if you *pass it through*. EF Core queries, `HttpClient` calls, stream reads — essentially every awaited I/O API — accept one:
+Once the client disconnects, times out or navigates away, work done on its behalf is wasted. `HttpContext.RequestAborted` is a `CancellationToken` that trips when the connection drops, and both Minimal APIs and MVC bind it to any `CancellationToken` parameter of an endpoint or action. It helps only if you *pass it through*: EF Core queries, `HttpClient` calls and stream reads all accept one.
 
 ```csharp
 app.MapGet("/reports/{id:int}", async (int id, AppDbContext db,
@@ -368,11 +366,17 @@ app.MapGet("/reports/{id:int}", async (int id, AppDbContext db,
 });
 ```
 
-When the client disconnects mid-query, EF Core cancels the database command; the connection returns to the pool and the request's threads free up. Without the token, the query runs to completion for a caller that will never read the response.
+When the client disconnects mid-query, EF Core cancels the database command and the connection returns to the pool. Without the token, the query runs to completion for a caller that will never read the response.
 
-Why this matters operationally: picture your API slowing down under load. Clients hit their own timeouts, abandon their requests, and *retry*. If your server doesn't observe cancellation, every abandoned request keeps executing — the original query is still hammering the database while the retry starts a duplicate. Load effectively doubles at precisely the moment the system is already struggling, and a slowdown snowballs into an outage. Propagating the token is what lets abandoned work actually stop, turning a retry storm into a manageable blip instead of a self-inflicted amplification attack.
+This matters most under load. Clients time out, abandon their requests and *retry*; if the server ignores cancellation, each abandoned query keeps running while its retry starts a duplicate. Load doubles exactly when the system is already struggling, and a slowdown snowballs into an outage. Propagating the token lets abandoned work stop.
 
-> **Gotcha:** Not everything should be cancellable. If you've charged a payment and are about to write the outbox record, cancelling *mid-write* because the client hung up is far worse than finishing wasted work — you'd take the money and lose the event. For operations that must run to completion once started, deliberately pass `CancellationToken.None` (or a token decoupled from the request) past that point of no return. The skill isn't "always pass the token"; it's knowing which operations are safe to abandon and which have already committed you.
+> **Pay attention.** **A token stops only the calls it reaches.**
+>
+> Cancellation is cooperative: `Cancel()` sets a flag and runs the callbacks registered on the token, nothing more. Code stops only where it checks the flag, or where an API you passed the token to registered a callback: SqlClient registers one that cancels the running command on the server, and `HttpClient` aborts the request. One method in the chain that takes no token, or doesn't forward it, leaves everything below it running to completion.
+>
+> Fix: accept a `CancellationToken` in every async method on a request path and forward it. Analyzer CA2016 flags a call that could take the token in scope but doesn't; in .NET 10 it is only a suggestion by default, so raise it to a warning in `.editorconfig`.
+
+> **Gotcha:** Not everything should be cancellable. If you've charged a payment and are about to write the outbox record, cancelling *mid-write* because the client hung up is far worse than finishing wasted work: you'd take the money and lose the event. Past such a point of no return, pass `CancellationToken.None` (or a token decoupled from the request). The skill is knowing which operations are safe to abandon and which have already committed you.
 
 ## Filters
 
