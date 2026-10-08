@@ -937,7 +937,7 @@ Reach for SignalR for dashboards, chat, live collaboration, notifications, and p
 
 ## Error Handling with ProblemDetails (RFC 7807)
 
-Every API needs a *consistent* error shape. **RFC 7807 ProblemDetails** is the standard: a JSON object with `type`, `title`, `status`, `detail`, and `instance`. Standardizing on it means clients (and tools) can parse errors uniformly instead of guessing.
+Every API needs *one* error shape. **ProblemDetails** — RFC 7807, since replaced by RFC 9457, which the current ASP.NET Core docs cite — is the standard: a JSON object with `type`, `title`, `status`, `detail` and `instance`, so clients and tools parse every error the same way.
 
 ```csharp
 builder.Services.AddProblemDetails();
@@ -969,9 +969,15 @@ public class ValidationExceptionHandler : IExceptionHandler
 // builder.Services.AddExceptionHandler<ValidationExceptionHandler>();
 ```
 
-> **Tip — `AddExceptionHandler` vs writing your own exception middleware.** These aren't two independent mechanisms: `UseExceptionHandler()` *is* the middleware, and `AddExceptionHandler<T>()` registers handlers that plug into it — called in registration order until one returns `true`, with anything unhandled falling through to the default ProblemDetails response. A hand-rolled `try/catch` middleware can do the same job, but then you own everything the built-in one already does: safe defaults (status 500, cache headers cleared), the awkward edge case where the response has already started streaming, content negotiation via `IProblemDetailsService`, and the diagnostics logs and metrics observability tooling expects. `IExceptionHandler` classes are also plain DI services — unit-testable with no `RequestDelegate` plumbing, one focused class per exception family instead of a growing `switch`. Reserve custom middleware for concerns that aren't "map this exception to an HTTP response" — releasing a resource or enriching telemetry on every failure, say — or for pre-.NET 8 targets, where the `UseExceptionHandler(errorApp => ...)` lambda overload fills the same role.
+> **Tip — `AddExceptionHandler` vs writing your own exception middleware.** `UseExceptionHandler()` *is* the middleware; `AddExceptionHandler<T>()` registers handlers it calls in registration order until one returns `true`, and anything unhandled falls through to the default ProblemDetails response. A hand-rolled `try/catch` middleware makes you own what the built-in one already does: status 500 and cleared cache headers, a response that has already started, content negotiation through `IProblemDetailsService`, and the logs and metrics tooling expects. `IExceptionHandler` classes are plain DI services, testable without `RequestDelegate` plumbing, one class per exception family. Keep custom middleware for work that isn't "map this exception to a response", or for targets before .NET 8, where the `UseExceptionHandler(errorApp => ...)` overload fills the role.
 
-> **Best practice.** Never leak stack traces or internal messages to callers in production. `detail` should be safe to show a client; log the gory details server-side with a correlation ID that the client can quote to support.
+> **Pay attention.** **What reaches the caller, and what reaches the log.**
+>
+> - **The trace id goes out by default.** The default ProblemDetails writer adds `traceId` (`Activity.Current?.Id`, else `HttpContext.TraceIdentifier`) to every body it writes, so write your responses through `IProblemDetailsService` rather than `WriteAsJsonAsync` and the caller always has the key that finds your log entry.
+> - **The stack trace goes out only through the environment.** In Development, `WebApplication` adds the developer exception page itself. A client that doesn't ask for HTML gets a ProblemDetails whose `exception` field holds `ex.ToString()` and *every request header*, `Authorization` included. A production container started with `ASPNETCORE_ENVIRONMENT=Development` serves that to anyone. Pin the environment in deployment, and never call `UseDeveloperExceptionPage` unconditionally.
+> - **The middleware logs too.** It writes its own `Error` entry for each exception it catches. On .NET 10 it skips that entry when an `IExceptionHandler` returned `true` (`ExceptionHandlerOptions.SuppressDiagnosticsCallback` changes the rule); before .NET 10 it always writes it, so a handler that also logs records every failure twice.
+>
+> Put `detail` text that is safe to show a client; the details belong in the one log entry the `traceId` points to.
 
 ## Health Checks
 

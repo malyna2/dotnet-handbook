@@ -8,7 +8,7 @@ This chapter is about developing that instinct. We will walk through the classic
 
 ## What a Design Pattern Actually Is
 
-A design pattern is a named, reusable solution to a recurring design problem. That is the textbook definition, and it is nearly useless on its own. Here is the useful version.
+A design pattern is a named, reusable solution to a recurring design problem.
 
 A pattern is a *record of a trade-off that someone made enough times to give it a name*. When you say "Strategy pattern," you are not describing a class hierarchy — you are describing a decision to trade a little indirection for the ability to swap an algorithm at runtime. The class hierarchy is just the shape that decision leaves in the code.
 
@@ -25,8 +25,6 @@ The failure mode has a name in the community — "pattern-itis" or "architecture
 > **Overuse warning:** Every pattern adds indirection, and indirection is a cost paid by every future reader of the code. A pattern is justified only when the flexibility it buys is flexibility you will actually use. Speculative flexibility — "we might need to swap the database someday" — is usually a bad trade. This is YAGNI (You Aren't Gonna Need It), and it is the single most important principle in this chapter.
 
 The right mental model: patterns are a response to *pain you already feel*, not insurance against pain you imagine. Write the simple version first. When it starts to hurt — when you find yourself editing the same `switch` in five places, when a class has grown three unrelated reasons to change — *then* refactor toward the pattern that relieves that specific pain. This is why patterns are best learned alongside refactoring: they are destinations, and refactoring is the road.
-
-With that warning firmly in place, let's build the toolkit.
 
 ## Creational Patterns
 
@@ -569,7 +567,7 @@ return result.IsSuccess
 
 ## Exception Handling Strategy
 
-Almost every codebase has a *style* of exception handling, and almost none have a *strategy*. The style is visible: `try`/`catch` blocks sprinkled wherever someone was once burned, a `catch (Exception ex) { _logger.LogError(ex.Message); throw; }` copied from file to file, a global handler that returns `"An error occurred"` and nothing else. The strategy is the thing that answers three questions, and this section answers them in order: **where do I catch, what do I log, and what do I surface?** Every one of those answers depends on a prior question that most code never asks.
+Most codebases have a *style* of exception handling — `try`/`catch` wherever someone was once burned, a `catch (Exception ex) { _logger.LogError(ex.Message); throw; }` copied from file to file, a global handler that returns `"An error occurred"` — and no *strategy*. A strategy answers three questions: **where do I catch, what do I log, and what do I surface?** Each answer depends on a prior question: what kind of failure is this?
 
 ### Classify the Failure First
 
@@ -596,7 +594,7 @@ The earlier Result-pattern section made the case for `Result<T>`; here is the ot
 
 **Exceptions are unignorable** — their single greatest property. If a method throws and you write no handler, the failure propagates and something eventually notices. Compare a method returning `Result<T>`: a caller can write `_ = DoTheThing();` and discard the failure entirely, and the compiler will not blink. Unignorability is why exceptions are right for the *exceptional*, where continuing is worse than stopping. **Results, in exchange, are visible in the signature and force a decision.** `Result<Order> Place(...)` tells you failure is expected without reading the body; `Order Place(...)` does not. The cost is signature pollution: `Result<T>` is viral, spreading up through every caller, and code that mixes both conventions gets the worst of each.
 
-Now the performance, with the mechanism rather than folklore. A throw/catch pair costs on the order of **microseconds** — roughly 5–20 µs for a shallow stack, growing with depth, and worse under a debugger. Two things dominate. First, **the stack walk**: throwing does not simply jump, it walks frames outward looking for a handler whose filter matches, unwinding as it goes, so the same `throw` is cheap in a leaf method and expensive from twenty frames down a request pipeline. Second, **stack trace capture**: building the trace means resolving frames back to method metadata, which scales with depth again.
+Now the performance, with the mechanism rather than folklore. A throw/catch pair costs on the order of **microseconds** — roughly 5–20 µs for a shallow stack, growing with depth, and worse under a debugger (TODO(verify): figure predates .NET 9's reworked managed exception handling; re-measure on .NET 10). Two things dominate. First, **the stack walk**: throwing does not simply jump, it walks frames outward looking for a handler whose filter matches, unwinding as it goes, so the same `throw` is cheap in a leaf method and expensive from twenty frames down a request pipeline. Second, **stack trace capture**: building the trace means resolving frames back to method metadata, which scales with depth again.
 
 Put that in context, because context is the whole point. Ten microseconds once per failed HTTP request, against a budget of tens of milliseconds, is *noise* — nobody has ever had an outage because a 404 threw. Ten microseconds per row across 200,000 rows is **two seconds of pure overhead**, and that is a genuine, career-defining performance bug.
 
@@ -749,6 +747,16 @@ One failure now produces four `Error` entries. They are not four problems and th
 
 > **Best practice.** Log where you *handle*, not where you *pass through*. If a layer genuinely knows something the boundary cannot — a retry attempt count, the exact query that failed — log that as a `Warning` with the specific fact, and still let the boundary own the single `Error` for the failure itself.
 
+> **Pay attention.** **Reading the exception you logged.**
+>
+> `LogError(ex, …)` records `ex.ToString()`: the outer type and message, then each inner exception after ` ---> `, each followed by its own frames and `--- End of inner exception stack trace ---`, then the outer exception's frames. The root cause is the innermost exception, so read the deepest `--->` first.
+>
+> - **A trace is the path the exception travelled.** The top frame is where it was thrown, each frame below is the caller of the one above, and the last frame is the one that caught it: the trace grows as the stack unwinds and stops at the catch, so it is not the whole call stack.
+> - **`--- End of stack trace from previous location ---`** marks a capture and rethrow through `ExceptionDispatchInfo`, which is what every `await` of a faulted task does: above the line is where it failed, below is where it was awaited.
+> - **Frames can be missing or late.** `throw ex;` drops everything below the rethrow. Release builds inline small methods into their callers, so an inlined method has no frame, and line numbers appear only when the `.pdb` is deployed with the assembly.
+>
+> Read down to the first frame in your own code: frames above it are the library that threw, frames below it are how you got there.
+
 ### What to Surface
 
 The response to the outside world is a **product decision**, not a debugging artifact. Never surface a stack trace, a SQL statement, a connection string, an internal type name, or raw inner-exception text: at best it confuses the caller, at worst it is a reconnaissance gift to an attacker (see the error-handling notes in [Chapter 14: Security](#chapter-14-security)).
@@ -794,8 +802,6 @@ The status code carries the most important piece of information, so choose it de
 | Client cancelled / disconnected | **no response** | The caller is gone. Do not manufacture a 500 for a socket nobody is reading |
 
 ### Process-Level Safety Nets
-
-Below the request boundary sits the process, and it has its own failure modes.
 
 **`BackgroundService`.** Since .NET 6, an unhandled exception in `ExecuteAsync` stops the **entire host** by default (`BackgroundServiceExceptionBehavior.StopHost`) — a deliberate change, because the previous behavior silently killed the service and left the process running as a hollow shell that looked healthy to every probe. Keep that default and put your `try`/`catch` *inside* the loop, so one bad message does not take down the worker while a genuinely broken worker still takes down the host and lets the orchestrator restart it. [Chapter 22: Background Processing, Scheduling & the Actor Model](#chapter-22-background-processing-scheduling-the-actor-model) covers the loop shape in detail.
 
@@ -942,7 +948,7 @@ Dependency Inversion is the principle behind the entire .NET dependency injectio
 
 ## Clean Code & Code Smells
 
-You will spend far more of your career reading code than writing it — easily ten times more. That single observation reorganizes your priorities: the reader, not the compiler, is the customer you are writing for. The principles above are the *structural* side of good code; clean code is the *local* side — what a single name, method, or file looks like up close, which is where most developers actually spend their day. And it is not a matter of taste: messy code slows every future change and quietly taxes every estimate your team gives.
+Code is read far more often than it is written, so the reader, not the compiler, is the customer. The principles above are the *structural* side of good code; clean code is the *local* side — what a single name, method or file looks like up close — and messy code taxes every future change and every estimate.
 
 > **Clarity beats cleverness.** The compiler does not reward you for a dense one-liner, and the next developer will silently curse you for it. Optimize for the person who has to understand this code under pressure at 2 a.m.
 

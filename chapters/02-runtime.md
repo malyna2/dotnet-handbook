@@ -468,7 +468,7 @@ public class OrderService(ILogger<OrderService> logger)
 }
 ```
 
-Why it matters: with structured logs feeding a system like Seq or Elasticsearch, you can query `OrderId = 4567` across millions of log lines, or aggregate by `Amount`. The interpolated version throws that away — and worse, it *always* builds the string even when the log level is disabled, wasting CPU. The template version defers formatting and skips it entirely if the level is off.
+Why it matters: with structured logs feeding a system like Seq or Elasticsearch, you can query `OrderId = 4567` across millions of log lines, or aggregate by `Amount`. The interpolated version throws that away, and it *always* builds the string, even when the level is disabled, because the compiler evaluates it before the call. The template version defers formatting until an enabled provider needs it, but its arguments are still boxed into a `params object[]` on every call. On hot paths, the `[LoggerMessage]` source generator emits a method that checks `IsEnabled` first and passes the values without boxing.
 
 > **Best practice:** always use message templates with named placeholders, never string interpolation, inside logging calls. Note that placeholders are matched to arguments **by position**, not by name — order matters. Use **log scopes** (`logger.BeginScope`) to attach contextual properties (like a correlation ID) to every log line within a block.
 
