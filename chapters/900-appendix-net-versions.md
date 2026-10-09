@@ -6,7 +6,7 @@ This appendix is a fast, interview-oriented reference for the modern .NET releas
 
 ## Release cadence: how the versioning actually works
 
-Since .NET 5, Microsoft ships one new major version every year in **November**, and the support tier alternates by parity. **Even-numbered versions are LTS (Long-Term Support) and get 3 years of support; odd-numbered versions are STS (Standard-Term Support)**, historically 18 months but **extended to 24 months starting with .NET 9** (announced September 2025). "Support" here means free servicing: security patches and bug fixes. The practical meaning for choosing a production version is simple: an LTS release gives you a stable, patched baseline you can sit on for three years without a forced major upgrade, whereas an STS release is a shorter-lived "latest and greatest" that you must upgrade off of sooner. Teams that value stability and a slow upgrade cadence standardize on LTS; teams that want the newest features immediately and are comfortable upgrading annually can ride STS. Note that both tiers receive the *same* quality of fixes while supported — LTS is not "more tested," it simply lives longer.
+One major version ships every November; even-numbered versions are LTS (3 years of support), odd-numbered ones STS (24 months from .NET 9, 18 months before). How the two tracks work and how to choose between them is in [Chapter 3](#chapter-3-how-net-runs-your-code); keeping a fleet of services on supported versions is the EOL treadmill of [Chapter 24](#chapter-24-working-with-legacy-brownfield-code). This appendix is the per-version detail.
 
 ## Main comparison table
 
