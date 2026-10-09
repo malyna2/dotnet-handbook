@@ -1,20 +1,20 @@
 # Chapter 37: The Story Bank & Evidence Portfolio
 
-Part XI is the practice gym. The thirty-five chapters before it explain how things work; the chapters in this Part make you *do* them and leave something behind that you can show. That second half is the one people skip, and it is the one that decides interviews and promotions. The gap between a middle and a senior engineer is rarely knowledge — plenty of middle engineers could pass a written exam on this book. The gap is **proof**: incidents you handled, decisions you defended, systems you measured, things you wrote that other people acted on.
+This is a lab: a chapter you *do* rather than read, which leaves something behind that you can show. That second half is the one people skip, and it is the one that decides interviews and promotions. The gap between a middle and a senior engineer is rarely knowledge — plenty of middle engineers could pass a written exam on this book. The gap is **proof**: incidents you handled, decisions you defended, systems you measured, things you wrote that other people acted on.
 
-This chapter comes first because it builds the place where all of that proof goes. You will set up a private **story bank** and a weekly **brag doc**, turn your real work into STAR stories that survive follow-up questions, rewrite your CV as claims backed by evidence, start a public **portfolio repo**, and rehearse with an AI interviewer that asks follow-ups and scores you honestly. Every lab after this one ends with an *Evidence to keep* list and an *Interview hook*; both feed the bank you build here.
+This lab builds the place where all of that proof goes, and it follows [Chapter 36](#chapter-36-senior-behaviours-career-and-interviews), which explains the behaviours the stories show and the questions they answer. You will set up a private **story bank** and a weekly **brag doc**, turn your real work into STAR stories that survive follow-up questions, rewrite your CV as claims backed by evidence, start a public **portfolio repo**, and rehearse with an AI interviewer that asks follow-ups and scores you honestly. The book's other labs — the slow-query lab in [Chapter 19](#chapter-19-the-slow-query-lab-reading-execution-plans) and the health check in [Chapter 40](#chapter-40-lab-the-net-health-check) — end with an *Evidence to keep* list and an *Interview hook*; both feed the bank you build here.
 
 ```
 daily work ──────────────┐
                          ▼
-labs in this Part ──► brag doc ──► story bank ──► mock interview ──► rewrite
+the book's labs ──► brag doc ──► story bank ──► mock interview ──► rewrite
         │            (private)     (private)            ▲               │
         │                                               └───────────────┘
         ▼
     artifacts ──► public portfolio repo ◄── evidence index ◄── CV bullets
 ```
 
-> **The portfolio rule.** Nothing you produce in Part XI goes into the handbook's repository. Your plans, test runs, post-mortems, reviews and designs go into **your own public portfolio repo**. Stories about a real employer stay **private**. Every lab repeats this, because it is the difference between doing an exercise and building evidence.
+> **The portfolio rule.** Nothing you produce in the labs goes into the handbook's repository. Your plans, test runs, post-mortems, reviews and designs go into **your own public portfolio repo**. Stories about a real employer stay **private**. Every lab repeats this, because it is the difference between doing an exercise and building evidence.
 
 The kit for this chapter — templates, interviewer prompts and a git-mining script — is at [labs/36-evidence-portfolio](https://github.com/malyna2/dotnet-handbook/tree/main/labs/36-evidence-portfolio).
 
@@ -94,7 +94,7 @@ A story bank is a small set of prepared stories — five is enough to start — 
 
 ### How a STAR answer is scored
 
-[Chapter 34](#chapter-34-interview-questions-how-to-answer-them) introduces STAR (Situation, Task, Action, Result). In a senior loop the proportions are what matter, because they show where your attention goes:
+[Chapter 36](#chapter-36-senior-behaviours-career-and-interviews) introduces STAR (Situation, Task, Action, Result) in its behavioural questions. In a senior loop the proportions are what matter, because they show where your attention goes:
 
 ```
 0:00       0:20   0:30                                 2:00       2:25  2:30
@@ -103,7 +103,7 @@ A story bank is a small set of prepared stories — five is enough to start — 
 ```
 
 - **Situation and Task are context, not content.** If the listener needs a minute to understand your system, simplify it. They need just enough to follow the Action.
-- **Action is where the evidence is**: the decisions you made, the alternatives you rejected and why, who you had to convince and how. Say "I" for what you did and "we" for what the team did, precisely. Chapter 34's warning about the spotlight applies here.
+- **Action is where the evidence is**: the decisions you made, the alternatives you rejected and why, who you had to convince and how. Say "I" for what you did and "we" for what the team did, precisely. Chapter 36's warning about the spotlight applies here.
 - **Result is a number with a baseline**, or a concrete outcome if you cannot defend a number.
 - **Reflection is what makes it senior.** It shows you learned something specific, and ideally that the lesson changed what you did later.
 
@@ -146,11 +146,11 @@ One file per story, in the private bank. Write notes, not prose: you will *speak
 
 ### Worksheets for the questions you will be asked
 
-These are Chapter 34's behavioral questions and its follow-up about deciding without complete information, plus two that come up in almost every senior loop: an incident you owned, and influencing without authority. For each, the notes say what the interviewer is actually probing, which story to pick, what to go and find, and what sinks the answer.
+These are Chapter 36's behavioral questions and its follow-up about deciding without complete information, plus two that come up in almost every senior loop: an incident you owned, and influencing without authority. For each, the notes say what the interviewer is actually probing, which story to pick, what to go and find, and what sinks the answer.
 
 #### "Tell me about a hard bug you solved"
 
-- **Probes:** method under uncertainty — reproduce, hypothesise, test one thing at a time, bisect (Chapter 17) — and whether you fixed the cause or only the symptom.
+- **Probes:** method under uncertainty — reproduce, hypothesise, test one thing at a time, bisect (Chapter 16) — and whether you fixed the cause or only the symptom.
 - **Pick a story where** the bug was intermittent, distributed or production-only, and you found the root cause rather than a workaround.
 - **Numbers to go find:** how often it happened (one request in N, once a week), how long it went unexplained, time from your start to root cause, recurrences since the fix.
 - **Red flags:** "I added logging and saw it" with no hypothesis; the fix was a restart; the cause was "another team's bug" and the story ends there.
@@ -174,7 +174,7 @@ These are Chapter 34's behavioral questions and its follow-up about deciding wit
 
 #### "How do you mentor junior developers?"
 
-- **Probes:** leverage — whether you make other people better, or just answer their questions (Chapter 17, *teach by asking*).
+- **Probes:** leverage — whether you make other people better, or just answer their questions (Chapter 36, *teach by asking*).
 - **Pick a story about** one person (anonymised), with a visible before and after in what they could do.
 - **Numbers to go find:** time to their first independent release, the first incident they handled alone, the scope they now own.
 - **Red flags:** "I review their code and answer questions"; no outcome for the mentee; mentoring as a list of activities.
@@ -190,7 +190,7 @@ These are Chapter 34's behavioral questions and its follow-up about deciding wit
 
 #### "How do you push back on scope or an unrealistic deadline?"
 
-- **Probes:** negotiation and estimation honesty — turning "no" into options (Chapter 17, *estimation*).
+- **Probes:** negotiation and estimation honesty — turning "no" into options (Chapter 16, *estimation*).
 - **Pick a story where** you put options on the table — cut scope, phase the delivery, move the date, accept a named risk — and someone else chose.
 - **Numbers to go find:** original versus agreed scope and date, what shipped when, how accurate your estimate turned out to be.
 - **Red flags:** you just said no; you silently worked weekends to hit it; the date slipped and you "told them so".
@@ -206,7 +206,7 @@ These are Chapter 34's behavioral questions and its follow-up about deciding wit
 
 #### "Tell me about an incident you owned"
 
-- **Probes:** stabilise first, diagnose second; communication under pressure; a blameless follow-up ([Chapter 17, *blameless post-mortems*](#blameless-post-mortems); [Chapter 33's incident cheat-card](#the-incident-cheat-card)).
+- **Probes:** stabilise first, diagnose second; communication under pressure; a blameless follow-up ([Chapter 16, *blameless post-mortems*](#blameless-post-mortems); [Chapter 35's incident cheat-card](#the-incident-cheat-card)).
 - **Pick a story where** you were a responder or the incident commander, and the order of your actions shows mitigation before investigation.
 - **Numbers to go find:** time to detect, time to mitigate, impact (users, orders, minutes), recurrences after the action items shipped.
 - **Red flags:** you debugged while the site stayed down; blame; action items that were never done.
@@ -214,7 +214,7 @@ These are Chapter 34's behavioral questions and its follow-up about deciding wit
 
 #### "Tell me about a time you influenced a decision without authority"
 
-- **Probes:** trust, data, bringing people along early (Chapter 17, *judgment and influence*).
+- **Probes:** trust, data, bringing people along early (Chapter 36, *judgment and influence*).
 - **Pick a story where** people who did not report to you adopted a change — another team, a shared standard, a platform decision.
 - **Numbers to go find:** how many teams or services adopted it, and what it changed once they had.
 - **Red flags:** your manager forced it through; "they eventually agreed", with no account of how.
@@ -265,7 +265,7 @@ Rules:
 - **Private by default.** It names people and internal systems.
 - **"Got wrong" is not optional.** The bad-decision story is the one people have least material for.
 
-> **Best practice.** On the last Friday of the month, turn the month into three outcome bullets and send them to your manager. This is managing up ([Chapter 17](#disagreeing-productively-and-managing-up)): the person who argues for your promotion in a room you are not in can only use what they know. A manager with twelve monthly summaries argues from evidence; one without argues from memory.
+> **Best practice.** On the last Friday of the month, turn the month into three outcome bullets and send them to your manager. This is managing up ([Chapter 16](#disagreeing-productively-and-managing-up)): the person who argues for your promotion in a room you are not in can only use what they know. A manager with twelve monthly summaries argues from evidence; one without argues from memory.
 
 ## From artifact to CV bullet
 
@@ -316,7 +316,7 @@ Calendar span:     2021-03 → 2024-06  = 39 months = "3 years"  ✓
 
 The overlap is real work, but it did not happen in extra years. "Three years" with two overlapping engagements is true; "four years" is not.
 
-> **Beyond interviews.** The same bank feeds client-facing proof: anonymized case studies, a public health-check report and articles that defend a position. The honesty rules above apply unchanged, with a stricter confidentiality line, since a client's name or numbers need their written permission. [Chapter 65](#chapter-65-positioning-and-public-proof) builds on this chapter for clients rather than interviewers.
+> **Beyond interviews.** The same bank feeds client-facing proof: anonymized case studies, a public health-check report and articles that defend a position. The honesty rules above apply unchanged, with a stricter confidentiality line, since a client's name or numbers need their written permission. [Chapter 43](#chapter-43-positioning-and-public-proof) builds on this chapter for clients rather than interviewers.
 
 ## The mock-interview protocol
 
@@ -506,7 +506,7 @@ Stress-test the stories before an interviewer does:
 | Mock transcripts and scores over time | Story bank | Private |
 | Evidence index (`README.md`) | Portfolio repo | Public |
 | CV with evidence-linked bullets | CV, portfolio repo | Public |
-| Artifacts from the labs in this Part | Portfolio repo | Public |
+| Artifacts from the book's labs | Portfolio repo | Public |
 
 ## Interview hook
 
@@ -562,11 +562,11 @@ Then you are not measuring anything yet. Run the canary answer through the debri
 <details>
 <summary>"English is my second language. My stories sound flat when I say them aloud."</summary>
 
-Structure carries more of the weight than vocabulary. Open with a one-line headline ("This is about a deadlock that only happened on Fridays"), use signposts ("There were two options…", "The turning point was…", "What I'd do differently is…"), and keep sentences short. Record yourself, transcribe it, and compare it with the worksheet: the missing parts are usually the *because* clauses, not the words. The English lab later in this Part has a phrase bank and speaking drills built for exactly this.
+Structure carries more of the weight than vocabulary. Open with a one-line headline ("This is about a deadlock that only happened on Fridays"), use signposts ("There were two options…", "The turning point was…", "What I'd do differently is…"), and keep sentences short. Record yourself, transcribe it, and compare it with the worksheet: the missing parts are usually the *because* clauses, not the words.
 </details>
 
 ## Further reading
 
 - **Julia Evans, "Get your work recognized: write a brag document"** (jvns.ca, 2019) — the original brag-document argument and template.
-- **Chapter 17: Soft Skills & Engineering Practices** — [career growth toward senior and staff](#career-growth-toward-senior-and-staff), [written communication](#written-communication-as-async-leverage) and [blameless post-mortems](#blameless-post-mortems), the skills the stories in this chapter show off.
-- **Chapter 34: Interview Questions & How to Answer Them** — the [behavioral question bank](#behavioral-seniority) the worksheets are built around.
+- **Chapter 36: Senior Behaviours, Career and Interviews** — [career growth toward senior and staff](#career-growth-toward-senior-and-staff); **Chapter 16: Working Like a Middle Developer** — [written communication](#written-communication-as-async-leverage) and [blameless post-mortems](#blameless-post-mortems). These are the skills the stories in this chapter show off.
+- **Chapter 36: Senior Behaviours, Career and Interviews** — the [behavioral question bank](#behavioral-seniority) the worksheets are built around.
