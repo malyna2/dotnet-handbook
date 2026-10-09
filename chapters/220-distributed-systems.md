@@ -324,13 +324,7 @@ Retry is one of three client-side defences; [Chapter 5](#chapter-5-http-and-web-
 
 Everything so far tells you *why* things fail and which patterns live within the limits. **Site Reliability Engineering** (codified by Google) tells you how to *run* systems that fail gracefully. The shift in thinking is from "prevent all failure" (impossible) to "engineer for failure and control its impact."
 
-### SLIs, SLOs, SLAs, and Error Budgets
-
-[Chapter 25](#alerting-slis-slos-slas-and-error-budgets) defines the four terms and how to alert on them: an SLI measures, an SLO is your internal target for it, an SLA is the looser contractual promise, and the error budget is what the SLO leaves over (a 99.9% SLO permits about 43 minutes of failure a month). What matters here is how the budget changes decisions.
-
-The error budget is the brilliant political innovation of SRE: it turns "reliability vs. velocity" from an argument into arithmetic. If you're under budget, *ship features fast* — you have reliability to spare. If you've blown the budget, *freeze features and fix reliability*. It aligns dev and ops around one number instead of pitting them against each other.
-
-> **Best practice:** Don't chase 100% reliability. It's infinitely expensive and users can't tell 99.99% from 100% because their own ISP and Wi-Fi are less reliable than that. Pick an SLO that matches user expectations and *deliberately spend the remaining budget* on shipping.
+The target for all of it is an SLO and the error budget it leaves, which turns "reliability vs. velocity" from an argument into arithmetic; [Chapter 25](#alerting-slis-slos-slas-and-error-budgets) defines the terms and alerts on the burn rate. Don't chase 100%: it is infinitely expensive, and users can't tell 99.99% from 100% because their own network is less reliable than that. Pick the SLO users actually need and spend the rest of the budget on shipping. The patterns below are how you stay inside it.
 
 ### Patterns for Graceful Failure
 
@@ -903,6 +897,20 @@ Load-test to find the current ceiling first. Then: scale out stateless tiers (an
 
 **A downstream dependency goes down — how does your service behave?**
 It should degrade gracefully, not cascade-fail. Use timeouts (never wait forever), a circuit breaker to fail fast, retries with exponential backoff and jitter for transient blips, a fallback (cached/default response) where the business allows, and bulkheads to isolate the failure to one feature. The goal: your service stays up and honest about reduced functionality.
+
+**What is idempotency at the system level, and why care?**
+An operation is idempotent if doing it twice has the same effect as once. It matters because networks force retries — a client that times out will retry, and without idempotency you double-charge or duplicate an order. Implement with idempotency keys, upserts, or dedup on a unique constraint.
+
+**What is eventual consistency?**
+In a distributed system, replicas may temporarily disagree but converge to the same state given no new updates. You accept a window of staleness in exchange for availability and scale. It's the norm across service boundaries — design UIs and workflows to tolerate "not immediately visible."
+
+**How do you handle the dual-write / lost-update problem across a DB and a message broker?**
+Writing to the DB and publishing an event as two separate operations can partially fail (DB commits, publish fails → lost event). Solve with the **Transactional Outbox**: write the event to an outbox table in the *same* DB transaction as the state change, then a relay process reads the outbox and publishes reliably. This gives at-least-once delivery without distributed transactions.
+
+**Red flag:** "Wrap the DB write and the publish in one transaction / try-catch" — the broker doesn't participate in your DB transaction, so a crash between the two still loses the event.
+
+**What is a saga?**
+A pattern for a long-running business transaction spanning multiple services without a distributed lock. Each step commits locally and publishes an event triggering the next; if a step fails, **compensating actions** undo the prior steps. Orchestration (a central coordinator) or choreography (services react to events) are the two flavors.
 
 ## Sources & Further Reading
 
