@@ -1,9 +1,9 @@
 <!doctype html>
-<html lang="en" data-theme="auto">
+<html lang="uk" data-theme="auto">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>.NET Handbook</title>
+<title>Довідник .NET</title>
 <link rel="icon" type="image/svg+xml" href="favicon.svg">
 <link rel="stylesheet" href="style.css">
 </head>
@@ -11,29 +11,30 @@
 <div id="app">
   <!-- Top bar -->
   <header id="topbar">
-    <button id="menuBtn" class="icon-btn" aria-label="Toggle navigation" title="Toggle navigation">☰</button>
-    <div class="brand" id="brandHome">.NET Handbook</div>
+    <button id="menuBtn" class="icon-btn" aria-label="Показати або приховати навігацію" title="Показати або приховати навігацію">☰</button>
+    <div class="brand" id="brandHome">Довідник .NET</div>
     <div class="search-wrap">
-      <input id="search" type="search" placeholder="Search chapters…" autocomplete="off" spellcheck="false">
+      <input id="search" type="search" placeholder="Шукати розділи…" aria-label="Шукати розділи" autocomplete="off" spellcheck="false">
       <div id="searchResults" class="search-results" hidden></div>
     </div>
     <div class="top-actions">
-      <label class="switch" title="Turn tap-/select-to-translate on or off">
-        <input type="checkbox" id="easyToggle">
+      <label class="switch" id="languageSwitch" title="Змінити мову сайту">
+        <input type="checkbox" id="languageToggle" role="switch" aria-label="Українська мова сайту" checked>
         <span class="switch-track"><span class="switch-thumb"></span></span>
-        <span class="switch-lbl">Easy Translate</span>
+        <span class="switch-lbl">EN / УКР</span>
       </label>
-      <button id="langBtn" class="pill" title="Translation settings">🇺🇦 UA</button>
-      <button id="themeBtn" class="icon-btn" title="Toggle light/dark">🌓</button>
+      <button id="themeBtn" class="icon-btn" title="Змінити тему оформлення" aria-label="Змінити тему оформлення">🌓</button>
     </div>
   </header>
 
+  <!-- Learning paths: which part of the book the sidebar lists. Filled by app.js from BOOK. -->
+
   <!-- Sidebar navigation -->
-  <nav id="sidebar" aria-label="Table of contents">
+  <nav id="sidebar" aria-label="Зміст">
     <div id="nav"></div>
     <!-- In-chapter section outline. Fixed to the right rail on wide screens; below the
          chapter list inside this drawer once the rail no longer fits. -->
-    <aside id="outline" aria-label="On this page"></aside>
+    <aside id="outline" aria-label="На цій сторінці"></aside>
   </nav>
   <div id="scrim"></div>
 
@@ -43,47 +44,19 @@
     <article id="content"></article>
     <nav id="pager" class="pager"></nav>
     <footer id="footer">
-      <p>Self-contained handbook · tap a word, or select a phrase, to translate it.</p>
+      <p id="footerText">Самодостатній довідник · доступний українською та англійською офлайн.</p>
     </footer>
   </main>
-</div>
-
-<!-- Floating "translate selection" button -->
-<button id="selTranslate" class="sel-translate" hidden>🇺🇦 Translate</button>
-
-<!-- Translation settings dialog -->
-<div id="langModal" class="modal" hidden>
-  <div class="modal-card">
-    <h3>Translation settings</h3>
-    <p class="muted">Translations use the free <b>MyMemory</b> API (English → Ukrainian). No account needed.
-    Anonymous use is rate-limited; adding your email raises the daily limit substantially.</p>
-    <label>Your email (optional, for higher limits)
-      <input id="emailInput" type="email" placeholder="you@example.com">
-    </label>
-    <label>Target language
-      <select id="targetLang">
-        <option value="uk" selected>Ukrainian (uk)</option>
-        <option value="pl">Polish (pl)</option>
-        <option value="de">German (de)</option>
-        <option value="es">Spanish (es)</option>
-        <option value="fr">French (fr)</option>
-      </select>
-    </label>
-    <div class="modal-actions">
-      <button id="clearCache" class="btn ghost">Clear cached translations</button>
-      <button id="langClose" class="btn">Done</button>
-    </div>
-  </div>
 </div>
 
 <!-- "What's New" release popup — shown once per release (tracked in localStorage) -->
 <div id="wnModal" class="modal" hidden>
   <div class="modal-card wn-card">
-    <h3>🆕 What's new — <span id="wnDate"></span></h3>
+    <h3>🆕 <span id="wnTitle">Що нового</span> — <span id="wnDate"></span></h3>
     <div id="wnBody" class="wn-body"></div>
     <div class="modal-actions">
-      <button id="wnOpen" class="btn ghost">Open the What's New page</button>
-      <button id="wnClose" class="btn">Got it</button>
+      <button id="wnOpen" class="btn ghost">Відкрити сторінку «Що нового»</button>
+      <button id="wnClose" class="btn">Зрозуміло</button>
     </div>
   </div>
 </div>
@@ -91,6 +64,7 @@
 <div id="toast" class="toast" hidden></div>
 
 <script src="content.js"></script>
+<script src="content.uk.js"></script>
 <script src="app.js"></script>
 <pre id="out" style="position:fixed;bottom:0;left:0;z-index:9999;background:#fff;font:11px monospace">running</pre>
 <script>

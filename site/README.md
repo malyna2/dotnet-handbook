@@ -22,16 +22,17 @@ A self-contained, responsive website for the handbook. No build step, no server,
 - **Light / dark / auto theme** — toggle with 🌓 (top right).
 - **Reading progress bar** and scroll-spy outline.
 
-## Translation (English → Ukrainian)
+## English / Ukrainian editions
 
-- **Click any sentence** to translate it inline. Click again to hide it.
-- **Or select any text** (a phrase, a few words) and press the floating **🇺🇦 Translate** button.
-- Translations use the free **MyMemory** API and are **cached** in your browser, so re-reading is instant and doesn't use quota.
+- The **EN / УКР** switch changes the entire site: chapter prose, navigation, search, buttons, reading-time labels and release notes.
+- Ukrainian is the default. The reader remembers your choice in `localStorage` under `site_lang`.
+- Both editions are included locally; switching works offline and makes no translation API requests.
+- Chapter URLs, section anchors, reading progress and release read marks are shared between languages. Your open chapter and reading position are preserved when switching.
 
-### Raising the daily limit
-Anonymous MyMemory use is rate-limited (~a few thousand words/day). Click the **🇺🇦 UA** button (top right) and enter your email to raise the limit substantially. You can also switch the target language (Polish, German, Spanish, French, Russian) there.
+### Updating translations
+English source chapters live in `../chapters/`; complete Ukrainian translations use the same filenames in `../chapters/uk/`. Add and update both editions together, preserving heading structure, code samples and link destinations. Translation work uses GPT-6 Luna subagents, or the latest Haiku in Claude Code, as described in `../CLAUDE.md`.
 
-> **Note:** translation needs an internet connection at read time (the site itself is fully offline; only the translate calls go out). If you hit the limit, you'll see a message — add your email or try again the next day.
+The build rejects missing translations, altered examples or heading structure, and source changes without a translation update. `../chapters/uk/_sources.json` is generated freshness metadata; do not edit it by hand.
 
 ## Regenerating the content
 
@@ -39,10 +40,11 @@ If you edit the chapters in `../chapters/`, rebuild the bundle:
 ```bash
 python3 ../build_site.py
 ```
-This regenerates `content.js` from the Markdown files.
+This regenerates `content.js`, `content.uk.js`, `../main.md` and `../main.uk.md`. From the repository root, also run `python3 verify/check_links.py`, `python3 verify/site/build_test.py` and `node --test verify/site/*.test.cjs`.
 
 ## Files
 - `index.html` — the shell
 - `style.css` — all styling (responsive, theming)
-- `app.js` — Markdown renderer, highlighter, navigation, search, translation
+- `app.js` — Markdown renderer, highlighter, navigation, search, language switching
 - `content.js` — the book content (generated from `../chapters/*.md`)
+- `content.uk.js` — Ukrainian content with the same routes and heading IDs
