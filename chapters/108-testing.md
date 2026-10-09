@@ -1,12 +1,9 @@
 # Chapter 8: Testing
 
-@@TODO: write this chapter's introduction (what it makes the reader able to do, how its sections connect), then remove every @@ line.@@
+Most developers can write a test. Far fewer can explain *why* one test is worth writing and another is worth deleting, why a green suite can still be worthless, or why the team that mocks everything ends up trusting nothing. This chapter makes you able to write and fix the tests of one service without help: put each test at the level that can prove its claim, choose the right test double, test the HTTP surface and the database for real, and remove a flaky test's cause instead of retrying it.
 
-@@SRC: introduction of old Chapter 7: Testing@@
+One idea ties the sections together: **a test is only as true as the things it runs for real, and only as repeatable as the inputs it controls.** The pyramid and xUnit come first: what each level proves, and how xUnit isolates one test from the next. Test doubles, mocking libraries, assertions and test data follow, which is where a test decides what it replaces and therefore what it can no longer catch. Integration testing puts the real pipeline and the real database engine back. TDD and BDD are ways of working with all of that; the craft section (names, structure, smells, flakiness) and deterministic time and data make a failure repeatable and readable. Contract, property-based, end-to-end, load and mutation testing are in [Chapter 25: Observability and Testing at Scale](#chapter-25-observability-and-testing-at-scale).
 
-Most developers arrive at their first senior interview able to write a test. Far fewer can explain *why* one test is worth writing and another is worth deleting, why a green test suite can still be worthless, or why the team that mocks everything ends up trusting nothing. This chapter is about that second, harder layer of understanding. We will write plenty of code, but the code is in service of judgment. By the end you should be able to look at a pull request and say, with reasons, "this test earns its keep" or "this test is a liability."
-
-@@SRC: old Chapter 7: Testing@@
 ## Why We Test At All
 
 Tests can't prove code correct; they show behaviour under specific conditions. What they buy is **confidence to change code**: without them every change is a gamble, and the design ossifies because nobody dares refactor.
@@ -23,7 +20,8 @@ The classic anti-pattern is the **ice cream cone**: lots of manual and E2E testi
 
 > **Best practice:** treat the pyramid as a distribution, not a law. A data-heavy service might legitimately be integration-heavy because its logic *is* the database interaction. The point is intentionality: know which layer each test belongs to and why.
 
-@@SRC: old Chapter 7: Testing@@
+[Chapter 25](#the-pyramid-versus-the-trophy) weighs the pyramid against the *testing trophy*, which puts the weight on integration tests.
+
 ## Unit Testing with xUnit
 
 .NET has three mainstream test frameworks: **xUnit**, **NUnit**, and **MSTest**. They are more alike than different, but xUnit has become the de facto default for new projects, partly because it was written by people reacting against perceived design mistakes in the others. We'll use xUnit as our primary vehicle and note the differences as we go.
@@ -148,7 +146,6 @@ public class ProductRepositoryTests : IClassFixture<DatabaseFixture>
 
 They're all competent. If you have no constraint, xUnit's isolation-by-default and minimal-magic philosophy make it the safe modern pick. If you're joining an existing codebase, use what's there — consistency beats preference.
 
-@@SRC: old Chapter 7: Testing@@
 ## Test Doubles: The Full Taxonomy
 
 "Mock" is used colloquially to mean "any fake object in a test," but the precise vocabulary (largely due to Gerard Meszaros and popularized by Martin Fowler) matters because it clarifies *what kind of verification you're doing*. All of these are **test doubles** — stand-ins for a real collaborator. There are five species.
@@ -209,7 +206,6 @@ public void Register_SendsWelcomeEmail()
 
 > **Why learn the taxonomy if libraries blur it?** Because mocking libraries make *all five* trivially easy to produce, and the easy thing is not always the right thing. Knowing that you actually want a *fake* (a real in-memory implementation) rather than a *mock* (interaction assertions) is the difference between a test that survives refactoring and one that shatters the moment you change an internal call.
 
-@@SRC: old Chapter 7: Testing@@
 ## Mocking Libraries: Moq and NSubstitute
 
 Hand-writing doubles gets tedious. The two dominant .NET libraries are **Moq** and **NSubstitute**. They do the same job with different ergonomics.
@@ -273,7 +269,8 @@ This is the senior-level point of the whole section. Mocking is a sharp tool tha
 
 > **Rule of thumb:** mock at the *boundaries* of your system (the network, the clock, the message bus), and use real objects everywhere inside. Interaction verification is appropriate when the interaction *is* the observable behaviour — e.g., "we must publish exactly one `OrderPlaced` event." It's inappropriate as a proxy for "did the code run the way I wrote it."
 
-@@SRC: old Chapter 7: Testing@@
+> **Pay attention.** **A double tests your assumption, not the dependency.** The usual wrong answer to "why not mock the `DbContext`?" is "it's slow". The real reason is that the mock returns what you told it to, so the query translation, constraints and transactions that fail in production never run. Fix: mock only your own boundary interfaces, and run code that touches SQL against the same engine as production ([Integration Testing](#integration-testing), below).
+
 ## Better Assertions: FluentAssertions and Shouldly
 
 `Assert.Equal(expected, actual)` works but reads backwards and fails with terse messages. Two libraries make assertions read like English and fail with rich diagnostics.
@@ -301,10 +298,11 @@ The real payoff is failure output. A raw `Assert.True(list.Contains(x))` fails w
 
 > **A note on licensing:** FluentAssertions changed its license in 2025 (version 8 became commercial for some uses). This caused many teams to evaluate alternatives such as Shouldly or the newer community fork **AwesomeAssertions**. When you pick an assertion library today, check its current license — a detail that matters more than it used to.
 
-@@SRC: old Chapter 7: Testing@@
 ## Generating Test Data: AutoFixture and Bogus
 
-Constructing objects by hand clutters tests with irrelevant detail. Two tools help, with different goals.
+Constructing objects by hand clutters tests with irrelevant detail: a `new Customer { ... }` with twenty properties hides the one field the test is about, and breaks every test when a required property is added.
+
+The hand-written answer is a **builder** (or *Object Mother*): it constructs a valid default object and lets each test override only the field it cares about, so the test's *intent* is legible. Two libraries take the same idea further, with different goals.
 
 **AutoFixture** creates objects filled with arbitrary-but-valid data, so you only specify the fields your test actually cares about:
 
@@ -330,9 +328,8 @@ var faker = new Faker<Customer>()
 var batch = faker.Generate(1000);
 ```
 
-> **Pitfall:** random data in tests can produce **non-reproducible failures** — a test that fails one run in fifty because the generator happened to produce an edge case. That's not a flaky test, it's an *undiscovered bug*, but it's infuriating to reproduce. Seed your generators (`new Faker(...) { ... }` with a fixed `Randomizer.Seed`) in CI so failures are deterministic, then treat any failure as a real finding.
+> **Pitfall:** random data in tests can produce **non-reproducible failures**: a test that fails one run in fifty because the generator happened to produce an edge case. Seed the generator; [Seeded test data](#seeded-test-data), below, explains why and how.
 
-@@SRC: old Chapter 7: Testing@@
 ## Integration Testing
 
 Unit tests verify units in isolation; integration tests verify that the wiring holds. In ASP.NET Core, the workhorse is **`WebApplicationFactory<TEntryPoint>`**, which boots your entire application in-memory — real routing, real middleware, real dependency injection, real model binding — and hands you an `HttpClient` that talks to it *without opening a network socket*.
@@ -376,7 +373,7 @@ The most consequential integration-test decision is what to do about the databas
 2. **SQLite in-memory.** A real relational engine, genuinely fast, supports transactions. A big step up in fidelity — but its SQL dialect and type handling differ from Postgres/SQL Server, so provider-specific features and migrations may not translate.
 3. **The real database engine.** Highest fidelity, catches the bugs that actually happen. Historically this meant a fragile shared test database or a heavyweight local install. **Testcontainers** solved that.
 
-> **Pay attention.** **The in-memory provider never generates SQL, so nothing a database enforces can fail.** It runs your LINQ over .NET collections. `HasIndex(...).IsUnique()` is metadata only a relational provider turns into `CREATE UNIQUE INDEX`, so two rows with the same email both save (the learning path's *InMemoryProvider* experiment shows it next to SQLite, which rejects the second). String comparison is C#'s, case-sensitive, where SQL Server's default collation is not. A query the real provider can't translate never reaches a translator. Beginning a transaction throws by default; suites that silence that warning get a transaction that does nothing, so a rollback test passes for the wrong reason. Fix: run anything that touches SQL against the production engine.
+> **Pay attention.** **The in-memory provider never generates SQL, so nothing a database enforces can fail.** It runs your LINQ over .NET collections. `HasIndex(...).IsUnique()` is metadata only a relational provider turns into `CREATE UNIQUE INDEX`, so two rows with the same email both save (this chapter's *Prove it* program shows it next to SQLite, which rejects the second). String comparison is C#'s, case-sensitive, where SQL Server's default collation is not. A query the real provider can't translate never reaches a translator. Beginning a transaction throws by default; suites that silence that warning get a transaction that does nothing, so a rollback test passes for the wrong reason. Fix: run anything that touches SQL against the production engine.
 
 > **Best practice:** test business logic against fast fakes, but test anything that touches SQL — queries, migrations, constraints, concurrency — against the *same engine you run in production*.
 
@@ -424,7 +421,6 @@ The container starts in a second or two on a warm machine, runs your *real* migr
 
 > **Pitfall:** Testcontainers needs a working Docker (or compatible) runtime on every machine that runs the suite, including CI agents. Budget for that and for image-pull time on cold caches. Cache images in CI and pin explicit tags (`postgres:16-alpine`, never `latest`) so your tests are reproducible.
 
-@@SRC: old Chapter 7: Testing@@
 ## Test-Driven Development
 
 TDD is a *discipline*, not a framework: you write the test *before* the production code, in a tight loop called **red-green-refactor**.
@@ -492,7 +488,6 @@ public static string From(int n)
 
 > **What TDD is really for:** it's a design tool disguised as a testing tool. Writing the test first forces you to use your own API before it exists, which surfaces awkward interfaces immediately. The tests are a valuable by-product; the *design pressure* is the main event. TDD is not mandatory, and it shines most on logic-heavy code with clear inputs and outputs, less so on exploratory or UI-glue work.
 
-@@SRC: old Chapter 7: Testing@@
 ## Behaviour-Driven Development
 
 BDD reframes tests as *executable specifications* written in near-natural language, so non-developers (product owners, QA) can read and even author them. In .NET the tool was **SpecFlow**; after SpecFlow was discontinued, the community fork **Reqnroll** carries the torch with a compatible API.
@@ -531,7 +526,6 @@ public class OrderSteps
 
 > **When BDD is worth it:** the overhead of Gherkin only pays off when non-technical stakeholders genuinely read or write the scenarios, or when a living, human-readable spec has real value. If it's just developers writing `Given/When/Then` for other developers, you've added indirection for no audience — a plain xUnit test with a good name is simpler. Use BDD for the collaboration, not for the syntax.
 
-@@SRC: old Chapter 7: Testing@@
 ## Craft: Naming, Structure, and Smells
 
 The techniques above are worthless if the tests themselves are unreadable or unreliable. Test code is production code — it is read far more often than it is written, and it is the first documentation a new developer meets.
@@ -582,28 +576,18 @@ A **flaky test** passes or fails without any code change — the most corrosive 
 
 Common causes and fixes:
 
-- **Time and dates.** `DateTime.Now` makes behaviour depend on when the test runs. Inject `TimeProvider` and control time explicitly ([Chapter 25: Deterministic Tests](#deterministic-tests-time-async-and-test-data)).
+- **Time and dates.** `DateTime.Now` makes behaviour depend on when the test runs. Inject `TimeProvider` and control time explicitly ([Deterministic Tests](#deterministic-tests-time-async-and-test-data), below).
 - **Ordering and shared state.** Tests that pass alone but fail together share mutable state. xUnit's new instance per test protects instance fields only; statics, singletons, fixtures and database rows survive from one test to the next.
 - **Async and timing.** `Task.Delay` and "wait a bit then assert" race the scheduler. Await deterministic signals, not wall-clock guesses.
 - **Test parallelism.** By default each test class is its own collection, and collections run in parallel: two classes touching the same row or static race each other, and the outcome depends on scheduling. Give each test its own data, or put the classes in one `[Collection]` to serialise them.
-- **Non-deterministic data.** Unseeded random generators (see Bogus/AutoFixture above).
+- **Non-deterministic data.** Unseeded random generators ([Seeded test data](#seeded-test-data), below).
 - **External dependencies.** A test calling a real network service fails when the network hiccups. Fake the boundary.
 
 > **Best practice:** treat a flaky test as a **P1 defect in the suite**, not an annoyance to retry past. Quarantine it (mark it, get it out of the blocking path) *and* file a ticket to fix or delete it — but never leave it silently retrying, because a suite you don't trust is a suite you don't have.
 
-> **Capstone tie-in:** This chapter is exercised by ShopCore Step 2 (Prove It Works: Tests) — you'd unit-test the domain rules with xUnit and place an order through the HTTP surface against a Testcontainers PostgreSQL via `WebApplicationFactory`. See Chapter 32.
-
-@@SRC: old Chapter 7: Testing@@
-## Bringing It Together
-
-Testing maturity is not measured in a coverage percentage or a count of tests. It's measured in a single capability: **can your team change the code with confidence and speed?** Everything in this chapter serves that. The pyramid tells you where to invest. Unit tests with clean AAA structure and honest names give fast, precise feedback. Test doubles — used with the judgment to know when *not* to mock — isolate units without ossifying them. Integration tests with Testcontainers verify the seams against real infrastructure. TDD applies design pressure; BDD aligns with stakeholders when there's an audience for it. Mutation testing audits whether your tests actually verify, and coverage maps what's untouched. And relentless hygiene around flakiness protects the trust that makes the whole edifice worthwhile.
-
-Write tests that would fail if the behaviour broke, that read clearly when they do, and that survive a refactor of the code they cover. Do that, and your test suite stops being a chore you maintain and becomes the thing that lets you move fast without breaking things.
-
-@@SRC: old Chapter 25: Advanced & Specialized Testing@@
 ## Deterministic Tests: Time, Async, and Test Data
 
-Everything above assumes tests are *deterministic* — same input, same result, every run. Two forces most often break that assumption: **wall-clock time** and **unmanaged test data**.
+Every fix in the flaky-test list comes down to one rule: a test must control its inputs, so the same code gives the same result on every run. Two of those inputs hide in plain sight, and you can remove both by design: **wall-clock time** and **random test data**.
 
 ### Fake time with TimeProvider (.NET 8+)
 
@@ -632,38 +616,17 @@ public void Token_IsExpired_AfterThirtyMinutes()
 
 The real power: `FakeTimeProvider` also controls `Task.Delay` and timers created through it. A test for a component that retries "after 5 seconds" no longer waits 5 real seconds — you call `Advance` and the delayed continuation fires immediately, deterministically. **Retrofitting `TimeProvider` into a legacy codebase is one of the highest-leverage testability refactors you can make**: it converts an entire category of slow, flaky, time-based tests into fast, reliable ones.
 
-### Test data management
+### Seeded test data
 
-Sprawling, hand-built object graphs (`new Customer { ... }` with twenty properties) make tests unreadable and fragile. Two patterns keep data under control:
+A random generator is an input too. One seeded from the clock produces a suite that passes 99 runs and fails the 100th, because the generator happened to produce an edge case. That isn't a flaky test, it's an *undiscovered bug*, but without the seed nobody can reproduce it. Seed generators with a fixed value in tests (Bogus: a fixed `Randomizer.Seed`), and if you vary the seed on purpose to explore more inputs, log it on failure so any failure *is* reproducible. Then treat each such failure as a real finding.
 
-- **Builders / Object Mothers.** A fluent builder constructs a valid default object and lets each test override only the one field it cares about — making the test's *intent* legible. Libraries like [AutoFixture](https://github.com/AutoFixture/AutoFixture) generate anonymous valid data automatically so tests declare only what's relevant, and [Bogus](https://github.com/bchavez/Bogus) produces realistic fake names, emails, and addresses.
-- **Deterministic seeding.** Random data generators must be *seeded with a fixed value* in tests. A generator seeded from the clock produces a suite that passes 99 runs and mysteriously fails the 100th — the worst kind of flake, because it isn't reproducible. Fix the seed; log it on failure so any failure *is* reproducible.
+## Bringing It Together
 
-@@SRC: old Chapter 34: Interview Questions & How to Answer Them@@
-## Interview Questions
+Testing maturity is not measured in a coverage percentage or a count of tests. It's measured in a single capability: **can your team change the code with confidence and speed?** Everything in this chapter serves that. The pyramid tells you where to invest. Unit tests with clean AAA structure and honest names give fast, precise feedback. Test doubles, used with the judgment to know when *not* to mock, isolate units without ossifying them. Integration tests with Testcontainers verify the seams against real infrastructure. TDD applies design pressure; BDD aligns with stakeholders when there's an audience for it. Controlled time and seeded data keep the suite repeatable, and relentless hygiene around flakiness protects the trust that makes the whole edifice worthwhile. Whether the tests actually verify anything is the question mutation testing answers, in [Chapter 25](#chapter-25-observability-and-testing-at-scale).
 
-*Revise: Ch. 7 — Testing · Ch. 25 — Advanced & Specialized Testing*
+Write tests that would fail if the behaviour broke, that read clearly when they do, and that survive a refactor of the code they cover. Do that, and your test suite stops being a chore you maintain and becomes the thing that lets you move fast without breaking things.
 
-**Unit vs integration test?**
-A **unit test** exercises one small piece (a class/method) in isolation with dependencies mocked — fast, focused, pinpoints failures. An **integration test** exercises several components together, often with a real database or HTTP host, to catch wiring and contract issues unit tests miss. You need both; the classic pyramid has many unit, fewer integration, fewest end-to-end.
-
-**Mock vs stub?**
-A **stub** provides canned answers to make the test run (returns a fixed value). A **mock** additionally *verifies interactions* — that a method was called, with what arguments, how many times. Use a stub when you only need to supply data, a mock when the behavior under test *is* the interaction (e.g. "does it publish the event?"). Over-mocking couples tests to implementation.
-
-**What is TDD, in one breath?**
-Red-green-refactor: write a failing test for the next small behavior, write the minimum code to pass it, then refactor with the test as a safety net — repeat. It drives design toward testable, small units and gives you a regression suite for free. The discipline is writing the test *first*.
-
-**How do you test async code?**
-Make the test method `async Task` and `await` the operation — never block with `.Result` in tests (it hides exceptions and can deadlock). Assert on the awaited result or the thrown exception (`await Assert.ThrowsAsync`). For time-dependent code, inject a clock/`TimeProvider` rather than sleeping.
-
-**What makes a good test?**
-Fast, isolated/independent (no order dependence, no shared state), deterministic (no flakiness from time, randomness, or network), readable (Arrange-Act-Assert, one logical assertion of behavior), and testing *behavior not implementation* so refactors don't break it. A test you don't trust is worse than no test.
-
-**Red flag:** "Good tests means 100% code coverage" — coverage proves code ran, not that behavior was asserted; a suite can hit every line yet catch nothing.
-
----
-
-@@SRC: practice from old module page Part 1 · Module 9: Testing Essentials@@
+> **Capstone tie-in:** This chapter is exercised by ShopCore Step 2 (Prove It Works: Tests) — you'd unit-test the domain rules with xUnit and place an order through the HTTP surface against a Testcontainers PostgreSQL via `WebApplicationFactory`. See [Chapter 44](#chapter-44-capstone-one-project-growing-up).
 
 ## Prove it
 
@@ -714,8 +677,53 @@ What to notice:
 - **The model declares the index; only one engine enforces it.** `HasIndex(...).IsUnique()` is metadata. The relational provider turns it into `CREATE UNIQUE INDEX`, and the engine rejects the second row. The in-memory provider stores objects in .NET collections and has nothing to reject it with, so a "duplicate email is refused" test can only pass for real against an engine.
 - **SQLite is a step, not the destination.** It enforces constraints and transactions, but its SQL dialect and string comparison differ from SQL Server's or PostgreSQL's (SQLite compares case-sensitively, SQL Server's default collation doesn't). For queries, migrations and concurrency, run the production engine in a container.
 
+## Three questions
+
+**1.** A repository test runs on `UseInMemoryDatabase`, saves two users with the same email, and passes. Production has a unique index on `Email`. What did the test prove, and what would you change?
+
+<details>
+<summary>Answer</summary>
+
+Only that the C# runs. The EF Core in-memory provider executes your LINQ over .NET collections: no SQL is generated, so there is no unique index to violate, no transaction (beginning one throws by default, and silencing that warning makes it a no-op), no raw SQL, and string comparison follows C# rather than the database's collation. Test anything that touches SQL against the production engine in a container (Testcontainers), and keep fakes for business logic. [In-Memory vs Real Database](#in-memory-vs-real-database).
+</details>
+
+**2.** A test passes on its own and fails when the whole suite runs. What is the usual mechanism in xUnit, and how do you fix it?
+
+<details>
+<summary>Answer</summary>
+
+State that outlives a test. xUnit creates a new instance of the test class for every test, so instance fields are safe; statics, singletons, class and collection fixtures, and database rows are not. By default each test class is its own collection and collections run in parallel, so two classes touching the same rows or static race each other, and the result depends on scheduling. Fix: each test arranges and owns its data (unique keys, its own rows), state is reset between tests, and classes that must share a resource go into one `[Collection]`. [Flaky Tests](#flaky-tests).
+</details>
+
+**3.** When is `Verify(x => x.Send(...), Times.Once)` the right assertion, and when is it why a refactoring broke forty tests?
+
+<details>
+<summary>Answer</summary>
+
+It is right when the interaction is the observable behaviour at a boundary you own: "exactly one confirmation email is sent", "one `OrderPlaced` event is published". It is wrong as a check of internal calls: it pins the implementation, so a change that keeps the behaviour fails the test. Mock at the boundaries (network, clock, message bus), use real objects or fakes inside, and don't mock types you don't own. [When NOT to Mock](#when-not-to-mock).
+</details>
+
 ## Check at work
 
 **Inspect.** In your test projects, search for `UseInMemoryDatabase`, `Thread.Sleep`, `Task.Delay`, `DateTime.Now` and `DateTime.UtcNow`, and for `static` mutable fields in test classes. Sort each hit: a test that touches SQL on the in-memory provider, an uncontrolled clock, a fixed wait, or shared state. Then pick five tests at random and read only their names: can you tell which requirement broke if each one fails?
 
 **Measure.** From your CI history, count the tests that failed and then passed on a rerun of the same commit over the last month, and the suite's run time per level (unit, integration). Each rerun-to-green is a flaky test to fix or quarantine; in a slow integration tier, check how many containers start per run: one per collection, shared through a fixture, is usually enough.
+
+## Interview Questions
+
+**Unit vs integration test?**
+A **unit test** exercises one small piece (a class/method) in isolation with dependencies mocked — fast, focused, pinpoints failures. An **integration test** exercises several components together, often with a real database or HTTP host, to catch wiring and contract issues unit tests miss. You need both; the classic pyramid has many unit, fewer integration, fewest end-to-end.
+
+**Mock vs stub?**
+A **stub** provides canned answers to make the test run (returns a fixed value). A **mock** additionally *verifies interactions* — that a method was called, with what arguments, how many times. Use a stub when you only need to supply data, a mock when the behavior under test *is* the interaction (e.g. "does it publish the event?"). Over-mocking couples tests to implementation.
+
+**What is TDD, in one breath?**
+Red-green-refactor: write a failing test for the next small behavior, write the minimum code to pass it, then refactor with the test as a safety net — repeat. It drives design toward testable, small units and gives you a regression suite for free. The discipline is writing the test *first*.
+
+**How do you test async code?**
+Make the test method `async Task` and `await` the operation — never block with `.Result` in tests (it hides exceptions and can deadlock). Assert on the awaited result or the thrown exception (`await Assert.ThrowsAsync`). For time-dependent code, inject a clock/`TimeProvider` rather than sleeping.
+
+**What makes a good test?**
+Fast, isolated/independent (no order dependence, no shared state), deterministic (no flakiness from time, randomness, or network), readable (Arrange-Act-Assert, one logical assertion of behavior), and testing *behavior not implementation* so refactors don't break it. A test you don't trust is worse than no test.
+
+**Red flag:** "Good tests means 100% code coverage" — coverage proves code ran, not that behavior was asserted; a suite can hit every line yet catch nothing.
