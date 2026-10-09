@@ -32,15 +32,15 @@ scripts/health-check.sh --no-dotnet                                             
 | File | Area | Chapter |
 |---|---|---|
 | `00-environment.txt` | machine, OS, SDKs, target and commit | — |
-| `01-inventory-runtime.txt` | projects, target frameworks, `global.json`, support phases and recent patches from `dotnet/core` | 30, App. B |
-| `02-dependencies-summary.txt`, `02-packages-*.json`, `02-restore.log` | `dotnet list package --outdated/--vulnerable/--deprecated --include-transitive` | 35 |
-| `03-supply-chain.txt` | sources, source mapping, pinning, audit switches, action pins, base images | 35 |
-| `04-hotspots.tsv`, `04-hotspots-all-history.tsv`, `04-churn-by-folder.txt` | churn × branch count, last 365 days and whole history | 30 |
-| `05-architecture.txt` | project references, fan-in, size per project | 6 |
-| `06-tests.txt` | test projects, attributes, test vs production lines | 7, 25 |
-| `07-code-signals.txt` | security, observability and performance **leads** (production code only) | 14, 13, 15, 4 |
-| `08-build-ci-cost.txt` | CI, build settings, what the AppHost provisions, AI clients | 11, 12, 28 |
-| `09-build-tests.txt`, `09-build.log` | with `--build`: does it build, and do the unit-test projects pass | 7, 12 |
+| `01-inventory-runtime.txt` | projects, target frameworks, `global.json`, support phases and recent patches from `dotnet/core` | 24, Appendix |
+| `02-dependencies-summary.txt`, `02-packages-*.json`, `02-restore.log` | `dotnet list package --outdated/--vulnerable/--deprecated --include-transitive` | 27 |
+| `03-supply-chain.txt` | sources, source mapping, pinning, audit switches, action pins, base images | 27 |
+| `04-hotspots.tsv`, `04-hotspots-all-history.tsv`, `04-churn-by-folder.txt` | churn × branch count, last 365 days and whole history | 24 |
+| `05-architecture.txt` | project references, fan-in, size per project | 21 |
+| `06-tests.txt` | test projects, attributes, test vs production lines | 8, 25 |
+| `07-code-signals.txt` | security, observability and performance **leads** (production code only) | 12, 9, 17, 7 |
+| `08-build-ci-cost.txt` | CI, build settings, what the AppHost provisions, AI clients | 14, 13, 31 |
+| `09-build-tests.txt`, `09-build.log` | with `--build`: does it build, and do the unit-test projects pass | 8, 13 |
 
 Every line of output is a lead. Open the file before it becomes a finding.
 

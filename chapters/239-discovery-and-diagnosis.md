@@ -2,7 +2,7 @@
 
 A client says "we want microservices." A middle engineer hears a specification and starts sketching service boundaries. A senior engineer hears a *symptom*, and asks what hurts. Six weeks later the first engineer is splitting a monolith that was never the problem, and the second has found out that three teams share a single release train, that every deploy needs a Friday change board, and that what the client wanted all along was to ship on a Tuesday without asking permission. That can be fixed with a pipeline and a module boundary. A network doesn't have to come into it.
 
-This chapter is about the work that comes before advice: finding out what the problem actually is. [Chapter 60](#chapter-60-having-a-point-of-view) argued that clients hire an expert for a point of view. This chapter is about earning the right to give one. A point of view given before diagnosis is just an opinion, and clients can tell the difference. What the doctor does before prescribing, the consultant has to do too, for the same reason: a correct treatment for the wrong disease is still malpractice.
+This chapter is about the work that comes before advice: finding out what the problem actually is. [Chapter 38](#chapter-38-having-a-point-of-view) argued that clients hire an expert for a point of view. This chapter is about earning the right to give one. A point of view given before diagnosis is just an opinion, and clients can tell the difference. What the doctor does before prescribing, the consultant has to do too, for the same reason: a correct treatment for the wrong disease is still malpractice.
 
 ```
    the request            discovery                    diagnosis              advice
@@ -31,7 +31,7 @@ The table below lists common requests and the needs that tend to sit under them.
 | "We want microservices" | Deploy coupling: one change needs everyone's release. Or team contention over one codebase. Or a scaling hot spot in one module. | "Walk me through the last time a small change took too long to reach production. Where did it wait?" |
 | "Make it faster" | One slow report, one slow page, or one slow batch job. Or perceived slowness from a UI that blocks. | "Which screen, for whom, and when did they last complain?" |
 | "Move us to the cloud" | A data-centre contract ending, a hardware refresh, an acquirer's requirement, or a cost story someone promised the board. | "What date is driving this, and what happens on that date?" |
-| "Upgrade to .NET 10" | An auditor or customer questionnaire flagging an unsupported runtime ([Chapter 30](#the-eol-treadmill-legacy-is-a-verb)). Or hiring pain. Or a genuine performance need. | "Who asked for this, and what did they say?" |
+| "Upgrade to .NET 10" | An auditor or customer questionnaire flagging an unsupported runtime ([Chapter 24](#the-eol-treadmill-legacy-is-a-verb)). Or hiring pain. Or a genuine performance need. | "Who asked for this, and what did they say?" |
 | "We need better code quality" | Too many production incidents, or one bad incident with an executive watching. Or onboarding that takes months. | "What happened recently that made this urgent now?" |
 
 > **Best practice.** Treat the request with respect and hold it loosely. "That might well be the right answer. Before I agree, let me understand what's pushing you toward it" takes the client seriously and still keeps diagnosis open. Contradicting the request in the first meeting does neither.
@@ -119,7 +119,7 @@ Each question comes with what you are listening for. The literal answer matters 
 | "What budget range are we working within?" | Whether one exists. If they won't say, ask for a range between two numbers you name. |
 | "What's the deadline, and what's behind it?" | Fixed versus negotiable. A board meeting is movable, a regulator usually isn't. |
 | "Who will own and run this after we leave?" | The team's skills decide which solutions are viable. A Kubernetes design handed to a team that has never run a container is a liability. |
-| "What compliance or contractual constraints apply?" | GDPR, PCI DSS, SOC 2, data residency, customer contracts that name a cloud or region ([Chapter 28](#chapter-28-compliance-data-privacy-cloud-cost-finops)). These are hard walls. |
+| "What compliance or contractual constraints apply?" | GDPR, PCI DSS, SOC 2, data residency, customer contracts that name a cloud or region ([Chapter 31](#chapter-31-compliance-data-privacy-cloud-cost-finops)). These are hard walls. |
 | "What's off the table?" | Vendor mandates, "we are a Microsoft shop," a technology the CTO won't accept. Better to hear it now than in the review. |
 
 ### Current system
@@ -129,7 +129,7 @@ Each question comes with what you are listening for. The literal answer matters 
 | "Can you draw the system for me, roughly?" | Which boxes they draw first and largest, and which they forget. What they forget is often where the incidents come from. |
 | "How does a change get from a developer's machine to production?" | Lead time, manual steps, approvals, and who is on the critical path. |
 | "What breaks most often? What woke someone up last?" | The real reliability picture, which is usually different from the architecture diagram. |
-| "Which part does nobody want to touch?" | Your first hotspot candidate. Verify it with data ([Chapter 30](#finding-hotspots-churn-complexity)). |
+| "Which part does nobody want to touch?" | Your first hotspot candidate. Verify it with data ([Chapter 24](#finding-hotspots-churn-complexity)). |
 
 ### Failed past attempts
 
@@ -161,7 +161,7 @@ This area is the one most often skipped, and among the most useful. Almost every
 | "What's that number today?" | Whether a baseline exists. If not, measuring it becomes step one of the engagement. |
 | "What would 'good enough' look like, as opposed to perfect?" | The stopping point. Without one, the engagement never ends, or ends with the client feeling short-changed. |
 
-> **Best practice.** Turn every success criterion into *metric, baseline, target, date, measured by*. "Faster reports" becomes "p95 generation time for the month-end [report], from [baseline] to under [target], by [date], measured from the existing [APM tool] traces." If you can't fill in the baseline, you have found the first task. It is also the first evidence you will be able to show later ([Chapter 36](#chapter-36-the-story-bank-evidence-portfolio)).
+> **Best practice.** Turn every success criterion into *metric, baseline, target, date, measured by*. "Faster reports" becomes "p95 generation time for the month-end [report], from [baseline] to under [target], by [date], measured from the existing [APM tool] traces." If you can't fill in the baseline, you have found the first task. It is also the first evidence you will be able to show later ([Chapter 37](#chapter-37-the-story-bank-evidence-portfolio)).
 
 ## Diagnostic Techniques
 
@@ -187,7 +187,7 @@ The value is in the last step. Adding the index fixes this report. Only the answ
 **How it fails:**
 
 - **It follows one chain.** Real problems usually have several contributing causes. Ask "and what else?" at each level, and you get a tree rather than a line.
-- **It stops at a person.** "Why? Because [developer] didn't add the index." That is the end of learning and the start of blame. When the chain reaches a person, ask what made their action reasonable given what they knew. That is the blameless post-mortem rule from [Chapter 17](#blameless-post-mortems), applied before the incident instead of after.
+- **It stops at a person.** "Why? Because [developer] didn't add the index." That is the end of learning and the start of blame. When the chain reaches a person, ask what made their action reasonable given what they knew. That is the blameless post-mortem rule from [Chapter 16](#blameless-post-mortems), applied before the incident instead of after.
 - **It becomes an interrogation.** Five literal "why?"s feel hostile, especially across cultures. Vary it: "What led to that?", "What was going on at the time?"
 - **It invents causes.** Each answer is a hypothesis. Check the important ones against data (the query plan, the commit history, the org chart) before you build a recommendation on them.
 
@@ -197,7 +197,7 @@ This is the most useful single question in discovery. It **prices the problem**:
 
 Ask it neutrally, as a real question rather than a sales tactic. If the answer is "it limps on and we're fine with that," a trusted advisor accepts it.
 
-> **Gotcha.** "Nothing" is rarely really an option for runtime and dependency upkeep. A system nobody changes still decays ([Chapter 30](#the-eol-treadmill-legacy-is-a-verb)): the runtime reaches end of support, the base image stops getting patches, and the next customer security questionnaire flags it. When a client says "we'll leave it alone," check the end-of-support dates before you agree that doing nothing is free.
+> **Gotcha.** "Nothing" is rarely really an option for runtime and dependency upkeep. A system nobody changes still decays ([Chapter 24](#the-eol-treadmill-legacy-is-a-verb)): the runtime reaches end of support, the base image stops getting patches, and the next customer security questionnaire flags it. When a client says "we'll leave it alone," check the end-of-support dates before you agree that doing nothing is free.
 
 ### Playing back your understanding
 
@@ -213,14 +213,14 @@ End with a question that invites correction ("what have I got wrong?"), not agre
 
 A symptom is what someone observes. A cause is what, if changed, would stop the symptom. Clients report symptoms, often in the vocabulary of a guessed cause ("the database is slow").
 
-This is the same discipline as incident response, applied to a business problem. [Chapter 33's incident cheat-card](#the-incident-cheat-card) puts *symptom* and *root cause* in separate columns for a reason: at 3 a.m. the symptom is "p99 climbs and health checks flap," and the cause is a connection pool exhausted by a missing timeout. The method in [Chapter 17.6](#176-methodical-debugging-problem-solving) carries over unchanged: reproduce, read the actual evidence, form one falsifiable hypothesis, test it, and bisect.
+This is the same discipline as incident response, applied to a business problem. [Chapter 35's incident cheat-card](#the-incident-cheat-card) puts *symptom* and *root cause* in separate columns for a reason: at 3 a.m. the symptom is "p99 climbs and health checks flap," and the cause is a connection pool exhausted by a missing timeout. The method in [Chapter 16's methodical debugging](#methodical-debugging-problem-solving) carries over unchanged: reproduce, read the actual evidence, form one falsifiable hypothesis, test it, and bisect.
 
 | The client says (symptom, often with a guessed cause) | Ask for the evidence | Candidate causes to test |
 |---|---|---|
 | "The database is slow" | Which queries, when, and the query plan | Missing index, parameter sniffing, lock contention, an N+1 in one endpoint, an undersized tier |
 | "Releases keep breaking things" | The last five failed releases and what broke | No integration tests on one boundary, config drift between environments, a shared database schema |
 | "The team is too slow" | Where the last three features spent their time | Review queues, environment contention, unclear requirements, one person as a bottleneck |
-| "The cloud bill is out of control" | The cost breakdown by service and tag | One oversized resource, idle non-production environments, egress, log ingestion ([Chapter 28](#chapter-28-compliance-data-privacy-cloud-cost-finops)) |
+| "The cloud bill is out of control" | The cost breakdown by service and tag | One oversized resource, idle non-production environments, egress, log ingestion ([Chapter 31](#chapter-31-compliance-data-privacy-cloud-cost-finops)) |
 | "The system is unstable" | Incident list, timestamps, and what changed before each | A deploy pattern, a batch job, a noisy tenant, a dependency with no timeout |
 
 > **Best practice.** Write symptoms and causes in separate columns in your notes, and don't move anything into the cause column without evidence. The discipline feels slow, and it is what stops you from confidently fixing the wrong thing.
@@ -229,7 +229,7 @@ This is the same discipline as incident response, applied to a business problem.
 
 Talking gets you the story. The system tells you whether the story is true. On day one of access, before you form opinions, build a **first-day map**: a quick, broad survey that turns "we have some tech debt" into specific facts.
 
-The aim is breadth: finding where to spend day two. [Chapter 62](#chapter-62-lab-the-net-health-check) turns this into a full lab with a structured health-check report. What follows is the fast version you can do in a first session.
+The aim is breadth: finding where to spend day two. [Chapter 40](#chapter-40-lab-the-net-health-check) turns this into a full lab with a structured health-check report. What follows is the fast version you can do in a first session.
 
 ```
    ┌──────────┐   ┌───────────┐   ┌────────────┐   ┌──────────────┐   ┌────────┐
@@ -240,7 +240,7 @@ The aim is breadth: finding where to spend day two. [Chapter 62](#chapter-62-lab
    └──────────┘   └───────────┘   └────────────┘   └──────────────┘   └────────┘
 ```
 
-**The repo.** How many solutions and projects are there, and how do they reference each other? What does `global.json` pin? Are there tests, and do they run? Where is the churn? Churn crossed with complexity gives you hotspots ([Chapter 30](#finding-hotspots-churn-complexity)),, and they usually overlap with "the part nobody wants to touch." When they don't, ask why.
+**The repo.** How many solutions and projects are there, and how do they reference each other? What does `global.json` pin? Are there tests, and do they run? Where is the churn? Churn crossed with complexity gives you hotspots ([Chapter 24](#finding-hotspots-churn-complexity)),, and they usually overlap with "the part nobody wants to touch." When they don't, ask why.
 
 ```bash
 # Target frameworks across the repo: one line per project
@@ -258,13 +258,13 @@ dotnet list package --vulnerable --include-transitive
 dotnet list package --outdated
 ```
 
-**The pipelines.** Find the pipeline definitions and read one end to end. How long does a build take, and how long a deploy? Which steps are manual? Where are the approval gates, and who holds them? The gap between "merged" and "in production" is often the real answer to "we want microservices" ([Chapter 12](#chapter-12-devops-cicd)).
+**The pipelines.** Find the pipeline definitions and read one end to end. How long does a build take, and how long a deploy? Which steps are manual? Where are the approval gates, and who holds them? The gap between "merged" and "in production" is often the real answer to "we want microservices" ([Chapter 13](#chapter-13-git-and-cicd)).
 
-**The dashboards.** Ask to see what the team looks at. If nobody looks at anything, that is a finding. What is measured: request rates, error rates, latency percentiles, queue depths? What isn't? Is anything alerting on user-visible symptoms, or only on CPU? ([Chapter 13](#chapter-13-observability).)
+**The dashboards.** Ask to see what the team looks at. If nobody looks at anything, that is a finding. What is measured: request rates, error rates, latency percentiles, queue depths? What isn't? Is anything alerting on user-visible symptoms, or only on CPU? ([Chapter 25](#chapter-25-observability-and-testing-at-scale).)
 
 **The dependencies.** Databases, queues, caches, third-party APIs, the shared SSO, the one SOAP service nobody can find the owner of. For each one, note whether calls have a timeout and whether anyone would notice if it went down.
 
-**The EOL picture.** Runtime versions against their end-of-support dates ([Appendix B](#appendix-b-net-version-comparison-cheat-sheet) has the table), base images, the database engine version, and any .NET Framework projects. An unsupported runtime is the finding most likely to turn "we'll think about it" into "we need to do this now," because it has a date and an auditor attached ([Chapter 30](#the-eol-treadmill-legacy-is-a-verb)).
+**The EOL picture.** Runtime versions against their end-of-support dates ([the appendix](#appendix-net-version-comparison-cheat-sheet) has the table), base images, the database engine version, and any .NET Framework projects. An unsupported runtime is the finding most likely to turn "we'll think about it" into "we need to do this now," because it has a date and an auditor attached ([Chapter 24](#the-eol-treadmill-legacy-is-a-verb)).
 
 Capture it as a one-page map:
 
@@ -304,7 +304,7 @@ The last section is the one that matters. The map exists to test what you were t
 
 ## Stakeholder Mapping
 
-Every engagement has more stakeholders than the people who show up to meetings. A stakeholder map makes them visible so you can plan who to talk to, how often, and about what. [Chapter 17](#tailoring-the-message-to-the-audience) covers how to tailor a message to each audience. This section is about knowing who the audiences are.
+Every engagement has more stakeholders than the people who show up to meetings. A stakeholder map makes them visible so you can plan who to talk to, how often, and about what. [Chapter 16](#tailoring-the-message-to-the-audience) covers how to tailor a message to each audience. This section is about knowing who the audiences are.
 
 The standard tool is the **power/interest grid**, usually attributed to Aubrey Mendelow. Place each stakeholder by how much power they have over the outcome and how much they care about it:
 
@@ -341,7 +341,7 @@ Alongside the grid, note each person's role in the decision. The labels vary bet
 
 Some problems never get stated because nobody in the room can say them. Most of these are **organisational problems presented as technical ones**, and engineers are well placed to spot them because the technology is where they show up.
 
-Conway's law, from Melvin Conway's 1968 paper "How Do Committees Invent?", says roughly that a system's design ends up mirroring the communication structure of the organisation that builds it. [Chapter 6](#when-to-split-and-conways-law) covers it as an architecture constraint. In discovery you use it the other way round: **read the system's shape to find the organisation's problems.**
+Conway's law, from Melvin Conway's 1968 paper "How Do Committees Invent?", says roughly that a system's design ends up mirroring the communication structure of the organisation that builds it. [Chapter 21](#when-to-split-and-conways-law) covers it as an architecture constraint. In discovery you use it the other way round: **read the system's shape to find the organisation's problems.**
 
 Two chatty services that should be one often sit on the boundary between two teams that don't talk. A "shared" library nobody owns often marks a function that was reorganised away. A module with one active author in a year is a person the organisation depends on.
 
@@ -364,7 +364,7 @@ Two chatty services that should be one often sit on the boundary between two tea
 
 ## The One-Page Problem Statement
 
-Discovery ends with a written problem statement that the client agrees with. It is the most leveraged page in the engagement: every estimate, recommendation and success check afterwards points back to it. [Chapter 63](#chapter-63-recommendations-proposals-and-estimates) builds recommendations on top of it, and a recommendation without one has nothing to stand on.
+Discovery ends with a written problem statement that the client agrees with. It is the most leveraged page in the engagement: every estimate, recommendation and success check afterwards points back to it. [Chapter 41](#chapter-41-recommendations-proposals-and-estimates) builds recommendations on top of it, and a recommendation without one has nothing to stand on.
 
 The mechanism: a problem statement turns a conversation, which everyone remembers differently, into a document that can be corrected, signed off and cited. Where a play-back checks your understanding in the moment, the problem statement fixes it in writing.
 
@@ -409,11 +409,11 @@ Rules that keep it honest:
 - **Out of scope is as important as scope.** It is what protects you and the client when the conversation later drifts to "while you're in there…"
 - **It is agreed, not just delivered.** Walk through it live, invite corrections, and revise it. "Agreed by [name] on [date]" is a line you will point to in month three.
 
-> **Best practice.** Keep a blank copy of this template, and one filled in for an invented or open-source system, in your own public portfolio repo. It shows a prospective client or employer how you think before they ever meet you ([Chapter 65](#chapter-65-positioning-and-public-proof)). Real client problem statements are confidential and usually covered by an NDA. Never publish one. If you want to use a real engagement as a case study, anonymise it thoroughly and get the client's written permission first.
+> **Best practice.** Keep a blank copy of this template, and one filled in for an invented or open-source system, in your own public portfolio repo. It shows a prospective client or employer how you think before they ever meet you ([Chapter 43](#chapter-43-positioning-and-public-proof)). Real client problem statements are confidential and usually covered by an NDA. Never publish one. If you want to use a real engagement as a case study, anonymise it thoroughly and get the client's written permission first.
 
 ## Pushing Back on the Brief
 
-Sometimes diagnosis shows the brief is wrong: the requested solution won't solve the problem, will make it worse, or solves a problem nobody has. Delivering a brief you know is wrong isn't professionalism; it is complicity, and the bill arrives later. But not every disagreement is worth raising ([Chapter 17](#picking-battles-and-influencing-without-authority) covers picking battles), and with a client your relationship is newer and your authority borrowed.
+Sometimes diagnosis shows the brief is wrong: the requested solution won't solve the problem, will make it worse, or solves a problem nobody has. Delivering a brief you know is wrong isn't professionalism; it is complicity, and the bill arrives later. But not every disagreement is worth raising ([Chapter 36](#picking-battles-and-influencing-without-authority) covers picking battles), and with a client your relationship is newer and your authority borrowed.
 
 | The brief… | Push back? | How hard |
 |---|---|---|
@@ -602,11 +602,11 @@ What you don't do is quietly deliver a proposal you believe won't work. The acco
 - **Peter Block, *Flawless Consulting*.** The standard text on the consulting relationship, including how to handle a client's resistance to a diagnosis.
 - **Donald C. Gause and Gerald M. Weinberg, *Are Your Lights On? How to Figure Out What the Problem Really Is*.** A short book on problem definition: the antidote to solving the request instead of the problem.
 - **Gerald M. Weinberg, *The Secrets of Consulting*.** Rules of thumb for giving advice and getting it taken.
-- **David H. Maister, Charles H. Green and Robert M. Galford, *The Trusted Advisor*.** How trust in advisory relationships is built and lost; the frame for Part XIII.
+- **David H. Maister, Charles H. Green and Robert M. Galford, *The Trusted Advisor*.** How trust in advisory relationships is built and lost; the frame for Chapters 38–43.
 - **Rob Fitzpatrick, *The Mom Test*.** Asking about past behaviour, not opinions or hypotheticals.
 - **Taiichi Ohno, *Toyota Production System*.** The origin of the five whys as a working method.
 - **Melvin E. Conway, "How Do Committees Invent?"** (1968). The original paper behind Conway's law.
 - **Matthew Skelton and Manuel Pais, *Team Topologies*.** Using Conway's law deliberately, for when the unstated problem is team structure.
 - **Erin Meyer, *The Culture Map*.** How cultures differ in communicating, criticising and deciding.
 - **Adam Tornhill, *Your Code as a Crime Scene*.** Churn, hotspots and knowledge maps from version control.
-- **Within this book:** [Chapter 17](#chapter-17-soft-skills-engineering-practices) (communication, disagreement, post-mortems), [Chapter 30](#chapter-30-working-with-legacy-brownfield-code) (hotspots and EOL), [Chapter 33](#chapter-33-real-world-scenarios-architectural-decisions) (symptom-to-cause under pressure), and the rest of Part XIII: [Chapter 60](#chapter-60-having-a-point-of-view), [Chapter 62](#chapter-62-lab-the-net-health-check), [Chapter 63](#chapter-63-recommendations-proposals-and-estimates), [Chapter 64](#chapter-64-the-advisory-casebook), [Chapter 65](#chapter-65-positioning-and-public-proof).
+- **Within this book:** [Chapter 16](#chapter-16-working-like-a-middle-developer) (communication, disagreement, post-mortems), [Chapter 24](#chapter-24-working-with-legacy-brownfield-code) (hotspots and EOL), [Chapter 35](#chapter-35-production-incidents) (symptom-to-cause under pressure), and the rest of the advisory chapters: [Chapter 38](#chapter-38-having-a-point-of-view), [Chapter 40](#chapter-40-lab-the-net-health-check), [Chapter 41](#chapter-41-recommendations-proposals-and-estimates), [Chapter 42](#chapter-42-the-advisory-casebook), [Chapter 43](#chapter-43-positioning-and-public-proof).

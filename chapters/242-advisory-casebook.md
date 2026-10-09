@@ -1,8 +1,8 @@
 # Chapter 42: The Advisory Casebook
 
-[Chapter 33](#chapter-33-real-world-scenarios-architectural-decisions) and [Chapter 51](#chapter-51-the-azure-casebook-real-incidents-real-fixes) are casebooks about systems: a database that falls over, a lock that expires, a private endpoint without DNS. This chapter is a casebook about the people who pay for those systems. The incidents here don't show up in a dashboard. A client asks for something that won't solve their problem, a CTO contradicts you in front of the team, an account manager has sold a feature that can't exist, or you broke production yourself.
+[Chapter 35](#chapter-35-production-incidents) and [Chapter 30](#chapter-30-the-azure-casebook-real-incidents-real-fixes) are casebooks about systems: a database that falls over, a lock that expires, a private endpoint without DNS. This chapter is a casebook about the people who pay for those systems. The incidents here don't show up in a dashboard. A client asks for something that won't solve their problem, a CTO contradicts you in front of the team, an account manager has sold a feature that can't exist, or you broke production yourself.
 
-The technical answer is usually the easy part. You know that a big-bang rewrite is risky ([Chapter 30](#chapter-30-working-with-legacy-brownfield-code)) and that microservices have a price ([Chapter 6](#chapter-6-architecture-application-design)). What decides whether the client *acts* on that knowledge is how you say it, when, to whom, and whether they trust you enough to hear it. That's the gap between a mid-level engineer, who is right, and an advisor, who is right *and listened to*.
+The technical answer is usually the easy part. You know that a big-bang rewrite is risky ([Chapter 24](#chapter-24-working-with-legacy-brownfield-code)) and that microservices have a price ([Chapter 21](#chapter-21-architecture)). What decides whether the client *acts* on that knowledge is how you say it, when, to whom, and whether they trust you enough to hear it. That's the gap between a mid-level engineer, who is right, and an advisor, who is right *and listened to*.
 
 The reader this chapter has in mind is a middle-to-senior .NET engineer who often works through an outsourcing or outstaffing company. That adds a third party to every conversation: the vendor, with its account manager, its contract and its commercial interests. Several cases are about that triangle, because it's where most contractors get stuck.
 
@@ -104,7 +104,7 @@ When a client situation is getting hot, find the row and make its first move. Ev
 
 1. **Separates the goal from the method.** Ask what would be true in a year if the rewrite succeeded. The answers ("we ship weekly without breaking things", "we can change pricing without fear", "we're on a supported runtime") are the real requirements, and each can be met in more than one way.
 2. **Explains the mechanism of rewrite risk, not the slogan.** The old system encodes years of requirements that exist nowhere else: edge cases, customer-specific rules, fixes for incidents nobody remembers. A rewrite has to rediscover all of them, usually in production. Meanwhile the old system still needs maintenance, so the team runs two systems, and the new one has to hit a moving target. Joel Spolsky's "Things You Should Never Do, Part I" tells the Netscape version of this story. Fred Brooks's *second-system effect* explains why the replacement tends to be over-designed.
-3. **Makes the alternative concrete.** An incremental path: characterisation tests around the scary modules, a strangler-fig facade in front of the old app, and new or rewritten slices that move to modern .NET one route at a time ([Chapter 30](#chapter-30-working-with-legacy-brownfield-code)). Each slice delivers value and can be stopped without waste.
+3. **Makes the alternative concrete.** An incremental path: characterisation tests around the scary modules, a strangler-fig facade in front of the old app, and new or rewritten slices that move to modern .NET one route at a time ([Chapter 24](#chapter-24-working-with-legacy-brownfield-code)). Each slice delivers value and can be stopped without waste.
 4. **Doesn't rule out a rewrite of a *part*.** Sometimes a module really should be rebuilt: the pricing engine, say, behind a well-tested contract. Advising against a big-bang rewrite isn't the same as advising against change.
 5. **Handles the self-orientation problem openly.** The incremental plan may be a smaller engagement for your vendor. Say so to your delivery manager before you say anything to the client, and frame it commercially as well: a client who gets value every month renews, while a client stuck two years into a stalled rewrite leaves, and tells people why.
 
@@ -112,7 +112,7 @@ When a client situation is getting hot, find the row and make its first move. Ev
 
 > "I understand why a clean start is attractive. This codebase has been painful for a long time. Before we pick *how*, can we agree on *what* has to be true in a year? I've heard three things: releases that don't break, confidence to change pricing, and a supported runtime. I think we can get all three without stopping feature work, by replacing the system piece by piece, starting with the part that hurts most. If after two slices that isn't working, we'll have learned it cheaply, and a bigger rebuild is still an option."
 
-**Technical backing.** [Chapter 30](#chapter-30-working-with-legacy-brownfield-code) (strangler fig versus the big rewrite, characterisation tests, .NET Framework to modern .NET), [Chapter 7](#chapter-7-testing) (the safety net), and [Chapter 61](#chapter-61-discovery-and-diagnosis) for turning "the code is a mess" into a list of measured pains.
+**Technical backing.** [Chapter 24](#chapter-24-working-with-legacy-brownfield-code) (strangler fig versus the big rewrite, characterisation tests, .NET Framework to modern .NET), [Chapter 8](#chapter-8-testing) (the safety net), and [Chapter 39](#chapter-39-discovery-and-diagnosis) for turning "the code is a mess" into a list of measured pains.
 
 **Story angle.** "I talked a client out of a [N]-month rewrite and into an incremental migration that shipped the first modernised slice in [N] weeks." The senior signal isn't that you said no. It's that you *reframed the goal* and gave the client a reversible first step. Keep the client unnamed. In a portfolio, write the anonymised decision record, not the client's code.
 
@@ -143,7 +143,7 @@ With one team of six, the organisational problem microservices solve doesn't exi
 
 > "I'm not against splitting the system. I want the split to buy us something. The benefit of microservices is independent deployment for independent teams, and right now there's one team. What I'd suggest is carving the monolith into strict modules this quarter, so each one *could* become a service, and extracting the document renderer now, because it has a genuinely different load. That gives us a first service in production and real data on what running services costs us, before we commit the whole platform."
 
-**Technical backing.** [Chapter 6](#chapter-6-architecture-application-design) (monolith versus microservices versus modular monolith), [Chapter 21](#chapter-21-distributed-systems-theory-reliability-engineering) (why the network changes everything), [Chapter 9](#chapter-9-messaging-distributed-systems) (the messaging you'll need), and [Chapter 60](#chapter-60-having-a-point-of-view) on holding a position without being dogmatic.
+**Technical backing.** [Chapter 21](#chapter-21-architecture) (monolith versus microservices versus modular monolith), [Chapter 20](#chapter-20-distributed-systems) (why the network changes everything), [Chapter 11](#chapter-11-messaging-and-background-work) (the messaging you'll need), and [Chapter 38](#chapter-38-having-a-point-of-view) on holding a position without being dogmatic.
 
 **Story angle.** Interviewers ask "tell me about a time you pushed back on an architecture decision" constantly. The strong version shows you *found the constraint* (one team, one hot path) and gave the decision-maker a win on their terms. The weak version is "I told them microservices were wrong". Keep the story about the reasoning, not about the CTO.
 
@@ -172,7 +172,7 @@ With one team of six, the organisational problem microservices solve doesn't exi
 
 Note what the script doesn't do: it doesn't blame the platform, the finance team, or a named colleague. The mistake is "we released a change", in the first person plural.
 
-**Technical backing.** [Chapter 28](#chapter-28-compliance-data-privacy-cloud-cost-finops) (FinOps: rate versus usage, tagging, unit economics), [Chapter 51](#chapter-51-the-azure-casebook-real-incidents-real-fixes) (Case 9, a Cosmos DB bill that doubled after a small feature), and [Chapter 13](#chapter-13-observability) (the cost of telemetry itself).
+**Technical backing.** [Chapter 31](#chapter-31-compliance-data-privacy-cloud-cost-finops) (FinOps: rate versus usage, tagging, unit economics), [Chapter 30](#chapter-30-the-azure-casebook-real-incidents-real-fixes) (Case 9, a Cosmos DB bill that doubled after a small feature), and [Chapter 9](#chapter-9-exceptions-logging-and-first-diagnosis) (the cost of telemetry itself).
 
 **Story angle.** A cost investigation is one of the best portfolio stories available to a mid-level engineer, because it has a clear before and after and it crosses into business language. In interviews, lead with the diagnosis method and the guardrail. Publish the method as a write-up. The client's figures stay private; relative changes ("roughly halved") are enough.
 
@@ -197,7 +197,7 @@ Note what the script doesn't do: it doesn't blame the platform, the finance team
 
 > "I'd rather not grade the previous team, because I don't know what they were asked to do or under what constraints. What I can tell you is where the platform stands. There are two things we need to fix this week, because they're security risks: the committed credentials and the login token handling. Then there are several things that make changes slow and risky, and I'd like to put those into a plan. If you need a written technical assessment for your own purposes, we can prepare one that sticks to evidence."
 
-**Technical backing.** [Chapter 14](#chapter-14-security) (secrets, token validation), [Chapter 35](#chapter-35-software-supply-chain-security) (removing secrets from history is not enough: rotate them), [Chapter 30](#chapter-30-working-with-legacy-brownfield-code) (living with a big ball of mud), and the lab in [Chapter 62](#chapter-62-lab-the-net-health-check) for running the assessment itself.
+**Technical backing.** [Chapter 12](#chapter-12-security-essentials) (secrets, token validation), [Chapter 27](#chapter-27-security-in-depth-and-the-supply-chain) (removing secrets from history is not enough: rotate them), [Chapter 24](#chapter-24-working-with-legacy-brownfield-code) (living with a big ball of mud), and the lab in [Chapter 40](#chapter-40-lab-the-net-health-check) for running the assessment itself.
 
 **Story angle.** "I inherited a codebase with [issues] and produced a risk-ranked assessment within [N] days" is a strong story. Tell it with no contempt for the previous team: interviewers are listening for how you'd talk about *their* code. The assessment template is portfolio material. The client's findings aren't.
 
@@ -217,7 +217,7 @@ Note what the script doesn't do: it doesn't blame the platform, the finance team
 
 1. **Confirms which constraint is truly fixed.** A regulatory date usually is. "All of it" usually isn't: the regulator requires a specific *capability*, not the product owner's full backlog. Ask for the rule text, and find the minimum that satisfies it.
 2. **Makes scope the variable, visibly.** A ranked list, with a line drawn at your capacity: must-have for compliance, should-have for launch, and after launch. The client does the ranking. You supply the costs and the dependencies.
-3. **Estimates in ranges and says what drives the range.** "Between [N] and [M] weeks; the width comes from the unknown partner API." Then work to shrink the biggest unknown first ([Chapter 63](#chapter-63-recommendations-proposals-and-estimates)).
+3. **Estimates in ranges and says what drives the range.** "Between [N] and [M] weeks; the width comes from the unknown partner API." Then work to shrink the biggest unknown first ([Chapter 41](#chapter-41-recommendations-proposals-and-estimates)).
 4. **Treats adding people as a specific proposal, not a hope.** Say who, when, onboarding to which self-contained piece, and what it costs the existing team this week.
 5. **Writes it down.** A one-page note: date, scope above the line, scope below it, assumptions, and what happens if an assumption breaks. When the partner API arrives late, you point at the assumption instead of re-arguing the whole plan.
 
@@ -225,7 +225,7 @@ Note what the script doesn't do: it doesn't blame the platform, the finance team
 
 > "The date is fixed, so let's treat it as fixed. With the team we have, we can deliver everything above this line with the quality a regulated launch needs. The items below it are real, and we'll do them next. If something below the line is actually required by the regulation, let's swap it in, and tell me what comes out. What I'm not willing to do is promise all of it and then cut testing quietly to make it fit, because that's the version that fails in front of the regulator."
 
-**Technical backing.** [Chapter 17](#chapter-17-soft-skills-engineering-practices) (estimation and planning), [Chapter 63](#chapter-63-recommendations-proposals-and-estimates) (ranges, assumptions, the written proposal), and [Chapter 7](#chapter-7-testing) (what you give up when tests go).
+**Technical backing.** [Chapter 16](#chapter-16-working-like-a-middle-developer) (estimation and planning), [Chapter 41](#chapter-41-recommendations-proposals-and-estimates) (ranges, assumptions, the written proposal), and [Chapter 8](#chapter-8-testing) (what you give up when tests go).
 
 **Story angle.** "We hit a fixed regulatory date by renegotiating scope, not quality" is an excellent STAR story, because the *Action* is visibly senior: you made a trade-off explicit and got a decision from the right person. Keep the ranked list format (with placeholders) as a portfolio template.
 
@@ -253,7 +253,7 @@ Note what the script doesn't do: it doesn't blame the platform, the finance team
 >
 > In private, afterwards: "I didn't want to argue it out in front of the team. I've put both options in the note, including the risks of mine. It's your call, and I'll implement whichever you choose properly."
 
-**Technical backing.** [Chapter 9](#chapter-9-messaging-distributed-systems) (what a queue actually costs and buys), [Chapter 17](#chapter-17-soft-skills-engineering-practices) (ADRs, judgement and influence), and [Chapter 60](#chapter-60-having-a-point-of-view) (strong opinions, and the evidence that would change them).
+**Technical backing.** [Chapter 11](#chapter-11-messaging-and-background-work) (what a queue actually costs and buys), [Chapter 16](#chapter-16-working-like-a-middle-developer) (ADRs), [Chapter 36](#chapter-36-senior-behaviours-career-and-interviews) (judgement and influence), and [Chapter 38](#chapter-38-having-a-point-of-view) (strong opinions, and the evidence that would change them).
 
 **Story angle.** "Tell me about a time you disagreed with a senior stakeholder" is among the most common behavioural questions. The strongest answers show you protected the other person's standing *and* the quality of the decision, and that you committed properly when overruled. An answer that ends "and in the end they admitted I was right" is weaker than it sounds.
 
@@ -281,7 +281,7 @@ Note what the script doesn't do: it doesn't blame the platform, the finance team
 
 > "I agree that speed matters most right now, so let's cut everything we can cut. Most of the test suite can wait until after the demo, and I'll list what we're deferring so it doesn't get lost. There are a few things I won't skip, because they protect your customers' data rather than our code: login on every endpoint, no secrets in the code, and safe database queries. Together that's about [N] hours. If an investor's technical advisor looks at the product, those are the first things they'll check."
 
-**Technical backing.** [Chapter 14](#chapter-14-security) (the OWASP Top 10 and what's cheap to get right), [Chapter 28](#chapter-28-compliance-data-privacy-cloud-cost-finops) (personal data obligations), [Chapter 7](#chapter-7-testing) (which tests pay back fastest), and [Chapter 33](#chapter-33-real-world-scenarios-architectural-decisions) (Scenario 8, the security measures that actually matter before a ship date).
+**Technical backing.** [Chapter 12](#chapter-12-security-essentials) (the OWASP Top 10 and what's cheap to get right), [Chapter 31](#chapter-31-compliance-data-privacy-cloud-cost-finops) (personal data obligations), [Chapter 8](#chapter-8-testing) (which tests pay back fastest), and [Chapter 35](#chapter-35-production-incidents) (Scenario 8, the security measures that actually matter before a ship date).
 
 **Story angle.** "I negotiated a faster path that kept the security floor" shows judgement under commercial pressure, which is exactly what senior interviews probe. Say what you gave up as well as what you kept. The deferral list format is a good portfolio template.
 
@@ -320,7 +320,7 @@ The written follow-up can use a fixed template:
 
 > "Between [time] and [time], checkout failed for your customers. The cause was a database change I deployed: it locked the orders table while it ran. It's been rolled back, and checkout has been working normally since [time]. I'll send a full write-up by [time] tomorrow, covering why our process let this through and what we're changing so a schema change can't do this again. I'm sorry for the disruption to your customers."
 
-**Technical backing.** [Chapter 4](#chapter-4-data-access-databases) (migrations, indexes and locking), [Chapter 21](#chapter-21-distributed-systems-theory-reliability-engineering) (blameless post-mortems and SRE practice), [Chapter 12](#chapter-12-devops-cicd) (deployment gates), and [Chapter 33](#chapter-33-real-world-scenarios-architectural-decisions) for the incident-response pattern.
+**Technical backing.** [Chapter 7](#chapter-7-data-access) (migrations, indexes and locking), [Chapter 20](#chapter-20-distributed-systems) (blameless post-mortems and SRE practice), [Chapter 26](#chapter-26-delivery-and-platform) (deployment gates), and [Chapter 35](#chapter-35-production-incidents) for the incident-response pattern.
 
 **Story angle.** "Tell me about a mistake you made" is guaranteed in senior interviews. This is the best possible material, *if* the story ends with a systemic fix rather than "I learned to be careful". Tell it in the first person, keep the client anonymous, and put the post-incident template (not the incident) in your portfolio.
 
@@ -348,7 +348,7 @@ The written follow-up can use a fixed template:
 
 > "I think there's a real opportunity here, and I'd rather find the right one than copy theirs. Let's pick one task your users spend real time on, maybe drafting support replies, and run a [N]-week experiment on real examples. At the end you'll know three things: whether it's good enough, what it costs per user, and what we'd need to do about your customers' data. If the answer is yes, we build it properly. If it's no, you've spent a few weeks rather than a quarter."
 
-**Technical backing.** [Chapter 19](#chapter-19-building-ai-powered-systems) (RAG, evaluation, cost mechanics, securing AI features), [Chapter 18](#chapter-18-the-ai-native-developer-thriving-in-the-ai-era) (judgement in the AI era), and [Chapter 28](#chapter-28-compliance-data-privacy-cloud-cost-finops) (data leaving your boundary).
+**Technical backing.** [Chapter 33](#chapter-33-building-ai-powered-systems) (RAG, evaluation, cost mechanics, securing AI features), [Chapter 32](#chapter-32-the-ai-native-developer-thriving-in-the-ai-era) (judgement in the AI era), and [Chapter 31](#chapter-31-compliance-data-privacy-cloud-cost-finops) (data leaving your boundary).
 
 **Story angle.** "I turned a 'we need AI' request into an evaluated experiment with a go/no-go decision" is exactly the kind of story hiring managers are looking for right now, because it shows you can use the technology *and* resist it. A go/no-go based on an eval set is a better story than a feature that shipped because the CEO wanted one. Build a public version of the evaluation harness on open data for your portfolio.
 
@@ -376,7 +376,7 @@ The written follow-up can use a fixed template:
 >
 > To the client, together: "We've looked at your ERP's integration options in detail. There are three ways to get the data across, and the difference is how fresh it is and what it needs on your side. Here they are."
 
-**Technical backing.** [Chapter 9](#chapter-9-messaging-distributed-systems) and [Chapter 23](#chapter-23-data-at-scale-multi-tenancy) (sync, change data capture, what "zero data loss" means in practice), [Chapter 21](#chapter-21-distributed-systems-theory-reliability-engineering) (delivery guarantees), and [Chapter 63](#chapter-63-recommendations-proposals-and-estimates) (writing options with costs).
+**Technical backing.** [Chapter 11](#chapter-11-messaging-and-background-work) and [Chapter 18](#chapter-18-data-in-depth) (sync, change data capture, what "zero data loss" means in practice), [Chapter 20](#chapter-20-distributed-systems) (delivery guarantees), and [Chapter 41](#chapter-41-recommendations-proposals-and-estimates) (writing options with costs).
 
 **Story angle.** This is a strong "stakeholder management" story, but it involves a named colleague's mistake, so tell it with care. The AM is a well-meaning person without the technical context, and your role is the one who turned a problem into options and fixed the process. Never share the real email thread.
 
@@ -393,7 +393,7 @@ The written follow-up can use a fixed template:
 **What an advisor does.**
 
 1. **Separates the roles.** Say it out loud: one person drives the fix, one person talks to stakeholders. If you're alone, say you'll update them every [30] minutes, and stop being interrupted in between.
-2. **Stabilises before diagnosing.** What changed recently? Deployments, config changes, certificate dates, dependency status pages. A rollback of the most recent change is often the fastest mitigation even before you know why it helps. Check the obvious in order: health endpoints, logs for the first error, dependencies ([Chapter 33](#chapter-33-real-world-scenarios-architectural-decisions) for the generic playbook).
+2. **Stabilises before diagnosing.** What changed recently? Deployments, config changes, certificate dates, dependency status pages. A rollback of the most recent change is often the fastest mitigation even before you know why it helps. Check the obvious in order: health endpoints, logs for the first error, dependencies ([Chapter 35](#chapter-35-production-incidents) for the generic playbook).
 3. **Reports in three buckets.** What we know, what we don't know yet, and what we're doing next. That structure keeps you honest and keeps the client calm, because it shows method.
 4. **Doesn't speculate about cause, and doesn't blame the previous owner.** "The system has little documentation" is a finding for the post-incident review. It doesn't help during the incident.
 5. **Turns the incident into the onboarding you didn't get.** Afterwards: a real runbook, dashboards and alerts for the failure you just found, and a short list of the next most likely failures. That's reliability made visible, and it's a gift to whoever inherits the system after you.
@@ -402,7 +402,7 @@ The written follow-up can use a fixed template:
 
 > "Here's where we are. We know the order API is returning errors since about [time], and that it started [before/after] the [deployment/change]. We don't know the cause yet. What we're doing now is [rolling back / checking the payment dependency]. I'll update you at [time] even if nothing has changed. If you need something for your customers, the safest message right now is that orders are delayed and we're working on it, without an estimate."
 
-**Technical backing.** [Chapter 13](#chapter-13-observability) (logs, traces and metrics you'll wish you had), [Chapter 33](#chapter-33-real-world-scenarios-architectural-decisions) (incident response), [Chapter 21](#chapter-21-distributed-systems-theory-reliability-engineering) (SRE practice), and [Chapter 61](#chapter-61-discovery-and-diagnosis) (mapping an unfamiliar system quickly).
+**Technical backing.** [Chapter 9](#chapter-9-exceptions-logging-and-first-diagnosis) (logs, traces and metrics you'll wish you had), [Chapter 35](#chapter-35-production-incidents) (incident response), [Chapter 20](#chapter-20-distributed-systems) (SRE practice), and [Chapter 39](#chapter-39-discovery-and-diagnosis) (mapping an unfamiliar system quickly).
 
 **Story angle.** "In my first week on an engagement I led the response to a production incident on a system I'd never seen" is a memorable opening. The substance is the method (roles, rhythm, the three buckets) and the runbook you left behind. Keep the client and system anonymous. The runbook template, with the specifics stripped out, is portfolio-ready.
 
@@ -427,15 +427,15 @@ The written follow-up can use a fixed template:
 
 > "I haven't used it in production, so I don't want to give you a verdict off the top of my head. What I'd want to know before recommending it is what problem we'd use it for that our current setup can't handle, what it takes to operate, and how mature the .NET client is. Give me until [Thursday] and I'll come back with a one-page comparison and a small working spike, so we're deciding on evidence."
 
-**Technical backing.** [Chapter 16](#chapter-16-tooling-productivity) (evaluating tools), [Chapter 35](#chapter-35-software-supply-chain-security) (assessing a dependency's maintenance and provenance), and [Chapter 60](#chapter-60-having-a-point-of-view) (forming a view quickly and stating its confidence).
+**Technical backing.** [Chapter 13](#chapter-13-git-and-cicd) (evaluating tools), [Chapter 27](#chapter-27-security-in-depth-and-the-supply-chain) (assessing a dependency's maintenance and provenance), and [Chapter 38](#chapter-38-having-a-point-of-view) (forming a view quickly and stating its confidence).
 
-**Story angle.** "How do you evaluate a technology you haven't used?" is a common senior interview question, and this is the answer: the criteria, the time-boxed spike, the written comparison. Publishing a few of these one-page evaluations, on technologies you've spiked on your own time, is some of the most transferable portfolio content you can create ([Chapter 65](#chapter-65-positioning-and-public-proof)).
+**Story angle.** "How do you evaluate a technology you haven't used?" is a common senior interview question, and this is the answer: the criteria, the time-boxed spike, the written comparison. Publishing a few of these one-page evaluations, on technologies you've spiked on your own time, is some of the most transferable portfolio content you can create ([Chapter 43](#chapter-43-positioning-and-public-proof)).
 
 ## Quick Advisory Cases
 
 Short situations, one move each. Use them as flashcards.
 
-- **"Just give me a number."** The client wants a single estimate for a vague feature. Give a range, name the largest unknown, and offer to narrow the range after a [N]-day spike. A single number becomes a promise the moment it's said ([Chapter 63](#chapter-63-recommendations-proposals-and-estimates)).
+- **"Just give me a number."** The client wants a single estimate for a vague feature. Give a range, name the largest unknown, and offer to narrow the range after a [N]-day spike. A single number becomes a promise the moment it's said ([Chapter 41](#chapter-41-recommendations-proposals-and-estimates)).
 - **The client's developer keeps pushing straight to main.** It isn't your team to manage. Raise it as a risk with evidence (the last two incidents traced to unreviewed pushes) and propose branch protection as a team rule, not a personal rebuke.
 - **Your vendor wants you to recommend its partner product.** Recommend it only if you would anyway, and disclose the relationship if you do. Undisclosed incentives are the purest form of self-orientation, and clients find out.
 - **The client asks you to stay late for the third week running.** Reliability includes being able to keep the pace you've set. Surface the workload as a capacity issue with a plan, before it shows up as mistakes.
@@ -544,7 +544,7 @@ Third, if you're asked directly whether the original decision was wrong, be hone
 
 Separate the legitimate concern from the method. The concern is real: single-point estimates are optimistic, and clients do negotiate. The method, hidden padding, damages credibility when it's discovered (and a technical client will discover it the first time a "two-week" task visibly takes three days), and it teaches the client that your numbers are theatre, which makes the next negotiation worse.
 
-Propose the honest version of the same protection: estimate in ranges, make the uncertainty and its drivers explicit, include contingency as a *named line* with a rationale ("integration risk with the partner API"), and state the assumptions that, if broken, move the estimate ([Chapter 63](#chapter-63-recommendations-proposals-and-estimates)). That gives the delivery manager the buffer they need and gives the client something to discuss other than your credibility.
+Propose the honest version of the same protection: estimate in ranges, make the uncertainty and its drivers explicit, include contingency as a *named line* with a rationale ("integration risk with the partner API"), and state the assumptions that, if broken, move the estimate ([Chapter 41](#chapter-41-recommendations-proposals-and-estimates)). That gives the delivery manager the buffer they need and gives the client something to discuss other than your credibility.
 
 If the delivery manager insists on hidden padding, it's their commercial decision, and they own the number they send. Make sure your own technical estimate, as you gave it, is recorded, and don't personally present a number to the client that you know is misleading.
 </details>
@@ -558,9 +558,9 @@ Answer these from your own current engagement, not from memory:
 - **The last hard conversation.** Pick one tense client exchange from the last three months. Rewrite your own message using the structure from the matching case. What would you change?
 - **The incident template.** Does your team have a client-facing incident note template? If not, adapt the one from Case A8, and get your lead's agreement before you need it.
 - **Promises in flight.** List every open commitment you've made to the client ("I'll look into it", "by Friday"). Which ones are late or forgotten? Close them or re-negotiate them today.
-- **Story candidates.** Which of the twelve cases have you lived, even partly? Write each as a STAR skeleton in your private story bank ([Chapter 36](#chapter-36-the-story-bank-evidence-portfolio)), with the client anonymised.
+- **Story candidates.** Which of the twelve cases have you lived, even partly? Write each as a STAR skeleton in your private story bank ([Chapter 37](#chapter-37-the-story-bank-evidence-portfolio)), with the client anonymised.
 
-Keep everything about a real client, vendor or colleague private. What goes into a public portfolio is *method*: templates, anonymised decision records, public-data spikes and evaluations. Real stories go public only when they're anonymised and you have permission ([Chapter 65](#chapter-65-positioning-and-public-proof)).
+Keep everything about a real client, vendor or colleague private. What goes into a public portfolio is *method*: templates, anonymised decision records, public-data spikes and evaluations. Real stories go public only when they're anonymised and you have permission ([Chapter 43](#chapter-43-positioning-and-public-proof)).
 
 ## Sources & Further Reading
 
@@ -573,4 +573,4 @@ Keep everything about a real client, vendor or colleague private. What goes into
 - Martin Fowler, "StranglerFigApplication", "MonolithFirst" and "MicroservicePremium" (martinfowler.com). The incremental alternatives in Cases A1 and A2.
 - Betsy Beyer et al. (eds.), *Site Reliability Engineering* (O'Reilly, 2016), chapter "Postmortem Culture: Learning from Failure". Blameless post-incident reviews.
 - Kerry Patterson et al., *Crucial Conversations: Tools for Talking When Stakes Are High* (McGraw-Hill, 2002). Useful for Cases A6 and A8.
-- Within this book: [Chapter 17](#chapter-17-soft-skills-engineering-practices) (communication, ADRs, estimation), [Chapter 33](#chapter-33-real-world-scenarios-architectural-decisions) and [Chapter 51](#chapter-51-the-azure-casebook-real-incidents-real-fixes) (the technical casebooks), and [Chapter 36](#chapter-36-the-story-bank-evidence-portfolio) (turning cases into stories).
+- Within this book: [Chapter 16](#chapter-16-working-like-a-middle-developer) (communication, ADRs, estimation), [Chapter 35](#chapter-35-production-incidents) and [Chapter 30](#chapter-30-the-azure-casebook-real-incidents-real-fixes) (the technical casebooks), and [Chapter 37](#chapter-37-the-story-bank-evidence-portfolio) (turning cases into stories).

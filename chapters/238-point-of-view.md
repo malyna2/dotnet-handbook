@@ -1,10 +1,10 @@
 # Chapter 38: Having a Point of View
 
-Part XIII is about a shift that no certification measures: going from being the person a client hands tickets to, to being the person a client *asks*. For a .NET engineer placed through an outsourcing or outstaffing firm, that shift decides a lot. It decides whether you are renewed or rotated, whether you are invited to the architecture meeting or told its outcome, and whether the client's CTO asks for you by name when the next contract is signed. The vendor sells your hours. What the client comes to value, or fails to find, is your judgment.
+Chapters 38–43 are about a shift that no certification measures: going from being the person a client hands tickets to, to being the person a client *asks*. For a .NET engineer placed through an outsourcing or outstaffing firm, that shift decides a lot. It decides whether you are renewed or rotated, whether you are invited to the architecture meeting or told its outcome, and whether the client's CTO asks for you by name when the next contract is signed. The vendor sells your hours. What the client comes to value, or fails to find, is your judgment.
 
-This chapter is about the first ingredient of that judgment: **having a point of view**. That means positions you hold on purpose, can defend with a mechanism, and would drop for a stated reason. The next chapters build on it. [Chapter 61](#chapter-61-discovery-and-diagnosis) turns a point of view into a diagnosis of a specific client's system, [Chapter 62](#chapter-62-lab-the-net-health-check) practises that diagnosis on a real codebase, [Chapter 63](#chapter-63-recommendations-proposals-and-estimates) turns it into written recommendations and estimates, [Chapter 64](#chapter-64-the-advisory-casebook) walks through worked engagements, and [Chapter 65](#chapter-65-positioning-and-public-proof) makes all of it visible.
+This chapter is about the first ingredient of that judgment: **having a point of view**. That means positions you hold on purpose, can defend with a mechanism, and would drop for a stated reason. The next chapters build on it. [Chapter 39](#chapter-39-discovery-and-diagnosis) turns a point of view into a diagnosis of a specific client's system, [Chapter 40](#chapter-40-lab-the-net-health-check) practises that diagnosis on a real codebase, [Chapter 41](#chapter-41-recommendations-proposals-and-estimates) turns it into written recommendations and estimates, [Chapter 42](#chapter-42-the-advisory-casebook) walks through worked engagements, and [Chapter 43](#chapter-43-positioning-and-public-proof) makes all of it visible.
 
-What this chapter does **not** repeat is [Chapter 17](#chapter-17-soft-skills-engineering-practices): stakeholder communication, disagreeing productively, ADRs and influence without authority are covered there. Chapter 17 is about how to move a decision. This chapter is about having something worth moving.
+What this chapter does **not** repeat is how to move a decision: stakeholder communication, disagreeing productively and ADRs are covered in [Chapter 16](#chapter-16-working-like-a-middle-developer), and influence without authority in [Chapter 36](#chapter-36-senior-behaviours-career-and-interviews). Those chapters are about how to move a decision. This chapter is about having something worth moving.
 
 ```
                   what the client sees
@@ -106,7 +106,7 @@ COMMITTED
 
 The committed answer is only a little longer. It names the decision, the two or three facts about *this client* that decide it, the case where the other option wins, and the condition that would reverse it. That is the shape the next section formalises.
 
-> **Best practice.** When a client asks an either/or question, the first sentence of your answer is the recommendation. Reasoning comes second and trade-offs third. Engineers habitually build up to the conclusion, and a busy reader stops before reaching it. [Chapter 17](#chapter-17-soft-skills-engineering-practices) makes the same point about written communication in general: put the ask first.
+> **Best practice.** When a client asks an either/or question, the first sentence of your answer is the recommendation. Reasoning comes second and trade-offs third. Engineers habitually build up to the conclusion, and a busy reader stops before reaching it. [Chapter 16](#chapter-16-working-like-a-middle-developer) makes the same point about written communication in general: put the ask first.
 
 > **Gotcha.** "I'll lay out the options and let you decide" can be the right answer, when the decision truly turns on something only the client can weigh, such as their risk appetite, a political constraint, or a budget line you can't see. Then say *that*: "This comes down to how much you value X over Y; that's your call. If X matters more, A; if Y, B." That is still a position: a position on *what the decision turns on*. What you don't do is hand over a table and walk away.
 
@@ -197,7 +197,7 @@ The fix is structural, not a matter of willpower. Write the "I'd change my mind 
 
 > **Pitfall.** Confusing *confidence of delivery* with *strength of opinion*. You can state a position calmly, with an explicit probability, and still hold it strongly: "I'm fairly sure, call it 80%, that the lock contention is in the outbox relay, not the API." Clients don't need you to sound certain. They need you to be *accurate about how certain you are*. That is the whole calibration section in one sentence.
 
-> **Gotcha.** Philip Tetlock's research on expert political judgment (the "foxes and hedgehogs" distinction he borrowed from Isaiah Berlin) found that experts organised around one big idea tended to forecast worse than experts who drew on many small models and updated often. Engineers with a signature position — "everything should be event-driven", "ORMs are always a mistake" — are hedgehogs. The trap is that hedgehogs make better *content*: a single strong thesis is more quotable. [Chapter 65](#chapter-65-positioning-and-public-proof) deals with how to be visible without turning into a hedgehog.
+> **Gotcha.** Philip Tetlock's research on expert political judgment (the "foxes and hedgehogs" distinction he borrowed from Isaiah Berlin) found that experts organised around one big idea tended to forecast worse than experts who drew on many small models and updated often. Engineers with a signature position — "everything should be event-driven", "ORMs are always a mistake" — are hedgehogs. The trap is that hedgehogs make better *content*: a single strong thesis is more quotable. [Chapter 43](#chapter-43-positioning-and-public-proof) deals with how to be visible without turning into a hedgehog.
 
 ## Building Your Opinion Canon
 
@@ -207,10 +207,10 @@ Why write it down rather than "just know" your opinions?
 
 - **Writing exposes missing mechanisms.** Many positions that feel solid in your head turn out to be "because everyone says so" once you try to write the mechanism paragraph. Better to find that at your desk than in front of a client's architect.
 - **It makes you consistent.** A client who hears one position in week one and a contradictory one in week six, both stated confidently, will stop trusting both. The canon keeps you consistent with yourself, and when you do change, the change is deliberate and explained.
-- **It is proof as well as preparation.** A public canon is evidence of judgment that a CV cannot provide (see [Chapter 36](#chapter-36-the-story-bank-evidence-portfolio) and [Chapter 65](#chapter-65-positioning-and-public-proof)).
-- **It gives you a baseline for [diagnosis](#chapter-61-discovery-and-diagnosis).** A health check measures a system against a view of what healthy looks like. Your canon *is* that view, written down.
+- **It is proof as well as preparation.** A public canon is evidence of judgment that a CV cannot provide (see [Chapter 37](#chapter-37-the-story-bank-evidence-portfolio) and [Chapter 43](#chapter-43-positioning-and-public-proof)).
+- **It gives you a baseline for [diagnosis](#chapter-39-discovery-and-diagnosis).** A health check measures a system against a view of what healthy looks like. Your canon *is* that view, written down.
 
-> **The portfolio rule.** Your canon and your radar go in **your own public portfolio repo**, not in this handbook's repository. Stories that back them up must be anonymised. A position may rest on "a payments client in 2025", but not on a named company, and not on anything covered by an NDA without permission. When in doubt, the evidence you cite is your own lab run (Part XI), a public benchmark, or a book chapter. Real-client stories stay in your private story bank.
+> **The portfolio rule.** Your canon and your radar go in **your own public portfolio repo**, not in this handbook's repository. Stories that back them up must be anonymised. A position may rest on "a payments client in 2025", but not on a named company, and not on anything covered by an NDA without permission. When in doubt, the evidence you cite is your own lab run (Chapters 19, 37 and 40), a public benchmark, or a book chapter. Real-client stories stay in your private story bank.
 
 What follows are eight worked positions. Each is grounded in a chapter of this book that holds the full mechanism. They are *examples of the format*, and reasonable positions in their own right, but a canon you copy is worth nothing. Rewrite each one in your own words, check its mechanism against your own experience, and change it where you disagree. **Where you disagree with this book is where your canon gets interesting.**
 
@@ -226,7 +226,7 @@ What follows are eight worked positions. Each is grounded in a chapter of this b
 
 **I'd change my mind if.** Deploy-coordination cost becomes measurable: releases held up waiting on other modules, merge queues backing up across module boundaries. Or a module's resource profile shows up in the metrics as the thing driving the whole app's scaling.
 
-**Mechanism lives in.** [Chapter 6: Architecture & Application Design](#chapter-6-architecture-application-design) (monolith vs microservices vs modular monolith); [Chapter 32](#chapter-32-putting-it-all-together-a-capstone-learning-path) (the capstone's "split into microservices" step, and what it costs); [Chapter 21](#chapter-21-distributed-systems-theory-reliability-engineering) (the fallacies of distributed computing you sign up for).
+**Mechanism lives in.** [Chapter 21: Architecture](#chapter-21-architecture) (monolith vs microservices vs modular monolith); [Chapter 44](#chapter-44-capstone-one-project-growing-up) (the capstone's "split into microservices" step, and what it costs); [Chapter 20](#chapter-20-distributed-systems) (the fallacies of distributed computing you sign up for).
 
 ### Canon #2: EF Core by default; Dapper on measured hot paths
 
@@ -240,7 +240,7 @@ What follows are eight worked positions. Each is grounded in a chapter of this b
 
 **I'd change my mind if.** Profiling shows EF overhead (not the query plan, not N+1) as a large part of latency on *many* endpoints, or the SQL EF generates keeps defeating tuning on the queries that matter most.
 
-**Mechanism lives in.** [Chapter 4: Data Access & Databases](#chapter-4-data-access-databases) (EF Core internals, Dapper, mixing both in one transaction); [Chapter 15: Performance & Optimization](#chapter-15-performance-optimization) (how to measure before changing); [Chapter 37](#chapter-37-the-slow-query-lab-reading-execution-plans) (reading the plan, which is usually where the time actually goes).
+**Mechanism lives in.** [Chapter 7: Data Access](#chapter-7-data-access) (EF Core internals, Dapper, mixing both in one transaction); [Chapter 17: Runtime Internals and Performance](#chapter-17-runtime-internals-and-performance) (how to measure before changing); [Chapter 19](#chapter-19-the-slow-query-lab-reading-execution-plans) (reading the plan, which is usually where the time actually goes).
 
 ### Canon #3: The outbox over distributed transactions
 
@@ -254,7 +254,7 @@ What follows are eight worked positions. Each is grounded in a chapter of this b
 
 **I'd change my mind if.** Relay lag under realistic load exceeds the business's freshness requirement and tuning doesn't fix it (then look at CDC), or the outbox table's write amplification shows up as a bottleneck in the database's own metrics.
 
-**Mechanism lives in.** [Chapter 9: Messaging & Distributed Systems](#chapter-9-messaging-distributed-systems) (the outbox pattern and idempotent consumers); [Chapter 23](#chapter-23-data-at-scale-multi-tenancy) (outbox vs CDC); [Chapter 21](#chapter-21-distributed-systems-theory-reliability-engineering) (idempotency as the antidote to "did that happen?"). [Chapter 17](#chapter-17-soft-skills-engineering-practices) has a worked ADR for exactly this decision.
+**Mechanism lives in.** [Chapter 11: Messaging and Background Work](#chapter-11-messaging-and-background-work) (the outbox pattern and idempotent consumers); [Chapter 18](#chapter-18-data-in-depth) (outbox vs CDC); [Chapter 20](#chapter-20-distributed-systems) (idempotency as the antidote to "did that happen?"). [Chapter 16](#chapter-16-working-like-a-middle-developer) has a worked ADR for exactly this decision.
 
 ### Canon #4: Long-lived systems stay on LTS
 
@@ -268,7 +268,7 @@ What follows are eight worked positions. Each is grounded in a chapter of this b
 
 **I'd change my mind if.** The team's measured upgrade cost falls to routine, for example a major version bump handled in days, with tests catching the breaks. Then the argument for LTS weakens, and staying current gets you performance improvements sooner.
 
-**Mechanism lives in.** [Chapter 2: .NET Runtime & Internals](#chapter-2-net-runtime-internals) (release cadence, LTS vs STS); [Appendix B](#appendix-b-net-version-comparison-cheat-sheet) (dates and support windows); [Chapter 30](#chapter-30-working-with-legacy-brownfield-code) (the end-of-life treadmill).
+**Mechanism lives in.** [Chapter 3: How .NET Runs Your Code](#chapter-3-how-net-runs-your-code) (release cadence, LTS vs STS); [the appendix](#appendix-net-version-comparison-cheat-sheet) (dates and support windows); [Chapter 24](#chapter-24-working-with-legacy-brownfield-code) (the end-of-life treadmill).
 
 ### Canon #5: Managed identity over secrets
 
@@ -282,7 +282,7 @@ What follows are eight worked positions. Each is grounded in a chapter of this b
 
 **I'd change my mind if.** A target service in the client's stack doesn't support Entra authentication. That case is a documented exception, not a reversal. Or if the RBAC model becomes so sprawling that nobody can say which identity has access to what. That is a governance problem, but a real one.
 
-**Mechanism lives in.** [Chapter 14: Security](#chapter-14-security) (secrets management; zero trust and workload identity); [Chapter 50: Azure in Depth](#chapter-50-azure-in-depth-for-net-developers) (Entra ID, managed identity and RBAC, mechanically); [Chapter 51](#chapter-51-the-azure-casebook-real-incidents-real-fixes) (what goes wrong when the app uses a different principal than you think).
+**Mechanism lives in.** [Chapter 12: Security Essentials](#chapter-12-security-essentials) (secrets management; zero trust and workload identity); [Chapter 29: Azure in Depth for .NET Developers](#chapter-29-azure-in-depth-for-net-developers) (Entra ID, managed identity and RBAC, mechanically); [Chapter 30](#chapter-30-the-azure-casebook-real-incidents-real-fixes) (what goes wrong when the app uses a different principal than you think).
 
 ### Canon #6: Observability before microservices
 
@@ -296,7 +296,7 @@ What follows are eight worked positions. Each is grounded in a chapter of this b
 
 **I'd change my mind if.** Hard to see it happening. This is one of the positions where the "change my mind" clause is weak, and you should say so: a position you can't imagine being wrong about deserves *more* scrutiny, not less. Review it anyway.
 
-**Mechanism lives in.** [Chapter 13: Observability](#chapter-13-observability) (the three signals, correlation across services, and the 3 a.m. walk); [Chapter 21](#chapter-21-distributed-systems-theory-reliability-engineering) (SLOs and error budgets as what the telemetry is *for*).
+**Mechanism lives in.** [Chapter 9: Exceptions, Logging and First Diagnosis](#chapter-9-exceptions-logging-and-first-diagnosis) (the three signals, correlation across services, and the 3 a.m. walk); [Chapter 20](#chapter-20-distributed-systems) (SLOs and error budgets as what the telemetry is *for*).
 
 ### Canon #7: Test against the engine you run in production
 
@@ -310,7 +310,7 @@ What follows are eight worked positions. Each is grounded in a chapter of this b
 
 **I'd change my mind if.** Container start-up and image pulls make the suite slow enough that people stop running it locally. The fix is usually reusing containers and caching images, but if it doesn't work, a faster lower-fidelity tier plus a smaller real-engine tier is a reasonable compromise.
 
-**Mechanism lives in.** [Chapter 7: Testing](#chapter-7-testing) (the in-memory provider trap, Testcontainers); [Chapter 25](#chapter-25-advanced-specialized-testing) for the specialised tiers.
+**Mechanism lives in.** [Chapter 8: Testing](#chapter-8-testing) (the in-memory provider trap, Testcontainers); [Chapter 25](#chapter-25-observability-and-testing-at-scale) for the specialised tiers.
 
 ### Canon #8: Strangle; don't rewrite
 
@@ -324,18 +324,18 @@ What follows are eight worked positions. Each is grounded in a chapter of this b
 
 **I'd change my mind if.** The cost of keeping the old and new systems running side by side (duplicate data sync, a routing layer, two deploy pipelines) grows beyond the pace of migration for more than a couple of quarters. That means the strangling has stalled and needs a different plan.
 
-**Mechanism lives in.** [Chapter 30: Working with Legacy & Brownfield Code](#chapter-30-working-with-legacy-brownfield-code) (strangler fig vs big rewrite, .NET Framework to modern .NET).
+**Mechanism lives in.** [Chapter 24: Working with Legacy & Brownfield Code](#chapter-24-working-with-legacy-brownfield-code) (strangler fig vs big rewrite, .NET Framework to modern .NET).
 
 ### Filling out the rest of the canon
 
 Eight positions are a start; twelve more make a working canon. Some prompts, plus others you'll recognise from your own client work (coverage targets, dependency pinning, schema registries):
 
-- Where resilience lives: in every HTTP client through the standard handlers, or in a mesh? ([Chapter 21](#chapter-21-distributed-systems-theory-reliability-engineering))
-- Clean Architecture's layers: when they pay for themselves and when they are ceremony. ([Chapter 5](#chapter-5-design-patterns-principles-clean-code), [Chapter 6](#chapter-6-architecture-application-design))
-- Background work: `BackgroundService`, Hangfire/Quartz, or a queue plus workers? ([Chapter 22](#chapter-22-background-processing-scheduling-the-actor-model))
-- Multi-tenancy: shared schema with a tenant column, schema per tenant, or database per tenant? ([Chapter 23](#chapter-23-data-at-scale-multi-tenancy))
-- Kubernetes for a team of five: yes, no, or "use the managed container platform one step down"? ([Chapter 11](#chapter-11-containers-orchestration))
-- How much AI assistance in the codebase, and under which review rules? ([Chapter 18](#chapter-18-the-ai-native-developer-thriving-in-the-ai-era))
+- Where resilience lives: in every HTTP client through the standard handlers, or in a mesh? ([Chapter 20](#chapter-20-distributed-systems))
+- Clean Architecture's layers: when they pay for themselves and when they are ceremony. ([Chapter 10](#chapter-10-design-basics), [Chapter 21](#chapter-21-architecture))
+- Background work: `BackgroundService`, Hangfire/Quartz, or a queue plus workers? ([Chapter 11](#chapter-11-messaging-and-background-work))
+- Multi-tenancy: shared schema with a tenant column, schema per tenant, or database per tenant? ([Chapter 18](#chapter-18-data-in-depth))
+- Kubernetes for a team of five: yes, no, or "use the managed container platform one step down"? ([Chapter 14](#chapter-14-containers-and-linux))
+- How much AI assistance in the codebase, and under which review rules? ([Chapter 32](#chapter-32-the-ai-native-developer-thriving-in-the-ai-era))
 
 > **Best practice.** Include at least two positions where you disagree with the mainstream, or with this book. A canon that agrees with every conference talk is a summary, not a point of view. The disagreements are what a client remembers, and what shows that you think instead of repeat, as long as each one has a mechanism behind it.
 
@@ -425,7 +425,7 @@ Here it is applied to a question clients really do ask: *"Should we add a Redis 
 
 And the answer that goes with the table: *"It depends mostly on where the latency is. My bet is the catalogue query itself; I saw an N+1 in the product-list endpoint last week. Give me a day to profile it. If the query is the problem, we fix it and probably don't need a cache. If the query is already tight and reads dominate, an in-process cache with a short TTL gets most of the win before we add Redis."*
 
-This is a small version of what [Chapter 61](#chapter-61-discovery-and-diagnosis) does at the scale of a whole system: turning "it depends" into a short list of variables and a cheap way to measure each one.
+This is a small version of what [Chapter 39](#chapter-39-discovery-and-diagnosis) does at the scale of a whole system: turning "it depends" into a short list of variables and a cheap way to measure each one.
 
 > **Best practice.** Keep it to *two or three* variables. If you list seven, you are reciting the whole problem space, which is the neutral trade-off list again with extra steps. Part of the expertise is knowing which two variables actually decide the answer in most cases.
 
@@ -445,7 +445,7 @@ The mechanism behind why this works: a client can't audit most of what you say, 
 
 > **Pitfall.** "Know" claims borrowed from memory of an older version. .NET changes a lot from release to release: a default changes, an API is obsoleted, the performance characteristics of something you "know" shift completely. "EF Core can't do X" might have been true two majors ago. Unless you checked it against the current version, a remembered platform fact is a *belief*. Treat it as one.
 
-> **Best practice.** In written recommendations, make the buckets visible. A findings table with a column for evidence ("measured", "inferred", "to verify") costs one column and tells the reader exactly how much weight each row can take. [Chapter 63](#chapter-63-recommendations-proposals-and-estimates) builds this into the proposal format.
+> **Best practice.** In written recommendations, make the buckets visible. A findings table with a column for evidence ("measured", "inferred", "to verify") costs one column and tells the reader exactly how much weight each row can take. [Chapter 41](#chapter-41-recommendations-proposals-and-estimates) builds this into the proposal format.
 
 ## Calibration: Keeping Score on Yourself
 
@@ -477,7 +477,7 @@ What the review usually shows is a **pattern**, not a verdict. Engineers are oft
 
 > **Gotcha.** Logging only the predictions you're sure about makes your calibration look perfect and tells you nothing. And an advisor who stops committing in front of clients to protect a score has missed the point of keeping one.
 
-> **The portfolio rule, again.** The prediction log is **private**: it names clients, colleagues and internal dates. What can go public, in anonymised form, is the *method* and the *aggregate*: "I keep a prediction log; last year my estimates were systematically optimistic in [category], and here is what I changed". That is strong evidence of judgment in an interview ([Chapter 36](#chapter-36-the-story-bank-evidence-portfolio)).
+> **The portfolio rule, again.** The prediction log is **private**: it names clients, colleagues and internal dates. What can go public, in anonymised form, is the *method* and the *aggregate*: "I keep a prediction log; last year my estimates were systematically optimistic in [category], and here is what I changed". That is strong evidence of judgment in an interview ([Chapter 37](#chapter-37-the-story-bank-evidence-portfolio)).
 
 ## Updating in Public Without Losing Credibility
 
@@ -516,7 +516,7 @@ The distinction to protect is between **updating on evidence** and **caving to p
 | Effect on credibility | Goes up: your positions track reality | Goes down: your positions track the org chart |
 | What to do instead of caving | — | "I still think X, for reason M. It's your call, and I'll help make Y work. Can we write down what we'd watch for?" |
 
-That last cell is the professional move when the client decides against your advice: *disagree and commit*, with the disagreement **written down** where it can be seen, for example in an ADR's alternatives section ([Chapter 17](#chapter-17-soft-skills-engineering-practices)). You are not trying to win later. You are making sure that if the risk you named materialises, the team recognises it early, because someone already described what it would look like.
+That last cell is the professional move when the client decides against your advice: *disagree and commit*, with the disagreement **written down** where it can be seen, for example in an ADR's alternatives section ([Chapter 16](#chapter-16-working-like-a-middle-developer)). You are not trying to win later. You are making sure that if the risk you named materialises, the team recognises it early, because someone already described what it would look like.
 
 > **Pitfall.** Revising the canon quietly. If a published position changes, the change is a *new dated entry*, with the old version kept and marked superseded, just as an ADR is never edited to reverse it but superseded by a new one. A canon with no revision history in it looks like it has never been tested.
 
@@ -603,7 +603,7 @@ You're three weeks into an outstaffing engagement. In a planning meeting, the cl
 
 Three forces are pulling here. There is the evidence, which says the plan is premature. There is social pressure, since the decision was announced, not proposed. And there is commercial interest, since your employer benefits from the plan. That third force is exactly why your answer matters: if you nod along, you are showing high self-orientation in front of the client's leadership.
 
-What doesn't work: a public "this is a mistake" three weeks in. You don't have the diagnosis yet ([Chapter 61](#chapter-61-discovery-and-diagnosis)). You'd be applying a canon position before checking whether its context holds. And a head of engineering who is contradicted in their own planning meeting has every reason to dig in.
+What doesn't work: a public "this is a mistake" three weeks in. You don't have the diagnosis yet ([Chapter 39](#chapter-39-discovery-and-diagnosis)). You'd be applying a canon position before checking whether its context holds. And a head of engineering who is contradicted in their own planning meeting has every reason to dig in.
 
 What does work: answer the question you were actually asked ("anything to watch out for?") with *conditions*, not a verdict, and make the conditions checkable:
 
@@ -634,5 +634,5 @@ Log it as a prediction ("the first extraction will take longer than planned, 70%
 - Paul Saffo, "Strong Opinions, Weakly Held" (saffo.com, July 2008) — the original, process-oriented statement of the maxim.
 - Cedric Chin, "'Strong Opinions, Weakly Held' Doesn't Work That Well" (commoncog.com) — the critique of how the maxim is used in practice.
 - Thoughtworks, *Technology Radar* and "Build Your Own Technology Radar" (thoughtworks.com/radar) — the Adopt/Trial/Assess/Hold rings and the quadrant format.
-- .NET support dates in Canon #4: `dotnet/core` `releases.md` (github.com/dotnet/core), checked September 2026. See also [Appendix B](#appendix-b-net-version-comparison-cheat-sheet).
-- Within this book: [Chapter 17](#chapter-17-soft-skills-engineering-practices) for communication, ADRs and influence; [Chapter 36](#chapter-36-the-story-bank-evidence-portfolio) for turning positions and predictions into interview evidence; [Chapters 61](#chapter-61-discovery-and-diagnosis)–[65](#chapter-65-positioning-and-public-proof) for the rest of the advisory practice.
+- .NET support dates in Canon #4: `dotnet/core` `releases.md` (github.com/dotnet/core), checked September 2026. See also [the appendix](#appendix-net-version-comparison-cheat-sheet).
+- Within this book: [Chapter 16](#chapter-16-working-like-a-middle-developer) for communication and ADRs, [Chapter 36](#chapter-36-senior-behaviours-career-and-interviews) for influence; [Chapter 37](#chapter-37-the-story-bank-evidence-portfolio) for turning positions and predictions into interview evidence; [Chapters 39](#chapter-39-discovery-and-diagnosis)–[43](#chapter-43-positioning-and-public-proof) for the rest of the advisory practice.

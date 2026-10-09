@@ -1,4 +1,4 @@
-<!-- One page. If it doesn't fit on one printed page, cut findings, not font size. Read Chapter 63.4 first. -->
+<!-- One page. If it doesn't fit on one printed page, cut findings, not font size. Read Chapter 41's "Writing for Executives" first. -->
 
 **[System name] health check: executive summary**
 [Client] · assessed [date range] · commit/environment [sha, env] · prepared by [you]

@@ -1,6 +1,6 @@
 # Chapter 40: Lab — The .NET Health Check
 
-A health check is the most sellable thing a senior .NET engineer can produce on their own. It is a written, evidence-backed assessment of a codebase that tells a client what is fine, what is risky, and what to do first. It turns the point of view from [Chapter 60](#chapter-60-having-a-point-of-view) and the diagnosis from [Chapter 61](#chapter-61-discovery-and-diagnosis) into a deliverable a CTO can forward to their CFO. And it is the natural first paid engagement that [Chapter 63](#chapter-63-recommendations-proposals-and-estimates) prices and [Chapter 65](#chapter-65-positioning-and-public-proof) tells you to publish.
+A health check is the most sellable thing a senior .NET engineer can produce on their own. It is a written, evidence-backed assessment of a codebase that tells a client what is fine, what is risky, and what to do first. It turns the point of view from [Chapter 38](#chapter-38-having-a-point-of-view) and the diagnosis from [Chapter 39](#chapter-39-discovery-and-diagnosis) into a deliverable a CTO can forward to their CFO. And it is the natural first paid engagement that [Chapter 41](#chapter-41-recommendations-proposals-and-estimates) prices and [Chapter 43](#chapter-43-positioning-and-public-proof) tells you to publish.
 
 In this lab you assess a real codebase: Microsoft's **eShop** reference application, pinned to one commit. A script collects the raw evidence in about two minutes. The rest is the part no script does: deciding which of the fifty things you found matter to *this* client, and writing it so an executive reads one page and acts on it.
 
@@ -19,13 +19,13 @@ The kit is at **[labs/62-health-check](https://github.com/malyna2/dotnet-handboo
 
 **Goal.** Produce a client-ready health-check report on `dotnet/eShop` at commit `b4a4087`: a one-page executive summary with five prioritized risks, a risk matrix, finding cards with evidence a stranger can re-check, and a two-week plan. Then present it, out loud, to someone playing the client.
 
-**The senior signal.** Middle engineers find problems. Senior engineers decide which problems matter, for whom, and in what order, and they can defend that ordering with evidence. A report with eighty findings and no ranking shows effort. A report with five ranked risks tied to the client's goal shows judgment, and judgment is what gets you invited back (Chapter 60). The lab trains three things interviewers and clients probe for:
+**The senior signal.** Middle engineers find problems. Senior engineers decide which problems matter, for whom, and in what order, and they can defend that ordering with evidence. A report with eighty findings and no ranking shows effort. A report with five ranked risks tied to the client's goal shows judgment, and judgment is what gets you invited back (Chapter 38). The lab trains three things interviewers and clients probe for:
 
 - **Evidence discipline.** Every claim points to a file, a command output or an interview note. Nothing is "it looked messy."
 - **Business translation.** "Audience validation is disabled" becomes "a token issued for one service is accepted by all of them."
 - **Tact.** You describe code without judging the people who wrote it, and the team who built the system ends up supporting your recommendations.
 
-> **The portfolio rule.** Your report on eShop goes in **your own public portfolio repo**, not in this one. It is one of the best public artifacts you can have ([Chapter 65](#chapter-65-positioning-and-public-proof) calls it a "public assessment"). An assessment of a real employer's or client's code is confidential: it stays private, and in a portfolio it appears only as an anonymized story ([Chapter 36](#chapter-36-the-story-bank-evidence-portfolio)).
+> **The portfolio rule.** Your report on eShop goes in **your own public portfolio repo**, not in this one. It is one of the best public artifacts you can have ([Chapter 43](#chapter-43-positioning-and-public-proof) calls it a "public assessment"). An assessment of a real employer's or client's code is confidential: it stays private, and in a portfolio it appears only as an anonymized story ([Chapter 37](#chapter-37-the-story-bank-evidence-portfolio)).
 
 ## Time budget
 
@@ -37,7 +37,7 @@ The kit is at **[labs/62-health-check](https://github.com/malyna2/dotnet-handboo
 | Level 3: present it, and reuse the method | 2–3 h | Recorded readout, a run on a second codebase |
 | **Total** | **~1.5–2 days** | A public report you can link from a CV |
 
-A paid version of this on a client system usually runs about two weeks (Chapter 65). The extra time goes on interviews, access, production telemetry and a readout with the team. The lab skips those because eShop has no production and no team to interview, and the Tasks say where to simulate them.
+A paid version of this on a client system usually runs about two weeks (Chapter 43). The extra time goes on interviews, access, production telemetry and a readout with the team. The lab skips those because eShop has no production and no team to interview, and the Tasks say where to simulate them.
 
 ## Setup
 
@@ -74,7 +74,7 @@ For each area: what to look at, where the script puts the evidence, what eShop s
 
 ### Runtime and end of support
 
-**Look at:** target frameworks, the SDK pin, and the support phase and end-of-support date of each channel, from `dotnet/core`'s `releases-index.json` (the same data behind [Appendix B](#appendix-b-net-version-comparison-cheat-sheet)). Then the patch level: is the app on the latest patch, and was that patch a security release? Mechanism: [Chapter 30](#chapter-30-working-with-legacy-brownfield-code) (the EOL treadmill).
+**Look at:** target frameworks, the SDK pin, and the support phase and end-of-support date of each channel, from `dotnet/core`'s `releases-index.json` (the same data behind [the appendix](#appendix-net-version-comparison-cheat-sheet)). Then the patch level: is the app on the latest patch, and was that patch a security release? Mechanism: [Chapter 24](#chapter-24-working-with-legacy-brownfield-code) (the EOL treadmill).
 
 **eShop showed** (`01-inventory-runtime.txt`): 26 project files target `net10.0`, and the MAUI projects multi-target `net10.0-*`. .NET 10 is `active`, LTS, with an end of support of 2028-11-14. For contrast, .NET 8 and .NET 9 both reach end of support on **2026-11-10**, six weeks after this run: a client on either one has a finding with a date attached. The latest .NET 10 runtime is 10.0.12, released 2026-09-08 as a security release fixing 6 CVEs. eShop's ASP.NET Core packages are at 10.0.11 (`02-dependencies-summary.txt`), which was current on the commit date and one security patch behind by the run date.
 
@@ -82,7 +82,7 @@ For each area: what to look at, where the script puts the evidence, what eShop s
 
 ### Dependencies
 
-**Look at:** `dotnet list package --vulnerable`, `--deprecated` and `--outdated`, each with `--include-transitive`. Count unique packages, not rows: a package used by ten projects appears in ten rows. Split top-level upgrades by size, because a patch bump and a major bump are different conversations. Mechanism: [Chapter 35](#chapter-35-software-supply-chain-security).
+**Look at:** `dotnet list package --vulnerable`, `--deprecated` and `--outdated`, each with `--include-transitive`. Count unique packages, not rows: a package used by ten projects appears in ten rows. Split top-level upgrades by size, because a patch bump and a major bump are different conversations. Mechanism: [Chapter 27](#chapter-27-security-in-depth-and-the-supply-chain).
 
 **eShop showed** (`02-dependencies-summary.txt`, web solution, 25 projects): 69 unique top-level and 273 unique transitive packages, 286 unique in total. **Zero** vulnerable, **zero** deprecated. 60 top-level packages are behind their latest stable version: 8 major, 25 minor, 24 patch, and 3 where `--outdated` found no stable version at all, because they are prereleases. Seven top-level packages in use are prereleases, among them `Asp.Versioning.*` at `10.0.0-preview.2` and the Foundry hosting and OpenAI client packages at `13.5.3-preview.*`. The major bumps include Duende IdentityServer 7.3.2 → 8.0.8 and MediatR 13 → 14.
 
@@ -90,7 +90,7 @@ Read that carefully before writing it up. "60 outdated packages" sounds alarming
 
 ### Supply chain
 
-**Look at:** package sources and `packageSourceMapping`, lock files or central transitive pinning, whether NuGet audit warnings can fail the build, how CI actions are pinned, what writes to the build from the network, and base images. Mechanism: [Chapter 35](#chapter-35-software-supply-chain-security).
+**Look at:** package sources and `packageSourceMapping`, lock files or central transitive pinning, whether NuGet audit warnings can fail the build, how CI actions are pinned, what writes to the build from the network, and base images. Mechanism: [Chapter 27](#chapter-27-security-in-depth-and-the-supply-chain).
 
 **eShop showed** (`03-supply-chain.txt`, `09-build-tests.txt`):
 
@@ -102,7 +102,7 @@ Read that carefully before writing it up. "60 outdated packages" sounds alarming
 
 ### Change hotspots
 
-**Look at:** churn × complexity from git history ([Chapter 30](#chapter-30-working-with-legacy-brownfield-code)). The script counts commits per `.cs` file in a window, multiplies by a cheap branch count (`if`, `case`, loops, `catch`, `&&`, `||`, `??`) and lists authors. It excludes migrations and `*.g.cs`/`*.Designer.cs`.
+**Look at:** churn × complexity from git history ([Chapter 24](#chapter-24-working-with-legacy-brownfield-code)). The script counts commits per `.cs` file in a window, multiplies by a cheap branch count (`if`, `case`, loops, `catch`, `&&`, `||`, `??`) and lists authors. It excludes migrations and `*.g.cs`/`*.Designer.cs`.
 
 **eShop showed** (`04-hotspots.tsv`, `04-hotspots-all-history.tsv`, `04-churn-by-folder.txt`): in the 365 days before the commit there were only **16 commits by 8 authors**, and no file changed more than 3 times. That is too little history to rank anything, so the script also ranks the whole history (347 commits since 2023-10-18). There, `src/Catalog.API/Apis/CatalogApi.cs` leads (10 commits × 35 branches, 406 lines, 8 authors), followed by `src/ClientApp/Services/Basket/Protos/Basket.cs`, which is gRPC-generated code checked into the repo that the filter didn't catch. `src/eShop.AppHost/Program.cs` has the highest churn on the list (21 commits, 15 authors) but only 10 branches.
 
@@ -110,7 +110,7 @@ Two lessons. First, check the window has enough commits before you trust a ranki
 
 ### Architecture and coupling
 
-**Look at:** the project reference graph, fan-in of shared libraries, cycles, where domain logic lives, and whether services share databases. Mechanism: [Chapter 6](#chapter-6-architecture-application-design).
+**Look at:** the project reference graph, fan-in of shared libraries, cycles, where domain logic lives, and whether services share databases. Mechanism: [Chapter 21](#chapter-21-architecture).
 
 **eShop showed** (`05-architecture.txt`): a clean graph with no cycles. `eShop.ServiceDefaults` has a fan-in of 9 and `EventBusRabbitMQ` 7, which is by design: they are the shared cross-cutting and messaging layers. Only Ordering is split into API, Domain and Infrastructure projects; the other services are single projects. That is a deliberate choice about where to spend DDD ceremony, not a defect. The largest code base by far is the MAUI `ClientApp` (6,003 non-blank lines of 15,314 production lines), and the web solution doesn't build it.
 
@@ -118,7 +118,7 @@ The finding here isn't about the graph. It's the question the brief raises: does
 
 ### Tests
 
-**Look at:** do tests build and run from a clean clone, how long, what kinds exist, and do the hotspot files have tests? Mechanism: [Chapter 7](#chapter-7-testing) and [Chapter 25](#chapter-25-advanced-specialized-testing).
+**Look at:** do tests build and run from a clean clone, how long, what kinds exist, and do the hotspot files have tests? Mechanism: [Chapter 8](#chapter-8-testing) and [Chapter 25](#chapter-25-observability-and-testing-at-scale).
 
 **eShop showed** (`06-tests.txt`, `09-build-tests.txt`): 9 test projects, with 87 `[TestMethod]`, 15 `[Fact]` and 18 `[Theory]` attributes, mixing MSTest and xUnit v3. There are 3,065 non-blank test lines against 15,314 production lines. Functional tests use `WebApplicationFactory` and Aspire, and need a container runtime. In this run, `Basket.UnitTests` (8 tests) and `Ordering.UnitTests` (43 tests) built and passed in about half a second each. `Application.UnitTests` and `eShop.AppHost.UnitTests` failed to build because they reference `Identity.API` (the cdnjs problem above), and `ClientApp.UnitTests` needs the `maui-tizen` workload.
 
@@ -126,7 +126,7 @@ The script's "projects without a same-named test project" list is a heuristic an
 
 ### Security posture
 
-**Look at:** secrets in source, token validation settings, endpoints without authorization, CORS, raw SQL, rate limiting. Mechanism: [Chapter 14](#chapter-14-security).
+**Look at:** secrets in source, token validation settings, endpoints without authorization, CORS, raw SQL, rate limiting. Mechanism: [Chapter 12](#chapter-12-security-essentials).
 
 **eShop showed** (`07-code-signals.txt`, then reading the files):
 
@@ -139,29 +139,29 @@ For a teaching app these are reasonable shortcuts. For the brief they are the to
 
 ### Observability signals
 
-**Look at:** traces, metrics and logs exported, health endpoints, structured logging, custom business telemetry, and what alerts exist. Mechanism: [Chapter 13](#chapter-13-observability).
+**Look at:** traces, metrics and logs exported, health endpoints, structured logging, custom business telemetry, and what alerts exist. Mechanism: [Chapter 9](#chapter-9-exceptions-logging-and-first-diagnosis).
 
 **eShop showed:** OpenTelemetry tracing and metrics, and health checks, wired once in `eShop.ServiceDefaults` and used by every service (health-check calls in 10 files). No interpolated log messages were found, and `[LoggerMessage]` is used in one file. There is no custom `ActivitySource` or `Meter`, so there are no business metrics: orders placed, payments failed, basket-to-order conversion. There are no alert definitions in the repo, which is expected for a sample and is a question for [Retailer]'s team: "Who is paged, and on what?"
 
 ### Performance smells
 
-**Look at:** sync-over-async, `async void`, `HttpClient` lifetime, EF Core query shape, and *any* real measurement. Mechanism: [Chapter 15](#chapter-15-performance-optimization), [Chapter 4](#chapter-4-data-access-databases), [Chapter 8](#chapter-8-asynchronous-concurrent-programming).
+**Look at:** sync-over-async, `async void`, `HttpClient` lifetime, EF Core query shape, and *any* real measurement. Mechanism: [Chapter 17](#chapter-17-runtime-internals-and-performance), [Chapter 7](#chapter-7-data-access), [Chapter 4](#chapter-4-async-essentials).
 
 **eShop showed:** the `.Result` grep found 3 hits in 2 files, all false positives (`context.Result` on a filter context and a custom `Result` property). All 8 `async void` methods are MAUI lifecycle overrides and event handlers in `ClientApp`, where `async void` is the framework's pattern. The two `new HttpClient(` calls are in the MAUI client too. The services use `IHttpClientFactory` through service discovery. `AsNoTracking` never appears, and `.Include(` appears 5 times in 3 files.
 
-The honest verdict is "no evidence of a performance problem, and no measurement either." Grep can't find a slow query. The next step for [Retailer] is a load test of the checkout path and a look at the catalog queries' plans ([Chapter 37](#chapter-37-the-slow-query-lab-reading-execution-plans)), not a finding invented from a grep count.
+The honest verdict is "no evidence of a performance problem, and no measurement either." Grep can't find a slow query. The next step for [Retailer] is a load test of the checkout path and a look at the catalog queries' plans ([Chapter 19](#chapter-19-the-slow-query-lab-reading-execution-plans)), not a finding invented from a grep count.
 
 > **Pitfall.** Reporting grep counts as findings. Before the script excluded test code, the `.Result` count was several times higher, mostly MSTest assertions on `result.Result`, and every one of the three production hits is a false positive. A client engineer who checks one claim and finds it wrong will discount the whole report.
 
 ### Build, CI and containers
 
-**Look at:** what CI runs on every PR, warnings-as-errors, nullable, analyzers, how images are built and deployed, manual steps. Mechanism: [Chapter 12](#chapter-12-devops-cicd), [Chapter 11](#chapter-11-containers-orchestration).
+**Look at:** what CI runs on every PR, warnings-as-errors, nullable, analyzers, how images are built and deployed, manual steps. Mechanism: [Chapter 13](#chapter-13-git-and-cicd), [Chapter 14](#chapter-14-containers-and-linux).
 
 **eShop showed** (`08-build-ci-cost.txt`): the PR workflow builds `eShop.Web.slnf` and runs `dotnet test` on it. There are separate workflows for the MAUI app, Playwright end-to-end tests and markdown lint. `TreatWarningsAsErrors` is on globally, `<Nullable>enable` is set in 12 of 28 project files, and there's no `AnalysisLevel` setting. Deployment is `aspire deploy` to Azure Container Apps from the AppHost model. No IaC files (Bicep, Terraform, Helm) are checked in, because the AppHost *is* the infrastructure definition.
 
 ### Cost drivers
 
-**Look at:** what the app provisions, what scales with traffic, paid per-call APIs, and licences. Mechanism: [Chapter 28](#chapter-28-compliance-data-privacy-cloud-cost-finops).
+**Look at:** what the app provisions, what scales with traffic, paid per-call APIs, and licences. Mechanism: [Chapter 31](#chapter-31-compliance-data-privacy-cloud-cost-finops).
 
 **eShop showed:** the AppHost provisions PostgreSQL, Redis and RabbitMQ as containers, an Azure Container Apps environment, and, when enabled, Microsoft Foundry deployments of `gpt-4.1-mini` and `text-embedding-3-small` (or local Ollama models). When AI is enabled, the catalog's semantic search (`CatalogApi.cs`, `GetItemsBySemanticRelevance`) calls the embedding model **once per search request**. That endpoint needs no authentication, and there's no rate limiting, so an anonymous client can generate paid API calls at will. Duende IdentityServer is commercial software. Check its current licence terms against [Retailer]'s size before go-live, and certainly before the 7 → 8 major upgrade.
 
@@ -192,7 +192,7 @@ Each finding gets one card (`templates/finding-card.md`). The order of fields is
 - **Business impact** is the consequence in the client's terms. If you can't write it, the finding is probably noise for this brief.
 - **Likelihood and impact** are scored separately because they're argued separately, and a one-line reason for each score is what makes it defensible.
 - **Confidence** says how sure you are. A finding inferred from a grep count is "low" until you read the code.
-- **Effort** uses T-shirt sizes. A "rough order of magnitude" is honest at this stage; [Chapter 63](#chapter-63-recommendations-proposals-and-estimates) covers turning it into an estimate.
+- **Effort** uses T-shirt sizes. A "rough order of magnitude" is honest at this stage; [Chapter 41](#chapter-41-recommendations-proposals-and-estimates) covers turning it into an estimate.
 
 ## The risk matrix
 
@@ -228,7 +228,7 @@ A first pass on eShop gives 30–50 raw cards. An executive reads five. The cut 
 
 ## The report: one page, then detail
 
-The structure is in `templates/report-template.md` and `templates/executive-summary.md`. It follows the pyramid principle from [Chapter 63](#chapter-63-recommendations-proposals-and-estimates): the answer first, then the reasons, then the evidence.
+The structure is in `templates/report-template.md` and `templates/executive-summary.md`. It follows the pyramid principle from [Chapter 41](#chapter-41-recommendations-proposals-and-estimates): the answer first, then the reasons, then the evidence.
 
 - **Page one, the executive summary:** the bottom line in two sentences, three strengths, the top five risks in a table (risk in business terms, score, recommendation, effort), the first two weeks, what you didn't look at, and the one decision you need. If it doesn't fit on one page, cut findings, not font size.
 - **Scope and method:** the question asked, the commit and environment, what you didn't assess, how you collected evidence. This protects you. "We didn't assess production data or load" is what lets a reader trust the rest.
@@ -243,13 +243,13 @@ The structure is in `templates/report-template.md` and `templates/executive-summ
 
 The people who built the system will read your report, and usually they're in the room when it's presented. They know things you don't: the deadline that forced the shortcut, the migration that was cancelled, the reason that odd setting exists. If they feel judged, they'll spend the meeting defending the past, and your recommendations will die in the next sprint planning. If they feel represented, they'll implement them for you.
 
-- **Pre-wire the technical lead.** Walk them through the draft before the executive readout. Ask them to correct facts and add context. Nobody should hear a finding about their code for the first time in front of their boss ([Chapter 17](#chapter-17-soft-skills-engineering-practices) covers influence without authority).
+- **Pre-wire the technical lead.** Walk them through the draft before the executive readout. Ask them to correct facts and add context. Nobody should hear a finding about their code for the first time in front of their boss ([Chapter 36](#chapter-36-senior-behaviours-career-and-interviews) covers influence without authority).
 - **Describe the code, not the coders.** "The shared JWT setup disables audience validation," not "the team disabled audience validation." Passive voice is usually weak writing. Here it's the right tool.
 - **Assume a reason.** Chesterton's fence: before you recommend removing something, find out why it's there. eShop's `NoWarn` comment says "temporarily," so ask what it was working around. The answer may change the recommendation.
 - **Give the context that made it reasonable.** "This configuration is the sample's demo setup, which is appropriate for evaluation; for production it needs replacing" credits the original decision and still says what has to change.
 - **Lead with strengths that are specific.** "Central package management with transitive pinning and source mapping is better supply-chain hygiene than most production codebases" is credible. "Great work overall!" is filler, and the team will hear it that way.
 - **Separate the finding from the fix owner.** Recommend *what*. Let the team propose *how* and *when* in the roadmap discussion. Recommendations they helped shape get done.
-- **Never surprise, never gloat.** Present a contradiction between the story and the evidence as a question (Chapter 61): "I expected X and I'm seeing Y. Does that match what you've seen?"
+- **Never surprise, never gloat.** Present a contradiction between the story and the evidence as a question (Chapter 39): "I expected X and I'm seeing Y. Does that match what you've seen?"
 
 ## Tasks
 
@@ -292,7 +292,7 @@ Keep your work in your own portfolio repo, in a folder such as `eshop-health-che
 **Acceptance criteria:**
 - [ ] A transcript or recording of both sessions, with at least two changes to the report that came from the tech lead's pushback.
 - [ ] A one-page summary of a second codebase, done in under a working day, with its own evidence folder.
-- [ ] A published report in your portfolio, linked from your portfolio README ([Chapter 36](#chapter-36-the-story-bank-evidence-portfolio)).
+- [ ] A published report in your portfolio, linked from your portfolio README ([Chapter 37](#chapter-37-the-story-bank-evidence-portfolio)).
 
 ## Break it
 
@@ -330,7 +330,7 @@ In your **private** story bank: the STAR story below, and anything about a real 
 2. *"How do you know your findings were right?"* Evidence at a commit, false positives you rejected (the `.Result` hits), and a reviewer on the client side re-running the same commands.
 3. *"What if the team disagreed with you?"* The pre-wire, the tech lead's corrections that changed the report, and the difference between a disagreement about facts (fix the report) and one about priorities (the client decides, and the report records the trade-off).
 
-**The client hook.** The same work sells as a **fixed-price health check**: one system, a fixed scope (the eleven areas, [n] interviews, read access to the repo, pipelines and dashboards), about two weeks, a written report and a one-hour readout for [price]. It's small enough for a client to approve without a procurement cycle, and it often leads to the follow-on work, because the roadmap in it is a ready-made statement of work. [Chapter 63](#chapter-63-recommendations-proposals-and-estimates) covers pricing, scope traps and paid discovery. The public eShop report is your sample deliverable: "here is exactly what you'd receive."
+**The client hook.** The same work sells as a **fixed-price health check**: one system, a fixed scope (the eleven areas, [n] interviews, read access to the repo, pipelines and dashboards), about two weeks, a written report and a one-hour readout for [price]. It's small enough for a client to approve without a procurement cycle, and it often leads to the follow-on work, because the roadmap in it is a ready-made statement of work. [Chapter 41](#chapter-41-recommendations-proposals-and-estimates) covers pricing, scope traps and paid discovery. The public eShop report is your sample deliverable: "here is exactly what you'd receive."
 
 ## Hints and answers
 
@@ -390,7 +390,7 @@ Good, that's the point. Sort their objections into three piles: *facts* ("that s
 
 ## Further reading for assessors
 
-- **Within this book:** [Chapter 30](#chapter-30-working-with-legacy-brownfield-code) (hotspots, EOL), [Chapter 35](#chapter-35-software-supply-chain-security) (dependencies and supply chain), [Chapter 61](#chapter-61-discovery-and-diagnosis) (the first-day map this lab extends), [Chapter 63](#chapter-63-recommendations-proposals-and-estimates) (executive writing, pricing), [Chapter 65](#chapter-65-positioning-and-public-proof) (publishing the report).
+- **Within this book:** [Chapter 24](#chapter-24-working-with-legacy-brownfield-code) (hotspots, EOL), [Chapter 27](#chapter-27-security-in-depth-and-the-supply-chain) (dependencies and supply chain), [Chapter 39](#chapter-39-discovery-and-diagnosis) (the first-day map this lab extends), [Chapter 41](#chapter-41-recommendations-proposals-and-estimates) (executive writing, pricing), [Chapter 43](#chapter-43-positioning-and-public-proof) (publishing the report).
 - **Adam Tornhill, *Your Code as a Crime Scene*:** churn × complexity and behavioral code analysis.
 - **Barbara Minto, *The Pyramid Principle*:** answer first, then the grouped reasons.
 - **David Maister, Charles Green and Robert Galford, *The Trusted Advisor*:** why a report the team feels represented in gets implemented.

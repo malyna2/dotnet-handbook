@@ -1,12 +1,12 @@
 # Chapter 41: Recommendations, Proposals and Estimates
 
-Clients don't hire a senior contractor for answers they could find themselves. They hire one to turn partial information into a decision they can act on and defend to the people above them. [Chapter 61](#chapter-61-discovery-and-diagnosis) covered finding out what is wrong. This chapter covers what comes after: saying what to do about it, writing it so a busy executive can act, putting a shape and a price on the work, and keeping that shape intact once delivery starts.
+Clients don't hire a senior contractor for answers they could find themselves. They hire one to turn partial information into a decision they can act on and defend to the people above them. [Chapter 39](#chapter-39-discovery-and-diagnosis) covered finding out what is wrong. This chapter covers what comes after: saying what to do about it, writing it so a busy executive can act, putting a shape and a price on the work, and keeping that shape intact once delivery starts.
 
 These are four skills, but they form one pipeline, and a weak link breaks the rest:
 
 ```
  diagnosis ──► options memo ──► decision ──► ADR / decision log
- (Ch 61, 62)   (what to do)     (theirs)     (what was chosen, and why)
+ (Ch 39, 40)   (what to do)     (theirs)     (what was chosen, and why)
                                    │
                                    ▼
                   proposal ──► estimate ──► SOW ──► delivery ──► change requests
@@ -16,9 +16,9 @@ These are four skills, but they form one pipeline, and a weak link breaks the re
 
 A good recommendation with a vague SOW turns into a dispute. A careful SOW built on a point estimate nobody believed turns into a death march. A perfect estimate for the wrong option wastes the client's money efficiently.
 
-[Chapter 17](#chapter-17-soft-skills-engineering-practices) covered the basics: bottom line up front, trade-offs for a product manager, ADRs, and estimation within a team (17.4). The audience here is a client who pays by the day, can end the engagement, and may have been burned by the last vendor. The habits are the same, but the stakes and the incentives are different.
+[Chapter 16](#chapter-16-working-like-a-middle-developer) covered the basics: bottom line up front, trade-offs for a product manager, ADRs, and estimation within a team. The audience here is a client who pays by the day, can end the engagement, and may have been burned by the last vendor. The habits are the same, but the stakes and the incentives are different.
 
-## 63.1 Why "It Depends" Is Not Advice
+## Why "It Depends" Is Not Advice
 
 Most architecture questions really do depend on circumstances. The mistake is stopping at "it depends", because that hands the uncertainty back to the person who paid you to deal with it.
 
@@ -35,9 +35,9 @@ There are three honest ways to recommend under uncertainty. There is also a dish
 
 > **Pitfall.** A hedge can look like humility ("I'd hate to push you either way"). The client hears that you don't know. They will go to someone who sounds as if they do, and that person may be worse at the job than you.
 
-Recommending doesn't mean claiming more confidence than you have. State your confidence and the reason for it: "Fairly confident. The three riskiest modules have no System.Web dependencies." [Chapter 60](#chapter-60-having-a-point-of-view) covers where a point of view comes from. This chapter covers how to deliver it.
+Recommending doesn't mean claiming more confidence than you have. State your confidence and the reason for it: "Fairly confident. The three riskiest modules have no System.Web dependencies." [Chapter 38](#chapter-38-having-a-point-of-view) covers where a point of view comes from. This chapter covers how to deliver it.
 
-## 63.2 The Options Memo
+## The Options Memo
 
 The options memo is the advisor's core document: two to four pages in a fixed shape. The shape matters because each part answers a question the decision-maker will ask. Any part you leave out comes up in the meeting, where you'll answer it less well.
 
@@ -96,13 +96,13 @@ Option B — [name]: [2–3 sentences]
 
 > **Best practice.** Write "What would change this recommendation" *before* "Why". Doing it first makes you find the assumptions your recommendation depends on, and those are exactly what a sharp reader will test. It also shows that you reached the recommendation from evidence and will change it if the evidence changes.
 
-## 63.3 A Worked Example: The .NET Framework 4.8 Monolith
+## A Worked Example: The .NET Framework 4.8 Monolith
 
 All names, figures and dates in this example are **illustrative**. They show the reasoning. They are not benchmarks.
 
 **The situation.** A mid-sized distributor's order platform is a .NET Framework 4.8 monolith: ASP.NET MVC 5 customer portal, a Web Forms back office, WCF services used by the warehouse system, EF6, and SQL Server. It runs on two Windows Server VMs in a co-location facility whose contract renews, for several years, in nine months. It has about 400k lines of C#, few tests, and three in-house developers. The CTO asks for "a plan to get us to the cloud and off old .NET".
 
-**The diagnosis** (discovery, as in [Chapter 61](#chapter-61-discovery-and-diagnosis)):
+**The diagnosis** (discovery, as in [Chapter 39](#chapter-39-discovery-and-diagnosis)):
 
 - .NET Framework 4.8.x is still serviced, but it gets no new features, and its support follows the Windows versions it runs on. Check Microsoft's current lifecycle page before you quote a date. The runtime itself isn't urgent. The ecosystem around it is: libraries are dropping Framework targets, and fewer engineers want to work on Web Forms.
 - The Web Forms back office is the most tangled part. The MVC portal is fairly clean. Two WCF services use `netTcpBinding`.
@@ -114,9 +114,9 @@ The last point decides the recommendation. The CTO asked about the cloud and old
 **The options.**
 
 - **Option 0: do nothing.** Renew the contract and keep the VMs. There's no migration spend, but the renewal commits the client for years, which makes "do nothing" the *least* reversible option on the table. Release risk stays as it is, and every change gets a little more expensive each year.
-- **Option A: move to Azure App Service (Windows) as-is.** App Service runs .NET Framework 4.8 apps on Windows plans. The work is mostly environmental: uploads move to Blob Storage, the scheduled task becomes a WebJob or Function, the `netTcpBinding` services switch to HTTP bindings or move to a VM, the database moves to Azure SQL or SQL Managed Instance, and CI/CD with deployment slots is added. Anything that assumes a full Windows server (COM components, MSMQ, Windows services, local file shares) needs a new home, and finding all of those is the main risk. This option exits the co-location contract and fixes weekend deploys. It does nothing about the framework. [Chapter 50](#chapter-50-azure-in-depth-for-net-developers) covers App Service slots, managed identity and configuration.
-- **Option B: strangler fig to .NET 10.** A .NET 10 facade (YARP) sits in front of the monolith, and capabilities move behind it one at a time: portal first, WCF surfaces next, back office last or replaced. The System.Web adapters (`Microsoft.AspNetCore.SystemWebAdapters`) let the old and new apps share session state and authentication while both run. [Chapter 30](#chapter-30-working-with-legacy-brownfield-code) covers the mechanics. Each slice ships on its own, and you can stop at any slice and still have a working system. .NET 10 is an LTS release supported until November 2028.
-- **Option C: rewrite on .NET 10.** This is the cleanest target on paper. In practice it means maintaining two systems during the build, rediscovering edge cases as production incidents, delivering no value until cutover, and then a large cutover that's hard to reverse. Chapter 30 explains why big-bang rewrites fail. Flyvbjerg and Gardner's *How Big Things Get Done* shows the same pattern in large projects across many industries.
+- **Option A: move to Azure App Service (Windows) as-is.** App Service runs .NET Framework 4.8 apps on Windows plans. The work is mostly environmental: uploads move to Blob Storage, the scheduled task becomes a WebJob or Function, the `netTcpBinding` services switch to HTTP bindings or move to a VM, the database moves to Azure SQL or SQL Managed Instance, and CI/CD with deployment slots is added. Anything that assumes a full Windows server (COM components, MSMQ, Windows services, local file shares) needs a new home, and finding all of those is the main risk. This option exits the co-location contract and fixes weekend deploys. It does nothing about the framework. [Chapter 29](#chapter-29-azure-in-depth-for-net-developers) covers App Service slots, managed identity and configuration.
+- **Option B: strangler fig to .NET 10.** A .NET 10 facade (YARP) sits in front of the monolith, and capabilities move behind it one at a time: portal first, WCF surfaces next, back office last or replaced. The System.Web adapters (`Microsoft.AspNetCore.SystemWebAdapters`) let the old and new apps share session state and authentication while both run. [Chapter 24](#chapter-24-working-with-legacy-brownfield-code) covers the mechanics. Each slice ships on its own, and you can stop at any slice and still have a working system. .NET 10 is an LTS release supported until November 2028.
+- **Option C: rewrite on .NET 10.** This is the cleanest target on paper. In practice it means maintaining two systems during the build, rediscovering edge cases as production incidents, delivering no value until cutover, and then a large cutover that's hard to reverse. [Chapter 24](#chapter-24-working-with-legacy-brownfield-code) explains why big-bang rewrites fail. Flyvbjerg and Gardner's *How Big Things Get Done* shows the same pattern in large projects across many industries.
 
 **Comparison.** Effort is in person-months. The figures are illustrative, from before any discovery narrowed them.
 
@@ -141,7 +141,7 @@ The last point decides the recommendation. The CTO asked about the cloud and old
 - *The co-location contract can go month-to-month.* The deadline disappears, so go straight to B and skip the intermediate hosting move.
 - *The back office turns out to be thin CRUD.* Replacing it becomes a small, contained rewrite inside B, not a rewrite of the whole system.
 
-**What we need to learn next** (a two-week paid discovery, 63.11):
+**What we need to learn next** (a two-week paid discovery; see *Estimating for Clients*):
 
 | Question | How | Owner | By |
 |---|---|---|---|
@@ -152,7 +152,7 @@ The last point decides the recommendation. The CTO asked about the cloud and old
 
 Notice what the memo doesn't do. It doesn't pretend the ranges are precise. It doesn't recommend the most interesting technical work. And it doesn't bury the renewal, which is the fact that makes "do nothing" a one-way door.
 
-## 63.4 Writing for Executives
+## Writing for Executives
 
 The CTO will read the whole memo. Above the CTO is someone (a CFO, a CEO, a board) who will read one page, and maybe only its first paragraph. A large share of your influence depends on that page.
 
@@ -222,9 +222,9 @@ The translation rests on **expected cost**: likelihood × impact, stated as a ra
 - **Give ranges, not false precision.** "€40–90k" is honest. "€63,450" suggests precision you don't have, and the first time one such figure turns out wrong, they stop trusting the rest.
 - **Don't inflate the downside.** Scaring executives into approving work works once. After that, they discount everything you say.
 
-> **Gotcha.** For many CFOs the real constraint is *when* the cash goes out, not the total. A plan that costs a bit more but spreads the spend across four quarters, with value from the first, can beat a cheaper plan that needs everything up front. Ask how the client budgets (capex versus opex, annual cycles, approval thresholds) before you design the phases. [Chapter 28](#chapter-28-compliance-data-privacy-cloud-cost-finops) covers the cloud-cost side.
+> **Gotcha.** For many CFOs the real constraint is *when* the cash goes out, not the total. A plan that costs a bit more but spreads the spend across four quarters, with value from the first, can beat a cheaper plan that needs everything up front. Ask how the client budgets (capex versus opex, annual cycles, approval thresholds) before you design the phases. [Chapter 31](#chapter-31-compliance-data-privacy-cloud-cost-finops) covers the cloud-cost side.
 
-## 63.5 Reversibility: Matching Rigor to the Door
+## Reversibility: Matching Rigor to the Door
 
 Not every decision deserves a memo. In his 2015 letter to Amazon shareholders, Jeff Bezos separated **Type 1** decisions, which are one-way doors (irreversible or nearly so) and deserve slow, careful thought, from **Type 2** decisions, which are two-way doors and should be made quickly by small groups. He warned about getting it wrong in both directions. Treating two-way doors like one-way doors makes an organization slow. Treating one-way doors casually is how it gets trapped.
 
@@ -240,14 +240,14 @@ Reversibility can be designed, and designing it is often the most useful thing a
 
 - **Slicing.** A rewrite is one one-way door. A strangler is a series of two-way doors, so each commitment stays small even if the total work is similar.
 - **Keeping the fallback running.** During a hosting move, keep the old VMs warm and the DNS switch ready for [N] weeks.
-- **Expand/contract data changes** ([Chapter 30](#chapter-30-working-with-legacy-brownfield-code)). Add the new structure, write to both, and remove the old one only once the new one has been proven.
+- **Expand/contract data changes** ([Chapter 24](#chapter-24-working-with-legacy-brownfield-code)). Add the new structure, write to both, and remove the old one only once the new one has been proven.
 - **Shorter commitments.** Month-to-month at a premium is often worth paying for, because you're buying an option.
 
 > **Pitfall.** "Do nothing" looks like the ultimate two-way door, but it often isn't. Contracts auto-renew, support windows close, key people leave, and data grows until migrating it is no longer simple. Before treating inaction as the safe default, ask which doors will close on their own.
 
 The opposite mistake is just as common: putting a small decision through a heavy process because a memo looks diligent. If the client can undo it next sprint in a day, recommend it in one sentence, log it, and move on.
 
-## 63.6 Presenting a Recommendation and Handling Pushback
+## Presenting a Recommendation and Handling Pushback
 
 Most decisions are made in meetings, and meetings go the way they were prepared.
 
@@ -272,13 +272,13 @@ The rule behind the table: **update on evidence, not on pressure.** When pushbac
 
 > **Best practice.** The client is entitled to decide against you, and they often have reasons you can't see. You've done your job if they decide *knowing* the trade-off, whatever they choose.
 
-**If you're overruled,** disagree once, clearly and in writing, then commit (Chapter 17's *disagree and commit*). Put your effort into making the chosen path succeed, including making it more reversible: slice it, keep the old system able to take traffic, and agree on review checkpoints. The one exception is an ethical or legal line, such as unsafe practices or misleading customers or regulators. That belongs with your firm's leadership. It isn't a design disagreement.
+**If you're overruled,** disagree once, clearly and in writing, then commit ([Chapter 16](#chapter-16-working-like-a-middle-developer)'s *disagree and commit*). Put your effort into making the chosen path succeed, including making it more reversible: slice it, keep the old system able to take traffic, and agree on review checkpoints. The one exception is an ethical or legal line, such as unsafe practices or misleading customers or regulators. That belongs with your firm's leadership. It isn't a design disagreement.
 
-## 63.7 After the Decision: Writing It Down
+## After the Decision: Writing It Down
 
 A decision that isn't written down gets made again six months later, by someone who wasn't there and has less information. For a contractor there's a second reason: the engagement ends, and the client's memory of *why* shouldn't leave with you.
 
-Use the ADR format from [Chapter 17](#chapter-17-soft-skills-engineering-practices) (17.5), and add four things for client work:
+Use the ADR format from [Chapter 16](#chapter-16-working-like-a-middle-developer), and add four things for client work:
 
 - **Who decided, and where.** "Approved by [CTO] at the steering meeting, [date]." Not to assign blame: when circumstances change, the first question is who can reopen the decision.
 - **A link to the options memo.** The ADR records the choice, and the memo records the reasoning.
@@ -289,7 +289,7 @@ For two-way-door decisions, a one-line **decision log** (date, decision, owner, 
 
 > **Gotcha.** Store decision records where the *client* owns them: their repo or wiki, not your firm's tracker. When the contract ends, neither of you can reach the tracker.
 
-## 63.8 Proposals That Survive Contact
+## Proposals That Survive Contact
 
 A proposal turns an agreed direction into work someone can buy, and it often becomes the basis of the SOW. Write every sentence as if it will be quoted back to you in a dispute. *This section and the next give engineering advice about what proposals and SOWs contain. They are not legal advice. Contract law varies by jurisdiction, and your firm's legal and commercial people own the final wording.*
 
@@ -335,12 +335,12 @@ D4 Cutover — accepted when [named business smoke tests] pass and [N] days
 
 **Assumptions** · **Client dependencies** (what / who / by) · **Exclusions**
 **Risks** (risk / likelihood / impact / carried by / containment)
-**Commercial model and change control** (63.9, 63.12)
+**Commercial model and change control** (see *Commercial Models* and *Change Requests*)
 ```
 
 > **Best practice.** End every phase at a gate where the price of the next phase is confirmed. That makes the proposal easier to buy (the first commitment is small), more honest (each phase is priced using what the last one taught), and safer (either side can stop cleanly).
 
-## 63.9 Commercial Models and Who Carries the Risk
+## Commercial Models and Who Carries the Risk
 
 Every commercial model answers one question: **when the work turns out bigger or smaller than expected, who pays?** How both sides behave follows from the answer.
 
@@ -354,19 +354,19 @@ Every commercial model answers one question: **when the work turns out bigger or
 
 **Fixing the price doesn't remove the uncertainty. It moves it to the vendor, who charges for carrying it.** A well-run vendor estimates the work and adds a margin that grows with the uncertainty. A client who demands a fixed price before any discovery is buying insurance at its most expensive. The fair thing to say is: "We can fix a price now, but it will carry a large risk margin. Fund two weeks of discovery first and the build price will be lower, because we'll be pricing less uncertainty."
 
-Each model also shapes behaviour. Under fixed price, every ambiguity is money: the vendor wants the narrow reading and the client wants the broad one. That's why fixed price needs the tightest SOW (63.10) and the most formal change control (63.12). Under T&M, the risk runs the other way: nobody on the vendor side owns the total. Good T&M relationships make up for it with forecasts, burn-down reporting, and an advisor who treats the client's budget as finite.
+Each model also shapes behaviour. Under fixed price, every ambiguity is money: the vendor wants the narrow reading and the client wants the broad one. That's why fixed price needs the tightest SOW (*Scope Traps*, below) and the most formal change control (*Change Requests*, below). Under T&M, the risk runs the other way: nobody on the vendor side owns the total. Good T&M relationships make up for it with forecasts, burn-down reporting, and an advisor who treats the client's budget as finite.
 
 **Value-based pricing** (Alan Weiss's *Value-Based Fees*; Blair Enns's *Pricing Creativity*) suits advisory work with a clear, measurable outcome and a buyer who can judge it. It rarely suits outstaffed delivery, where you're capacity inside someone else's plan.
 
 **If you work through an outsourcing or outstaffing firm,** the account manager and the client negotiate the model, and you're usually billed T&M within it. You still have influence:
 
 - **Your estimates become the price.** Under fixed price, your range and assumptions set how much risk your firm takes on. Give them honestly and in writing.
-- **You're often the first to spot out-of-scope work.** How you raise it (63.12) decides whether it becomes a paid change or unpaid work nobody sees.
+- **You're often the first to spot out-of-scope work.** How you raise it (*Change Requests Without the Fight*, below) decides whether it becomes a paid change or unpaid work nobody sees.
 - **Commercial conversations go through your firm.** When a client asks you for a price, a discount, or "a small extra, no need to mention it", the answer is friendly and always the same: "Good idea. Let me bring [account manager] in so we do it properly." Negotiating directly can commit your firm to things it hasn't agreed.
 
 > **Pitfall.** Quietly absorbing out-of-scope work feels generous. It teaches the client that scope is negotiable, costs your firm margin, and leaves no record to justify the next change request. If you want to do the favour, make it visible: "Happy to include this. I'll log it as a goodwill change so we both know it's outside the SOW."
 
-## 63.10 Scope Traps in Statements of Work
+## Scope Traps in Statements of Work
 
 Some SOW phrases look harmless but carry large amounts of unpriced work. (As before: engineering advice about content, not legal advice.)
 
@@ -386,7 +386,7 @@ Some SOW phrases look harmless but carry large amounts of unpriced work. (As bef
 
 - **Performance:** what load, on which operations, and what's the current baseline? "No slower than today" is a real requirement.
 - **Availability and recovery:** what does an hour of downtime cost? A day? What are the RPO and RTO?
-- **Security and compliance:** which standards apply? Who pen-tests, and who fixes what they find? Where may personal data live ([Chapter 28](#chapter-28-compliance-data-privacy-cloud-cost-finops))?
+- **Security and compliance:** which standards apply? Who pen-tests, and who fixes what they find? Where may personal data live ([Chapter 31](#chapter-31-compliance-data-privacy-cloud-cost-finops))?
 - **Operability:** who runs the system after handover, and what monitoring and runbooks do they need?
 - **Accessibility, localization, browsers and devices, audit logging and retention.**
 
@@ -394,9 +394,9 @@ Each answer goes into the SOW as a measurable criterion or into the exclusions. 
 
 > **Best practice.** Read the SOW once as the client's most demanding stakeholder would read it on the project's worst day. Any sentence that could mean more work than you estimated is a trap. Fix it while it's still about wording, not money.
 
-## 63.11 Estimating for Clients
+## Estimating for Clients
 
-Section 17.4 covered thin slices, spikes, ranges and buffers. With a client, the estimate often becomes a *price*, the listener may not be technical, and your competitors have every reason to be optimistic.
+[Chapter 16](#chapter-16-working-like-a-middle-developer)'s *Estimation & Planning* covered thin slices, spikes, ranges and buffers. With a client, the estimate often becomes a *price*, the listener may not be technical, and your competitors have every reason to be optimistic.
 
 ### Estimate, target, commitment
 
@@ -435,7 +435,7 @@ Bottom-up estimates come in low for a structural reason: work you can't see yet 
 
 For a contractor, the reference class is usually your firm's own history: "our last four Framework-to-App-Service moves took [range]". Choose a class that's honestly similar. Get the *distribution* of outcomes, not just the average. Start from that distribution and adjust carefully for real differences, because most people over-adjust ("we're special") and end up back at the inside view. If your bottom-up number is well below the reference class, the likeliest explanation is missing work, not an unusual project.
 
-> **Best practice.** Build your own reference class starting now. For every engagement, record the initial estimate, the final effort, and the main reason for the gap. After a few years, that private log will beat any technique. Keep the client details private (63.13).
+> **Best practice.** Build your own reference class starting now. For every engagement, record the initial estimate, the final effort, and the main reason for the gap. After a few years, that private log will beat any technique. Keep the client details private (*Your Portfolio and the NDA Line*, below).
 
 ### Three-point estimates and PERT
 
@@ -487,7 +487,7 @@ The pitch is honest: "You can buy a large, uncertain commitment now, with a risk
 
 The estimate is vague, but nothing else in that answer is. It compares well with a confident single number that falls apart in week three.
 
-## 63.12 Change Requests Without the Fight
+## Change Requests Without the Fight
 
 Scope will change, and it should, because the client learns during delivery. Change control isn't there to prevent change. It's there to make change *visible and priced*, so the client decides it knowingly and doesn't find out through a late date or a surprise invoice.
 
@@ -534,15 +534,15 @@ There's no "out of scope" and no "not in the contract" in it. The message is *ye
 
 > **Pitfall.** Unlogged "small" changes. None is big enough to discuss, but together they explain why the project is six weeks late with nothing written down. If a change takes more than an hour, log it, even if you then absorb it.
 
-## 63.13 Your Portfolio and the NDA Line
+## Your Portfolio and the NDA Line
 
-Options memos, one-pagers, proposals and estimates show senior judgment directly, and they're usually covered by confidentiality agreements. The Part XI rule applies:
+Options memos, one-pagers, proposals and estimates show senior judgment directly, and they're usually covered by confidentiality agreements. The labs' portfolio rule applies:
 
-- **Practice work goes in your own public portfolio repo, not this handbook's repo.** Write a memo, an executive one-pager and a phased proposal with a three-point estimate for a *fictional* or *public* scenario: the monolith in 63.3, or an open-source project's modernization.
+- **Practice work goes in your own public portfolio repo, not this handbook's repo.** Write a memo, an executive one-pager and a phased proposal with a three-point estimate for a *fictional* or *public* scenario: the monolith in the worked example above, or an open-source project's modernization.
 - **Real client documents stay private.** That includes their structure, prices and estimates, and any "anonymized" version in which the client can still be identified from its industry, stack and numbers. When in doubt, leave it out.
-- **Stories about real engagements** go in your private story bank ([Chapter 36](#chapter-36-the-story-bank-evidence-portfolio)), with metrics as [placeholders] until they're verified and you're allowed to use them.
+- **Stories about real engagements** go in your private story bank ([Chapter 37](#chapter-37-the-story-bank-evidence-portfolio)), with metrics as [placeholders] until they're verified and you're allowed to use them.
 
-[Chapter 64](#chapter-64-the-advisory-casebook) walks through advisory situations end to end. [Chapter 65](#chapter-65-positioning-and-public-proof) turns artifacts like these into public proof.
+[Chapter 42](#chapter-42-the-advisory-casebook) walks through advisory situations end to end. [Chapter 43](#chapter-43-positioning-and-public-proof) turns artifacts like these into public proof.
 
 ## Exercises
 
@@ -647,7 +647,7 @@ Don't give whatever number makes the meeting end smoothly. It will go onto the b
 
 ### What would you do — overruled
 
-You recommended the A-then-B path from 63.3. The CEO chose a full rewrite: "We're not paying twice. Do it properly once." The CTO privately agrees with you but didn't speak up.
+You recommended the A-then-B path from the worked example. The CEO chose a full rewrite: "We're not paying twice. Do it properly once." The CTO privately agrees with you but didn't speak up.
 
 <details>
 <summary>How a senior advisor reasons about it</summary>
@@ -663,7 +663,7 @@ Avoid lobbying the CTO to reverse it, and avoid quietly steering the rewrite bac
 
 ### Go check
 
-- Rewrite your last significant technical recommendation as an options memo using the 63.2 template, including "do nothing" and "what would change this". Where was the original weakest? Put a fictionalized version in your portfolio repo.
+- Rewrite your last significant technical recommendation as an options memo using the options-memo template, including "do nothing" and "what would change this". Where was the original weakest? Put a fictionalized version in your portfolio repo.
 - If you're allowed to, read your current engagement's SOW as its most demanding stakeholder would. List every phrase that could cover more work than planned, and check which of them have already caused friction.
 - Compare your last three estimates with the actual outcomes. Were the actuals inside your ranges? Start a private estimation log today: estimate, range, confidence, actual, and the reason for any gap.
 - Write the executive translation of one technical risk in your system: likelihood, impact in money or time, as a range, using the client's own numbers. Show it to someone non-technical and ask what they'd decide.
