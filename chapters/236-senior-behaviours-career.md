@@ -129,7 +129,7 @@ Bring data, not complaints: present the estimate, the trade-offs, and options (c
 
 Practice out loud, time yourself, and remember: interviewers hire for *reasoning you can hear*, not just answers you happen to know.
 
-## Keep Learning
+## How to Keep Learning
 
 [Chapter 16](#chapter-16-working-like-a-middle-developer) set up the habit: a few high-signal sources, release notes, learning by building and teaching. At senior level the question changes from *how to keep up* to *where to go deep*, and the sources get closer to the metal.
 
