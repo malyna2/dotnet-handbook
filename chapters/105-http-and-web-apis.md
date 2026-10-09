@@ -643,7 +643,7 @@ public class ValidationFilter<T> : IEndpointFilter where T : class
 products.MapPost("/", ...).AddEndpointFilter<ValidationFilter<CreateProductRequest>>();
 ```
 
-The controller equivalent is an `IAsyncActionFilter` that pulls the model out of `context.ActionArguments`; or, if you prefer validators that throw, let a `ValidationException` escape and map it with an `IExceptionHandler` ([Error Handling with ProblemDetails](#error-handling-with-problemdetails-rfc-7807) in Chapter 9).
+The controller equivalent is an `IAsyncActionFilter` that pulls the model out of `context.ActionArguments`; or, if you prefer validators that throw, let a `ValidationException` escape and map it with an `IExceptionHandler` ([What to Surface: ProblemDetails](#what-to-surface-problemdetails) in Chapter 9).
 
 > **Gotcha.** That filter *fails open* — no registered validator means the request sails through. That is the right default for a generic filter (you don't want every parameter-less endpoint to 500), but it means a mistyped validator class silently disables validation for an endpoint, and nothing fails. If you apply the filter by convention across a group, add a startup test that asserts every request DTO reachable from your endpoints has a registered `IValidator<T>`.
 
@@ -764,7 +764,7 @@ builder.Services.AddCors(o => o.AddPolicy("spa", p => p
 app.UseCors("spa");
 ```
 
-CORS is a *browser* enforcement mechanism — it doesn't secure anything server-side, it just tells the browser what's allowed. That cuts both ways. When the console shows *"blocked by CORS policy,"* it means the **browser refused to hand the response to your JavaScript** — the request itself usually still reached your server and executed; check the server logs before assuming nothing happened. And conversely, CORS does nothing against `curl` or another backend — it is not authorization. [CORS Done Right](#cors-done-right) in Chapter 12 covers the security angle, and [Chapter 6: Frontend Essentials](#chapter-6-frontend-essentials) the browser's side.
+CORS is a *browser* enforcement mechanism — it doesn't secure anything server-side, it just tells the browser what's allowed. That cuts both ways. When the console shows *"blocked by CORS policy,"* it means the **browser refused to hand the response to your JavaScript** — the request itself usually still reached your server and executed; check the server logs before assuming nothing happened. And conversely, CORS does nothing against `curl` or another backend — it is not authorization. [CORS Is Not Access Control](#cors-is-not-access-control) in Chapter 12 covers the security angle, and [Chapter 6: Frontend Essentials](#chapter-6-frontend-essentials) the browser's side.
 
 > **Pitfall.** `AllowAnyOrigin()` combined with `AllowCredentials()` is forbidden by the spec and won't work. Never reflexively allow all origins in production.
 
