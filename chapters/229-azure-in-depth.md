@@ -1170,7 +1170,7 @@ ACCEPT_EULA=Y verify/exercises/Ch51/verify.sh
 - run migrations as a gated step, expand-then-contract, so the previous build still runs against the new schema;
 - put one change behind a feature flag and release it without a deployment.
 
-Done when you can show a rollback in minutes and no stored secret. Chapter 32's capstone takes the same route in its steps 4 and 8 ([The Capstone](#the-capstone-one-project-growing-up)).
+Done when you can show a rollback in minutes and no stored secret. The capstone in [Chapter 44](#chapter-44-capstone-one-project-growing-up) takes the same route in its Steps 4 and 8.
 
 The pipeline, your decision memo and your notes belong in **your own public portfolio repo**, not in this one; anything about a real employer's system stays private.
 
