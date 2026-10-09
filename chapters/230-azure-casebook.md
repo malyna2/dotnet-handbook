@@ -1,15 +1,15 @@
 # Chapter 30: The Azure Casebook — Real Incidents, Real Fixes
 
-[Chapter 50](#chapter-50-azure-in-depth-for-net-developers) explains how Azure works. This chapter is about what happens when it meets production. Each case is a situation that .NET teams on Azure run into again and again. They are composites of common incidents, not one company's post-mortem. For each one you get the same six parts:
+[Chapter 29](#chapter-29-azure-in-depth-for-net-developers) explains how Azure works. This chapter is about what happens when it meets production. Each case is a situation that .NET teams on Azure run into again and again. They are composites of common incidents, not one company's post-mortem. For each one you get the same six parts:
 
 - **Situation**: what the team was doing, and what went wrong.
 - **What you see**: the symptoms, as they reach you.
-- **What is going on**: the mechanism, usually a detail from Chapter 50.
+- **What is going on**: the mechanism, usually a detail from Chapter 29.
 - **How to confirm it**: the command, query or experiment that turns a hunch into a diagnosis.
 - **Fix**: what to change now, and what to change properly.
 - **Prevent it** and **Interview angle**: the habit that stops it happening again, and how to tell the story.
 
-Read a case's *Situation* and *What you see*, then stop and write down your own diagnosis before you read on. That habit is the one that pays off at 3 a.m. and in system-design interviews alike. [Chapter 33](#chapter-33-real-world-scenarios-architectural-decisions) does the same for cloud-agnostic scenarios. This chapter is specific to Azure.
+Read a case's *Situation* and *What you see*, then stop and write down your own diagnosis before you read on. That habit is the one that pays off at 3 a.m. and in system-design interviews alike. [Chapter 35](#chapter-35-production-incidents) does the same for cloud-agnostic scenarios. This chapter is specific to Azure.
 
 ## The Azure Triage Card
 
@@ -19,7 +19,7 @@ When something breaks, the first suspect is rarely your business logic. Start fr
 |---|---|---|
 | `403` from a data service (Blob, Key Vault, Service Bus, Cosmos) | Data-plane role missing, or not propagated yet · wrong identity · network rule | Error code (`AuthorizationPermissionMismatch` = RBAC); who the token belongs to (`oid`); `az role assignment list --assignee <principal-id> --all` |
 | `403` *after* enabling a private endpoint | DNS resolves to the public IP | `nslookup <name>` from **inside** the app |
-| Intermittent timeouts under load, CPU fine | SNAT port exhaustion · connection pool exhaustion · thread-pool starvation ([Chapter 8](#chapter-8-asynchronous-concurrent-programming)) | App Service *Diagnose and solve problems* → *SNAT Port Exhaustion*; dependency failures in App Insights |
+| Intermittent timeouts under load, CPU fine | SNAT port exhaustion · connection pool exhaustion · thread-pool starvation ([Chapter 4](#chapter-4-async-essentials)) | App Service *Diagnose and solve problems* → *SNAT Port Exhaustion*; dependency failures in App Insights |
 | 500s for a minute after every deployment | Cold start after a slot swap · settings that moved with the swap | Warm-up configuration; which settings are slot settings |
 | Messages processed twice | Lock expiry · crash between side effect and settlement · missing idempotency | `DeliveryCount` on the message; `MessageLockLost` in the logs |
 | Queue growing, consumers "fine" | Poison messages cycling · dead-letter queue filling · consumers throttled downstream | `ActiveMessages`, `DeadletteredMessages` metrics |
@@ -61,7 +61,7 @@ az role assignment list --assignee <principal-id> --all -o table
 
 If the list shows only `Contributor`, you have your answer. If it shows the right data role, check *when* it was created, and look for a deny assignment.
 
-**Fix.** Remove the subscription-wide Contributor role. Assign *Storage Blob Data Contributor* to the identity, scoped to the one container it needs. Deploy that assignment in the same Bicep module as the storage account (Chapter 50, *Infrastructure as Code*). Use a **user-assigned** identity, so the assignment exists before the app starts, and nothing waits for propagation during a deployment.
+**Fix.** Remove the subscription-wide Contributor role. Assign *Storage Blob Data Contributor* to the identity, scoped to the one container it needs. Deploy that assignment in the same Bicep module as the storage account (Chapter 29, *Infrastructure as Code*). Use a **user-assigned** identity, so the assignment exists before the app starts, and nothing waits for propagation during a deployment.
 
 **Prevent it.** Role assignments live in IaC and go through code review, with a scope that is a resource or a container. Nobody clicks them into the portal. Add an Azure Policy (or at least a periodic query) that flags Owner and Contributor assignments to service principals at subscription scope.
 
@@ -97,7 +97,7 @@ In the second variant, `ManagedIdentityCredential` cannot choose between two use
 
 Then list the app settings that start with `AZURE_`, and decode the `oid` claim of a token the app received, to confirm who it is.
 
-**Fix.** Delete the stray `AZURE_*` settings. Make production explicit: construct `ManagedIdentityCredential` with the user-assigned identity's client ID (Chapter 50, *Identity*, shows the code). Or keep `DefaultAzureCredential`, but set `AZURE_TOKEN_CREDENTIALS` to `ManagedIdentityCredential` (or to `prod`), and set `AZURE_CLIENT_ID` to the identity's client ID. Keep `DefaultAzureCredential` for development only.
+**Fix.** Delete the stray `AZURE_*` settings. Make production explicit: construct `ManagedIdentityCredential` with the user-assigned identity's client ID (Chapter 29, *Identity*, shows the code). Or keep `DefaultAzureCredential`, but set `AZURE_TOKEN_CREDENTIALS` to `ManagedIdentityCredential` (or to `prod`), and set `AZURE_CLIENT_ID` to the identity's client ID. Keep `DefaultAzureCredential` for development only.
 
 **Prevent it.** Treat app settings as code: generate them from IaC, and alert on drift. A policy rule, or a line in the deployment pipeline, that rejects `AZURE_CLIENT_SECRET` in production settings costs nothing.
 
@@ -129,7 +129,7 @@ public async Task<PaymentResult> ChargeAsync(Charge charge, CancellationToken ct
 }
 ```
 
-Every call opens a new TCP connection to the same host, and the load balancer reclaims a SNAT port only four minutes after its connection closes: above about one new connection every two seconds per instance, the preallocated ports run out ([Chapter 20](#keep-alive-connection-pooling-and-socket-exhaustion) has the arithmetic). New connections then wait for Azure to allocate a port or reclaim one, and under a burst they time out. Scaling out "helps a bit" because each instance brings its own ports, which is itself a clue.
+Every call opens a new TCP connection to the same host, and the load balancer reclaims a SNAT port only four minutes after its connection closes: above about one new connection every two seconds per instance, the preallocated ports run out ([Chapter 5](#keep-alive-connection-pooling-and-socket-exhaustion) has the arithmetic). New connections then wait for Azure to allocate a port or reclaim one, and under a burst they time out. Scaling out "helps a bit" because each instance brings its own ports, which is itself a clue.
 
 **How to confirm it.** In the portal: App Service → *Diagnose and solve problems* → the **SNAT Port Exhaustion** detector shows allocated and failed SNAT connections per instance. In code: search for `new HttpClient(`, `new BlobServiceClient(`, `new CosmosClient(` and `new ServiceBusClient(` outside of start-up code. (`new SqlConnection(` per call is fine: ADO.NET pools the physical connections.)
 
@@ -155,7 +155,7 @@ builder.Services.AddHttpClient<PaymentClient>(c => c.BaseAddress = new Uri(build
 
 **What you see.** A spike of 5xx and latency in the minute after each swap. For the database incident: orders missing from production reports, found later in the staging database.
 
-**What is going on.** There are two separate problems, and both come from the order of the swap steps (Chapter 50, *Deployment slots*):
+**What is going on.** There are two separate problems, and both come from the order of the swap steps (Chapter 29, *Deployment slots*):
 
 1. **No real warm-up.** By default, the swap warms each instance up with a request to `/`, and "any HTTP response" counts as warm. This API's `/` returns 404 instantly, so the swap sees it as warm, even though the first real request still pays for JIT compilation, the EF Core model build, the first database connections and empty caches.
 2. **A setting that was not sticky.** The connection string was an ordinary app setting on both slots, not a *deployment slot setting*. Non-sticky settings **move with the code** during a swap, so the staging slot's value arrived in production.
@@ -178,7 +178,7 @@ WEBSITE_SWAP_WARMUP_PING_STATUSES = 200
 
 **Prevent it.** A deployment checklist entry: *every new setting — sticky or not?* Better still, generate slot settings from IaC, where "sticky" is part of the definition. And alert on the 5xx rate in the ten minutes after a swap, so that a bad swap is visible within minutes, not in tomorrow's report.
 
-**Interview angle.** "How do you achieve zero-downtime deployments on App Service?" Slots, the swap order, warm-up, sticky settings, and the fact that database migrations must be backward-compatible with the version still serving traffic ([Chapter 12](#chapter-12-devops-cicd), expand/contract).
+**Interview angle.** "How do you achieve zero-downtime deployments on App Service?" Slots, the swap order, warm-up, sticky settings, and the fact that database migrations must be backward-compatible with the version still serving traffic ([Chapter 13](#chapter-13-git-and-cicd), expand/contract).
 
 ## Case 5 — Customers charged twice: the batch that outlived its locks
 
@@ -193,7 +193,7 @@ WEBSITE_SWAP_WARMUP_PING_STATUSES = 200
 **Fix.** Two layers, and you need both:
 
 1. **Stop outliving locks.** Use `ServiceBusProcessor`, which renews each message's lock while the handler runs (`MaxAutoLockRenewalDuration`, 5 minutes by default) and receives only as many messages as it has handlers for. Raise `MaxConcurrentCalls` for throughput, instead of batching. If you must batch, keep `batch size × processing time` well under the lock duration, or renew the locks yourself.
-2. **Make the charge idempotent**, because lock expiry is only one of several ways a message gets redelivered. Pass `PaymentId` as the provider's idempotency key (most payment APIs support one), and record processed IDs in the same transaction as the business state ([Chapter 9](#chapter-9-messaging-distributed-systems), idempotent consumer).
+2. **Make the charge idempotent**, because lock expiry is only one of several ways a message gets redelivered. Pass `PaymentId` as the provider's idempotency key (most payment APIs support one), and record processed IDs in the same transaction as the business state ([Chapter 11](#chapter-11-messaging-and-background-work), idempotent consumer).
 
 **Prevent it.** Treat "at-least-once" as a design input, never as an edge case. A test with a short lock duration, like the exercise, catches the batching mistake in CI.
 
@@ -294,7 +294,7 @@ That is error **10928**: the database's worker limit. The Azure SQL CPU chart is
 
 Either way it is a **migration**: create a new container with the new key, copy the data with the change feed (a processor that reads the old container and writes to the new one), switch reads, then switch writes. Plan it as a project.
 
-**Prevent it.** Design partition keys with the *largest* tenant in mind, not the average. Put an alert on normalized RU consumption per partition range, not just on the total. Load-test with realistic skew; uniform synthetic data never shows a hot partition. [Chapter 23](#chapter-23-data-at-scale-multi-tenancy) covers multi-tenant data design in depth.
+**Prevent it.** Design partition keys with the *largest* tenant in mind, not the average. Put an alert on normalized RU consumption per partition range, not just on the total. Load-test with realistic skew; uniform synthetic data never shows a hot partition. [Chapter 18](#chapter-18-data-in-depth) covers multi-tenant data design in depth.
 
 **Interview angle.** Cosmos DB partitioning questions are common in Azure interviews. The strong answer names the per-partition limits, explains why buying more RU/s did not help, and describes the migration honestly.
 
@@ -309,7 +309,7 @@ Either way it is a **migration**: create a new container with the new key, copy 
 1. **Cross-partition queries on a frequent path.** `SELECT * FROM c WHERE c.status = 'Open' ORDER BY c.createdAt` has no partition key filter, so it fans out to every physical partition. The admin screen refreshes it every 30 seconds for every open browser tab.
 2. **Default indexing on a write-heavy container.** Every property of every order is indexed, including a large `lineItems` array that no query touches, so every write pays for index updates on each element.
 
-**How to confirm it.** Log `RequestCharge` per query type (Chapter 50's `OrderStore` sample shows how). Look at the Cosmos DB metrics for total request units by operation type. Check the container's indexing policy.
+**How to confirm it.** Log `RequestCharge` per query type (Chapter 29's `OrderStore` sample shows how). Look at the Cosmos DB metrics for total request units by operation type. Check the container's indexing policy.
 
 **Fix.**
 
@@ -317,7 +317,7 @@ Either way it is a **migration**: create a new container with the new key, copy 
 - Run the export from an **analytical copy** of the data (such as Microsoft Fabric mirroring for Cosmos DB), or from the change feed, instead of querying the transactional container.
 - **Exclude** `/lineItems/*` and other unqueried paths from indexing, and add a **composite index** for the `status` + `createdAt` sort that remains.
 
-**Prevent it.** Make `RequestCharge` visible: log it in development, and add a test that asserts an upper bound on the RU cost of the hottest queries, the way Chapter 37's lab asserts *work* instead of time. Review new queries for a partition key filter as routinely as you review SQL queries for an index.
+**Prevent it.** Make `RequestCharge` visible: log it in development, and add a test that asserts an upper bound on the RU cost of the hottest queries, the way Chapter 19's lab asserts *work* instead of time. Review new queries for a partition key filter as routinely as you review SQL queries for an index.
 
 **Interview angle.** Cost is an engineering metric. "I found the three queries that were 80% of our RU spend, and cut the bill by [X]%" is a strong CV bullet, provided you keep the numbers from your own system.
 
@@ -380,9 +380,9 @@ A public IP in the answer settles it: the problem is DNS, and nothing in RBAC or
                                                               scan, transcode, mark the record complete
 ```
 
-Chapter 50's `UploadUrlIssuer` shows step 2. The browser uploads in blocks, so it can resume after a failure, and upload time is limited only by the SAS expiry, which should be long enough for a slow connection but no longer. The API's requests now take milliseconds. Route the `BlobCreated` event through a Service Bus queue rather than straight to the worker, so that bursts are buffered and processing gets peek-lock and dead-lettering.
+Chapter 29's `UploadUrlIssuer` shows step 2. The browser uploads in blocks, so it can resume after a failure, and upload time is limited only by the SAS expiry, which should be long enough for a slow connection but no longer. The API's requests now take milliseconds. Route the `BlobCreated` event through a Service Bus queue rather than straight to the worker, so that bursts are buffered and processing gets peek-lock and dead-lettering.
 
-**Prevent it.** A design rule: *no request does work proportional to user-controlled size or duration*. Anything that can exceed a few seconds becomes "accept, then process asynchronously" ([Chapter 22: Async Request-Reply](#async-request-reply-202-a-status-resource-and-retry-after)).
+**Prevent it.** A design rule: *no request does work proportional to user-controlled size or duration*. Anything that can exceed a few seconds becomes "accept, then process asynchronously" ([Async Request-Reply](#async-request-reply-202-a-status-resource-and-retry-after) in Chapter 11).
 
 **Interview angle.** A classic system-design follow-up ("how would you handle large file uploads?"). Name the limit, the SAS scoping (one blob, create and write only, short expiry), and the event-driven completion.
 
@@ -392,7 +392,7 @@ Chapter 50's `UploadUrlIssuer` shows step 2. The browser uploads in blocks, so i
 
 **What you see.** Orchestration instances in the `Failed` state, with a non-determinism error that says the orchestrator's history does not match the actions the code now schedules. Only instances created before the deployment are affected.
 
-**What is going on.** **Replay** (Chapter 50, *Durable Functions*). When an instance wakes up, because the approval event arrived, the framework re-runs the orchestrator from the beginning and compares every action the code schedules with the recorded history. The old history says "first action: `NotifyApprover`". The new code's first action is `CheckFraud`. The histories do not match, so the framework cannot continue safely, and the instance fails.
+**What is going on.** **Replay** (Chapter 29, *Durable Functions*). When an instance wakes up, because the approval event arrived, the framework re-runs the orchestrator from the beginning and compares every action the code schedules with the recorded history. The old history says "first action: `NotifyApprover`". The new code's first action is `CheckFraud`. The histories do not match, so the framework cannot continue safely, and the instance fails.
 
 The same mechanism explains the other classic Durable bug. Code that uses `DateTime.UtcNow` or `Guid.NewGuid()` in an orchestrator gets a *different* value on each replay. Timers then fire at the wrong time, and IDs change between replays.
 
@@ -424,7 +424,7 @@ The same mechanism explains the other classic Durable bug. Code that uses `DateT
 **Fix.**
 
 - **Rotate with overlap.** The partner accepts two keys at once. Add the new key, update Key Vault, wait until every consumer has provably picked it up (force it: restart the app, or bump the App Configuration sentinel), and only then deactivate the old key. Most providers that require rotation support two active keys for exactly this reason.
-- **Load secrets once, reload deliberately.** Use the configuration provider with a `ReloadInterval`, and `IOptionsMonitor<T>` in the code that uses the key, so a reload takes effect without a restart (Chapter 50, *Key Vault*).
+- **Load secrets once, reload deliberately.** Use the configuration provider with a `ReloadInterval`, and `IOptionsMonitor<T>` in the code that uses the key, so a reload takes effect without a restart (Chapter 29, *Key Vault*).
 - For the new service: read the secret at start-up through configuration, not per request.
 - Where the credential is for an Azure service, **remove it altogether**: a managed identity has nothing to rotate.
 
@@ -457,7 +457,7 @@ The second error is EF Core protecting you. A retrying strategy cannot replay ha
 
 **How to confirm it.** The error number, and its correlation with the maintenance events in the Azure SQL *Resource health* view, or with the auto-pause events in test.
 
-**Fix.** Enable `EnableRetryOnFailure` (Chapter 50, *Azure SQL*), and wrap explicit transactions in the execution strategy, so the *whole unit* is retried:
+**Fix.** Enable `EnableRetryOnFailure` (Chapter 29, *Azure SQL*), and wrap explicit transactions in the execution strategy, so the *whole unit* is retried:
 
 ```csharp
 public async Task TransferStockAsync(int fromWarehouse, int toWarehouse, int productId, int quantity, CancellationToken ct)
@@ -507,7 +507,7 @@ union withsource = TableName App*
 **Fix.** Now: raise the cap temporarily, and use the platform metrics (which are not affected by the cap), the log stream and Kudu for the rest of the incident. Afterwards:
 
 - Control volume at the **source**: sensible log levels (`Warning` for framework categories such as `Microsoft.EntityFrameworkCore`), no request or response bodies, and deduplicated exceptions in retry loops (log the final failure, not every attempt).
-- Use **sampling** (Chapter 50, *Observability*), keeping in mind that it can hide rare events.
+- Use **sampling** (Chapter 29, *Observability*), keeping in mind that it can hide rare events.
 - Keep the daily cap, if at all, as an emergency brake set far above normal volume, with an alert at a lower threshold, so that a human decides before ingestion stops.
 
 **Prevent it.** An **availability test** and **metric alerts** do not depend on application telemetry, so they still work when ingestion stops or when the app is too broken to send anything. Every critical service needs at least one signal that does not depend on its own logs.
@@ -520,7 +520,7 @@ union withsource = TableName App*
 
 **What you see.** Front Door reported the secondary region healthy, because its health probe only checked that the process answered, and routed traffic there. Every request then failed on its first dependency.
 
-**What is going on.** Availability is a property of the **whole request path**, not of the compute tier (Chapter 50, *Regions, availability zones and SLAs*). Every stateful dependency needs its own answer to "where does it live when the region is gone?", and the health probe must test the dependencies that matter, or failover routes traffic into a broken region.
+**What is going on.** Availability is a property of the **whole request path**, not of the compute tier (Chapter 29, *Regions, availability zones and SLAs*). Every stateful dependency needs its own answer to "where does it live when the region is gone?", and the health probe must test the dependencies that matter, or failover routes traffic into a broken region.
 
 **The review, dependency by dependency:**
 
@@ -535,11 +535,11 @@ union withsource = TableName App*
 
 **The conversation that matters.** Before buying any of this, agree on the **RTO** (how long you can be down) and **RPO** (how much data you can lose) with the business, per capability. "Checkout down for 4 hours once every few years" might be acceptable, and much cheaper than active-active. Then **rehearse** the failover. A failover that has never been tested is a hypothesis, and this incident was the test.
 
-**Interview angle.** "How would you make this system multi-region?" The strongest answers start with RTO and RPO, go through the state, not the compute, and end with how the failover is tested. [Chapter 21](#chapter-21-distributed-systems-theory-reliability-engineering) has the theory; this table is the practice.
+**Interview angle.** "How would you make this system multi-region?" The strongest answers start with RTO and RPO, go through the state, not the compute, and end with how the failover is tested. [Chapter 20](#chapter-20-distributed-systems) has the theory; this table is the practice.
 
 ## Quick Cases
 
-**The CI secret that leaked.** A client secret for the deployment service principal, stored in the CI system, turned up in a build log after someone added verbose logging to a script. The secret had *Owner* on the production subscription. *Fix:* revoke it now, then replace it with **workload identity federation** (Chapter 50, *Identity*): a federated credential that trusts only the `production` environment of this repository, and a role scoped to the resource groups the pipeline deploys. *Prevent:* there is no secret left to leak. Scope deployment identities per environment, and require environment approvals for production ([Chapter 35](#chapter-35-software-supply-chain-security)).
+**The CI secret that leaked.** A client secret for the deployment service principal, stored in the CI system, turned up in a build log after someone added verbose logging to a script. The secret had *Owner* on the production subscription. *Fix:* revoke it now, then replace it with **workload identity federation** (Chapter 29, *Identity*): a federated credential that trusts only the `production` environment of this repository, and a role scoped to the resource groups the pipeline deploys. *Prevent:* there is no secret left to leak. Scope deployment identities per environment, and require environment approvals for production ([Chapter 27](#chapter-27-security-in-depth-and-the-supply-chain)).
 
 **Event Grid events that never arrive.** A new webhook endpoint subscribed to `BlobCreated` gets nothing. The subscription shows a failed provisioning state. *Cause:* the endpoint returned `200` to the validation event without echoing `validationCode`. *Fix:* handle the `SubscriptionValidationEvent` (or subscribe a Function or a Service Bus queue instead, which needs no handshake), and configure a dead-letter container so that events that exhaust their retries (30 attempts or 24 hours by default) are kept rather than dropped.
 
@@ -640,7 +640,7 @@ Start from what the 403s actually were. If they were data-plane roles missing (C
 
 Then offer something that fixes the *cause* by Friday: a user-assigned identity, created once, with container- and vault-scoped data roles defined in the same Bicep module as the resources. That removes both the missing-role and the propagation failures. It is maybe half a day of work, and it can be reviewed like any other change.
 
-Finally, make the risk concrete for the non-engineers in the room without drama: with Owner, a single vulnerability in the app (an SSRF, a leaked token) would let an attacker delete every resource and read every key in the subscription. Frame it as *blast radius*, which product people understand, and write the decision down (an ADR, [Chapter 17](#chapter-17-soft-skills-engineering-practices)) if they still choose the shortcut.
+Finally, make the risk concrete for the non-engineers in the room without drama: with Owner, a single vulnerability in the app (an SSRF, a leaked token) would let an attacker delete every resource and read every key in the subscription. Frame it as *blast radius*, which product people understand, and write the decision down (an ADR, [Chapter 16](#chapter-16-working-like-a-middle-developer)) if they still choose the shortcut.
 </details>
 
 **2.** You are designing a new "document processing" service: PDFs arrive via upload (a few thousand a day, in bursts after business hours), each takes 20 seconds to 6 minutes to process with a native library that needs a specific Linux package, and results go to Azure SQL. A colleague proposes Functions on the Consumption plan, "because it's serverless and cheap".
@@ -648,7 +648,7 @@ Finally, make the risk concrete for the non-engineers in the room without drama:
 <details>
 <summary>How a senior engineer reasons about it</summary>
 
-Check the constraints against the hosting plans (Chapter 50, *Compute*), one at a time:
+Check the constraints against the hosting plans (Chapter 29, *Compute*), one at a time:
 
 - **Duration.** Up to 6 minutes fits under the legacy Consumption plan's 10-minute maximum, but with little margin. The plan is also documented as legacy, and its Linux version retires in 2028. That alone rules it out for a new service.
 - **Native dependency.** A specific Linux package means a **custom container**, and Flex Consumption does not support containers (it deploys code packages only). The realistic options are **Container Apps** (a job, or an app with a Service Bus scale rule), or Functions on the Premium plan or on Container Apps hosting, with a custom image.
@@ -673,7 +673,7 @@ Answer these from your own system, not from memory:
 - **Telemetry.** Is a daily cap set? What is the sampling configuration? Is there an availability test on every public entry point?
 - **Recovery.** For each stateful dependency: where does it live when the region is gone, and when was that last tested?
 
-Each "I don't know" is a candidate for a small, measurable improvement, and for a story in your evidence portfolio ([Chapter 36](#chapter-36-the-story-bank-evidence-portfolio)). Keep stories about a real employer private, and anonymise the numbers you share.
+Each "I don't know" is a candidate for a small, measurable improvement, and for a story in your evidence portfolio ([Chapter 37](#chapter-37-the-story-bank-evidence-portfolio)). Keep stories about a real employer private, and anonymise the numbers you share.
 
 ## Summary
 
