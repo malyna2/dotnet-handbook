@@ -208,7 +208,7 @@ So the real cost of allocations is **GC pressure**: the more garbage you produce
 
 > **Mental model:** Every allocation is a small loan from the GC that must be repaid with interest at an unpredictable time. A little borrowing is fine. Borrowing millions of times per second means the collector is constantly working — and it does that work by stealing CPU cycles and occasionally freezing your threads.
 
-The goal in hot paths is therefore not "never allocate" but "**do not allocate needlessly and repeatedly**." Here are the tools .NET gives you.
+The goal in hot paths is therefore not "never allocate" but "**do not allocate needlessly and repeatedly**." One lever is the type itself: a small `struct` used inline costs no heap allocation, and boxing it costs one every time ([Chapter 1](#chapter-1-c-essentials) covers both). Here are the other tools .NET gives you.
 
 ### Span<T>, Memory<T>, and stackalloc: Slicing Without Copying
 
@@ -308,12 +308,6 @@ Strings in .NET are immutable, so every "modification" creates a new string. As 
 
 The nuance seniors know: for a **small, fixed number of concatenations**, `StringBuilder` is *slower* due to its own setup overhead. `"Hello, " + name + "!"` compiles to a single efficient `string.Concat` call — do not "optimize" it into a StringBuilder. Reach for StringBuilder when the number of appends is large or unbounded (loops). Also prefer **string interpolation** (`$"..."`) for readability; modern C# lowers it efficiently, and interpolated string handlers even avoid intermediate allocations in APIs like logging.
 
-### struct vs class: Where Your Data Lives
-
-[Chapter 1](#chapter-1-c-essentials) covers when to choose a `struct`, the copy cost and boxing. The performance consequence is about memory layout. A `struct` lives inline, on the stack as a local or embedded in its containing array or object, so it **produces no separate heap allocation and no GC work**. An array of a million small structs is *one* contiguous allocation with excellent cache locality; an array of a million class instances is one array of references plus a million separate heap objects scattered across memory, which is murder for the CPU cache.
-
-> **Pitfall.** Hidden boxing undoes all of it. Assigning a struct to `object` or to an interface, passing it to a method that takes `IComparable`, or storing it in a non-generic collection allocates a heap copy each time. In a hot path that is millions of tiny gen0 allocations; large structs, meanwhile, are copied on every call unless you pass them by `in` or `ref`.
-
 ### Closures and LINQ in Hot Paths
 
 LINQ is expressive and, in the vast majority of code, its cost is negligible and readability wins. But in a genuine hot path it hides allocations: each query allocates enumerator state machines, and any lambda that **captures** a variable allocates a closure object to hold the captured state.
@@ -331,12 +325,6 @@ foreach (var x in items)
 ```
 
 > **Best practice:** Write LINQ by default — it is clearer and the cost rarely matters. Rewrite to explicit loops *only* in code a profiler has flagged as hot. This is measure-first in miniature: do not preemptively strip LINQ from your whole codebase because you read it is slow. Ninety percent of your code does not care.
-
-## Big-O Awareness and Choosing the Right Collection
-
-No amount of micro-optimization saves an algorithm that scales badly. Picking the right data structure changes the *shape* of the cost curve, not merely its constant factor, and [Chapter 2](#chapter-2-data-structures-and-algorithms-essentials) teaches the collections and their complexities. In performance work the pattern to recognise is the most common real-world one: `.Contains()`, `.Any()` or `.FirstOrDefault(match)` on a `List<T>` inside a loop over another collection. It is O(n²), runs fine on 100 dev records and melts on 100,000 production ones. Converting the inner list to a `HashSet<T>` or `Dictionary<K,V>` once, before the loop, makes it O(n), often the biggest single win available in real code. Pre-sizing (`new List<T>(expectedCount)`, `new Dictionary<K,V>(expectedCount)`) skips the chain of reallocations as a collection grows.
-
-> **Modern note (.NET 8).** For a lookup table built **once and then read many times** (reference data loaded at startup), `FrozenDictionary<TKey,TValue>` and `FrozenSet<T>` (in `System.Collections.Frozen`) trade slower construction for measurably faster reads than `Dictionary`/`HashSet`. For scanning a string or buffer for any of a fixed set of values, `SearchValues<T>` gives a vectorized, hardware-accelerated `IndexOfAny` that far outpaces a naive multi-value search.
 
 ## The Thread Pool Under Load
 
@@ -625,7 +613,7 @@ A consolidated field guide to the recurring offenders, most of which this chapte
 - **String concatenation with `+=` in loops.** Quadratic allocations. Use `StringBuilder` or `string.Join`.
 - **The N+1 query.** One query becomes hundreds via lazy navigation access. Use `Include` or projection ([Chapter 7](#chapter-7-data-access); EF Core performance in depth is in [Chapter 18](#chapter-18-data-in-depth)).
 - **Sync-over-async (`.Result`/`.Wait()`).** Blocks threads, causes thread-pool starvation under load.
-- **`List.Contains` inside a loop.** O(n²). Use a `HashSet` or `Dictionary`.
+- **`List.Contains` inside a loop.** O(n²), fine on 100 dev rows and fatal on 100,000. Build a `HashSet` or `Dictionary` once, before the loop; [Chapter 2](#chapter-2-data-structures-and-algorithms-essentials) has the collections and their costs.
 - **Fetching whole entities and unbounded result sets.** Project to DTOs; always paginate.
 - **Catching exceptions for control flow.** Throwing is expensive (stack capture). Do not use `try/catch` where a `TryParse` or a null check works. Exceptions are for the exceptional.
 - **Hidden boxing.** Value types silently heap-allocated by `object`/interface conversions and non-generic collections.
