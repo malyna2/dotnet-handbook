@@ -1,22 +1,11 @@
 # Chapter 11: Messaging and Background Work
 
-@@TODO: write this chapter's introduction (what it makes the reader able to do, how its sections connect), then remove every @@ line.@@
+Sooner or later a request has to do something it shouldn't wait for: send an email, notify another service, build a report that takes minutes. Doing it inline couples the user's latency, and the request's success, to work that has no business being on the hot path. This chapter makes you able to move that work out of the request without losing it or doing it twice: put a queue between two parts of a system, write a handler that stays correct when a message arrives twice, late or out of order, and run long work in a worker behind `202 Accepted`.
 
-@@SRC: introduction of old Chapter 9: Messaging & Distributed Systems@@
+One mechanism ties the chapter together. **A queue hands out leases, not messages:** a message is gone only when a handler settles it while its lock still holds, and every other path (an exception, a crash, a lost acknowledgement, an expired lock) is a redelivery. Delivery is therefore at-least-once, and the handler must make its effect happen once by claiming the message's ID atomically with the effect.
 
-Somewhere along the road from junior to senior, you stop asking "how do I call this API?" and start asking "what happens when this API is down, slow, or lying to me?" That shift in mindset is the heart of distributed systems. This chapter is about the tools and patterns we use to build systems out of many independent parts that keep working even when some of those parts fail.
+The sections build in that order. First why messaging at all, the vocabulary of events and commands, the brokers and the patterns they share, and MassTransit as the .NET way to use them. Then the guarantees a broker actually gives, and the two patterns that make them safe: the idempotent consumer on the receiving side and the transactional outbox on the sending side. Then the same ideas inside one service: `BackgroundService` workers, graceful shutdown, and the asynchronous request-reply contract for work longer than a request. Sagas, resilience patterns and scheduling across instances come later, in [Chapter 20: Distributed Systems](#chapter-20-distributed-systems).
 
-Messaging is the connective tissue. Instead of components shouting directly at each other and waiting for an answer, they drop notes in mailboxes and get on with their lives. That single change — from a phone call to a postal system — has profound consequences for how resilient, scalable, and maintainable your system becomes. Let's build up the "why" before we touch a single broker.
-
-@@SRC: introduction of old Chapter 22: Background Processing, Scheduling & the Actor Model@@
-
-Almost every non-trivial system does work that no user is waiting on: sending emails, retrying failed payments, rebuilding search indexes, aggregating metrics, cleaning up expired data. The naive approach - do it inline on the request thread - couples user-facing latency to work that has no business being on the hot path, and it silently loses that work whenever a request is cancelled or a pod restarts.
-
-This chapter is about doing that work *deliberately*. We move from the humble in-process background loop, through dedicated job frameworks like Hangfire and Quartz.NET, and finally into the actor model and Microsoft Orleans - a paradigm that reframes how you think about concurrency and stateful services entirely. The through-line is a single question that separates mid-level from senior engineering: **not "how do I run this in the background?" but "what happens when it fails, when it runs twice, and when I have ten copies of my service running at once?"**
-
----
-
-@@SRC: old Chapter 9: Messaging & Distributed Systems@@
 ## Why Messaging at All?
 
 A naive checkout does everything inside the "Buy" request: charge the card, reserve inventory, send the confirmation email, update loyalty points, notify the warehouse, refresh analytics.
@@ -59,10 +48,26 @@ Don't conflate "synchronous" with "request/response" or "async" with "messaging"
 
 Call synchronously when you need the answer *now* to proceed ("is this coupon valid?"); message when announcing that something happened or delegating work that can finish later.
 
-@@SRC: old Chapter 9: Messaging & Distributed Systems@@
+## Event-Driven Architecture: Events, Commands, and Messages
+
+These three words get used interchangeably and it causes real confusion. Let's be precise.
+
+- A **message** is the generic envelope — any data moving through the broker.
+- A **command** is a message that *instructs* a specific recipient to do something. Imperative, present tense: `ChargePayment`, `ShipOrder`. It has **one** logical handler. The sender expects it to be acted upon and often cares whether it succeeded.
+- An **event** is a message that *announces* something already happened. Past tense: `PaymentCharged`, `OrderShipped`. It has **zero or many** subscribers. The publisher doesn't know or care who reacts.
+
+```
+Command:  Sender ──"ShipOrder"──▶ [exactly one handler]     (imperative, coupling to intent)
+Event:    Publisher ──"OrderShipped"──▶ [0..N subscribers]  (declarative, decoupled)
+```
+
+> **Best practice:** commands are owned by the *sender's* vocabulary ("I want you to do X"); events are owned by the *publisher's* vocabulary ("X happened in my domain"). If you find a service publishing an "event" that's really telling another service what to do, you've smuggled a command into an event's clothing — and coupled your services more than you think.
+
+The distinction decides how a message travels. A command goes to one queue that one handler reads; an event goes to a topic that any number of services subscribe to, each with its own copy.
+
 ## Message Brokers Compared
 
-A broker is the post office in the middle. All the major ones move messages, but their internal models differ enough that picking the wrong one causes real pain. Let's understand each on its own terms.
+A broker is the post office in the middle. All the major ones move messages, but their internal models differ enough that picking the wrong one causes real pain. Each implements the command and event shapes above differently, and Kafka adds a third: the stream, an ordered and replayable history of facts. Let's understand each on its own terms.
 
 ### RabbitMQ — The Smart Router (AMQP)
 
@@ -165,7 +170,6 @@ That table compares products; the more important comparison is between the three
 | Reach for it when | Delegating work, load-leveling, background jobs | High-throughput events, event sourcing, many independent readers of one firehose | Decoupling domains; adding consumers without touching the publisher |
 | Watch out for | DLQ silently filling; out-of-order under competing consumers | No global order across partitions; retention and partition-count decisions are up-front commitments | Commands smuggled in as "events" (hidden coupling); new subscribers can't see the past |
 
-@@SRC: old Chapter 9: Messaging & Distributed Systems@@
 ## Core Messaging Patterns
 
 Regardless of broker, the same handful of patterns recur. Learn them once and you can map them onto any technology.
@@ -204,10 +208,9 @@ A FIFO queue hands messages out in order; nothing makes them *finish* in order. 
 - **Azure Service Bus:** **sessions**. The sender sets `SessionId` (say, the order ID); a receiver that accepts the session holds an exclusive lock on all its messages and receives them in order, one receiver per session, many sessions in parallel. Sessions are chosen when the queue or subscription is created and can't be switched on later. **RabbitMQ:** a consistent-hash exchange pins each key to one queue with one consumer.
 - **Design around it:** the best answer is often to make consumers tolerant of out-of-order delivery (e.g., include version numbers and ignore stale updates).
 
-@@SRC: old Chapter 9: Messaging & Distributed Systems@@
 ## MassTransit: Messaging for .NET
 
-Writing raw broker client code (the RabbitMQ `IModel`, Kafka's consumer loop) is tedious and error-prone. **MassTransit** is the dominant .NET abstraction layer. It gives you a broker-agnostic API, built-in retry/redelivery, the outbox, sagas, and serialization — while letting you swap RabbitMQ for Azure Service Bus with a config change.
+Writing raw broker client code (the RabbitMQ `IModel`, Kafka's consumer loop) is tedious and error-prone. **MassTransit** is the dominant .NET abstraction layer. It gives you a broker-agnostic API, built-in retry/redelivery, the outbox (later in this chapter), sagas ([Chapter 20](#chapter-20-distributed-systems)), and serialization — while letting you swap RabbitMQ for Azure Service Bus with a config change.
 
 > **A note on licensing (2025):** In 2025 the MassTransit team announced that v9 will ship under a **commercial license** (official release expected around early 2026), with **v8 remaining the last broadly free OSS version** (Apache 2.0), maintained through the transition. That complicates the old "default free choice" framing, so give more weight to the alternatives when starting new projects: **NServiceBus** is also commercial, while **Rebus** and **Wolverine** are OSS — as are the raw broker client libraries. The concepts in this chapter transfer to all of them.
 
@@ -315,7 +318,7 @@ public class CheckoutService
 }
 ```
 
-Notice how little broker-specific code there is. `Publish` vs `Send`: **Publish** is pub/sub (goes to all subscribers of that event type); **Send** targets one specific endpoint (a command to one handler). This maps directly onto the events-vs-commands distinction below.
+Notice how little broker-specific code there is. `Publish` vs `Send`: **Publish** is pub/sub (goes to all subscribers of that event type); **Send** targets one specific endpoint (a command to one handler). This maps directly onto the events-vs-commands distinction above.
 
 ### Brief Mentions: NServiceBus and Rebus
 
@@ -324,32 +327,37 @@ Notice how little broker-specific code there is. `Publish` vs `Send`: **Publish*
 
 All three share the same conceptual model, so skills transfer.
 
-@@SRC: old Chapter 9: Messaging & Distributed Systems@@
-## Event-Driven Architecture: Events, Commands, and Messages
+## Delivery Guarantees
 
-These three words get used interchangeably and it causes real confusion. Let's be precise.
+Getting this wrong loses or duplicates data. There are three possible guarantees:
 
-- A **message** is the generic envelope — any data moving through the broker.
-- A **command** is a message that *instructs* a specific recipient to do something. Imperative, present tense: `ChargePayment`, `ShipOrder`. It has **one** logical handler. The sender expects it to be acted upon and often cares whether it succeeded.
-- An **event** is a message that *announces* something already happened. Past tense: `PaymentCharged`, `OrderShipped`. It has **zero or many** subscribers. The publisher doesn't know or care who reacts.
+- **At-most-once.** Fire and forget. The message is delivered zero or one times — it may be lost, never duplicated. Fast, simplest, acceptable for high-volume telemetry where losing one reading doesn't matter.
+- **At-least-once.** The message will be delivered, but possibly more than once. This is the default and most common guarantee in real brokers. It's achieved with acknowledgements: the consumer processes a message, then acks. If it crashes before acking, the broker redelivers. But if it processed *and then crashed before the ack*, you get a duplicate.
+- **Exactly-once.** The holy grail — delivered and processed precisely once. And it is *extraordinarily* hard.
 
-```
-Command:  Sender ──"ShipOrder"──▶ [exactly one handler]     (imperative, coupling to intent)
-Event:    Publisher ──"OrderShipped"──▶ [0..N subscribers]  (declarative, decoupled)
-```
+### Peek-Lock: The Acknowledgement Is a Lease
 
-> **Best practice:** commands are owned by the *sender's* vocabulary ("I want you to do X"); events are owned by the *publisher's* vocabulary ("X happened in my domain"). If you find a service publishing an "event" that's really telling another service what to do, you've smuggled a command into an event's clothing — and coupled your services more than you think.
+Service Bus shows how a broker implements at-least-once. In **peek-lock** mode (the default), receiving a message doesn't remove it; it locks it for the entity's lock duration, 1 minute by default and 5 at most. `Complete` inside the lock deletes the message. Every other path makes it visible again with `DeliveryCount + 1`: the handler throws and the message is abandoned, the process dies, the `Complete` call is lost, or the handler simply runs longer than the lock. Past `MaxDeliveryCount` it moves to the dead-letter queue. **Receive-and-delete** mode removes the message as it is delivered: no duplicates, and a crash mid-handler loses it, which is at-most-once. RabbitMQ's unacknowledged messages, SQS's visibility timeout and Kafka's uncommitted offsets are the same idea with different names. [Chapter 29: Service Bus](#service-bus) covers the lock settings and the processor defaults.
 
-**Event streaming vs queues** is the other axis. A queue is a to-do list: work gets pulled off and disappears. A stream (Kafka) is a ledger: an ordered, replayable history of facts. Choose a queue for "do this task"; choose a stream for "record this fact so anyone, now or later, can build state from it."
+### Why Exactly-Once Is (Almost) a Myth
 
-@@SRC: old Chapter 9: Messaging & Distributed Systems@@
-## Distributed Patterns Every Senior Should Know
+The acknowledgement is itself a network operation that can fail. A consumer processes a message and sends an ack; the ack is lost; the broker, not knowing the message was handled, redelivers it. Two parties on a lossy channel can never be *certain* they agree on "was this done?" — the **Two Generals Problem**.
 
-This is where distributed systems get genuinely hard — and where interviews and production incidents both live.
+Systems that advertise "exactly-once" (like Kafka's transactional producers or SQS FIFO) achieve it under specific constraints, and usually it's really *exactly-once processing*, not delivery — the transport is at-least-once, and duplicates are suppressed by deduplication.
+
+> **The pragmatic senior answer:** you don't chase exactly-once *delivery*. You accept **at-least-once delivery** and make your consumers **idempotent**, giving you exactly-once *effects*. This combination is robust, achievable, and how virtually every serious system does it.
+
+### Deduplication
+
+Every message carries a unique ID, and the consumer claims it atomically with the effect (the inbox pattern, under *Idempotent Consumers* below), so repeats are discarded. Brokers help only at the edges: Azure Service Bus duplicate detection and SQS FIFO deduplication (5 minutes) drop a second *send* of the same ID — a producer retrying — but never see a redelivery of a message already sent. Application-level dedup on a business key is the reliable layer: it covers redeliveries, longer windows and broker changes.
+
+## Idempotent Consumers and the Transactional Outbox
+
+At-least-once delivery leaves two problems, one on each side of the broker. The consumer will see duplicates, so its effect must happen once however often the message arrives. The producer has to commit its data and publish its message, which are two operations that can't share a transaction. One pattern answers each.
 
 ### Idempotent Consumers
 
-You will receive duplicate messages (*Delivery Guarantees* below explains why). An **idempotent** consumer produces the same result whether it processes a message once or five times, and that is what makes at-least-once delivery safe to live with.
+You will receive duplicate messages (*Delivery Guarantees* above explains why). An **idempotent** consumer produces the same result whether it processes a message once or five times, and that is what makes at-least-once delivery safe to live with.
 
 > **Pay attention.** **Check-then-act deduplication does the work twice.** "If this message ID was processed, return; do the work; record the ID" leaves a window between the check and the record. Two copies delivered at the same time — two instances, `MaxConcurrentCalls` above 1, or a redelivery overlapping a slow first attempt — both pass the check before either records the ID, and both do the work. A crash between the work and the record loses the record, so the redelivery does the work again. The fix is to make the record *be* the check: insert the ID under a unique key first, in the same transaction as the effect.
 
@@ -368,7 +376,7 @@ public async Task Consume(ConsumeContext<OrderPlaced> context)
 }
 ```
 
-Walk the second copy through it. Its insert waits on the first copy's uncommitted key. If the first commits, the insert fails with a duplicate-key error and the consumer returns before the effect; if the first rolls back, the claim disappears with it, and the second copy does the work. [Chapter 3: Idempotency Keys](#idempotency-keys-making-post-retry-safe) walks the same mechanism for HTTP. An effect outside your database, such as a payment API, can't join the transaction: pass the message's key to it as the provider's idempotency key as well.
+Walk the second copy through it. Its insert waits on the first copy's uncommitted key. If the first commits, the insert fails with a duplicate-key error and the consumer returns before the effect; if the first rolls back, the claim disappears with it, and the second copy does the work. [Chapter 20: Idempotency Keys](#idempotency-keys-making-post-retry-safe) applies the same mechanism to a retried HTTP `POST`. An effect outside your database, such as a payment API, can't join the transaction: pass the message's key to it as the provider's idempotency key as well.
 
 > **Best practice:** design every consumer to be idempotent *by default*; it's cheaper than chasing exactly-once delivery. Use natural keys where you can: a consumer that inserts the order under a unique order ID has its claim built in, with no separate processed-messages table.
 
@@ -410,50 +418,14 @@ x.AddEntityFrameworkOutbox<AppDbContext>(o =>
 
 The mirror image is the **inbox**: the processed-message claims from *Idempotent Consumers*. The outbox makes sending reliable; the inbox makes receiving safe to repeat. Together they give effectively-once behavior on at-least-once transport.
 
-@@SRC: old Chapter 9: Messaging & Distributed Systems@@
-## Delivery Guarantees
 
-Getting this wrong loses or duplicates data. There are three possible guarantees:
+## Background Processing in .NET
 
-- **At-most-once.** Fire and forget. The message is delivered zero or one times — it may be lost, never duplicated. Fast, simplest, acceptable for high-volume telemetry where losing one reading doesn't matter.
-- **At-least-once.** The message will be delivered, but possibly more than once. This is the default and most common guarantee in real brokers. It's achieved with acknowledgements: the consumer processes a message, then acks. If it crashes before acking, the broker redelivers. But if it processed *and then crashed before the ack*, you get a duplicate.
-- **Exactly-once.** The holy grail — delivered and processed precisely once. And it is *extraordinarily* hard.
-
-### Why Exactly-Once Is (Almost) a Myth
-
-The acknowledgement is itself a network operation that can fail. A consumer processes a message and sends an ack; the ack is lost; the broker, not knowing the message was handled, redelivers it. Two parties on a lossy channel can never be *certain* they agree on "was this done?" — the **Two Generals Problem**.
-
-Systems that advertise "exactly-once" (like Kafka's transactional producers or SQS FIFO) achieve it under specific constraints, and usually it's really *exactly-once processing*, not delivery — the transport is at-least-once, and duplicates are suppressed by deduplication.
-
-> **The pragmatic senior answer:** you don't chase exactly-once *delivery*. You accept **at-least-once delivery** and make your consumers **idempotent**, giving you exactly-once *effects*. This combination is robust, achievable, and how virtually every serious system does it.
-
-### Deduplication
-
-Every message carries a unique ID, and the consumer claims it atomically with the effect (the inbox pattern, under *Idempotent Consumers*), so repeats are discarded. Brokers help only at the edges: Azure Service Bus duplicate detection and SQS FIFO deduplication (5 minutes) drop a second *send* of the same ID — a producer retrying — but never see a redelivery of a message already sent. Application-level dedup on a business key is the reliable layer: it covers redeliveries, longer windows and broker changes.
-
-@@SRC: old Chapter 9: Messaging & Distributed Systems@@
-## Wrapping Up
-
-Zoom out and a coherent philosophy emerges. Distributed systems fail in parts, so we design for *partial failure*: decouple with messaging so a downstream outage doesn't cascade; accept *at-least-once* delivery and make consumers *idempotent* rather than chasing the mirage of exactly-once; use the *outbox* to bridge database and broker atomically; coordinate multi-step work with *sagas* and compensations instead of impossible distributed transactions; protect ourselves with *retries, circuit breakers, and bulkheads*; and embrace *eventual consistency* as the natural, affordable state of a decoupled system — reserving stronger guarantees for the rare places that truly need them.
-
-None of these patterns is exotic once you've internalized the core insight: **the network is unreliable, and every design decision is a negotiation with that fact.** Master that negotiation, and you're thinking like a senior engineer.
-
-@@SRC: old Chapter 22: Background Processing, Scheduling & the Actor Model@@
-## Part A — Background Processing in .NET
+The queue's consumer, the outbox relay and every other piece of work no request waits on run in-process as hosted services. [Chapter 3: The Generic Host and Background Services](#the-generic-host-and-background-services) introduced them: the host starts every `IHostedService` at startup and stops it at shutdown, `BackgroundService` reduces that to one `ExecuteAsync` method, and a worker is a singleton that opens a DI scope per unit of work. This section is about what goes wrong inside that loop.
 
 ### `IHostedService` and `BackgroundService`
 
-The .NET Generic Host owns a collection of `IHostedService` instances. When the host starts, it calls `StartAsync` on each; when it stops, it calls `StopAsync`. This is the foundational hook for anything that needs to live for the lifetime of your application - a message consumer, a polling loop, a cache warmer.
-
-```csharp
-public interface IHostedService
-{
-    Task StartAsync(CancellationToken cancellationToken);
-    Task StopAsync(CancellationToken cancellationToken);
-}
-```
-
-Implementing this raw is fiddly: `StartAsync` is expected to *return quickly* (the host awaits it before considering itself started), so you cannot simply `await` a long loop inside it. You would have to spin up a `Task`, stash it in a field, wire up a `CancellationTokenSource`, and join it in `StopAsync`. That boilerplate is exactly what `BackgroundService` exists to eliminate.
+`IHostedService.StartAsync` is expected to *return quickly*: the host awaits each one before it considers itself started, so a long loop awaited inside it would block startup. `BackgroundService` handles that for you:
 
 ```csharp
 public abstract class BackgroundService : IHostedService, IDisposable
@@ -464,9 +436,7 @@ public abstract class BackgroundService : IHostedService, IDisposable
 }
 ```
 
-You override one method, `ExecuteAsync`, and treat the supplied `stoppingToken` as your signal to wind down.
-
-> **Key mental model:** `ExecuteAsync` runs on a background flow, not a request. There is no ambient `HttpContext`, no scoped services unless you create a scope, and no per-request lifetime. A singleton `BackgroundService` that needs a scoped `DbContext` **must** open its own scope per unit of work.
+The comment is the contract that matters for the rest of this section: shutdown is a cancelled `stoppingToken` followed by a bounded wait. `ExecuteAsync` runs on a background flow, not a request, so there is no `HttpContext` and no ambient scope.
 
 ### The Worker Service template
 
@@ -516,7 +486,7 @@ public sealed class EmailDispatchWorker : BackgroundService
 }
 ```
 
-Registration is one line, and `System.Threading.Channels` gives you a bounded, back-pressured, thread-safe hand-off between producers (say, a controller) and this consumer:
+Registration is one line, and `System.Threading.Channels` gives you a bounded, back-pressured, thread-safe hand-off between producers (say, a controller) and this consumer ([Chapter 17](#systemthreadingchannels-producerconsumer-pipelines) covers channels in depth):
 
 ```csharp
 builder.Services.AddSingleton(_ =>
@@ -531,7 +501,7 @@ builder.Services.AddHostedService<EmailDispatchWorker>();
 
 ### The outbox-driven worker
 
-In-memory channels have a fatal flaw for anything that matters: **if the process dies, the queue dies with it.** When a user places an order, you write the order to the database *and* you want to publish an `OrderPlaced` event - and doing that as two separate operations means a crash between them loses one side. That is the dual-write problem, and the **transactional outbox** pattern solves it by making the "I need to publish X" fact part of the *same database transaction* as the business change. Chapter 9 covers the mechanics - the outbox table, the atomic commit, and MassTransit's built-in support. Here the point is the other half of the pattern: the background worker that actually drains the table.
+In-memory channels have a fatal flaw for anything that matters: **if the process dies, the queue dies with it.** When a user places an order, you write the order to the database *and* you want to publish an `OrderPlaced` event - and doing that as two separate operations means a crash between them loses one side. That is the dual write from [The Transactional Outbox](#the-transactional-outbox) above, which covers the table, the atomic commit and MassTransit's built-in support. Here the point is the other half of the pattern: the background worker that actually drains the table.
 
 The worker polls unprocessed rows and publishes them, marking each as done only after the broker acknowledges:
 
@@ -565,7 +535,7 @@ protected override async Task ExecuteAsync(CancellationToken stoppingToken)
 
 ### Graceful shutdown and the `CancellationToken`
 
-When Kubernetes sends `SIGTERM`, or an operator hits Ctrl+C, the host begins a *graceful* shutdown: it signals the `stoppingToken`, then waits up to a timeout (default 30 seconds) for `ExecuteAsync` to complete. Work that ignores the token is work that gets **killed mid-flight** when the timeout expires.
+When Kubernetes sends `SIGTERM` ([Chapter 14: Processes & Signals](#processes-signals-graceful-shutdown) follows the signal to the process), or an operator hits Ctrl+C, the host begins a *graceful* shutdown: it signals the `stoppingToken`, then waits up to a timeout (default 30 seconds) for `ExecuteAsync` to complete. Work that ignores the token is work that gets **killed mid-flight** when the timeout expires.
 
 Two obligations fall on you:
 
@@ -583,14 +553,14 @@ builder.Services.Configure<HostOptions>(o =>
 
 The moment you run more than one instance of your service - and in any serious deployment you will, for availability alone - two copies of that outbox worker are polling the same table. Both may grab the same row. Your message gets published twice.
 
-You cannot engineer this possibility away entirely. Distributed systems give you **at-least-once** delivery as the practical default; exactly-once is a comforting fiction that, when you look closely, is always at-least-once plus idempotent processing (Chapter 9 explains why). So the senior move is to stop fighting duplicates and instead make processing **idempotent** - safe to run more than once with the same net effect. The implementation - dedupe on a natural or supplied idempotency key, with a unique index as your backstop - is covered in Chapter 21; apply it to every handler a worker runs.
+You cannot engineer this possibility away entirely. Distributed systems give you **at-least-once** delivery as the practical default; exactly-once is a comforting fiction that, when you look closely, is always at-least-once plus idempotent processing (*Why Exactly-Once Is (Almost) a Myth* above). So stop fighting duplicates and make processing **idempotent**: claim a natural or supplied key under a unique index, in the same transaction as the effect, exactly as in [Idempotent Consumers](#idempotent-consumers). Apply it to every handler a worker runs.
 
-For the polling contention itself, options range from a `SELECT ... FOR UPDATE SKIP LOCKED` (PostgreSQL) to claiming rows with an atomic `UPDATE ... SET LockedBy = @me WHERE ...`, to simply electing a single leader (covered in Part B) so only one instance polls at all. The right answer depends on throughput, but the principle is constant: **assume duplicates and design so they don't hurt.**
+For the polling contention itself, options range from a `SELECT ... FOR UPDATE SKIP LOCKED` (PostgreSQL) to claiming rows with an atomic `UPDATE ... SET LockedBy = @me WHERE ...`, to simply electing a single leader so only one instance polls at all ([Chapter 20: Ensuring a job runs once across instances](#ensuring-a-job-runs-once-across-instances)). The right answer depends on throughput, but the principle is constant: **assume duplicates and design so they don't hurt.**
 
-@@SRC: old Chapter 22: Background Processing, Scheduling & the Actor Model@@
+
 ## Async Request-Reply: 202, a Status Resource, and Retry-After
 
-Some work doesn't fit in a request: a four-minute report, a transcode, an import. Keep it in the request and three things break. Front ends cut long requests (App Service at 230 seconds: [Chapter 51, Case 11](#case-11-large-uploads-fail-at-almost-exactly-four-minutes)). A client that times out retries, and the server, which never noticed the first client leave, does the work twice. And the final `200` promises work that happens only if nothing crashes first. The Azure Architecture Center's *Asynchronous Request-Reply* pattern replaces the one long request with a short `POST` that creates a job and short `GET`s that read it:
+Some work doesn't fit in a request: a four-minute report, a transcode, an import. Keep it in the request and three things break. Front ends cut long requests (App Service at 230 seconds: [Chapter 30, Case 11](#case-11-large-uploads-fail-at-almost-exactly-four-minutes)). A client that times out retries, and the server, which never noticed the first client leave, does the work twice. And the final `200` promises work that happens only if nothing crashes first. The Azure Architecture Center's *Asynchronous Request-Reply* pattern replaces the one long request with a short `POST` that creates a job and short `GET`s that read it:
 
 ```
 client                                   API                                     worker
@@ -604,7 +574,7 @@ client                                   API                                    
   │ GET /reports/7 ───────────────────────►│ 200 the report
 ```
 
-**The `POST` does only what must be synchronous.** It validates, then records the job and an outbox message in one transaction ([Chapter 9: The Transactional Outbox](#the-transactional-outbox)); publishing to the broker after the commit would be the dual write again. It answers `202 Accepted` with `Location`, the status resource (not the result), and `Retry-After`, the seconds until a poll is worth making. A unique index on the idempotency key turns a retried `POST` into a lookup of the job it already created; [Chapter 3: Idempotency Keys](#idempotency-keys-making-post-retry-safe) has the claim-first mechanics.
+**The `POST` does only what must be synchronous.** It validates, then records the job and an outbox message in one transaction ([The Transactional Outbox](#the-transactional-outbox) above); publishing to the broker after the commit would be the dual write again. It answers `202 Accepted` with `Location`, the status resource (not the result), and `Retry-After`, the seconds until a poll is worth making. A unique index on the idempotency key turns a retried `POST` into a lookup of the job it already created; [Chapter 20: Idempotency Keys](#idempotency-keys-making-post-retry-safe) has the claim-first mechanics for HTTP.
 
 ```csharp
 app.MapPost("/reports", async (ReportRequest request, [FromHeader(Name = "Idempotency-Key")] string key,
@@ -652,11 +622,13 @@ if (claimed == 0) return;   // another delivery owns it or finished it: complete
 
 The lease lets a redelivery take over a job whose worker died mid-run, so a rerun must be safe: write the result keyed by the job ID, overwriting any partial one. A transient failure throws, and the broker redelivers the message; a permanent one, such as input that validation couldn't catch, is dead-lettered at once. Either way the job must end `Failed`, with a reason someone can act on: set by the worker on a permanent failure or on the last attempt, by whatever drains the dead-letter queue, or by a sweeper that fails jobs whose `LastUpdatedAt` has stopped moving. A status stuck at `Running` is the HTTP face of a dead-letter queue nobody watches.
 
-**Clients poll, or get called back.** A polling client waits `Retry-After` between `GET`s and gives up at a deadline. A callback (a webhook, a SignalR message) saves the polling, but needs a reachable, authenticated endpoint on the client's side and is itself delivered at-least-once ([Chapter 26](#chapter-26-real-world-engineering-essentials) covers webhook signatures), so keep polling as the fallback. Expose `DELETE /jobs/{id}` if a job can be cancelled, and delete old jobs and results on a retention schedule.
+**Clients poll, or get called back.** A polling client waits `Retry-After` between `GET`s and gives up at a deadline. A callback (a webhook, a SignalR message) saves the polling, but needs a reachable, authenticated endpoint on the client's side and is itself delivered at-least-once ([Chapter 15: Notifications](#notifications-push-sms-and-webhooks) covers webhook signatures), so keep polling as the fallback. Expose `DELETE /jobs/{id}` if a job can be cancelled, and delete old jobs and results on a retention schedule.
 
----
+## Bringing It Together
 
-@@SRC: practice from old module page Part 1 · Module 4: Messaging and Long-Running Work@@
+Every section of this chapter negotiates with one fact: the network and the process can fail between any two steps, and nobody can be certain whether the other side finished. Messaging decouples a request from the work that follows it, so a downstream outage waits in a queue instead of failing the customer. The broker delivers at-least-once, because an acknowledgement is a lease that can expire; so every consumer claims the message's ID in the same transaction as its effect. The producer writes its message into the same transaction as its data, through the outbox, because a commit and a publish are two operations. And work longer than a request becomes a job: a `202 Accepted`, a status resource, and a `BackgroundService` that observes its cancellation token and can safely run twice.
+
+Coordinating several services through one business process (sagas and compensation), protecting callers with retries, circuit breakers and bulkheads, and running scheduled jobs exactly once across instances build on this foundation in [Chapter 20: Distributed Systems](#chapter-20-distributed-systems).
 
 ## Prove it
 
@@ -756,10 +728,10 @@ What to notice:
 
 - **A thread-safe dictionary doesn't make the handler safe.** Both copies passed `ContainsKey` before either recorded the ID. Every *call* is thread-safe; the *check-then-act sequence* is not atomic.
 - **`TryAdd` makes the check and the claim one atomic step.** Only one copy can win, and the loser never reaches the effect.
-- **In a database, the claim is an insert under a unique key, in the same transaction as the effect.** The second copy hits the unique violation and stops; if the effect fails, the rollback releases the claim, so the redelivery can try again. Chapter 3's *Idempotency Keys* shows the full pattern.
+- **In a database, the claim is an insert under a unique key, in the same transaction as the effect.** The second copy hits the unique violation and stops; if the effect fails, the rollback releases the claim, so the redelivery can try again. [Idempotent Consumers](#idempotent-consumers) shows the full handler.
 - **An effect outside your database can't join that transaction.** For a payment API, also pass the message's key downstream as the provider's idempotency key.
 
-**Then do the chapter exercise.** [Chapter 51](#chapter-51-the-azure-casebook-real-incidents-real-fixes), *Exercises → Find the bug*, sample 2: a payment worker whose batch outlives its locks, verified against the same emulator.
+**Then try an exercise further on.** [Chapter 30](#chapter-30-the-azure-casebook-real-incidents-real-fixes), *Exercises → Find the bug*, sample 2: a payment worker whose batch outlives its locks, verified against the same emulator.
 
 ## Three questions
 
@@ -781,7 +753,7 @@ What to notice:
 
 - **How.** A FIFO queue hands messages out in order, but nothing makes them *finish* in order. Competing consumers, or one processor with `MaxConcurrentCalls` above 1, handle messages at the same time, and the faster one finishes first. A message that is abandoned or whose lock expires is processed again after the later messages that other receivers took meanwhile. With prefetch, an abandoned message goes to the back of the local buffer.
 - **Sessions.** The sender sets `SessionId` (say, the order ID) on a session-enabled queue or subscription. A receiver accepts one session and holds an exclusive lock on all its messages, current and future, and receives them in order. One receiver per session at a time, many sessions in parallel.
-- **The cost.** Throughput per key is one consumer. A message that keeps failing holds up the rest of its session until it is dead-lettered; Part 2 goes deeper into that head-of-line blocking. Sessions are chosen when the entity is created and can't be switched on or off later, and a session-enabled entity accepts only messages that carry a `SessionId`.
+- **The cost.** Throughput per key is one consumer. A message that keeps failing holds up the rest of its session until it is dead-lettered; [Chapter 20](#chapter-20-distributed-systems) weighs that head-of-line blocking against the alternatives. Sessions are chosen when the entity is created and can't be switched on or off later, and a session-enabled entity accepts only messages that carry a `SessionId`.
 - **When strict order isn't needed**, carry a version or sequence number, and make the consumer ignore anything older than the state it already has.
 </details>
 
@@ -800,7 +772,7 @@ What to notice:
 
 1. The `POST` validates the request, then one database transaction writes the job row (`Pending`) and an outbox row.
 2. The response is `202 Accepted`, with `Location: /jobs/{id}` and `Retry-After`.
-3. After the commit, a relay publishes the outbox rows, at-least-once. Part 2 covers relays that read the database log (CDC).
+3. After the commit, a relay publishes the outbox rows, at-least-once. [Chapter 18: Transactional Outbox vs. CDC](#transactional-outbox-vs-cdc) covers relays that read the database log.
 4. A `BackgroundService` worker takes the job from the queue, runs it idempotently (claimed on the job ID), and updates the job's status. Transient failures are retried; a job that keeps failing is dead-lettered and marked `Failed`, with a reason.
 5. `GET /jobs/{id}` returns `200` with the status while the job runs, and `303 See Other` to the result when it is done.
 6. The client sends an `Idempotency-Key` with the `POST`, so a retried request gets the existing job's status URL instead of a second job.
