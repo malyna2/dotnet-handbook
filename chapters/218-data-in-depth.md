@@ -1,30 +1,42 @@
 # Chapter 18: Data in Depth
 
-@@TODO: write this chapter's introduction (what it makes the reader able to do, how its sections connect), then remove every @@ line.@@
+[Chapter 7](#chapter-7-data-access) made you able to use EF Core and SQL correctly inside one service: tracking, loading, projections, indexes, isolation levels, caching and migrations. This chapter is what comes after: making one database fast when the obvious levers are already pulled, and then deciding what to do when one database is no longer enough. It makes you able to read a PostgreSQL plan and fix the mechanism behind it, design a Redis cache that fails as a slowdown rather than an outage, and choose between replicas, sharding and tenant isolation with the cost of each spelled out.
 
-@@SRC: introduction of old Chapter 23: Data at Scale & Multi-Tenancy@@
+The sections run from one query to the whole fleet. First the depth of the single node: EF Core's remaining performance tools (pagination, compiled queries, bulk loads), PostgreSQL's storage model, indexes and plans, and Redis in practice. Then scale, ordered from least to most invasive: scaling up, read replicas, connection pooling under load, partitioning and sharding, zero-downtime migrations, change data capture, polyglot persistence, and finally multi-tenancy, where both pressures meet. Both halves come down to the same question: *where does the data live, and who is allowed to touch it?* [Chapter 19](#chapter-19-the-slow-query-lab-reading-execution-plans) is the hands-on lab for the plan-reading half.
 
-For most of a system's life, a single well-tuned database is enough. You add indexes, you cache the hot paths, you buy a bigger machine, and the graphs stay green. Then one day they don't. The write-ahead log can't flush fast enough, a nightly report locks a table that customers need, connections pile up faster than the pool can hand them out, and your one biggest customer's traffic starts starving everyone else. Scaling data is the art of pushing that day as far into the future as possible, and knowing what to do when it finally arrives.
-
-This chapter is about two related pressures. The first is raw **scale**: more data and more traffic than one node can comfortably serve. The second is **multi-tenancy**: serving many independent customers from shared infrastructure without letting them see, slow down, or corrupt each other. Both problems ultimately come down to the same question — *where does the data live, and who is allowed to touch it?*
-
-@@SRC: old Chapter 4: Data Access & Databases@@
 ## Entity Framework Core: The Object-Relational Mapper — in depth
+
+Entity Framework Core is where business services most often bleed performance, because one innocent line of C# can generate a catastrophic SQL pattern. [Chapter 7](#chapter-7-data-access) covers the levers that fix most of it: `AsNoTracking`, projection to DTOs, killing the N+1 with `Include` or a projection, split queries, and `ExecuteUpdate`/`ExecuteDelete`. Three more matter once those are in place.
+
+> **Best practice.** Log and inspect the actual SQL EF generates (`LogTo`, or a profiler) before changing anything. Most EF performance problems are invisible in C# and obvious the moment you see the SQL.
+
+### Pagination: Never Fetch an Unbounded Result Set
+
+`ToListAsync()` on a table that grows to millions of rows will eventually take down your service. Always bound queries:
+
+```csharp
+var page = await db.Products
+    .OrderBy(p => p.Id)
+    .Skip((pageNumber - 1) * pageSize)
+    .Take(pageSize)
+    .ToListAsync();
+```
+
+`Skip` becomes `OFFSET`, and the database still reads and discards every skipped row, so page 10,000 costs as much as reading 10,000 pages. For large offsets use **keyset pagination**: remember the last key the client saw and ask for `WHERE Id > @lastId ORDER BY Id LIMIT @pageSize`, which an index answers directly whatever the page number.
 
 ### Compiled Queries
 
-Every time EF runs a LINQ query it must translate the expression tree into SQL — parsing, analysing, caching by shape. For a hot query executed millions of times, that translation overhead adds up. `EF.CompileQuery` (or `CompileAsyncQuery`) does the translation once and hands you a reusable delegate:
+Every time EF runs a LINQ query it must translate the expression tree into SQL (parsing, analysing, caching by shape). For a hot query executed millions of times, that translation overhead adds up. `EF.CompileQuery` (or `CompileAsyncQuery`) does the translation once and hands you a reusable delegate:
 
 ```csharp
-private static readonly Func<ShopContext, int, Customer?> _byId =
-    EF.CompileQuery((ShopContext ctx, int id) =>
-        ctx.Customers.FirstOrDefault(c => c.Id == id));
+private static readonly Func<AppDb, int, Task<User?>> _getUser =
+    EF.CompileAsyncQuery((AppDb db, int id) =>
+        db.Users.FirstOrDefault(u => u.Id == id));
 
-// Later, in a hot path:
-var customer = _byId(ctx, 42);
+public Task<User?> GetUserAsync(int id) => _getUser(_db, id);
 ```
 
-This is a micro-optimization — reach for it only when profiling shows query compilation is a bottleneck, not by default.
+This is a micro-optimization: reach for it only when profiling shows query compilation is a bottleneck, not by default.
 
 ### Bulk Inserts and the Limits of SaveChanges
 
@@ -82,10 +94,9 @@ Libraries such as **EFCore.BulkExtensions** and **linq2db.EntityFrameworkCore** 
 
 > **Pitfall:** Bulk paths bypass everything EF layers on top of the database — no change tracker, no interceptors, no `SaveChanges` events, no domain-event dispatch, and no validation. That is precisely why they are fast, and precisely why they belong in import and maintenance jobs rather than in the middle of your domain logic.
 
-@@SRC: old Chapter 4: Data Access & Databases@@
 ## PostgreSQL in Practice: Indexes and Query Plans
 
-Most of what you have read so far is engine-agnostic. PostgreSQL is now the default relational database for new .NET services, and it differs from SQL Server in ways that change how you index and how you diagnose a slow query. The good news is that Postgres will tell you exactly what it did, in plain text, if you know how to ask.
+[Chapter 7](#chapter-7-data-access)'s SQL is engine-agnostic. PostgreSQL is now the default relational database for new .NET services, and it differs from SQL Server in ways that change how you index and how you diagnose a slow query. The good news is that Postgres will tell you exactly what it did, in plain text, if you know how to ask.
 
 ### The Storage Model That Explains Everything Else
 
@@ -131,7 +142,7 @@ CREATE UNIQUE INDEX uq_users_email_active
     WHERE deleted_at IS NULL;
 ```
 
-That second one is worth remembering: a **partial unique index** is how you express a conditional uniqueness rule that a plain constraint cannot, and it is the database-level guarantee that makes an application-level uniqueness check safe (see the validation discussion in Chapter 3 — a check-then-insert without this index is a race, not a rule).
+That second one is worth remembering: a **partial unique index** is how you express a conditional uniqueness rule that a plain constraint cannot, and it is the database-level guarantee that makes an application-level uniqueness check safe (see the validation discussion in [Chapter 5](#chapter-5-http-and-web-apis): a check-then-insert without this index is a race, not a rule).
 
 EF Core can express all of it, so these do not have to live in hand-written migration SQL:
 
@@ -239,25 +250,15 @@ Getting the SQL out of EF Core is the first step; `LogTo` will print it, and in 
 Two Npgsql behaviours are worth knowing:
 
 - **Automatic preparation.** Npgsql promotes a statement to a server-side prepared statement after it has been executed a few times (`Max Auto Prepare`). This saves parse and plan time, but after five executions Postgres may switch to a **generic plan** built without knowing your parameter values — which is a poor trade for a column with skewed data. `plan_cache_mode = force_custom_plan` is the escape hatch.
-- **Connection poolers change the rules.** PgBouncer in transaction-pooling mode multiplexes connections across transactions, which breaks session-level state. Prepared statements were the classic casualty: a statement prepared on one server connection didn't exist on the next. Since PgBouncer 1.21 it tracks protocol-level prepared statements (the kind Npgsql uses) and re-prepares them on whichever server connection a transaction lands on; 1.24 turned this on by default (`max_prepared_statements = 200`). SQL-level `PREPARE`/`EXECUTE` still break, and on an older PgBouncer, or with the setting at 0, so does driver-level preparation. Chapter 23 covers pooling under load; the point here is that a plan-caching win at the driver level can disappear entirely depending on what sits between you and the server.
+- **Connection poolers change the rules.** PgBouncer in transaction-pooling mode multiplexes connections across transactions, which breaks session-level state. Prepared statements were the classic casualty: a statement prepared on one server connection didn't exist on the next. Since PgBouncer 1.21 it tracks protocol-level prepared statements (the kind Npgsql uses) and re-prepares them on whichever server connection a transaction lands on; 1.24 turned this on by default (`max_prepared_statements = 200`). SQL-level `PREPARE`/`EXECUTE` still break, and on an older PgBouncer, or with the setting at 0, so does driver-level preparation. [Connection Management Under Load](#connection-management-under-load) below covers pooling; the point here is that a plan-caching win at the driver level can disappear entirely depending on what sits between you and the server.
 
-Finally, three mapping choices that prevent whole categories of problem: store timestamps as `timestamptz` and never `timestamp` (see Chapter 26 on why "local time" is not a thing you can store); use `jsonb` rather than `json` for anything you will query, and index it with GIN; and reach for `citext` or a case-insensitive collation instead of scattering `ToLower()` through your LINQ.
+Finally, three mapping choices that prevent whole categories of problem: store timestamps as `timestamptz` and never `timestamp` (see [Chapter 15](#chapter-15-dates-money-and-strings) on why "local time" is not a thing you can store); use `jsonb` rather than `json` for anything you will query, and index it with GIN; and reach for `citext` or a case-insensitive collation instead of scattering `ToLower()` through your LINQ.
 
 > **Best practice:** Index the queries you actually run, not the columns that look important. Capture `EXPLAIN (ANALYZE, BUFFERS)` before and after every index you add, keep the two outputs in the pull request, and delete indexes that no scan counter has ever touched.
 
-@@SRC: old Chapter 4: Data Access & Databases@@
-## NoSQL: The Right Tool for the Shape of Your Data
-
-Relational databases are the default for good reason, but some data shapes fit other models better.
-
-- **MongoDB (document store):** stores JSON-like documents. Great when your data is hierarchical and read as a unit — a product with nested variants, specs, and reviews. Flexible schema suits evolving or heterogeneous data. Weaker at cross-document transactions and complex joins.
-- **Redis (key-value / in-memory):** blazingly fast because it lives in RAM. Ideal for caching, session state, rate-limiting counters, leaderboards, and pub/sub. Not your system of record — treat it as ephemeral.
-- **Elasticsearch (search engine):** built for full-text search, relevance ranking, and analytics over large volumes. Use it for "search the product catalog by fuzzy text" or log analytics — alongside, not instead of, your primary database, which stays the source of truth.
-
-> **Rule of thumb:** Choose storage by access pattern, not by hype. Most systems are **polyglot**: a relational database as the source of truth, Redis for caching, and Elasticsearch for search. NoSQL is a specialization, not a replacement.
-
-@@SRC: old Chapter 4: Data Access & Databases@@
 ## Caching — in depth
+
+[Chapter 7](#chapter-7-data-access) teaches the basics: `IMemoryCache` against `IDistributedCache`, cache-aside, invalidation, stampedes and HybridCache. The senior judgment on top is *when* to cache at all: data that is **read far more than written** and **tolerates some staleness** (reference data, computed aggregates, rendered fragments). Rapidly changing, per-user-critical or must-be-consistent data is not a cache candidate, and every cache needs an expiry, a size bound and a story for how stale data gets refreshed. The rest of this section is what it takes to run the shared tier, Redis, well.
 
 ### Redis in Practice: Key Design, Data Types, and Eviction
 
@@ -284,7 +285,7 @@ The version segment is the part people leave out and regret. When the shape of a
 | Sorted set | Leaderboards, rate limiters, and time-ordered indexes; range queries by score |
 | Set | Membership and tag indexes — "which keys belong to product 1234" |
 | List | Simple queues; `BLPOP` gives you a blocking pop |
-| Stream | An append-only log with consumer groups — a real message primitive (see Chapter 9) |
+| Stream | An append-only log with consumer groups — a real message primitive (see [Chapter 11](#chapter-11-messaging-and-background-work)) |
 
 **Invalidation by tag** is where sets earn their place. You cannot glob for keys to delete — `KEYS pattern` walks the entire keyspace and, because Redis executes commands on a single thread, it blocks *every other client* while it does. (`SCAN` is the cursor-based alternative that does not, and is what any maintenance script should use.) Instead, maintain the index yourself: when caching a derived value that depends on product 1234, also add its key to the set `tag:product:1234`. On a write, read the set, delete those keys, delete the set. HybridCache exposes this idea directly with tags on `GetOrCreateAsync` and `RemoveByTagAsync`.
 
@@ -300,18 +301,15 @@ var values = await Task.WhenAll(batch);   // one round trip, not ids.Length
 
 > **Gotcha:** Redis executes commands on a single thread. That is what makes its operations atomic and its latency predictable, and it means one expensive command — a `KEYS` sweep, a large `LRANGE`, an unbounded Lua script, or deleting a multi-megabyte value — stalls every other client for its whole duration. Slow queries in Redis are not slow for one caller; they are slow for everyone.
 
-Two more practical notes. `ConnectionMultiplexer` is expensive, thread-safe, and designed to be shared: register exactly one as a **singleton** and never wrap it in a `using` (the classic mistake, and the reason for mysterious connection storms — see Chapter 2 on lifetimes). And in a Redis **Cluster**, keys are distributed by hash slot, so a multi-key operation only works if the keys land on the same node; wrapping the common part in braces — `cart:{acme}:9f2c` — makes Redis hash only that part, keeping a tenant's keys together.
+Two more practical notes. `ConnectionMultiplexer` is expensive, thread-safe, and designed to be shared: register exactly one as a **singleton** and never wrap it in a `using` (the classic mistake, and the reason for mysterious connection storms; [Chapter 3](#chapter-3-how-net-runs-your-code) covers lifetimes). And in a Redis **Cluster**, keys are distributed by hash slot, so a multi-key operation only works if the keys land on the same node; wrapping the common part in braces — `cart:{acme}:9f2c` — makes Redis hash only that part, keeping a tenant's keys together.
 
 > **Pitfall:** Do not use a Redis lock as a correctness mechanism. The single-instance `SET key value NX PX` lock is fine for suppressing duplicate work — one instance rebuilds the cache, the others wait — but it cannot guarantee mutual exclusion across failover, and the distributed variant (Redlock) rests on timing assumptions that are actively disputed. If two workers doing the same thing would corrupt data, enforce it in the database with a unique constraint or a row lock, not in the cache.
 
 Finally, measure the thing that tells you whether any of this is working: the **hit rate**. A cache below roughly 80% hits is usually caching the wrong things, or expiring them faster than they are reused — and every miss now costs a network round trip *plus* the original query, which makes a badly-tuned cache slower than no cache at all.
 
-@@SRC: old Chapter 9: Messaging & Distributed Systems@@
-## Distributed Caching and Session State
+### Session State and the Stateless App Tier
 
-The last piece of the distributed puzzle: shared state across many stateless instances.
-
-The moment you run more than one instance of your app behind a load balancer, **in-memory state becomes a liability**. If instance A stores a user's session in its own RAM and the next request hits instance B, the session is gone. This is why we externalize shared state into a **distributed cache** — most commonly **Redis**.
+The moment you run more than one instance of your app behind a load balancer, **in-memory state becomes a liability**. If instance A stores a user's session in its own RAM and the next request hits instance B, the session is gone. So shared state moves out of the process, most commonly into Redis:
 
 ```
         ┌── App Instance 1 ──┐
@@ -319,119 +317,13 @@ Client ─┤   App Instance 2   ├──▶ [ Redis ] ← single source of sha
         └── App Instance 3 ──┘       (cache + session store)
 ```
 
-.NET gives you `IDistributedCache` as the abstraction:
+Configure ASP.NET Core sessions to use the distributed cache and any instance can serve any user. That keeps the app tier **stateless**, the property that makes horizontal scaling trivial: stateless app servers, externalized state and asynchronous messaging are, in a sentence, the architecture of nearly every scalable modern system. When the cached value depends on data another service owns, invalidation becomes an event: a `ProductUpdated` message whose consumer evicts the key ([Chapter 11](#chapter-11-messaging-and-background-work)).
 
-```csharp
-builder.Services.AddStackExchangeRedisCache(options =>
-{
-    options.Configuration = "localhost:6379";
-    options.InstanceName = "shop:";
-});
+> **Capstone tie-in.** ShopCore Step 5 (Caching, Auth, and Observability) in [Chapter 44](#chapter-44-capstone-one-project-growing-up) adds Redis as a distributed cache for the hot product-catalog read path, with invalidation on writes.
 
-public class ProductCatalog
-{
-    private readonly IDistributedCache _cache;
-    public ProductCatalog(IDistributedCache cache) => _cache = cache;
-
-    public async Task<Product?> GetProductAsync(int id)
-    {
-        var key = $"product:{id}";
-        var cached = await _cache.GetStringAsync(key);
-        if (cached is not null)
-            return JsonSerializer.Deserialize<Product>(cached); // cache hit
-
-        var product = await _repository.LoadAsync(id);           // cache miss
-        await _cache.SetStringAsync(key, JsonSerializer.Serialize(product),
-            new DistributedCacheEntryOptions
-            {
-                AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(10)
-            });
-        return product;
-    }
-}
-```
-
-This is the **cache-aside** pattern: check the cache, on a miss load from the source and populate the cache. Key considerations:
-
-- **Expiration / TTL.** Cached data goes stale. Set a TTL appropriate to how fresh the data must be.
-- **Invalidation.** "There are only two hard things in computer science: cache invalidation and naming things." When the underlying product changes, you must evict or update the cache entry — often by publishing a `ProductUpdated` event that a consumer uses to invalidate the key. Messaging and caching working together.
-- **Stampede protection.** When a hot key expires, a thousand requests may all miss simultaneously and hammer the database. Guard hot keys with a lock or "early recompute" so only one caller rebuilds the value.
-
-For **session state**, the same idea: configure ASP.NET Core sessions to use the distributed cache so any instance can serve any user. This keeps your app tier **stateless** — the property that makes horizontal scaling trivial. Stateless app servers plus externalized state plus asynchronous messaging is, in a sentence, the architecture of nearly every scalable modern system.
-
-> **Capstone tie-in:** This chapter is exercised by ShopCore Step 7 (Split Into Microservices) — you'd carve out Catalog, Ordering, and Payments services communicating over RabbitMQ with MassTransit, with the Outbox pattern and idempotent consumers. See Chapter 32.
-
-@@SRC: old Chapter 15: Performance & Optimization@@
-## EF Core Performance
-
-Entity Framework Core is where mid-level services most often bleed performance, because a single innocent line of C# can generate a catastrophic SQL pattern. These techniques matter more than almost anything else in a typical business app.
-
-**AsNoTracking for read-only queries.** By default EF Core tracks every entity it returns so it can detect changes for `SaveChanges`. For queries where you only read and never update, that tracking is pure overhead — memory for the change tracker plus CPU to snapshot each entity. `AsNoTracking()` skips it.
-
-```csharp
-// Read-only: no change tracking, less memory, faster materialization.
-var products = await db.Products
-    .AsNoTracking()
-    .Where(p => p.IsActive)
-    .ToListAsync();
-```
-
-**Project to DTOs — select only what you need.** Fetching entire entities when you need three columns wastes bandwidth, memory, and materialization time. Projecting with `Select` into a DTO tells EF to `SELECT` only those columns.
-
-```csharp
-var summaries = await db.Orders
-    .Where(o => o.CustomerId == id)
-    .Select(o => new OrderSummary(o.Id, o.Total, o.CreatedAt)) // SELECT Id, Total, CreatedAt only
-    .ToListAsync();
-```
-
-**Avoid the N+1 query.** This is the single most common EF performance disaster. You fetch a list, then lazily access a navigation property inside a loop, firing one query *per item*.
-
-```csharp
-// N+1: 1 query for orders, then 1 query PER order for its customer. Deadly at scale.
-var orders = await db.Orders.ToListAsync();
-foreach (var o in orders)
-    Console.WriteLine(o.Customer.Name); // triggers a query each iteration
-
-// Fixed: one query with a JOIN via eager loading.
-var orders = await db.Orders.Include(o => o.Customer).ToListAsync();
-```
-
-**Paginate — never fetch unbounded result sets.** `ToListAsync()` on a table that grows to millions of rows will eventually take down your service. Always bound queries with `Skip`/`Take` (or keyset pagination for large offsets).
-
-```csharp
-var page = await db.Products
-    .OrderBy(p => p.Id)
-    .Skip((pageNumber - 1) * pageSize)
-    .Take(pageSize)
-    .ToListAsync();
-```
-
-**Batch your writes.** EF Core batches multiple inserts/updates into fewer round-trips on `SaveChanges`, so add many entities and save once rather than saving in a loop. For bulk operations, `ExecuteUpdateAsync`/`ExecuteDeleteAsync` (EF Core 7+) issue a single SQL `UPDATE`/`DELETE` without loading entities into memory at all.
-
-**Compiled queries** eliminate the per-call cost of translating a LINQ expression tree into SQL. For a query executed on a very hot path, `EF.CompileAsyncQuery` caches the translation.
-
-```csharp
-private static readonly Func<AppDb, int, Task<User?>> _getUser =
-    EF.CompileAsyncQuery((AppDb db, int id) =>
-        db.Users.FirstOrDefault(u => u.Id == id));
-
-public Task<User?> GetUserAsync(int id) => _getUser(_db, id);
-```
-
-> **Best practice:** Log and inspect the actual SQL EF generates (enable `LogTo` or use a profiler). Most EF performance problems are invisible in C# and obvious the moment you see the SQL. The N+1 that reads fine in code screams at you in the query log.
-
-@@SRC: old Chapter 15: Performance & Optimization@@
-## Caching as a Performance Lever
-
-The fastest work is the work you skip entirely. Caching stores the result of an expensive operation so subsequent requests return it cheaply. It is often the highest-leverage optimization available — turning a 200ms database aggregation into a sub-millisecond dictionary lookup.
-
-In-process `IMemoryCache` is fastest but per-instance and lost on restart; distributed caches like Redis (`IDistributedCache`) are shared across instances and survive restarts at the cost of a network hop and serialization. The senior judgment is knowing *when* to cache: data that is **read far more than written** and **tolerates some staleness**. Reference data, computed aggregates, and rendered fragments are ideal. Rapidly changing, per-user-critical, or must-be-consistent data is not.
-
-> **Pitfall:** Caching introduces the two hardest problems in computing — invalidation and staleness. Always set an expiration, size limits to bound memory, and a clear story for how stale data gets refreshed. An unbounded cache is a memory leak with good intentions.
-
-@@SRC: old Chapter 23: Data at Scale & Multi-Tenancy@@
 ## Vertical vs. Horizontal Scaling
+
+For most of a system's life, a single well-tuned database is enough. You add indexes, you cache the hot paths, you buy a bigger machine, and the graphs stay green. Then one day they don't. The write-ahead log can't flush fast enough, a nightly report locks a table that customers need, connections pile up faster than the pool can hand them out, and your biggest customer's traffic starts starving everyone else. Scaling data is the art of pushing that day as far into the future as possible, and knowing what to do when it finally arrives.
 
 There are only two directions you can scale, and the choice colors every decision that follows.
 
@@ -441,9 +333,8 @@ There are only two directions you can scale, and the choice colors every decisio
 
 > **Best practice:** Scale *up* until it genuinely hurts before you scale *out*. A single Postgres instance on modern hardware can serve enormous workloads. Horizontal scaling is a one-way door that permanently raises your operational complexity; walk through it deliberately, not reflexively.
 
-The rest of this chapter is essentially a tour of horizontal-scaling techniques, ordered roughly from least to most invasive.
+The sections that follow are a tour of horizontal-scaling techniques, ordered roughly from least to most invasive.
 
-@@SRC: old Chapter 23: Data at Scale & Multi-Tenancy@@
 ## Scaling Reads with Replication
 
 The cheapest form of horizontal scaling exploits a fact true of almost every business system: **reads vastly outnumber writes.** A product catalog is written once and read a million times. If you can serve those reads from copies of the database, your primary node only has to handle writes.
@@ -496,7 +387,17 @@ public sealed class CatalogContextFactory(IConfiguration config)
 
 The key discipline is that **any `SaveChanges` must go to the primary**, and read-only queries that can tolerate lag go to a replica. Marking replica contexts `NoTracking` is doubly useful: it's faster, and it structurally prevents a replica context from ever trying to save.
 
-@@SRC: old Chapter 23: Data at Scale & Multi-Tenancy@@
+## Connection Management Under Load
+
+A subtle scaling wall has nothing to do with data size: **connections.** Each Postgres connection is a backend process consuming several megabytes of RAM, and the server performs best with a *small* number of active connections — often just a few dozen. But a fleet of application servers, each with its own connection pool, can easily demand thousands.
+
+Two layers of pooling save you:
+
+- **Application-level pooling.** ADO.NET / Npgsql pool connections per process, reusing them across requests instead of opening a new one each time (opening a Postgres connection is expensive — a TCP handshake plus a process fork). This is on by default; the trap is *misconfiguring the max pool size* so that a slow query storm exhausts it and requests queue.
+- **An external pooler like PgBouncer.** This sits between your app fleet and Postgres and multiplexes thousands of client connections onto a small pool of real database connections. In **transaction pooling** mode, a real connection is only held for the duration of a transaction, so hundreds of mostly-idle clients share a handful of backends. Serverless and autoscaling architectures — where instance count balloons unpredictably — essentially *require* a pooler to avoid overwhelming the database.
+
+> **Pitfall:** PgBouncer's transaction-pooling mode breaks anything that relies on session state spanning multiple statements — session-level `SET`, SQL-level `PREPARE`, `LISTEN/NOTIFY`, advisory locks held across statements. Protocol-level prepared statements, which Npgsql uses, survive only from PgBouncer 1.21 on with `max_prepared_statements` above 0 (the default since 1.24). Know your pooling mode and its constraints before you deploy it.
+
 ## Partitioning and Sharding
 
 Replication scales *reads* but does nothing for *writes* — every write still hits the single primary, and the entire dataset still has to fit on one machine. When the write volume or the data size exceeds one node, you must split the data itself. This is **partitioning**, and when partitions live on separate database servers, it's **sharding.**
@@ -529,7 +430,7 @@ Once data is split, three things that used to be free become expensive or imposs
 
 **Distributed joins.** A join between two tables only works cheaply if both tables' relevant rows live on the *same* shard. This is why sharded systems try to **co-locate** related data — put a customer and all their orders on the same shard, keyed by `CustomerId` — so joins stay local. Join across the shard boundary and you're either shipping data over the network or denormalizing to avoid the join entirely.
 
-**Distributed transactions.** A single ACID transaction spanning two shards requires a protocol like two-phase commit (2PC), which is slow, locks resources across nodes, and stalls entirely if the coordinator dies mid-commit. In practice, most large systems **refuse** distributed transactions and instead embrace eventual consistency: each shard commits locally, and cross-shard consistency is reconciled asynchronously via patterns like the **Saga** (a sequence of local transactions with compensating actions on failure — see Chapter 9).
+**Distributed transactions.** A single ACID transaction spanning two shards requires a protocol like two-phase commit (2PC), which is slow, locks resources across nodes, and stalls entirely if the coordinator dies mid-commit. In practice, most large systems **refuse** distributed transactions and instead embrace eventual consistency: each shard commits locally, and cross-shard consistency is reconciled asynchronously via patterns like the **Saga** (a sequence of local transactions with compensating actions on failure; see [Chapter 20](#chapter-20-distributed-systems)).
 
 > **Pitfall:** Teams often shard to solve a performance problem and discover they've traded a *throughput* problem for a *correctness and complexity* problem. The uniform, transactional, joinable world of a single database is a luxury you don't appreciate until it's gone.
 
@@ -539,28 +440,6 @@ Your first shard layout will be wrong, because your data will grow unevenly. **R
 
 The technique that makes this bearable is **consistent hashing** combined with many small **virtual shards.** Instead of mapping keys directly to 4 physical servers, map them to (say) 256 virtual shards, then map those virtual shards to physical servers. To add capacity, you move some virtual shards to a new server — only a fraction of the data moves, and the mapping change is a metadata update, not a full reshuffle. Provisioning far more logical shards than you currently need ("over-sharding") is cheap insurance: you can spread them across more hardware later without ever re-hashing keys.
 
-@@SRC: old Chapter 23: Data at Scale & Multi-Tenancy@@
-## Change Data Capture (CDC)
-
-Sharded or not, large systems rarely keep all their data in one place. The catalog lives in Postgres, search lives in Elasticsearch, the recommendation engine wants a stream of events, and analytics wants everything in a warehouse. The naive approach — have the application write to all of them — is a distributed-transaction nightmare: what happens when the Postgres write succeeds but the Elasticsearch write fails?
-
-**Change Data Capture** solves this by treating the database's own change log as a source of truth. Every committed change (insert, update, delete) is captured and streamed to downstream consumers. Because it reads the write-ahead log *after commit*, a consumer sees exactly what was durably committed — no dual-write inconsistency.
-
-**Debezium** is the de facto open-source CDC platform. It plugs into a database's replication stream (Postgres logical replication, MySQL binlog, etc.) and publishes each change as an event to **Kafka**. Downstream, one consumer updates the search index, another updates a cache, another feeds analytics — all decoupled from the application, all fed from the same ordered stream.
-
-### Transactional Outbox vs. CDC
-
-A common goal is: *"when I save an order, reliably publish an OrderCreated event."* Two patterns address this.
-
-The **transactional outbox** (Chapter 9 covers its mechanics) writes the business change and an event row to an `outbox` table **in the same local transaction.** Because both are in one ACID transaction, they commit or fail together — no dual-write problem. A separate relay process then reads the outbox and publishes the events.
-
-The relay can poll the outbox table — or, elegantly, **CDC can read the outbox table** and stream its rows to Kafka, giving you low-latency publishing with no polling. This "outbox + Debezium" combination is a widely used, robust pattern.
-
-So how do outbox and CDC relate? The outbox is *your application deliberately writing events you designed*; CDC is *infrastructure capturing raw row changes*. Use the **outbox** when you want clean, intentional domain events with a stable contract. Use **raw CDC** when you want to replicate or react to table changes without touching the application — for example, feeding a data warehouse. They compose beautifully: CDC is often the *transport* for outbox rows.
-
-> **Best practice:** Never dual-write to a database and a message broker in application code hoping both succeed. Use the outbox pattern so the event and the state change share one transaction, then ship the events with CDC or a relay.
-
-@@SRC: old Chapter 23: Data at Scale & Multi-Tenancy@@
 ## Migrations at Scale (Zero-Downtime)
 
 On a small system you run a migration, take thirty seconds of downtime, and move on. At scale that's unacceptable — and worse, some migrations lock large tables for minutes and hold up every request. The goal is **zero-downtime schema evolution**, and the governing technique is the **expand/contract** (also called parallel-change) pattern.
@@ -575,30 +454,42 @@ Consider renaming a `Name` column to `FullName` — a one-liner that, done naive
 
 > **Pitfall:** `ALTER TABLE` operations that rewrite a table or take an `ACCESS EXCLUSIVE` lock will block all reads and writes for the duration. On a large table under load this is an outage. Always check whether an operation is lock-free; add indexes `CONCURRENTLY`; add columns *without* a volatile default (modern Postgres makes adding a column with a constant default cheap, but backfilling is not).
 
-**Feature flags** pair naturally with this. Deploy new code dark (flag off), flip the flag for 1% of traffic, watch the metrics, then ramp to 100%. If something breaks, you flip the flag off — no rollback, no redeploy. This decouples *deploying* code from *releasing* behavior, which is exactly what you want when the schema underneath is mid-transition.
+[Chapter 7](#chapter-7-data-access) decides *where* migrations run (startup or a pipeline step). **Feature flags** ([Chapter 26](#feature-flags)) pair naturally with expand/contract: they decouple *deploying* the code that uses the new shape from *releasing* it, which is exactly what you want while the schema underneath is mid-transition.
 
-@@SRC: old Chapter 23: Data at Scale & Multi-Tenancy@@
-## Connection Management Under Load
+## Change Data Capture (CDC)
 
-A subtle scaling wall has nothing to do with data size: **connections.** Each Postgres connection is a backend process consuming several megabytes of RAM, and the server performs best with a *small* number of active connections — often just a few dozen. But a fleet of application servers, each with its own connection pool, can easily demand thousands.
+Sharded or not, large systems rarely keep all their data in one place. The catalog lives in Postgres, search lives in Elasticsearch, the recommendation engine wants a stream of events, and analytics wants everything in a warehouse. The naive approach — have the application write to all of them — is a distributed-transaction nightmare: what happens when the Postgres write succeeds but the Elasticsearch write fails?
 
-Two layers of pooling save you:
+**Change Data Capture** solves this by treating the database's own change log as a source of truth. Every committed change (insert, update, delete) is captured and streamed to downstream consumers. Because it reads the write-ahead log *after commit*, a consumer sees exactly what was durably committed — no dual-write inconsistency.
 
-- **Application-level pooling.** ADO.NET / Npgsql pool connections per process, reusing them across requests instead of opening a new one each time (opening a Postgres connection is expensive — a TCP handshake plus a process fork). This is on by default; the trap is *misconfiguring the max pool size* so that a slow query storm exhausts it and requests queue.
-- **An external pooler like PgBouncer.** This sits between your app fleet and Postgres and multiplexes thousands of client connections onto a small pool of real database connections. In **transaction pooling** mode, a real connection is only held for the duration of a transaction, so hundreds of mostly-idle clients share a handful of backends. Serverless and autoscaling architectures — where instance count balloons unpredictably — essentially *require* a pooler to avoid overwhelming the database.
+**Debezium** is the de facto open-source CDC platform. It plugs into a database's replication stream (Postgres logical replication, MySQL binlog, etc.) and publishes each change as an event to **Kafka**. Downstream, one consumer updates the search index, another updates a cache, another feeds analytics — all decoupled from the application, all fed from the same ordered stream.
 
-> **Pitfall:** PgBouncer's transaction-pooling mode breaks anything that relies on session state spanning multiple statements — session-level `SET`, SQL-level `PREPARE`, `LISTEN/NOTIFY`, advisory locks held across statements. Protocol-level prepared statements, which Npgsql uses, survive only from PgBouncer 1.21 on with `max_prepared_statements` above 0 (the default since 1.24). Know your pooling mode and its constraints before you deploy it.
+### Transactional Outbox vs. CDC
 
-@@SRC: old Chapter 23: Data at Scale & Multi-Tenancy@@
-## Polyglot Persistence, CQRS Read Stores, and Caching
+A common goal is: *"when I save an order, reliably publish an OrderCreated event."* Two patterns address this.
 
-No single database is good at everything. **Polyglot persistence** means using the right store for each job: Postgres for transactional integrity, Elasticsearch for full-text search, Redis for ephemeral session data, a columnar warehouse for analytics, a graph database for relationship queries. CDC is the glue that keeps these stores in sync from a single source of truth.
+The **transactional outbox** ([Chapter 11](#chapter-11-messaging-and-background-work) covers its mechanics) writes the business change and an event row to an `outbox` table **in the same local transaction.** Because both are in one ACID transaction, they commit or fail together — no dual-write problem. A separate relay process then reads the outbox and publishes the events.
 
-This connects directly to **CQRS** (Command Query Responsibility Segregation). Instead of forcing one schema to serve both writes and reads, you split them: writes go to a normalized transactional model; reads are served from one or more **read stores** shaped exactly for how they're queried — pre-joined, denormalized, indexed for the specific screen. The read store is kept up to date asynchronously (often via the same event/CDC stream). You accept eventual consistency in exchange for read models that are fast and don't compete with writes for resources.
+The relay can poll the outbox table — or, elegantly, **CDC can read the outbox table** and stream its rows to Kafka, giving you low-latency publishing with no polling. This "outbox + Debezium" combination is a widely used, robust pattern.
 
-And underpinning all of it, recall the **caching layers** from earlier chapters: an in-process cache for the hottest tiny data, a distributed cache (Redis) shared across the fleet, and HTTP/CDN caching at the edge. Caching is the cheapest scaling technique of all — a cache hit is a query that never touches your database. The eternal caveat is invalidation: a cache is a bet that stale data is acceptable for its TTL, and CDC can also drive precise cache invalidation by streaming the exact rows that changed.
+So how do outbox and CDC relate? The outbox is *your application deliberately writing events you designed*; CDC is *infrastructure capturing raw row changes*. Use the **outbox** when you want clean, intentional domain events with a stable contract. Use **raw CDC** when you want to replicate or react to table changes without touching the application — for example, feeding a data warehouse. They compose beautifully: CDC is often the *transport* for outbox rows.
 
-@@SRC: old Chapter 23: Data at Scale & Multi-Tenancy@@
+> **Best practice:** Never dual-write to a database and a message broker in application code hoping both succeed. Use the outbox pattern so the event and the state change share one transaction, then ship the events with CDC or a relay.
+
+## NoSQL and Polyglot Persistence
+
+No single database is good at everything, and some data shapes fit other models better than tables:
+
+- **MongoDB (document store):** stores JSON-like documents. Great when your data is hierarchical and read as a unit (a product with nested variants, specs and reviews). Flexible schema suits evolving or heterogeneous data. Weaker at cross-document transactions and complex joins.
+- **Redis (key-value / in-memory):** fast because it lives in RAM. Ideal for caching, session state, rate-limiting counters, leaderboards and pub/sub. Not your system of record; treat it as ephemeral.
+- **Elasticsearch (search engine):** built for full-text search, relevance ranking and analytics over large volumes. Use it alongside, not instead of, your primary database, which stays the source of truth.
+
+**Polyglot persistence** means using the right store for each job: Postgres for transactional integrity, Elasticsearch for full-text search, Redis for ephemeral session data, a columnar warehouse for analytics, a graph database for relationship queries. CDC is the glue that keeps these stores in sync from a single source of truth.
+
+The same idea, applied to one service's own data, is a **CQRS read store** ([Chapter 21](#chapter-21-architecture) teaches the pattern): writes go to a normalized transactional model, reads are served from stores shaped exactly for how they are queried (pre-joined, denormalized, indexed for one screen), kept up to date asynchronously, often from the same event or CDC stream. You accept eventual consistency in exchange for read models that are fast and don't compete with writes. And under all of it sit the caching layers (in-process, Redis, HTTP and CDN at the edge); CDC can drive precise cache invalidation too, by streaming the exact rows that changed.
+
+> **Rule of thumb.** Choose storage by access pattern, not by hype. Most systems are polyglot: a relational database as the source of truth, Redis for caching, Elasticsearch for search. NoSQL is a specialization, not a replacement.
+
 ## Multi-Tenancy
 
 A **multi-tenant** application serves many independent customers (tenants) from shared infrastructure. The central engineering tension is **isolation vs. efficiency**: strong isolation (separate everything) is safe but expensive; strong sharing (everything in one place) is cheap but risky. There are three canonical models along that spectrum.
@@ -677,29 +568,15 @@ Now `context.Invoices.ToList()` returns only the current tenant's invoices — t
 
 ### Per-Tenant Migrations, Noisy Neighbors, and Cost
 
-**Migrations** get harder as isolation increases. Shared schema: one migration, done. Schema- or database-per-tenant: the *same* migration must run against every tenant's schema/database, which means orchestration (a loop over tenants, with retry and progress tracking), the risk of partial rollout (some tenants migrated, some not — so your code must tolerate both shapes, exactly the expand/contract discipline from earlier), and a real time cost when you have thousands of tenants.
+**Migrations** get harder as isolation increases. Shared schema: one migration, done. Schema- or database-per-tenant: the *same* migration must run against every tenant's schema/database, which means orchestration (a loop over tenants, with retry and progress tracking), the risk of partial rollout (some tenants migrated, some not — so your code must tolerate both shapes, exactly the expand/contract discipline from [Migrations at Scale](#migrations-at-scale-zero-downtime)), and a real time cost when you have thousands of tenants.
 
 **Noisy neighbors** are the flip side of density. In shared-schema, one tenant running a giant report or a runaway query consumes CPU, I/O, and connections that everyone else needs, and everyone's latency suffers. Mitigations range from soft (per-tenant rate limits, query timeouts, separate connection pools for heavy operations) to hard (move the offender to a dedicated database — the isolation model itself is the ultimate noisy-neighbor fix). This is precisely why big-spending tenants often get their own database: they're paying to *not* share.
 
-**Per-tenant scaling and cost** finally tie the two halves of this chapter together. Sharding and multi-tenancy converge: when you shard a multi-tenant system by `TenantId`, each shard is essentially a group of tenants, and moving a hot tenant to its own shard *is* resharding. The economics are the core of the SaaS business model — density (many tenants per resource) drives your gross margin, while isolation drives your ability to serve enterprise and regulated customers. The senior engineer's job is to place each tenant at the right point on that spectrum: pack the small ones tightly, isolate the large and sensitive ones, and build the tooling to move a tenant from one model to the other as they grow.
-
-@@SRC: old Chapter 23: Data at Scale & Multi-Tenancy@@
-## Sources & Further Reading
-
-- **Martin Kleppmann, *Designing Data-Intensive Applications*** — the definitive treatment of replication, partitioning, transactions, consistency models, and stream processing. Chapters 5, 6, and 7 map directly onto much of this chapter.
-- **Microsoft Learn — EF Core documentation**, especially "Global Query Filters," "Connection Resiliency," and the "Multi-tenancy" guidance (learn.microsoft.com/ef/core).
-- **Microsoft Learn / Azure Architecture Center — Multitenant SaaS patterns**, covering the shared-schema, schema-per-tenant, and database-per-tenant models and tenancy trade-offs (learn.microsoft.com/azure/architecture/guide/multitenant).
-- **PostgreSQL documentation** — "High Availability, Load Balancing, and Replication," "Logical Replication," "Row Security Policies," and "Building Indexes Concurrently" (postgresql.org/docs).
-- **Debezium documentation** — CDC connectors, the Postgres logical decoding connector, and the "Outbox Event Router" (debezium.io/documentation).
-- **PgBouncer documentation** — connection pooling modes and their constraints (pgbouncer.org).
-- **Npgsql documentation** — connection pooling and configuration for .NET (npgsql.org/doc).
-- **Chris Richardson, *Microservices Patterns*** and microservices.io — the Transactional Outbox, Saga, and CQRS patterns in depth.
-
-@@SRC: practice from old module page Part 2 · Module 2: Data in Depth@@
+**Per-tenant scaling and cost** tie scale and tenancy together. Sharding and multi-tenancy converge: when you shard a multi-tenant system by `TenantId`, each shard is essentially a group of tenants, and moving a hot tenant to its own shard *is* resharding. The economics are the core of the SaaS business model — density (many tenants per resource) drives your gross margin, while isolation drives your ability to serve enterprise and regulated customers. The senior engineer's job is to place each tenant at the right point on that spectrum: pack the small ones tightly, isolate the large and sensitive ones, and build the tooling to move a tenant from one model to the other as they grow.
 
 ## Practice
 
-**1. Lab 37 in full ([`labs/37-execution-plans`](https://github.com/malyna2/dotnet-handbook/tree/main/labs/37-execution-plans)).** If you did Part 1's subset (setup, Level 1, rung 6 and SQL Server script 1), the rest takes about 6 h: rungs 5 and 7–9, Level 3 (the server's view, `auto_explain`, pricing `force_custom_plan` against an index, the SQL Server track), *Break it* and the write-up. From scratch, the chapter's time budget adds up to 9 h 30 min – 10 h 30 min. You need Docker, about 6 GB of free RAM (8 GB with SQL Server) and the .NET 10 SDK.
+**1. The Chapter 19 lab in full ([`labs/37-execution-plans`](https://github.com/malyna2/dotnet-handbook/tree/main/labs/37-execution-plans)).** If you did [Chapter 7](#chapter-7-data-access)'s subset (setup, Level 1, rung 6 and SQL Server script 1), the rest takes about 6 h: rungs 5 and 7–9, Level 3 (the server's view, `auto_explain`, pricing `force_custom_plan` against an index, the SQL Server track), *Break it* and the write-up. From scratch, the chapter's time budget adds up to 9 h 30 min – 10 h 30 min. You need Docker, about 6 GB of free RAM (8 GB with SQL Server) and the .NET 10 SDK.
 
 ```bash
 cd labs/37-execution-plans
@@ -710,13 +587,13 @@ docker compose exec -T postgres psql -U lab -d shop -f /lab/break-it-stale-stati
 docker compose --profile sqlserver up -d && ./sqlserver.sh seed
 ```
 
-For every rung: predict the plan, run it, name the mechanism, apply the smallest fix, and price it (build time, size, the cost on every insert). Only then compare with the *Hints and answers* at the end of [Chapter 37](#chapter-37-the-slow-query-lab-reading-execution-plans).
+For every rung: predict the plan, run it, name the mechanism, apply the smallest fix, and price it (build time, size, the cost on every insert). Only then compare with the *Hints and answers* at the end of [Chapter 19](#chapter-19-the-slow-query-lab-reading-execution-plans).
 
 **2. The lost update, live (20 min).** In the lab's PostgreSQL, open two sessions (`docker compose exec postgres psql -U lab -d shop`) and create a scratch table with one row holding a balance of 100. In both sessions: begin, read the balance, then write back the value you read plus 10, and commit. Under the default Read Committed, the final balance is 110: one write was lost. Repeat with `BEGIN ISOLATION LEVEL REPEATABLE READ`: the second session's update fails with `could not serialize access due to concurrent update`. Then do it once more with `UPDATE … SET balance = balance + 10` and no read at all, which gives 120 under either level. Drop the table when you are done.
 
 **Evidence to keep**, in your own public portfolio repo, not in this one: `RESULTS.md` with its environment header, the before and after plans, the price of every index, the rung 9 trade-off paragraph and the SQL Server comparison table, plus the three isolation transcripts.
 
-Later, if you need it: [Dapper: When the ORM Is Too Much](#dapper-when-the-orm-is-too-much), [Chapter 23: Connection Management Under Load](#connection-management-under-load), and [Chapter 50: Choosing the partition key](#choosing-the-partition-key-the-decision-you-cannot-easily-undo) for the same decision in Cosmos DB.
+Later, if you need it: [Chapter 7: Dapper](#dapper-when-the-orm-is-too-much), [Connection Management Under Load](#connection-management-under-load), and [Chapter 29: Choosing the partition key](#choosing-the-partition-key-the-decision-you-cannot-easily-undo) for the same decision in Cosmos DB.
 
 ## Three questions
 
@@ -766,7 +643,7 @@ A multi-tenant SaaS runs on one PostgreSQL primary with a shared schema (`Tenant
 <details>
 <summary>How a senior engineer weighs it</summary>
 
-**First, the precondition.** 80% CPU can be a handful of statements. Sort `pg_stat_statements` by total time and read the top plans before buying infrastructure: Chapter 23's advice is to scale up until it genuinely hurts.
+**First, the precondition.** 80% CPU can be a handful of statements. Sort `pg_stat_statements` by total time and read the top plans before buying infrastructure: the advice in [Vertical vs. Horizontal Scaling](#vertical-vs-horizontal-scaling) is to scale up until it genuinely hurts.
 
 **What each costs.**
 
@@ -786,3 +663,14 @@ A multi-tenant SaaS runs on one PostgreSQL primary with a shared schema (`Tenant
 **Inspect.** Pick one write path that changes a balance, a stock level or a status. What prevents a lost update: an atomic statement, a concurrency token, a lock, or nothing? Does the code retry deadlocks (1205 in SQL Server, 40P01 in PostgreSQL) and serialization failures (40001), and does the retry restart the whole transaction? For the cache: are TTLs jittered, are keys versioned, what is `maxmemory-policy`, and what is the hit rate? For migrations: do they run at startup or in a pipeline step, and does the history show the last breaking change as expand, then contract?
 
 **Measure.** The five statements with the highest total time, from `pg_stat_statements` or Query Store, and for each the estimated against actual rows on its costliest node. If you use replicas, the replication lag at peak.
+
+## Sources & Further Reading
+
+- **Martin Kleppmann, *Designing Data-Intensive Applications*** — the definitive treatment of replication, partitioning, transactions, consistency models, and stream processing. Chapters 5, 6, and 7 map directly onto much of this chapter.
+- **Microsoft Learn — EF Core documentation**, especially "Global Query Filters," "Connection Resiliency," and the "Multi-tenancy" guidance (learn.microsoft.com/ef/core).
+- **Microsoft Learn / Azure Architecture Center — Multitenant SaaS patterns**, covering the shared-schema, schema-per-tenant, and database-per-tenant models and tenancy trade-offs (learn.microsoft.com/azure/architecture/guide/multitenant).
+- **PostgreSQL documentation** — "High Availability, Load Balancing, and Replication," "Logical Replication," "Row Security Policies," and "Building Indexes Concurrently" (postgresql.org/docs).
+- **Debezium documentation** — CDC connectors, the Postgres logical decoding connector, and the "Outbox Event Router" (debezium.io/documentation).
+- **PgBouncer documentation** — connection pooling modes and their constraints (pgbouncer.org).
+- **Npgsql documentation** — connection pooling and configuration for .NET (npgsql.org/doc).
+- **Chris Richardson, *Microservices Patterns*** and microservices.io — the Transactional Outbox, Saga, and CQRS patterns in depth.
