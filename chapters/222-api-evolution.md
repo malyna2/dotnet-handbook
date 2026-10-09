@@ -29,12 +29,36 @@ The rule of thumb: **text at the edges where humans and heterogeneous clients li
 
 ## JSON in Modern .NET: `System.Text.Json`
 
-For most .NET developers JSON means `System.Text.Json` (STJ). [Chapter 5](#serialization-systemtextjson-vs-newtonsoftjson) covers how it differs from Newtonsoft.Json, custom converters, and the source generator that removes runtime reflection. What matters here is how STJ behaves at a boundary that has to last.
+[Chapter 5](#chapter-5-http-and-web-apis) covers the basics: what `System.Text.Json` (STJ) is, how it differs from Newtonsoft.Json, the options you set, custom converters, and the web defaults ASP.NET Core applies. This section is the depth that matters at a boundary that has to last: compiling the serializer ahead of time, the defaults that bite when you migrate, and polymorphic payloads, whose discriminators are contract like any field.
 
-- **Use the source generator on hot paths, and always under Native AOT or aggressive trimming**: reflection-based serialization doesn't survive the trimmer ([Chapter 17](#native-aot) explains why). In ASP.NET Core you register the generated context via `services.ConfigureHttpJsonOptions(o => o.SerializerOptions.TypeInfoResolverChain.Insert(0, AppJsonContext.Default))`.
-- **Enums are numbers on the wire by default.** `JsonStringEnumConverter` writes them as strings — which, as the evolution rules below show, is the safer contract.
-- It does **not** serialize fields or non-public members by default, which surprises code migrated from Newtonsoft: a field that used to be on the wire silently disappears from it.
-- **Cache and reuse your `JsonSerializerOptions` instance.** Constructing a fresh one per call defeats its internal metadata cache and tanks throughput.
+### Source Generators: JSON Without Reflection
+
+By default STJ inspects your types at runtime with reflection to figure out how to read and write them. Reflection is flexible but has costs: a warm-up hit on first use, per-call overhead, and — critically — it doesn't survive **trimming** or **Native AOT**, because the trimmer can't prove which types you'll reflect over and may strip them.
+
+The **source generator** solves this. You declare a partial `JsonSerializerContext`, annotate it with the types you serialize, and the compiler emits the serialization code at build time. No runtime reflection, faster startup, smaller allocations, and full AOT/trim compatibility.
+
+```csharp
+[JsonSourceGenerationOptions(PropertyNamingPolicy = JsonKnownNamingPolicy.CamelCase)]
+[JsonSerializable(typeof(Order))]
+internal partial class AppJsonContext : JsonSerializerContext { }
+
+// Usage — note the generated metadata is passed in, so no reflection is needed:
+string json = JsonSerializer.Serialize(order, AppJsonContext.Default.Order);
+Order? round = JsonSerializer.Deserialize(json, AppJsonContext.Default.Order);
+```
+
+> **Best practice:** For any service on a hot path, and for *anything* targeting Native AOT or aggressive trimming, use the `System.Text.Json` source generator. It's a near-free performance and reliability win. In ASP.NET Core you can register the context via `services.ConfigureHttpJsonOptions(o => o.SerializerOptions.TypeInfoResolverChain.Insert(0, AppJsonContext.Default))`.
+
+A few STJ facts worth carrying in your head, because they bite people migrating from Newtonsoft:
+
+- STJ is **case-sensitive by default** on property names (set `PropertyNameCaseInsensitive = true` to match Newtonsoft's behavior — but note it costs a little performance).
+- It does **not** serialize fields or non-public members by default.
+- `JsonStringEnumConverter` is needed to (de)serialize enums as strings; by default they're numbers.
+- Cache and reuse your `JsonSerializerOptions` instance. Constructing a fresh one per call defeats internal caching and tanks throughput.
+
+### Polymorphism: The Discriminator Is Contract
+
+When a payload can be one of several shapes — a `PaymentMethod` that is a card or a bank transfer — STJ serializes it polymorphically only when you say so on the base type: `[JsonPolymorphic]` plus one `[JsonDerivedType(typeof(CardPayment), "card")]` per subtype. The serializer then writes a type discriminator property (`$type` by default) and reads it back to pick the subtype. Two consequences follow from the rest of this chapter. The discriminator values are an allow-list you declared, unlike Newtonsoft's `TypeNameHandling`, which embeds .NET type names in the payload and lets the payload choose what gets instantiated — a long-standing deserialization attack surface. And each discriminator value is part of the contract exactly like an enum member: adding a subtype is a new value that older readers don't know, so it belongs under the enum rules below, and renaming one is a breaking change.
 
 ## XML: Still Around, Still Sometimes Right
 
