@@ -27,7 +27,7 @@ Let's begin.
 
 ## Contents
 
-> {STUDYTIME}
+> **Total study time: about 38 hours** — Part 1 about 14 hours, Part 2 about 24 hours (reading prose at ~200 wpm and every code sample at ~60 wpm, the pace behind each chapter's own estimate). A straight read (prose at ~250 wpm, code at ~100) is closer to **29 hours**; a quick skim (~300 and ~200 wpm), **22 hours**. Practice and labs come on top.
 
 Use the **sidebar** on the left (or the cards below) to jump to any chapter; the **Next →** button at the bottom of every page walks the book in reading order.
 

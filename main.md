@@ -27,7 +27,7 @@ Let's begin.
 
 ## Contents
 
-> {STUDYTIME}
+> **Total study time: about 38 hours** — Part 1 about 14 hours, Part 2 about 24 hours (reading prose at ~200 wpm and every code sample at ~60 wpm, the pace behind each chapter's own estimate). A straight read (prose at ~250 wpm, code at ~100) is closer to **29 hours**; a quick skim (~300 and ~200 wpm), **22 hours**. Practice and labs come on top.
 
 Use the **sidebar** on the left (or the cards below) to jump to any chapter; the **Next →** button at the bottom of every page walks the book in reading order.
 
@@ -40,7 +40,7 @@ Use the **sidebar** on the left (or the cards below) to jump to any chapter; the
 
 # Part 1: Junior → Middle
 
-_⏱️ Estimated read time: ~5 min · 297 words (study pace)_
+_⏱️ Estimated read time: ~5 min · 474 words (study pace)_
 
 > **What Part 1 makes you able to do.** Work as a solid middle developer inside one service, without help: write C#, async, web, data-access and messaging code that survives production; explain the mechanism behind each classic trap and the fix for it; find the first cause of a slow or failing endpoint yourself; hold your own in a frontend conversation; and turn vague tickets, estimates and reviews into work the team can rely on.
 
@@ -59,7 +59,24 @@ Before an interview, reread [Part 1 · Pay Attention To](#part-1-pay-attention-t
 
 ## The Chapters of Part 1
 
-{TABLE}
+| Chapter | | Reading |
+|---|---|---|
+| 1 | [C# Essentials](#chapter-1-c-essentials) | 55 min |
+| 2 | [Data Structures and Algorithms Essentials](#chapter-2-data-structures-and-algorithms-essentials) | 30 min |
+| 3 | [How .NET Runs Your Code](#chapter-3-how-net-runs-your-code) | 25 min |
+| 4 | [Async Essentials](#chapter-4-async-essentials) | 45 min |
+| 5 | [HTTP and Web APIs](#chapter-5-http-and-web-apis) | 1 h 10 min |
+| 6 | [Frontend Essentials](#chapter-6-frontend-essentials) | 1 h 25 min |
+| 7 | [Data Access](#chapter-7-data-access) | 1 h 20 min |
+| 8 | [Testing](#chapter-8-testing) | 45 min |
+| 9 | [Exceptions, Logging and First Diagnosis](#chapter-9-exceptions-logging-and-first-diagnosis) | 1 h |
+| 10 | [Design Basics](#chapter-10-design-basics) | 1 h 15 min |
+| 11 | [Messaging and Background Work](#chapter-11-messaging-and-background-work) | 55 min |
+| 12 | [Security Essentials](#chapter-12-security-essentials) | 45 min |
+| 13 | [Git and CI/CD](#chapter-13-git-and-cicd) | 35 min |
+| 14 | [Containers and Linux](#chapter-14-containers-and-linux) | 45 min |
+| 15 | [Dates, Money and Strings](#chapter-15-dates-money-and-strings) | 35 min |
+| 16 | [Working Like a Middle Developer](#chapter-16-working-like-a-middle-developer) | 45 min |
 
 
 ---
@@ -3267,59 +3284,19 @@ CORS is a browser security mechanism: a page on origin A calling an API on origi
 
 # Chapter 6: Frontend Essentials
 
-_⏱️ Estimated read time: ~20 min · 3451 words (study pace)_
+_⏱️ Estimated read time: ~1 h 20 min · 11613 words (study pace)_
 
-@@TODO: write this chapter's introduction (what it makes the reader able to do, how its sections connect), then remove every @@ line.@@
+The moment your API meets a browser, problems land on your desk that you cannot hand off: why the SPA works locally and fails in production, why a request "blocked by CORS" still changed the database, why the page freezes while your endpoint answers in 40 ms, where the login token should live. Most .NET teams ship a React or Angular frontend next to their API, and their interviews ask backend candidates frontend questions. This chapter gives you a junior-plus foundation: enough to read and change a SPA, debug it in the browser's DevTools, answer the standard questions by their mechanism, and design the API boundary so the frontend team can move fast.
 
-@@SRC: introduction of old Chapter 29: Frontend & Full-Stack for .NET Developers@@
+It follows the path a page takes: how the browser turns HTML, CSS and JavaScript into pixels; each language in turn, with JavaScript the way interviews test it; the DOM and events; TypeScript as a C# developer meets it. Then the boundary you own (`fetch`, CORS, cookies, typed clients), React by its mechanism and how Angular differs, routing and forms, accessibility, the npm and Vite toolchain, XSS, and the Core Web Vitals that measure the result.
 
-You can spend a career on the server and be very good at it. But the moment your API meets a browser, a class of decisions lands on your desk that you cannot delegate away: how the client authenticates, what the payloads look like, why the SPA breaks in production but not locally, whether Blazor is a reasonable bet for the next project. A senior .NET developer does not need to be a frontend expert. They need enough literacy to design the boundary well, to talk credibly with the frontend team, and to pick the right UI technology instead of defaulting to whatever is fashionable.
+Every JavaScript and TypeScript sample here runs: the repository tests them in `verify/frontend/` (pinned TypeScript, React and Angular, Vitest with jsdom). Rendering strategies, performance and testing in depth, Content Security Policy and SPA authentication are in [Chapter 34: Frontend and Full-Stack in Depth](#chapter-34-frontend-and-full-stack-in-depth).
 
-This chapter gives you that literacy. We start with how the web actually works in a browser, move through integrating .NET APIs with JavaScript SPAs, then cover Blazor — plus a brief look at native clients from C# — so you know when a .NET-first UI is the smart choice and when it is not.
-
-@@SRC: old Chapter 20: Networking & Web Fundamentals@@
-## Cookies, Sessions, and the Same-Origin Policy
-
-Because HTTP is stateless, **cookies** are how a server plants a small piece of data in the browser that gets sent back automatically on every subsequent request to that domain (via the `Cookie` header). The server sets them with `Set-Cookie`:
-
-```
-Set-Cookie: sessionId=abc123; HttpOnly; Secure; SameSite=Lax; Max-Age=3600
-```
-
-Those attributes are security-critical:
-
-- **HttpOnly** — JavaScript cannot read the cookie (`document.cookie`), mitigating XSS token theft.
-- **Secure** — only sent over HTTPS.
-- **SameSite** — controls whether the cookie is sent on cross-site requests. `Lax` (a sensible default) blocks it on most cross-site requests, defending against **CSRF**; `Strict` is tighter; `None` (requires `Secure`) allows cross-site and is needed for some embedded scenarios.
-
-A **session** is the server-side counterpart: the cookie holds only an opaque **session ID**, and the actual state (user identity, cart) lives server-side in a store keyed by that ID. Keep that store *shared* (Redis, SQL) rather than in-process memory, or sessions break the moment a load balancer sends the user to a different server.
-
-### Same-Origin Policy and CORS (recap)
-
-The browser's **Same-Origin Policy (SOP)** is the foundational security boundary of the web. An **origin** is the triple `(scheme, host, port)`. Script on `https://app.example.com` may freely talk to its own origin, but the SOP blocks it from *reading* responses from `https://api.other.com`. Without this, any malicious page you visited could quietly script requests to your bank using your logged-in cookies.
-
-**CORS (Cross-Origin Resource Sharing)** is the *controlled relaxation* of the SOP. The server opts in by returning headers like `Access-Control-Allow-Origin`. For anything beyond a "simple" request, the browser first sends a **preflight** `OPTIONS` request asking permission before the real request. In ASP.NET Core:
-
-```csharp
-builder.Services.AddCors(options =>
-    options.AddPolicy("api", policy => policy
-        .WithOrigins("https://app.example.com")
-        .AllowAnyHeader()
-        .AllowMethods("GET", "POST")
-        .AllowCredentials()));
-
-// ...
-app.UseCors("api");
-```
-
-> **Pitfall:** CORS is enforced *by the browser*, not the server — it is not an authorization mechanism. A `curl` or a malicious backend ignores it entirely. And `AllowAnyOrigin()` combined with `AllowCredentials()` is invalid (the spec forbids the `*` wildcard with credentials) precisely because it would be a security hole.
-
-@@SRC: old Chapter 29: Frontend & Full-Stack for .NET Developers@@
 ## The Web the Browser Sees
 
 Three languages run in every browser, and they have distinct jobs.
 
-**HTML** is the document structure: a tree of nested elements (`<header>`, `<article>`, `<button>`). **CSS** is presentation: selectors match elements and apply styling rules (`color`, `flex`, `grid`). **JavaScript** is behavior: it runs code, reacts to user input, and mutates the page.
+**HTML** is the document structure: a tree of nested elements (`<header>`, `<article>`, `<button>`). **CSS** is presentation: selectors match elements and apply styling rules (`color`, `display: flex`, `grid-template-columns`). **JavaScript** is behaviour: it runs code, reacts to user input, and changes the page.
 
 When the browser parses HTML, it builds the **DOM** (Document Object Model), an in-memory tree of objects representing the document. JavaScript does not edit your HTML text; it manipulates this live tree:
 
@@ -3330,86 +3307,487 @@ btn.addEventListener("click", () => {
 });
 ```
 
-Every visible change on a modern web page is ultimately a DOM mutation. Understanding this one fact demystifies most of frontend.
+Every visible change on a web page is ultimately a DOM mutation; React, Angular and Blazor are machines for deciding *which* mutations to make.
 
-### The event loop
+### From Bytes to Pixels: the Rendering Pipeline
 
-JavaScript is single-threaded. It has one call stack and processes work from a queue via the **event loop**. Synchronous code runs to completion; asynchronous results (a timer firing, a `fetch` resolving, a click handler) are queued as callbacks and picked up when the stack is empty.
+The browser turns a response into pixels in a fixed sequence, and most "the page is slow" problems are one step waiting for another.
 
-> **Why this matters to you:** a long synchronous loop on the client *freezes the entire UI*, including scrolling and clicks. When a frontend colleague says "the page hangs," they are describing a blocked event loop. And because it is single-threaded, race conditions in JS look different from your `Task`/`lock` world — they are about *ordering of callbacks*, not parallel threads stepping on shared memory.
-
-`async`/`await` in JavaScript is syntactic sugar over Promises (its `Task` equivalent). The mental model transfers cleanly from C#, with one caveat: there is no thread pool doing the waiting — the event loop is.
-
-### SPA vs. the classic request/response
-
-The **traditional web app** (think classic Razor Pages or MVC) renders full HTML on the server for every navigation. Click a link, the browser throws away the current page and loads a new one.
-
-A **Single-Page Application (SPA)** loads once, then takes over navigation itself. JavaScript intercepts clicks, fetches JSON from your API, and re-renders parts of the DOM without a full page reload. React, Angular, and Vue are the dominant frameworks for building SPAs. The upside is app-like fluidity; the cost is complexity, a large initial JavaScript download, and SEO/first-paint challenges.
-
-### Rendering strategies: CSR, SSR, SSG, streaming, hydration
-
-This is the vocabulary you will hear in architecture meetings.
-
-- **CSR (Client-Side Rendering):** the server sends a near-empty HTML shell plus a JS bundle. The browser runs the JS, which renders everything. Fast to deploy, but the user stares at a blank screen until the bundle downloads and executes, and search crawlers may see nothing.
-- **SSR (Server-Side Rendering):** the server renders real HTML for the first request, so the user sees content immediately. The JS then loads and takes over.
-- **SSG (Static Site Generation):** HTML is rendered once at *build time* and served as static files. Ideal for content that rarely changes (docs, marketing).
-- **Streaming SSR:** the server flushes HTML in chunks as it becomes ready, rather than waiting for the whole page. The user sees the header while the slow product list is still being computed.
-- **Hydration:** the process where client-side JS "attaches" to server-rendered HTML — wiring up event handlers to already-present DOM — so the static markup becomes interactive. Hydration is where SSR's cost hides: the browser downloads the JS anyway and does bookkeeping to reconcile it with the existing DOM.
-
-> **Best practice:** Match the strategy to the content. A public marketing page wants SSG/SSR for speed and SEO. A logged-in dashboard behind auth can happily be CSR — nobody is crawling it, and interactivity dominates. Do not let one team religion pick this for every screen.
-
-### Bundlers, build tools, and npm
-
-Browsers historically could not load hundreds of small module files efficiently, and they cannot run TypeScript, JSX, or Sass directly. A **bundler** solves this: it walks your import graph, transpiles modern syntax down to what browsers run, tree-shakes dead code, and emits a handful of optimized files.
-
-- **webpack** was the long-standing default: powerful, configurable, and slow on large projects.
-- **Vite** is the current favorite: it uses native ES modules for near-instant dev startup and `esbuild`/Rollup for production builds. When someone says "the dev server has hot reload," this is the machinery.
-
-**npm** is the package registry and CLI (like NuGet for JS). `package.json` is the project manifest; `package-lock.json` pins exact versions for reproducible installs. The ecosystem is enormous and shallow — a small app can pull thousands of transitive dependencies.
-
-> **Pitfall:** The npm dependency tree is a real supply-chain surface. Pin versions, commit the lockfile, and treat `npm audit` findings seriously. "It's just a frontend package" is how credential-stealing build scripts get in.
-
-@@SRC: old Chapter 29: Frontend & Full-Stack for .NET Developers@@
-## Integrating a .NET API with a JavaScript SPA
-
-Here is where your expertise actually lives: owning the contract between the ASP.NET Core backend and whatever SPA consumes it.
-
-### CORS
-
-Browsers enforce the **Same-Origin Policy**: JavaScript on `https://app.example.com` cannot, by default, read a response from `https://api.example.com` (different origin). **CORS (Cross-Origin Resource Sharing)** is the server's mechanism to opt specific origins in, via response headers. In ASP.NET Core:
-
-```csharp
-builder.Services.AddCors(options =>
-    options.AddPolicy("spa", p => p
-        .WithOrigins("https://app.example.com")
-        .AllowAnyHeader()
-        .AllowAnyMethod()
-        .AllowCredentials())); // needed for cookies
-
-// ...
-app.UseCors("spa");
+```text
+ HTML ──► DOM ───┐
+                 ├──► render tree ──► layout ──► paint ──► composite
+ CSS ───► CSSOM ─┘
+ <script>: may pause the HTML parser; runs on the same main thread as all of it
 ```
 
-> **Pitfall:** `AllowAnyOrigin()` combined with `AllowCredentials()` is invalid and will silently fail — the spec forbids the wildcard when credentials are sent. Always name explicit origins in production. And remember CORS is a *browser* protection; it does nothing against a non-browser client like curl or your integration tests.
+1. **HTML → DOM**, incrementally, as bytes arrive. A *preload scanner* reads ahead and starts downloading the stylesheets, scripts and images it finds.
+2. **CSS → CSSOM**, not incrementally: a later rule can override an earlier one, so nothing can be styled until all the CSS is in. **CSS is render-blocking.**
+3. **Render tree**: DOM plus CSSOM, only what is displayed (`display: none` is left out; `visibility: hidden` still takes space).
+4. **Layout** (*reflow*) computes every box's size and position; one element's size change can move everything after it.
+5. **Paint** fills in each layer's pixels; **composite** stacks the layers on screen. `transform` and `opacity` changes can often skip straight to compositing, which is why smooth animations use them.
 
-### Owning the contract: OpenAPI and typed clients
+**What blocks what.** A classic `<script src>` **blocks the parser**: the browser stops building the DOM, downloads and runs the script, then continues, because the script might read or write the DOM built so far. A script may also ask for computed styles, so it waits for the CSS before it. CSS blocks scripts; scripts block parsing:
 
-The single highest-leverage thing a backend dev can do for frontend velocity is **publish an accurate OpenAPI (Swagger) document** and let the client be *generated* from it. Hand-written fetch calls drift from the API and break silently. Generated clients break at *compile time* when the contract changes.
-
-ASP.NET Core emits OpenAPI (via the built-in `Microsoft.AspNetCore.OpenApi` in .NET 9+, or Swashbuckle/NSwag). From that document, generate a TypeScript client:
-
-```bash
-# NSwag example: OpenAPI -> typed TS client
-nswag openapi2tsclient /input:swagger.json /output:src/api-client.ts
+```html
+<script src="/legacy-widget.js"></script>          <!-- blocks parsing until run -->
+<script defer src="/app.js"></script>               <!-- runs after parsing, in order -->
+<script async src="/analytics.js"></script>         <!-- runs on arrival, any order -->
+<script type="module" src="/assets/index-4f9a1c.js"></script>  <!-- deferred by default -->
 ```
 
-Now the SPA gets fully typed methods and DTOs. Rename a property on the server, regenerate, and TypeScript flags every broken usage. This is the contract discipline that separates a smooth full-stack team from a finger-pointing one.
+`defer` scripts run after parsing, in document order, before `DOMContentLoaded`; `async` scripts run whenever they arrive. Use `defer` (or a module script, which is what Vite emits) for application code, `async` for independent scripts such as analytics, and a plain `<script>` in the `<head>` almost never.
 
-**Versioning.** Once external clients depend on you, breaking changes need a strategy. URL versioning (`/api/v1/orders`) is the most visible; header-based versioning keeps URLs clean. Use `Asp.Versioning` to manage it. The rule: additive changes (new optional fields) are safe; removing or retyping fields is a new version.
+**After the first paint, the pipeline re-runs on every change**, batched: ten DOM writes in a row cost one layout before the next frame. The expensive pattern interleaves writes with reads of layout values:
 
-### A small end-to-end example
+```javascript
+for (const row of rows) {
+  row.style.width = container.offsetWidth + "px";   // read forces layout, write invalidates it
+}
+```
 
-The API endpoint (minimal API):
+Each `offsetWidth` read after a write forces a *synchronous* layout, so 500 rows mean 500 layouts: **layout thrashing**. Read once outside the loop, then write.
+
+> **Pay attention.** **Why a page can be "loaded" and still blank or frozen.** All of this, and all your JavaScript, runs on **one main thread**: while a script runs, nothing is parsed, laid out, painted or clicked. A render-blocking stylesheet on a slow CDN keeps the screen blank however fast your API is; a 300 ms loop makes every click in that window wait 300 ms. The fix: get work off the critical path (`defer`, less CSS, split bundles) and break long work into pieces.
+
+### SPA vs. the Classic Request/Response
+
+A **traditional web app** (Razor Pages, MVC) renders full HTML on the server for every navigation, and the browser runs the whole pipeline for each new page. A **Single-Page Application (SPA)** loads once, then takes over navigation: JavaScript intercepts clicks, fetches JSON from your API and re-renders parts of the DOM. React, Angular and Vue dominate. The upside is app-like fluidity; the cost is complexity, a large JavaScript download that must run before the user sees anything, and harder SEO. Server-side rendering, static generation and hydration sit in between ([Chapter 34](#chapter-34-frontend-and-full-stack-in-depth)).
+
+## HTML: Structure, Semantics and Forms
+
+The element you choose decides what the browser does for free: keyboard focus, form submission, screen-reader announcements, what a search engine indexes.
+
+### Semantic Elements Carry Behaviour
+
+A **semantic** element says what its content *is*, not how it looks:
+
+- **Landmarks** (`<header>`, `<nav>`, `<main>`, `<aside>`, `<footer>`): screen-reader users jump between them the way you scan a page.
+- **Headings** `<h1>`–`<h6>` form the outline; choose the level by structure, never by font size.
+- **`<button>` versus `<a>`**: a link *goes somewhere* (an `href`, a new tab, a URL change); a button *does something*. A `<div>` with a click handler is neither: not focusable, deaf to Enter, announced as plain text.
+- **`<ul>`/`<ol>`** for lists, **`<table>`** with `<th>` for tabular data only, **`<label>`/`<fieldset>`/`<legend>`** to tie text to form controls.
+
+If everything is a `<div>`, the structure is gone.
+
+### How a Form Works Without JavaScript
+
+A `<form>` is already a complete client for your API, and what it does on its own explains both the bugs SPAs inherit and your server's model binding ([Chapter 5: Model Binding & Validation](#model-binding-validation)).
+
+```html
+<form id="signup" action="/api/signup" method="post">
+  <label for="email">Email</label>
+  <input id="email" name="email" type="email" required autocomplete="email">
+
+  <button>Sign up</button>
+  <output></output>
+</form>
+```
+
+When the user submits, the browser:
+
+1. **Validates** the markup constraints (`required`, `type="email"`, `min`/`max`, `pattern`). If one fails, it shows a message, focuses the field, and the `submit` event never fires.
+2. **Collects** every enabled control with a **`name`** attribute. A field without `name` is silently not sent: the usual reason "the field is always null" in a model-bound action.
+3. **Encodes** them: into the query string for `get`, as `application/x-www-form-urlencoded` for `post`, or `multipart/form-data` (needed for files).
+4. **Navigates**: sends the request and replaces the page with the response.
+
+> **Gotcha.** **A `<button>` inside a form is a submit button unless it says otherwise.** The default `type` is `submit`, so an "Add line" button written as `<button>Add line</button>` submits the form, which in a SPA means a full page reload and lost state. Write `type="button"` on every button that is not meant to submit.
+
+A SPA keeps steps 1–3 and replaces step 4: cancel the navigation with `preventDefault()`, build the body with `FormData`, send it with `fetch`:
+
+```javascript
+const form = document.querySelector("#signup");
+
+form.addEventListener("submit", async (event) => {
+  event.preventDefault();                  // stop the browser's own full-page POST
+  const body = new FormData(form);         // every field with a name attribute
+  const res = await fetch(form.action, { method: "POST", body });
+  form.querySelector("output").textContent = res.ok ? "Saved" : `Failed: ${res.status}`;
+});
+```
+
+Don't set `Content-Type` yourself for a `FormData` body: the browser writes `multipart/form-data` *with the boundary* that separates the parts, and a header without it is unparseable on the server. And built-in validation is a convenience, never a defence; the server validates again.
+
+## CSS: The Box Model, the Cascade and Layout
+
+You will be asked why an element is wider than its `width`, why your style "doesn't apply", and how to put two things side by side: the box model, the cascade, and the layout modes.
+
+### The Box Model
+
+Every element renders as a rectangular box made of four layers, from the inside out: **content**, **padding** (inside the border, takes the background), **border**, and **margin** (transparent space outside the border).
+
+By default (`box-sizing: content-box`), `width` is the *content* width only: `width: 200px; padding: 16px; border: 1px solid` is 234 pixels on screen. Hence the reset at the top of nearly every stylesheet, after which `width` includes padding and border:
+
+```css
+*, *::before, *::after { box-sizing: border-box; }
+```
+
+**Vertical margins collapse**: between two stacked blocks the gap is the larger margin, not the sum. And **`display`** decides how a box takes part in layout: `block` takes the full width and stacks, `inline` flows in a line of text and ignores `width`/`height`, `flex` and `grid` make the element a layout container.
+
+### The Cascade and Specificity
+
+Several rules often set the same property on the same element. The **cascade** is the algorithm that picks the winner, and it compares, in this order:
+
+1. **Origin and importance.** Browser defaults lose to your stylesheets; a declaration marked `!important` beats normal ones (and reverses the origin order).
+2. **Cascade layers.** Rules in `@layer` blocks lose to rules outside any layer, and later layers beat earlier ones, whatever the selectors say. This is how a design system keeps its base styles easy to override.
+3. **Specificity** of the selector, below.
+4. **Order of appearance.** If everything else ties, the rule that comes last wins.
+
+**Specificity** is a three-part score, compared left to right like a version number: (number of **IDs**, number of **classes, attribute selectors and pseudo-classes**, number of **element types and pseudo-elements**).
+
+| Selector | Score | Notes |
+|---|---|---|
+| `p` | (0, 0, 1) | one type |
+| `.price` | (0, 1, 0) | one class beats any number of types |
+| `ul li.price:hover` | (0, 2, 2) | class + pseudo-class, two types |
+| `#cart .price` | (1, 1, 0) | one ID beats any number of classes |
+| `style="color: red"` | beats all selectors | an inline style is not a selector |
+
+"My CSS doesn't apply" is almost always a more specific rule elsewhere; DevTools' Styles panel lists every matching rule with the losers struck through. Inheritance is separate: `color` and `font-*` flow to children, `margin` and `width` don't, and any rule matching the element directly beats an inherited value.
+
+> **Pitfall.** Fighting specificity with `!important` or longer selectors escalates. That war, plus CSS's single global namespace, is why teams use **scoped styles**: CSS Modules and Angular component styles rewrite class names so rules can't leak, Tailwind keeps every selector at one class, Blazor has CSS isolation. Find out which one a codebase uses before writing a rule.
+
+### Flexbox and Grid
+
+**Flexbox** lays children out along **one axis**: `justify-content` aligns along it, `align-items` across it, `gap` spaces them, and `flex: 1` on a child means "take the remaining space". **Grid** lays them out in **two dimensions**: columns and rows defined on the container, `fr` units as fractions of free space, and `repeat(auto-fill, minmax(…))` for as many columns as fit, with no media query.
+
+```css
+.toolbar {                      /* flexbox: one row, items centred vertically */
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.toolbar .search { flex: 1; }   /* the search box takes the leftover width */
+
+.products {                     /* grid: as many 220px+ columns as fit */
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 16px;
+}
+```
+
+| You need | Use |
+|---|---|
+| Items in a row (toolbar, button group, nav), alignment within it | Flexbox |
+| A whole-page shell: header, sidebar, main, footer | Grid |
+| A responsive set of equal cards | Grid with `auto-fill` / `minmax` |
+| Centre one thing in a box | Either: `display: grid; place-items: center` is the shortest |
+
+**Responsive design** rests on the `<meta name="viewport" content="width=device-width, initial-scale=1">` tag (without it, phones render a desktop page shrunk), `rem` units, and mobile-first media queries (`@media (min-width: 768px)` adds to the small layout).
+
+## JavaScript the Way Interviews Test It
+
+JavaScript looks familiar to a C# developer, but under the syntax it is a different machine: dynamically typed, prototype-based, single-threaded. Interview questions aim at exactly the places where C# intuition gives the wrong answer.
+
+### Types, Coercion and Equality
+
+Seven primitive types (`number`, `string`, `boolean`, `undefined`, `null`, `bigint`, `symbol`) plus objects, which include arrays and functions. `number` is a 64-bit float like `double`, so money doesn't belong in it ([Chapter 15](#chapter-15-dates-money-and-strings)).
+
+Values have types, variables don't, and operators **coerce** their operands to whatever type the operator needs:
+
+```javascript
+console.log(1 + "2");            // "12": + with a string concatenates
+console.log("3" * "4");          // 12: * converts both to numbers
+console.log(0 == "");            // true: "" becomes 0
+console.log(0 == "0");           // true: "0" becomes 0
+console.log("" == "0");          // false: two strings
+console.log(null == undefined);  // true: a special rule
+console.log(null == 0);          // false
+console.log(NaN === NaN);        // false: use Number.isNaN
+console.log(typeof null);        // "object": a historic bug
+```
+
+`==` converts the operands to a common type first, by rules so tangled that it isn't even transitive (`0 == ""` and `0 == "0"`, yet `"" != "0"`). `===` never converts. **Use `===` everywhere**; the one common exception is `x == null`, true for exactly `null` and `undefined`. Objects compare by reference under both, and there is no `Equals` override.
+
+### Truthiness and the Nullish Operators
+
+In a condition any value converts to a boolean, and exactly eight are **falsy**: `false`, `0`, `-0`, `0n`, `""`, `null`, `undefined`, `NaN`. Everything else is truthy, including `"0"`, `[]` and `{}`. So `if (count)` is a bug the day `count` is legitimately zero, and `||` is a trap for defaults:
+
+```javascript
+const settings = { pageSize: 0, title: "" };
+
+console.log(settings.pageSize || 20);  // 20: 0 is falsy, so || throws it away
+console.log(settings.pageSize ?? 20);  // 0: ?? replaces only null and undefined
+console.log(settings.title || "Untitled");  // "Untitled"
+console.log(settings.owner?.name);     // undefined: ?. stops at the missing owner
+```
+
+`??` and `?.` behave like their C# namesakes. Reach for `??` whenever zero or an empty string is a valid value.
+
+### Scope and Closures
+
+There are two generations of variable declaration:
+
+- **`var`** is **function-scoped**: one variable for the whole function, *hoisted* to its top, so it exists (as `undefined`) before its declaration line.
+- **`let`** and **`const`** are **block-scoped** like C# locals, and throw if used before their declaration. `const` fixes the *binding*, not the value: a `const` array can still be pushed to.
+
+A **closure** is a function together with the variables it captured from the scope where it was created. Closures capture *variables*, not values, which is where `var` and `let` behave differently in a loop:
+
+```javascript
+const withVar = [];
+for (var i = 0; i < 3; i++) withVar.push(() => i);
+console.log(withVar.map((f) => f()));  // [3, 3, 3]: one i for the whole loop
+
+const withLet = [];
+for (let j = 0; j < 3; j++) withLet.push(() => j);
+console.log(withLet.map((f) => f()));  // [0, 1, 2]: a fresh j per iteration
+```
+
+With `var` all three functions share one `i`, which is 3 when they run; `let` creates a binding per iteration. C# had the same trap with `foreach` until C# 5 ([Chapter 1: Closures and the Capture Trap](#closures-and-the-capture-trap)). Closures also give private state without a class: a local variable lives on as long as a function returned from its scope still uses it. Write `const` by default, `let` when you reassign, `var` never.
+
+### `this` Is Decided by the Call
+
+In JavaScript, `this` is an implicit parameter set by **how the function is called**, not where it is written:
+
+- **`obj.method()`**: `this` is `obj`, the thing before the dot.
+- **A plain call `fn()`**: `undefined` in strict mode, which classes and modules always use.
+- **`new Fn()`**: `this` is the newly created object.
+- **`fn.call(x)`, `fn.apply(x)`, `fn.bind(x)`**: `this` is `x`, explicitly; `bind` returns a new function with `this` fixed for good.
+- **Arrow functions** have no `this` of their own; they capture the surrounding one.
+
+```javascript
+const cart = {
+  items: 0,
+  add() { this.items++; return this.items; },
+  addLater() { return [1, 2].map(() => this.add()); },
+};
+
+console.log(cart.add());               // 1: called as cart.add(), so this is cart
+
+const add = cart.add;                  // the function, detached from its object
+try { add(); } catch (e) { console.log(e.constructor.name); }  // TypeError: this is undefined
+
+console.log(cart.add.bind(cart)());    // 2: bind fixes this for good
+console.log(cart.addLater());          // [3, 4]: arrow functions use the this of the code around them
+```
+
+The detached call is the real-world bug: passing `this.handleClick` or `service.load` as a callback detaches the method, and it fails later with "cannot read properties of undefined". Wrap it in an arrow function (`() => this.handleClick()`) or `bind` it.
+
+### Prototypes and Classes
+
+Each object has a hidden link to another object, its **prototype**; a property not found on the object is looked up along this **prototype chain** until found or `null`. The `class` syntax builds exactly that structure:
+
+```javascript
+class Animal {
+  constructor(name) { this.name = name; }
+  speak() { return `${this.name} makes a sound`; }
+}
+
+const rex = new Animal("Rex");
+console.log(typeof Animal);                                // "function": a class is a function
+console.log(Object.getPrototypeOf(rex) === Animal.prototype);  // true
+console.log(Object.hasOwn(rex, "name"), Object.hasOwn(rex, "speak"));  // true false
+
+Animal.prototype.speak = function () { return `${this.name} was patched`; };
+console.log(rex.speak());   // "Rex was patched": the lookup happens at call time, on the chain
+```
+
+`name` lives on the instance; `speak` lives once, on `Animal.prototype`, shared by every instance, and `extends` links one prototype to the next. Because the lookup is dynamic, replacing a method on the prototype changes every existing object, there is no compile-time `virtual`/`override` contract, and a method's `this` is still decided by the call. Language-enforced privacy comes from `#private` fields.
+
+### Promises and async/await
+
+A **promise** is JavaScript's `Task`: *pending*, then settled exactly once, *fulfilled* with a value or *rejected* with an error. An `async` function returns a promise, and `await` resumes with the value or throws the rejection. The model transfers from [Chapter 4: Async Essentials](#chapter-4-async-essentials), with differences:
+
+- **No thread pool.** Every continuation runs on the one main thread when the event loop gets to it (next section). `await` frees the thread while waiting; it never moves CPU work elsewhere.
+- **Promises start immediately and can't be cancelled.** Calling an `async` function starts the work, like a hot `Task`. The `CancellationToken` equivalent is an `AbortController`, whose `signal` you pass to `fetch`.
+- **`Promise.all` fails fast**: it rejects on the *first* rejection while the others keep running unobserved, whereas `Task.WhenAll` waits for every task. `Promise.allSettled` waits for all and reports each outcome.
+- **A rejection nobody handles** becomes an *unhandled rejection*: a console error in the browser, a process crash by default in Node. The usual cause is a promise nobody awaited.
+
+The same `await`-in-a-loop question as in C# comes up here:
+
+```javascript
+const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+let start = Date.now();
+await delay(100);
+await delay(100);
+console.log(Date.now() - start >= 200);   // true: the second wait starts after the first ends
+
+start = Date.now();
+await Promise.all([delay(100), delay(100)]);
+console.log(Date.now() - start < 200);    // true: both waits run at the same time
+```
+
+Await in sequence only when a call needs the previous result.
+
+### The Event Loop: Tasks and Microtasks
+
+One thread, one call stack: everything that happens later (a timer, a response, a click) is queued, and the **event loop** decides what runs next, from two kinds of queue:
+
+- **Tasks** (macrotasks): running a script, a `setTimeout` callback, a click, a worker message.
+- **Microtasks**: promise callbacks (including the code after an `await`), `queueMicrotask`.
+
+The rule: **run one task to completion; then every microtask, including ones queued meanwhile, until the queue is empty; then render if a frame is due; then the next task.**
+
+```text
+   ┌─► take ONE task ──► run to completion ──► drain ALL microtasks ──► render? ──┐
+   └──────────────────────────────────────────────────────────────────────────────┘
+```
+
+So in this program the order is fixed:
+
+```javascript
+console.log("1: sync");
+setTimeout(() => console.log("6: timer (a task)"), 0);
+Promise.resolve().then(() => console.log("4: then (a microtask)"));
+
+async function save() {
+  console.log("2: save() up to its first await");
+  await null;
+  console.log("5: rest of save() (a microtask)");
+}
+save();
+console.log("3: sync, after save() returned");
+```
+
+The script is one task, so 1, 2 and 3 run first; line 2 shows that an `async` function runs synchronously until its first `await`, like a C# one ([Chapter 4: What `await` Actually Does](#what-await-actually-does)). Then the microtasks, in queued order: 4, 5. The timer is a task, so it comes last even with a delay of 0.
+
+> **Pay attention.** **Why "async" code still freezes the page.** `await` only helps while you are *waiting*. While JavaScript computes (sorting 50,000 rows, parsing a huge response), clicks, typing and rendering wait for the current task and all its microtasks to finish; and because the loop drains the whole microtask queue before rendering, a promise chain that keeps queueing microtasks blocks rendering like a `while` loop. Fixes: do less on the client (paginate on the server, usually your job); split long work into chunks that yield with a real task (`await new Promise(r => setTimeout(r, 0))`); or move it to a **Web Worker**, a separate thread without DOM access.
+
+Races look different here: no two pieces of JavaScript run at once, so no torn writes or locks, but between two `await`s anything can run. The race is about *ordering*, as in the exercise at the end.
+
+### Modules
+
+Modern JavaScript files are **ES modules**: each has its own scope, runs in strict mode, and shares code through `export` and `import`. Static imports let tools see the whole dependency graph, so a bundler can drop unused code (*tree-shaking*); `import()` as a function loads a module on demand, the hook for code splitting ([Chapter 34](#chapter-34-frontend-and-full-stack-in-depth)). `require()` in older Node code is CommonJS, the original module system.
+
+## The DOM and Events
+
+The DOM API is how JavaScript reads and changes the page. Frameworks call it for you, but you need it to debug them, and interviews ask about events in particular.
+
+### Reading and Changing the Tree
+
+`querySelector`/`querySelectorAll` find elements by CSS selector. `textContent` sets plain text; `innerHTML` *parses* HTML, which is how XSS gets in ([XSS from the Front End](#xss-from-the-front-end)). `classList` toggles classes so styling stays in CSS, and `dataset.orderId` reads a `data-order-id` attribute.
+
+### Bubbling, Capturing and Delegation
+
+An event travels through the tree in three phases: **capturing**, from the window down to the target; the **target**; then **bubbling**, back up through every ancestor. `addEventListener` listens while bubbling, or while capturing with `{ capture: true }`. So a click on a button in a `<div>` runs the `<div>`'s capturing listeners, the button's, then the `<div>`'s bubbling ones. Two methods are often confused: **`stopPropagation()`** stops the event travelling further, while **`preventDefault()`** cancels the browser's **default action** (following a link, submitting a form) and lets it keep bubbling.
+
+Bubbling makes **event delegation** possible: one listener on the container, and `event.target` says which row was clicked:
+
+```javascript
+// One listener on the list handles clicks on every row, including rows added later.
+const list = document.querySelector("#orders");
+
+list.addEventListener("click", (event) => {
+  const button = event.target.closest("button[data-order-id]");
+  if (!button || !list.contains(button)) return;   // a click elsewhere in the list
+  cancelOrder(Number(button.dataset.orderId));
+});
+```
+
+`event.target` may be an icon *inside* the button, so `closest()` walks up to it (`currentTarget` is the element the listener is on). One listener replaces thousands, and rows added later just work. React uses the same mechanism: it listens once at the app's root element and dispatches to your handlers.
+
+## TypeScript for C# Developers
+
+**TypeScript** is JavaScript with a static type system added at compile time. The compiler checks the types and then **erases** them: plain JavaScript runs in the browser. It will feel like home until it doesn't; these are the differences that bite.
+
+### Structural Typing
+
+C# is **nominal**: a type fits an interface only if it declares it. TypeScript is **structural**: a value fits a type if it has the right *shape*.
+
+```typescript
+interface Point { x: number; y: number }
+
+function distanceFromOrigin(p: Point): number {
+  return Math.hypot(p.x, p.y);
+}
+
+const pin = { x: 3, y: 4, label: "Warehouse" };
+console.log(distanceFromOrigin(pin));   // 5: pin has x and y, so it is a Point; no "implements"
+
+class Pixel { constructor(public x: number, public y: number) {} }
+console.log(distanceFromOrigin(new Pixel(6, 8)));   // 10: a class that never heard of Point
+```
+
+Extra properties are fine on an existing object, but an object **literal** written where a type is expected gets an *excess property check*: `const p: Point = { x: 1, y: 2, label: "A" }` is an error, since an unread property is probably a typo. The flip side: an `OrderId` and a `CustomerId` that are both `string` are interchangeable.
+
+### Unions and Narrowing
+
+A **union type** `A | B` is one or the other, and before you use anything specific the compiler makes you prove which: **narrowing**, by `typeof`, `in`, `instanceof`, or a shared literal field. The common pattern is the **discriminated union**:
+
+```typescript
+type Order = { id: number; total: number };
+
+type LoadResult =
+  | { kind: "ok"; order: Order }
+  | { kind: "not-found" }
+  | { kind: "error"; status: number };
+
+function describe(result: LoadResult): string {
+  switch (result.kind) {
+    case "ok":
+      return `Order ${result.order.id}: ${result.order.total}`;  // narrowed: order exists here
+    case "not-found":
+      return "No such order";
+    case "error":
+      return `Failed with ${result.status}`;
+    default: {
+      const unreachable: never = result;   // a new case that is not handled stops the build here
+      return unreachable;
+    }
+  }
+}
+
+console.log(describe({ kind: "ok", order: { id: 7, total: 30 } }));  // "Order 7: 30"
+console.log(describe({ kind: "error", status: 503 }));               // "Failed with 503"
+```
+
+This is C#'s pattern matching over a closed set of records, plus the `never` line, which turns a forgotten fourth `kind` into a compile error. With `strict` on, `null` is part of a type only if the union says so (`string | null`): C#'s nullable reference types, enforced as errors.
+
+### Generics
+
+Generics look and work like C#'s, with constraints written as `extends`. Combined with `keyof` (the union of a type's property names) they can express relationships C# can't:
+
+```typescript
+function firstBy<T, K extends keyof T>(items: T[], key: K, value: T[K]): T | undefined {
+  return items.find((item) => item[key] === value);
+}
+
+const users = [{ id: 1, email: "a@example.com" }, { id: 2, email: "b@example.com" }];
+console.log(firstBy(users, "email", "b@example.com")?.id);   // 2
+// firstBy(users, "emial", "x")  -> compile error: "emial" is not a key of the user type
+// firstBy(users, "id", "2")     -> compile error: id is a number
+```
+
+`T[K]` is "the type of property `K` of `T`". **Utility types** build on this: `Partial<T>` (a PATCH body), `Pick`, `Omit`, `Record<string, number>`. Generics are erased: there is no `typeof(T)` at run time.
+
+### Where TypeScript Stops: Types Are Erased
+
+Because types vanish, nothing checks that data arriving at run time (a `fetch` body, `JSON.parse`, `localStorage`) matches them:
+
+```typescript
+type Order = { id: number; total: number };
+
+const fromServer = JSON.parse('{"id": "42", "total": "19.90"}');   // type: any
+const order = fromServer as Order;   // a promise to the compiler, checked by nobody
+
+console.log(typeof order.id);        // "string": the type said number
+console.log(order.total + 1);        // "19.901": string concatenation, no error anywhere
+
+function isOrder(value: unknown): value is Order {   // a runtime check the compiler trusts
+  return typeof value === "object" && value !== null
+    && typeof (value as Order).id === "number"
+    && typeof (value as Order).total === "number";
+}
+console.log(isOrder(fromServer));    // false
+```
+
+`as` is not a C# cast: it converts and checks nothing. `any` switches checking off; `unknown` is the safe counterpart you must narrow. A function returning `value is Order` is a *type guard*, a runtime check the compiler trusts. Validate at the boundary with a schema library (Zod is common), or use a client generated from your OpenAPI document so at least the types match the contract.
+
+| | C# | TypeScript |
+|---|---|---|
+| Compatibility | Nominal: declared inheritance | Structural: matching shape |
+| At run time | Types exist (reflection, `is`, `typeof(T)`) | Erased; plain JavaScript runs |
+| A cast | Checked conversion, throws if wrong | `as`: unchecked assertion |
+| Closed set of cases | Records + pattern matching | Discriminated unions + `never` |
+| Null safety | Nullable reference types (warnings) | `strictNullChecks` (errors) |
+| Escape hatch | `dynamic` | `any` (prefer `unknown`) |
+
+## Talking to the API from the Browser
+
+This is the boundary you own: a `fetch` call, the browser's same-origin rules, cookies, and the contract that keeps both sides honest.
+
+### fetch and Its One Surprise
+
+Take a minimal API endpoint:
 
 ```csharp
 app.MapGet("/api/orders/{id:int}", async (int id, IOrderService svc) =>
@@ -3419,28 +3797,344 @@ app.MapGet("/api/orders/{id:int}", async (int id, IOrderService svc) =>
 });
 ```
 
-The SPA call, using `fetch`:
+and the SPA call that consumes it:
 
 ```typescript
-async function loadOrder(id: number): Promise<Order> {
-  const res = await fetch(`/api/orders/${id}`, { credentials: "include" });
-  if (!res.ok) throw new Error(`Order ${id} failed: ${res.status}`);
+type Order = { id: number; total: number };
+
+async function loadOrder(id: number, signal?: AbortSignal): Promise<Order> {
+  const res = await fetch(`/api/orders/${id}`, { credentials: "include", signal });
+  if (!res.ok) throw new Error(`Order ${id} failed: ${res.status}`);  // fetch does not throw on 404 or 500
   return (await res.json()) as Order;
 }
 ```
 
-`credentials: "include"` sends the auth cookie (the BFF world). `axios` is a popular alternative to `fetch` that adds interceptors and automatic JSON handling, but native `fetch` is entirely sufficient for most needs.
+Four details carry most of the weight:
 
-@@SRC: old Chapter 29: Frontend & Full-Stack for .NET Developers@@
+- **`fetch` rejects only when no response arrives** (network down, aborted, refused by CORS). A `404` or `500` is a *successful* fetch with `res.ok === false`; skip the check and your ProblemDetails body flows into the app as data, as the exercise shows.
+- **`credentials`**: `"same-origin"` (the default) sends cookies only to the page's own origin, `"include"` cross-origin too (if the server's CORS allows it), `"omit"` never. A relative URL resolves against the page's origin, so a SPA served by the API's host needs no CORS at all.
+- **`signal`** takes an `AbortController`'s signal, the `CancellationToken` counterpart; `AbortSignal.timeout(5000)` aborts itself, since `fetch` has no timeout.
+- **`res.json()` returns `any`**, so `as Order` is the unchecked assertion from the TypeScript section.
+
+### The Same-Origin Policy and CORS, Seen from the Browser
+
+An **origin** is *(scheme, host, port)*: `https://app.example.com` and `https://api.example.com` differ, and so do `localhost:5173` and `localhost:5000`. The **Same-Origin Policy** stops script on one origin from *reading* another origin's responses; otherwise any page could script your bank with your cookies and read the answers. It does not stop *sending*: forms and images always could.
+
+**CORS** is how a server tells the browser which other origins may read its responses; the ASP.NET Core side is in [Chapter 5: HTTP and Web APIs](#chapter-5-http-and-web-apis). A cross-origin `fetch` carries an `Origin` header and takes one of two paths:
+
+- **A simple request** (`GET`, `HEAD` or `POST`, safelisted headers only, and a body typed `text/plain`, `application/x-www-form-urlencoded` or `multipart/form-data`) is **sent at once**, since a plain form could send it. If `Access-Control-Allow-Origin` doesn't match, the script gets an error, but the server has already run the request.
+- **Anything else** (`PUT`, `PATCH`, `DELETE`, an `Authorization` header, a JSON body: most SPA calls) gets a **preflight**, an `OPTIONS` request asking permission first:
+
+```text
+OPTIONS /api/orders/42 HTTP/1.1                    ← preflight
+Origin: https://app.example.com
+Access-Control-Request-Method: PUT
+Access-Control-Request-Headers: authorization, content-type
+
+HTTP/1.1 204 No Content
+Access-Control-Allow-Origin: https://app.example.com
+Access-Control-Allow-Methods: GET, POST, PUT
+Access-Control-Allow-Headers: authorization, content-type
+Access-Control-Max-Age: 600                        ← cache this answer for 600 s
+
+PUT /api/orders/42 HTTP/1.1                         ← now the real request
+Origin: https://app.example.com
+```
+
+Without `Access-Control-Max-Age` a preflight answer is cached for 5 seconds, and browsers cap the value. A credentialed request also needs `Access-Control-Allow-Credentials: true` and the exact origin, never `*`.
+
+**In DevTools**, the Console shows "blocked by CORS policy" with the reason, and the Network tab shows the preflight as its own `OPTIONS` row. A failed preflight (typically authentication middleware answering `401` to an `OPTIONS` that carries no credentials) means the real request is never sent; a failed *simple* request was sent and executed, only its response hidden. That is why CORS is no security control: [Chapter 12: CORS Is Not Access Control](#cors-is-not-access-control).
+
+### Cookies and Sessions
+
+**Cookies** are how a server plants data in the browser that comes back automatically on every later request to that domain. The server sets them with `Set-Cookie`:
+
+```text
+Set-Cookie: sessionId=abc123; HttpOnly; Secure; SameSite=Lax; Max-Age=3600
+```
+
+Those attributes are security-critical:
+
+- **HttpOnly**: JavaScript cannot read the cookie (`document.cookie`), so an XSS bug cannot steal it.
+- **Secure**: only sent over HTTPS.
+- **SameSite** governs requests coming from *another site*: `Strict` never sends the cookie, `Lax` only on top-level navigations with safe methods (following a link), which blocks the classic **CSRF** form post, and `None` (requires `Secure`) always. Some browsers default to `Lax`; set it explicitly.
+
+**Site is not origin.** `SameSite` compares scheme plus registrable domain, so `app.example.com` and `api.example.com` are the same site but different origins: a `Lax` cookie *is* sent from app to API, while CORS still governs reading the response. One registrable domain for SPA and API is what makes cookie authentication between them workable.
+
+A **session** keeps an opaque ID in the cookie and the state in a *shared* server-side store (Redis, SQL), so any instance can serve the user.
+
+### Cookies, localStorage and sessionStorage: Where Browser State Lives
+
+| | Cookie | `localStorage` | `sessionStorage` |
+|---|---|---|---|
+| Sent to the server | Automatically | No | No |
+| Readable by any script on the origin | Not if `HttpOnly` | Yes | Yes |
+| Lifetime | `Max-Age`/`Expires` or session | Until cleared | Until the tab closes |
+| Size | A few KB per cookie | About 5 MiB per origin | About 5 MiB per origin |
+
+Web storage is a synchronous key-value store of **strings**, so objects must go through JSON on the way in and out:
+
+```javascript
+localStorage.setItem("cart", { items: 2 });
+console.log(localStorage.getItem("cart"));   // "[object Object]": values are always strings
+
+localStorage.setItem("cart", JSON.stringify({ items: 2 }));
+console.log(JSON.parse(localStorage.getItem("cart")).items);   // 2
+```
+
+Fine for preferences and drafts; poor for an access token, which one XSS bug or compromised npm package can read and send anywhere. An `HttpOnly` cookie can't be read by script, at the price of CSRF protection. Current guidance keeps tokens out of the browser entirely, the **Backend-for-Frontend** pattern in [Chapter 34](#chapter-34-frontend-and-full-stack-in-depth); the flows are in [Chapter 12: Authorization Code Flow with PKCE](#authorization-code-flow-with-pkce).
+
+### Owning the Contract: OpenAPI and Typed Clients
+
+For frontend velocity, nothing beats an accurate **OpenAPI document** ([Chapter 5: REST and OpenAPI](#rest-and-openapi)) with the client *generated* from it: hand-written types drift silently, generated ones break at *compile time*:
+
+```bash
+# NSwag example: OpenAPI -> typed TS client
+nswag openapi2tsclient /input:swagger.json /output:src/api-client.ts
+```
+
+Rename a property, regenerate, and TypeScript flags every broken usage; generate in CI so the client is never older than the contract ([Chapter 22](#api-versioning-backward-compatibility) covers versioning).
+
+## React by Its Mechanism
+
+React's model is small enough to learn by mechanism: **the UI is a function of state**. A component, given props and state, *returns a description* of the screen. When state changes, React calls it again, compares the new description with the previous one (*reconciliation*) and applies the minimal DOM mutations.
+
+### Components and Props
+
+A component is a function that returns **JSX**, syntax sugar that compiles `<OrderRow order={o} />` to a function call building a plain object. **Props** are its read-only input. Data flows down through props; changes flow up through callbacks:
+
+```tsx
+type Order = { id: number; customer: string; total: number };
+
+type OrderRowProps = { order: Order; onCancel: (id: number) => void };
+
+function OrderRow({ order, onCancel }: OrderRowProps) {
+  return (
+    <li>
+      {order.customer}: {order.total.toFixed(2)}
+      <button onClick={() => onCancel(order.id)}>Cancel</button>
+    </li>
+  );
+}
+
+function OrderList({ orders, onCancel }: { orders: Order[]; onCancel: (id: number) => void }) {
+  if (orders.length === 0) return <p>No orders yet.</p>;
+  return <ul>{orders.map((o) => <OrderRow key={o.id} order={o} onCancel={onCancel} />)}</ul>;
+}
+```
+
+Conditions are a plain `if`, lists a `map`, and `{expression}` embeds any value. In Blazor terms, `[Parameter]` properties are props and `EventCallback` is the callback.
+
+### State and Re-rendering
+
+`useState` gives a component **state** that survives between calls: a value and a setter. The setter doesn't change the variable in front of you; it asks React to **re-render**, calling the component (and its children) again, which is cheap because the DOM changes only where the output differs.
+
+Each render sees its state as a **snapshot**, constant for the duration of that render, which explains the most common state bug:
+
+```tsx
+import { useState } from "react";
+
+function Quantity() {
+  const [count, setCount] = useState(0);
+
+  function addThreeWrong() {
+    setCount(count + 1);   // count is 0 in this render: "set to 1"
+    setCount(count + 1);   // "set to 1" again
+    setCount(count + 1);   // the next render shows 1
+  }
+
+  function addThree() {
+    setCount((c) => c + 1);   // updaters are queued and run in order
+    setCount((c) => c + 1);
+    setCount((c) => c + 1);   // the next render shows 3
+  }
+
+  return (
+    <>
+      <output>{count}</output>
+      <button onClick={addThreeWrong}>+3 (wrong)</button>
+      <button onClick={addThree}>+3</button>
+    </>
+  );
+}
+```
+
+React **batches** the updates in an event handler into one re-render; when the next value depends on the previous one, pass an updater function. Two more rules follow from the mechanism. **Render must be pure** (no fetching, subscribing or DOM writes in the body), because React may call it at any time. And **state is replaced, not mutated**: React compares old and new with `Object.is`, so `items.push(x); setItems(items)` passes the *same* array and the update is skipped. Write `setItems([...items, x])`.
+
+> **Pay attention.** **Why "I set the state and the variable still has the old value".** The setter schedules a new render in which `useState` returns the new value; the current render's `count` is a constant, captured by every closure created during it. Log it right after `setCount(5)` and you see the old value. Need the new value now? It is the one you passed to the setter.
+
+### The Rules of Hooks
+
+Functions starting with `use` are **hooks**. React keeps a list of hook slots per component instance and matches each hook call to its slot **by call order**, not by name. Hence the rules: call hooks **only at the top level** of a component or custom hook (never in conditions, loops or after an early return), and **only from React functions**. Break the first and the slots shift:
+
+```tsx
+import { useState } from "react";
+
+type User = { name: string };
+
+function Profile({ user }: { user: User | null }) {
+  const [theme] = useState("light");           // hook 1 on every render
+  if (!user) return <p className={theme}>Signed out</p>;   // an early return...
+  const [tab, setTab] = useState("orders");     // ...so hook 2 runs on some renders only
+  return <button onClick={() => setTab("settings")}>{user.name}: {tab}</button>;
+}
+```
+
+When `user` goes from `null` to a value, React throws "Rendered more hooks than during the previous render"; the other way round, "Rendered fewer hooks than expected". Move every hook above the early return. The `eslint-plugin-react-hooks` lint rule catches this and missing effect dependencies at build time.
+
+### Effects and Their Dependency Arrays
+
+Code that talks to the outside world (a subscription, a timer, a non-React widget) goes into an **effect**. `useEffect(setup, dependencies)` runs `setup` **after** the render reaches the DOM; the function `setup` returns is the **cleanup**, called before the effect runs again and on unmount.
+
+The **dependency array** decides when the effect re-runs:
+
+| Dependencies | The effect runs |
+|---|---|
+| omitted | after every render |
+| `[]` | after the first render only (and cleans up on unmount) |
+| `[roomId]` | after the first render, and again whenever `roomId` changed (compared with `Object.is`) |
+
+```tsx
+import { useEffect } from "react";
+
+function ChatRoom({ roomId }: { roomId: string }) {
+  useEffect(() => {
+    const connection = createConnection(roomId);   // the effect reads roomId...
+    connection.connect();
+    return () => connection.disconnect();          // ...cleanup undoes it before the next run
+  }, [roomId]);                                    // ...so roomId is a dependency
+
+  return <h2>Room {roomId}</h2>;
+}
+```
+
+Switch from `"general"` to `"travel"` and unmount, and the calls are: connect general, disconnect general, connect travel, disconnect travel. **Every value the effect reads must be listed**; leave one out and the effect keeps the values of the render that created it, a *stale closure* (the chat stays in the old room).
+
+In development, `<StrictMode>` deliberately runs each effect **setup, cleanup, setup** on mount to expose broken cleanups: an API called twice in development is that, and the fix is a correct cleanup. Many effects shouldn't exist: derive values during render, and handle clicks in the click handler. Fetching in effects is full of traps (see the exercise); most teams use a data-fetching library ([Chapter 34](#chapter-34-frontend-and-full-stack-in-depth)).
+
+### Keys in Lists
+
+When a list re-renders, React matches old and new items by **`key`**. State belongs to a *position in the tree*, and for list items the key *is* that identity:
+
+```tsx
+import { useState } from "react";
+
+type Item = { id: number; name: string };
+
+function Line({ item }: { item: Item }) {
+  const [note, setNote] = useState("");   // state belongs to the position React matched
+  return (
+    <li>
+      {item.name} <input aria-label={`Note for ${item.name}`} value={note}
+                         onChange={(e) => setNote(e.target.value)} />
+    </li>
+  );
+}
+
+function Basket({ items, keyByIndex }: { items: Item[]; keyByIndex: boolean }) {
+  return (
+    <ul>
+      {items.map((item, index) =>
+        <Line key={keyByIndex ? index : item.id} item={item} />)}
+    </ul>
+  );
+}
+```
+
+Type a note on "Tea", then remove Tea. With `key={index}`, Milk is now at index 0, React concludes item 0 survived, and Milk inherits Tea's note; with `key={item.id}` Tea's row is destroyed and Milk keeps its own. Use a stable ID from the data. Index keys are safe only for lists that never reorder, insert or delete, and `Math.random()` keys recreate every row on every render.
+
+### How Angular Differs
+
+Many .NET shops chose **Angular**, and its design will look familiar. Where React is a rendering library you assemble a stack around, Angular is a complete, opinionated framework: router, forms, HTTP client, dependency injection, testing and a CLI. Three mechanisms set it apart.
+
+**Dependency injection** is built in and resembles ASP.NET Core's: `providedIn: "root"` is a singleton, providers on a component give its subtree its own instance (Angular's scoped lifetime), and `inject()` requests a dependency:
+
+```typescript
+import { Component, Injectable, inject, signal } from "@angular/core";
+import { HttpClient } from "@angular/common/http";
+
+type Order = { id: number; total: number };
+
+@Injectable({ providedIn: "root" })            // one instance for the app: a singleton
+export class OrderService {
+  private http = inject(HttpClient);
+  getOrders() { return this.http.get<Order[]>("/api/orders"); }   // an Observable
+}
+
+@Component({
+  selector: "app-orders",
+  template: `@for (o of orders(); track o.id) { <li>{{ o.id }}: {{ o.total }}</li> }`,
+})
+export class OrdersComponent {
+  orders = signal<Order[]>([]);
+  constructor() { inject(OrderService).getOrders().subscribe((o) => this.orders.set(o)); }
+}
+```
+
+Templates use Angular's own syntax (`track` is Angular's `key`) and are compiled ahead of time.
+
+**RxJS observables** are Angular's async currency. Unlike a promise, an **Observable** is *lazy* (no request until someone subscribes), emits *many* values over time, and is *cancellable* (unsubscribing aborts the request). Operators compose streams, as in the classic search box:
+
+```typescript
+import { Subject, debounceTime, distinctUntilChanged, from, switchMap } from "rxjs";
+
+const searchTerms = new Subject<string>();     // the input's (input) handler calls searchTerms.next(text)
+
+searchTerms.pipe(
+  debounceTime(300),                            // wait for a 300 ms pause in typing
+  distinctUntilChanged(),                       // skip a term equal to the previous one
+  switchMap((term) => from(searchApi(term))),   // a new term drops the previous request
+).subscribe((results) => render(results));
+```
+
+`switchMap` unsubscribes from the previous request when a new term arrives, so a slow response for an old term can never overwrite a newer one: the race in this chapter's exercise, solved by one operator. The costs are a steep learning curve and a new kind of leak, a subscription that outlives its component (the `async` pipe and `takeUntilDestroyed()` exist for that).
+
+**Change detection** is how Angular knows when to update the DOM. For most of Angular's life, **zone.js** patched the browser's async APIs (timers, events, promises, XHR) so Angular heard about every callback and then re-checked templates: no need to say what changed, at the cost of checking far more often than necessary. Modern Angular uses **signals**, reactive values that know who reads them:
+
+```typescript
+import { computed, signal } from "@angular/core";
+
+const quantity = signal(2);
+const price = signal(9.5);
+const total = computed(() => quantity() * price());   // remembers which signals it read
+
+console.log(total());   // 19
+quantity.set(3);        // marks total stale; nothing recomputes yet
+console.log(total());   // 28.5: recomputed on the next read
+```
+
+A template that reads a signal is updated when that signal changes. Since Angular 21, new applications are **zoneless** by default: signal updates, template event handlers, the `async` pipe and `markForCheck` trigger change detection, not zone.js. Older codebases still run on zones, often with `OnPush` to check less.
+
+## Routing and Forms in a SPA
+
+### Client-Side Routing
+
+A SPA router maps URLs to components without asking the server: on a link click it calls `preventDefault()`, changes the address bar with the **History API** (`history.pushState`, no request), and renders the route's component; Back fires a `popstate` event the router handles.
+
+Hence the classic deployment bug: navigation works, but **refreshing** `/orders/42` or opening a shared link returns **404**, because now the browser does ask the server for `/orders/42`. The server must answer unknown non-file paths with `index.html` and let the router take over. In ASP.NET Core:
+
+```csharp
+app.UseStaticFiles();                                  // the built SPA: index.html, assets/*
+app.MapControllers();                                  // /api/...
+app.Map("/api/{**rest}", () => Results.NotFound());    // unknown API paths stay 404s
+app.MapFallbackToFile("index.html");                   // everything else: let the SPA route it
+```
+
+Without the third line, a mistyped API URL also gets `index.html` with `200 OK`, and the SPA fails later with a baffling JSON parse error instead of a clean 404 (checked against ASP.NET Core 10). **Route guards are UX, not security**: hiding `/admin` in the router stops nobody calling `/api/admin`. And SPA navigation does not move focus or announce the new page as a full load does ([Chapter 34](#chapter-34-frontend-and-full-stack-in-depth) has the fix).
+
+### Forms in a SPA
+
+A **controlled** React input keeps its value in state (`value={email}` plus an `onChange`), so you can validate on every keystroke; an **uncontrolled** one keeps it in the DOM and you read it on submit with `FormData`. Angular has *template-driven* and *reactive* forms (a typed form model in the component); larger codebases mostly use reactive. Three backend-facing points decide whether forms feel solid:
+
+- **Validate twice, for different reasons**: on the client for instant feedback, on the server because only that one counts.
+- **Map server errors to fields.** `ValidationProblemDetails` carries an `errors` object keyed by field name; shown next to the inputs, a `400` becomes a fixable form. Agree on the field-name casing once.
+- **Expect double submits.** Disable the button while pending, and make the endpoint safe to repeat (an idempotency key, [Chapter 20](#chapter-20-distributed-systems)).
+
 ## Accessibility: The Part That Is Now Law
 
-Accessibility is the one frontend topic that has moved, in the last few years, from "good practice we should get to" into "a legal requirement with a date attached." Two things drove that.
+Accessibility has moved from "good practice we should get to" to "a legal requirement with a date attached". The **European Accessibility Act**, applicable since June 2025, obliges a broad set of consumer-facing products and services sold in the EU (e-commerce, banking, transport ticketing, e-books, telecoms) to meet accessibility requirements, with the harmonised standard EN 301 549 pointing at **WCAG 2.1/2.2 level AA**; the public sector was already covered by the Web Accessibility Directive. In the US, Section 508 covers federal procurement, and ADA litigation over inaccessible websites has been steady for a decade. So **inaccessible markup is a compliance defect, not a polish item**, and "the designer didn't specify it" stopped being an answer.
 
-The **European Accessibility Act** became applicable in June 2025. It obliges a broad set of consumer-facing products and services sold in the EU — e-commerce, banking, transport ticketing, e-books, telecoms — to meet accessibility requirements, with the harmonised standard EN 301 549 pointing at **WCAG 2.1/2.2 level AA**. Public-sector bodies in the EU were already covered by the Web Accessibility Directive; the EAA extends it to the private sector. In the US, Section 508 covers federal procurement, and ADA litigation over inaccessible websites has been a steady feature of the landscape for a decade.
-
-The practical consequence for a backend-leaning developer who occasionally builds UI: **inaccessible markup is now a compliance defect, not a polish item**, and "the designer didn't specify it" stopped being an answer.
-
-### WCAG, and how to actually think about it
+### WCAG, and How to Actually Think About It
 
 WCAG is organised under four principles — the **POUR** acronym — and they are worth knowing as a reasoning tool rather than a checklist:
 
@@ -3451,11 +4145,9 @@ WCAG is organised under four principles — the **POUR** acronym — and they ar
 
 Conformance comes in levels A, AA, AAA. **AA is the target** — it is what the regulations reference, and AAA includes requirements (like 7:1 contrast) that are not achievable for most designs.
 
-WCAG 2.2 added a handful of criteria worth knowing because they catch modern UI patterns: focus must not be entirely hidden behind sticky headers, drag operations need a single-pointer alternative, click targets need a minimum size, and users must not be forced to re-enter information they already gave you in the same process.
+### Semantic HTML First, ARIA Second
 
-### Semantic HTML first, ARIA second
-
-Almost every accessibility bug I have seen in a .NET shop's UI comes from the same root cause: a `<div>` with a click handler doing the job of a `<button>`.
+Almost every accessibility bug in a .NET shop's UI comes from the same root cause the HTML section warned about: a `<div>` with a click handler doing the job of a `<button>`.
 
 ```html
 <!-- Not focusable, not keyboard-operable, no role, no state.
@@ -3475,7 +4167,7 @@ This is why the **first rule of ARIA** is: don't use ARIA. If a native element o
 
 Reach for ARIA when you genuinely have no native equivalent: a tab set, a combobox with an autocomplete listbox, a tree view, a live region for asynchronous status. And when you do, follow the **ARIA Authoring Practices Guide** patterns exactly — including the keyboard interaction table, which is the part people skip and the part users notice.
 
-### Keyboard operability and focus
+### Keyboard Operability and Focus
 
 Test this today, on the app you are working on: put your mouse down and try to complete your primary user journey. This single exercise finds most of the serious problems.
 
@@ -3487,7 +4179,7 @@ What to look for:
 - **Skip links.** A "skip to main content" link as the first focusable element saves keyboard users from tabbing through forty navigation items on every page.
 - **No focus traps you didn't intend** — the classic being an embedded third-party widget you can Tab into but not out of.
 
-### Forms, where it matters most
+### Forms, Where It Matters Most
 
 Forms are where inaccessible UI stops being an inconvenience and starts costing people money.
 
@@ -3507,29 +4199,92 @@ The rules that carry most of the weight: every input has a real `<label>` (place
 
 For asynchronous validation and status messages, an `aria-live="polite"` region announces changes without stealing focus. Use it sparingly and only for genuine status; a live region on a chat log that fires on every keystroke is a torture device.
 
-### Testing it
-
-Automated checking is genuinely useful and genuinely limited, and knowing the ratio matters. Rules-based tools like **axe-core** reliably catch missing alt text, insufficient contrast, unlabelled inputs, duplicate IDs, and invalid ARIA — which is a real slice of the problem, and exactly the slice that regresses silently. Published analyses consistently put automated coverage at **roughly 30–40% of WCAG issues**. The rest — is the alt text *meaningful*, is the focus order *logical*, does the error message actually help, is this custom widget usable with a screen reader — requires a human.
-
-So run both:
-
-- **In CI**, axe-core against your key pages, failing the build on new violations. The wiring is in Chapter 25.
-- **By hand, periodically**: the keyboard-only pass described above, a zoom-to-200% pass, and a screen reader pass (NVDA on Windows is free; VoiceOver ships on macOS). Half an hour with a screen reader on your own product is the most effective accessibility training available, and it is uncomfortable in a way that changes how you write markup afterwards.
+How to test all of this, automatically in CI and by hand with a keyboard and a screen reader, is in [Chapter 34](#chapter-34-frontend-and-full-stack-in-depth).
 
 > **Best practice.** Fix accessibility in your shared components, not in your pages. A design system where the `Button`, `Modal`, `Field` and `Table` components are correct once means hundreds of screens are correct by default — and it turns accessibility from a per-feature tax into a solved infrastructure problem. This is the same leverage argument as any other cross-cutting concern in this book.
 
-@@SRC: old Chapter 29: Frontend & Full-Stack for .NET Developers@@
+## Tooling: npm, package.json, Lockfiles and Vite
+
+Browsers cannot run TypeScript or JSX, so a toolchain sits between your source and the browser; when "it builds on my machine" fails in CI, look here.
+
+### npm, package.json and the Lockfile
+
+**npm** is NuGet's counterpart. **`package.json`** holds `scripts` (`npm run dev`, `npm test`), `dependencies` (shipped in the bundle) and `devDependencies` (build and test tools). Versions are semver ranges, a caret by default: `"^19.2.0"` is any 19.x from 19.2.0 up, `"~19.2.0"` is 19.2.x only. A range is a policy, not a version: two installs a week apart can differ.
+
+The **lockfile**, `package-lock.json`, records the exact version and integrity hash of every package in the tree. Commit it. `npm install` may update it; **`npm ci`**, for CI and Docker, deletes `node_modules`, installs exactly the lockfile, and fails if it disagrees with `package.json` ([Chapter 27: Lockfiles](#lockfiles) compares NuGet).
+
+> **Pitfall.** A small app pulls in hundreds of transitive packages, and install scripts run arbitrary code on the machine that installs them, including a CI runner with secrets. Commit the lockfile, build with `npm ci`, take `npm audit` seriously, and review what a new dependency brings ([Chapter 27](#chapter-27-security-in-depth-and-the-supply-chain)).
+
+### Vite: Dev Server and Build
+
+A **bundler** walks the import graph, compiles TypeScript and JSX, drops unused exports and emits a few optimised files. **Vite** is the current default for new React and Vue projects (Angular's CLI uses Vite and esbuild internally), in two modes:
+
+- **`vite` (dev server)** doesn't bundle: it serves source as native ES modules, compiling each file when requested, and **hot module replacement** swaps just the edited module into the running page.
+- **`vite build`** bundles with Rolldown (Vite 8; earlier versions used Rollup): tree-shaking, minification, chunks, and **content-hashed file names** (`index-4f9a1c.js`), so assets can be cached forever while `index.html` never is.
+
+Two features matter at the boundary with your API:
+
+```javascript
+// vite.config.js
+import { defineConfig } from "vite";
+
+export default defineConfig({
+  server: {
+    proxy: { "/api": "http://localhost:5080" },   // dev server forwards /api to Kestrel
+  },
+});
+```
+
+The **dev proxy** gives the browser one origin in development: `/api` calls go to `localhost:5173` and Vite forwards them to Kestrel, so no CORS is needed and the code uses production's relative URLs.
+
+**Environment variables** are compiled in: only `VITE_`-prefixed ones reach client code (`import.meta.env.VITE_API_URL`), written into the bundle **at build time**. So they are public (never a secret), and the bundle is tied to one environment; to promote one artifact through environments ([Chapter 13](#chapter-13-git-and-cicd)), fetch a `config.json` at start-up instead.
+
+## XSS from the Front End
+
+The server's side is in [Chapter 12: Cross-Site Scripting (XSS)](#cross-site-scripting-xss). From the browser's side: **XSS happens when attacker-controlled text reaches a place where the browser interprets text as code**, a *sink*:
+
+- HTML parsing: `innerHTML`, `outerHTML`, `insertAdjacentHTML`, `document.write`.
+- URLs that execute: `href` or `src` set to `javascript:…`.
+- Code from strings: `eval`, `new Function`, `setTimeout("string")`.
+- Inline event-handler attributes: `onerror="…"`, `onclick="…"`.
+
+Frameworks are safe **by default** because their normal path avoids sinks: JSX `{text}` becomes a **text node**, never parsed, and Angular *sanitizes* values bound into HTML or URL contexts. The danger is the escape hatches:
+
+```tsx
+function Comment({ text }: { text: string }) {
+  return <p>{text}</p>;   // text becomes a text node: markup in it is shown, never parsed
+}
+
+function CommentUnsafe({ html }: { html: string }) {
+  return <p dangerouslySetInnerHTML={{ __html: html }} />;   // parsed as HTML: an XSS sink
+}
+```
+
+Given `<img src="x" onerror="alert(1)">`, the first shows the characters; the second creates a real `<img>` whose `onerror` runs. Angular's escape hatch is `DomSanitizer.bypassSecurityTrustHtml`. React 19 replaces a `javascript:` URL in `href` with one that throws (older versions only warned); still check user-built URLs for `http:`/`https:`. If you must render user HTML (Markdown, rich text), sanitize it with a maintained library such as DOMPurify, never a regex. Tokens kept out of JavaScript's reach and a **Content Security Policy** ([Chapter 34](#chapter-34-frontend-and-full-stack-in-depth)) limit what a successful injection can do.
+
+## Core Web Vitals
+
+Google's **Core Web Vitals** are three numbers for what users experience, each tied to a mechanism from this chapter:
+
+| Metric | Measures | Good | Poor | Usual causes |
+|---|---|---|---|---|
+| **LCP**, Largest Contentful Paint | Loading: when the largest image or text block in the viewport is rendered | ≤ 2.5 s | > 4 s | slow server response (your TTFB), render-blocking CSS and JS, a large hero image, a CSR app that renders nothing until its bundle runs |
+| **INP**, Interaction to Next Paint | Responsiveness: the delay from a click, tap or key press until the next frame is painted, across the whole visit | ≤ 200 ms | > 500 ms | long tasks on the main thread: heavy event handlers, big re-renders, JSON processing |
+| **CLS**, Cumulative Layout Shift | Visual stability: how much visible content moves unexpectedly | ≤ 0.1 | > 0.25 | images and embeds without dimensions, banners and ads injected above content, web fonts that change text size |
+
+INP replaced First Input Delay in 2024: FID measured only the first interaction's input delay, INP every interaction through to the next paint. A page passes when the **75th percentile** of real visits is "good" on all three. **Field data** from real users (the `web-vitals` library, Chrome's public report) is the truth; **lab data** from one Lighthouse load is reproducible but synthetic, and can't measure INP because nobody clicks. The backend's share is bigger than expected: LCP starts with your server's time to first byte, and a CSR page's LCP waits for the API call that fills it. [Chapter 34](#chapter-34-frontend-and-full-stack-in-depth) covers measuring and fixing each.
+
 ## How Much Frontend Should You Actually Learn?
 
-You are optimizing for *effectiveness at the boundary*, not for becoming a frontend engineer. A practical target for a backend-leaning senior:
+Optimize for *effectiveness at the boundary*, not for becoming a frontend engineer:
 
-- **Fluent:** HTML/CSS enough to read a component and make small changes; JavaScript/TypeScript enough to read a SPA, write a `fetch` call, and debug in browser dev tools; the network tab and the console — these are your first stop when "the frontend is broken."
-- **Deep:** the API contract. OpenAPI, generated clients, versioning, auth flows (OIDC/PKCE/BFF), CORS, SignalR. This is *your* territory and you should own it decisively.
-- **Aware:** how React/Angular/Vue structure an app (components, state, effects) at a level that lets you review PRs and design APIs that fit them well; the rendering strategies and the build pipeline conceptually.
+- **Fluent:** enough HTML, CSS, JavaScript and TypeScript to read a SPA, make small changes, write a `fetch` call and debug in DevTools; the Network tab and Console are your first stop when "the frontend is broken".
+- **Deep:** the API contract: OpenAPI, generated clients, versioning, auth flows (OIDC, PKCE, the BFF), CORS, real-time. This is *your* territory.
+- **Aware:** how React and Angular structure an app, well enough to review PRs and design APIs that fit; rendering strategies and the build pipeline conceptually.
 
-> **The single most valuable investment:** owning the contract boundary. A well-documented, versioned, typed API with clear auth turns frontend integration from a negotiation into a formality. That is where a senior backend dev creates the most cross-team leverage.
+> **The single most valuable investment:** owning the contract boundary. A documented, versioned, typed API with clear auth turns frontend integration from a negotiation into a formality.
 
-### Picking the UI stack
+### Picking the UI Stack
 
 A short decision guide:
 
@@ -3538,7 +4293,166 @@ A short decision guide:
 3. **Rich, public, ecosystem-hungry SPA with JS talent available?** React/Angular/Vue against a REST API, ideally behind a BFF.
 4. **Cross-platform desktop/mobile from one C# codebase?** MAUI, or Blazor Hybrid if reusing web UI; Avalonia if Linux desktop matters; native if platform polish is the product.
 
-There is no universally correct answer — there is the answer that fits *this* team, *this* audience, and *this* performance budget. Your job as a senior is to make that tradeoff explicitly rather than by default.
+[Chapter 34](#chapter-34-frontend-and-full-stack-in-depth) compares Blazor, rendering strategies and native clients. There is no universal answer, only the one that fits *this* team, audience and performance budget, chosen explicitly.
+
+## Sources & Further Reading
+
+- **MDN Web Docs** (developer.mozilla.org): how browsers work, `<script>`, the cascade, the execution model and microtasks, Fetch, CORS, `Set-Cookie`, storage quotas, events.
+- **React** (react.dev): state as a snapshot, rules of hooks, synchronizing with effects, rendering lists. **Angular** (angular.dev): DI, signals, zoneless, security. **RxJS** (rxjs.dev).
+- **TypeScript Handbook** (typescriptlang.org); **Vite** (vite.dev); **npm** (docs.npmjs.com): `package-lock.json`, `npm ci`.
+- **web.dev** and the **`web-vitals` README** (GitHub `GoogleChrome/web-vitals`); **WCAG 2.2** and the **ARIA Authoring Practices Guide** (w3.org).
+
+## Exercises
+
+### Find the bug
+
+This search component works in the demo. In production, users report that the results sometimes don't match what they typed, and that the page occasionally goes blank.
+
+```tsx
+import { useEffect, useState } from "react";
+
+type Product = { id: number; name: string };
+
+export function ProductSearch({ query }: { query: string }) {
+  const [results, setResults] = useState<Product[]>([]);
+
+  useEffect(() => {
+    fetch(`/api/products?q=${encodeURIComponent(query)}`)
+      .then((res) => res.json())
+      .then((data: Product[]) => setResults(data));
+  }, [query]);
+
+  return (
+    <ul>
+      {results.map((p) => <li key={p.id}>{p.name}</li>)}
+    </ul>
+  );
+}
+```
+
+Explain both symptoms by their mechanism, then fix them.
+
+<details>
+<summary>Answer</summary>
+
+**Wrong results: a race between responses.** Each `query` change starts a new request and nothing stops the old one. The user types "lap", then "laptop"; the slower "lap" response arrives *last*, its `setResults` runs last, and the list shows "lap" results under "laptop". No data race, just callback *ordering*, and an effect that starts async work without a cleanup.
+
+**Blank page: the unchecked response.** `fetch` does not reject on a `500`. The ProblemDetails body parses fine, `setResults` stores an *object*, and the next render's `results.map` throws. With no error boundary, React unmounts the whole tree. The `data: Product[]` annotation changed nothing: types are erased.
+
+The fix aborts the previous request in the cleanup (which runs before the next effect and on unmount) and checks the status:
+
+```tsx
+useEffect(() => {
+  const controller = new AbortController();
+  fetch(`/api/products?q=${encodeURIComponent(query)}`, { signal: controller.signal })
+    .then((res) => {
+      if (!res.ok) throw new Error(`Search failed: ${res.status}`);
+      return res.json();
+    })
+    .then((data: Product[]) => { setResults(data); setError(null); })
+    .catch((err) => { if (err.name !== "AbortError") setError(err.message); });
+  return () => controller.abort();   // a newer query cancels this one, and so does unmounting
+}, [query]);
+```
+
+(with an `error` state rendered as `<p role="alert">`). An `ignore` flag set in the cleanup also works, but aborting saves the server the work; debouncing reduces requests but does not fix the race. Verified in `verify/frontend/ch06`: with responses released out of order the printed component shows the old query's results and the fix the new one's; on a `500` the printed one throws `results.map is not a function` and React empties the page, while the fix shows the error.
+</details>
+
+A second one, in plain JavaScript. The toast says everything was saved, but some lines are missing from the database, and nobody sees an error.
+
+```javascript
+export async function saveAll(lines, api) {
+  lines.forEach(async (line) => {
+    await api.save(line);
+  });
+  return lines.length;
+}
+
+export async function onSaveClicked(lines, api, toast) {
+  try {
+    const count = await saveAll(lines, api);
+    toast(`Saved ${count} lines`);
+  } catch (e) {
+    toast(`Save failed: ${e.message}`);
+  }
+}
+```
+
+<details>
+<summary>Answer</summary>
+
+`forEach` calls the `async` callback per line and **ignores the promise it returns**, so `saveAll` starts every save, waits for none, and the success toast appears before anything is saved. A later failure rejects a promise nobody holds: the `try`/`catch` finished long ago, and the browser logs an unhandled rejection nobody reads. It is the JavaScript twin of C#'s `async void` ([Chapter 4](#chapter-4-async-essentials)).
+
+Keep the promises: `await Promise.all(lines.map((line) => api.save(line)))` saves concurrently and rejects if any fails; `for (const line of lines) await api.save(line);` saves one at a time, in order. Verified in the repository: the printed code toasts "Saved 2 lines" with zero saved, and a failing save yields a success toast plus an unhandled rejection; the fix toasts after both saves and reports the failure.
+</details>
+
+### What would you do
+
+The SPA team is starting a new React app against your API. Their first two requests: enable CORS with `AllowAnyOrigin()` "because the dev server runs on localhost:5173 and it's blocking us", and return the JWT in the login response body so they can keep it in `localStorage`. They need to demo on Friday.
+
+<details>
+<summary>How a senior engineer reasons about it</summary>
+
+Separate the problem from the requested solution. The first problem is local development across two origins, which Vite's dev proxy solves better than CORS. In production, one host needs no CORS; otherwise configure the real origins per environment, never a wildcard on an authenticated API.
+
+The second request is a security decision dressed up as a convenience, so it deserves a short conversation, not a silent yes or no. A token in `localStorage` is readable by every script on the origin, including a compromised dependency; offer the BFF with an `HttpOnly` cookie at its realistic cost, and if Friday really can't wait, agree on what is temporary and write it down with a date.
+
+What makes the answer senior is that the team leaves unblocked, with a working setup today, and the decision about tokens made explicitly by the people who own the risk rather than by default.
+</details>
+
+### Go check
+
+On the SPA your API serves, answer from the browser and the code, not from memory:
+
+- Filter DevTools' Network tab by `OPTIONS`: how many preflights per page load, and do they carry `Access-Control-Max-Age`? Could SPA and API share an origin?
+- Run Lighthouse on the slowest important page. What is the LCP element, and how much of LCP is your server's time to first byte?
+- Search the frontend for `dangerouslySetInnerHTML`, `innerHTML`, `bypassSecurityTrust` and `eval(`. Where does each one's data come from?
+- Is `package-lock.json` committed, does CI use `npm ci`, and is any `VITE_` variable a secret?
+- Refresh on a deep link like `/orders/42`, and request a non-existent `/api/...` URL: do you get the page and a 404?
+
+## Interview Questions
+
+**What happens between typing a URL and seeing the page?**
+DNS, TCP, TLS and HTTP ([Chapter 5](#chapter-5-http-and-web-apis)); then DOM (incremental), CSSOM (render-blocking), scripts (classic ones block the parser), layout, paint, composite. Later DOM changes re-run part of it.
+
+**`==` versus `===`?**
+`===` never converts types; `==` coerces first, with rules that aren't even transitive. Use `===`; `x == null` is the one common exception.
+
+**Red flag:** "`===` compares references and `==` compares values." Both compare objects by reference; the difference is coercion.
+
+**How is `this` determined?**
+By the call: `obj.f()` gives `obj`, a plain call `undefined` in strict mode, `new` the new object, `bind` a fixed value; arrow functions use the surrounding `this`. A method passed as a callback loses it.
+
+**Explain the event loop. Which runs first: a `setTimeout(…, 0)` callback or a resolved promise's `then`?**
+One task runs to completion, then all microtasks, then rendering, then the next task. Promise callbacks are microtasks, timers are tasks, so `then` runs first.
+
+**Red flag:** "`await` moves the work to a background thread." There is one thread; `await` only stops a function from blocking it while it waits, and CPU work still freezes the page.
+
+**`Promise.all` versus `Task.WhenAll`?**
+`Promise.all` rejects on the first failure while the others keep running unobserved; `Task.WhenAll` waits for all. `Promise.allSettled` is the wait-for-everything shape.
+
+**How does TypeScript's type system differ from C#'s?**
+Structural, not nominal; erased at run time, so `as` checks nothing and API data needs validation or a generated client.
+
+**When does the browser send a CORS preflight, and what does a CORS error mean?**
+For cross-origin requests a plain form couldn't send (other methods, `Authorization`, JSON). A CORS error means the browser withheld the response; a simple request already ran on the server.
+
+**Where should a SPA keep its access token?**
+Not in `localStorage`, readable by every script on the origin; prefer a BFF with an `HttpOnly` cookie.
+
+**Why doesn't mutating state re-render in React, and why can't hooks be conditional?**
+React compares the new state to the old with `Object.is`, so a mutated array passed back is "unchanged". Hooks are matched to their slots by call order, so a conditional hook shifts every slot after it.
+
+**How do Angular's change detection and observables differ from React?**
+React re-renders on a setter call. Angular used zone.js to re-check after every async callback; since v21 it is zoneless by default, driven by signals. Observables are lazy, multi-value and cancellable.
+
+**Why do frameworks prevent XSS by default, and how does it come back?**
+`{text}` becomes a text node, never parsed as HTML. It comes back through `dangerouslySetInnerHTML`, `innerHTML`, `bypassSecurityTrustHtml`, `javascript:` URLs and `eval`.
+
+**What are the Core Web Vitals?**
+LCP ≤ 2.5 s, INP ≤ 200 ms, CLS ≤ 0.1, at the 75th percentile of real visits. Lighthouse is lab data and cannot measure INP.
+
+**Red flag:** "Lighthouse says 98, so performance is fine." One synthetic load is not your users.
 
 
 ---
@@ -10592,7 +11506,7 @@ _⏱️ Estimated read time: ~5 min · 1435 words (study pace)_
 
 # Part 2: Middle → Senior
 
-_⏱️ Estimated read time: ~5 min · 269 words (study pace)_
+_⏱️ Estimated read time: ~5 min · 620 words (study pace)_
 
 > **What Part 2 makes you able to do.** Explain why the platform behaves the way it does under load, keep data and messages consistent across services and over time, choose an architecture and defend its trade-offs, run what you build in production and in the cloud, build with and around AI, and make the decisions a team trusts a senior with: what to build, what to defer, and what to write down.
 
@@ -10608,7 +11522,36 @@ Before an interview, reread [Part 2 · Pay Attention To](#part-2-pay-attention-t
 
 ## The Chapters of Part 2
 
-{TABLE}
+| Chapter | | Reading |
+|---|---|---|
+| 17 | [Runtime Internals and Performance](#chapter-17-runtime-internals-and-performance) | 1 h |
+| 18 | [Data in Depth](#chapter-18-data-in-depth) | 1 h |
+| 19 | [The Slow-Query Lab — Reading Execution Plans](#chapter-19-the-slow-query-lab-reading-execution-plans) | 40 min |
+| 20 | [Distributed Systems](#chapter-20-distributed-systems) | 1 h 15 min |
+| 21 | [Architecture](#chapter-21-architecture) | 30 min |
+| 22 | [API Evolution, Real-Time and Serialization](#chapter-22-api-evolution-real-time-and-serialization) | 50 min |
+| 23 | [System Design](#chapter-23-system-design) | 10 min |
+| 24 | [Working with Legacy & Brownfield Code](#chapter-24-working-with-legacy-brownfield-code) | 35 min |
+| 25 | [Observability and Testing at Scale](#chapter-25-observability-and-testing-at-scale) | 1 h 5 min |
+| 26 | [Delivery and Platform](#chapter-26-delivery-and-platform) | 1 h 15 min |
+| 27 | [Security in Depth and the Supply Chain](#chapter-27-security-in-depth-and-the-supply-chain) | 45 min |
+| 28 | [Cloud Fundamentals — AWS & Azure](#chapter-28-cloud-fundamentals-aws-azure) | 30 min |
+| 29 | [Azure in Depth for .NET Developers](#chapter-29-azure-in-depth-for-net-developers) | 1 h 35 min |
+| 30 | [The Azure Casebook — Real Incidents, Real Fixes](#chapter-30-the-azure-casebook-real-incidents-real-fixes) | 55 min |
+| 31 | [Compliance, Data Privacy & Cloud Cost (FinOps)](#chapter-31-compliance-data-privacy-cloud-cost-finops) | 30 min |
+| 32 | [The AI-Native Developer — Thriving in the AI Era](#chapter-32-the-ai-native-developer-thriving-in-the-ai-era) | 1 h |
+| 33 | [Building AI-Powered Systems](#chapter-33-building-ai-powered-systems) | 1 h 15 min |
+| 34 | [Frontend and Full-Stack in Depth](#chapter-34-frontend-and-full-stack-in-depth) | 45 min |
+| 35 | [Production Incidents](#chapter-35-production-incidents) | 1 h 25 min |
+| 36 | [Senior Behaviours, Career and Interviews](#chapter-36-senior-behaviours-career-and-interviews) | 25 min |
+| 37 | [The Story Bank & Evidence Portfolio](#chapter-37-the-story-bank-evidence-portfolio) | 55 min |
+| 38 | [Having a Point of View](#chapter-38-having-a-point-of-view) | 1 h 5 min |
+| 39 | [Discovery and Diagnosis](#chapter-39-discovery-and-diagnosis) | 55 min |
+| 40 | [Lab — The .NET Health Check](#chapter-40-lab-the-net-health-check) | 35 min |
+| 41 | [Recommendations, Proposals and Estimates](#chapter-41-recommendations-proposals-and-estimates) | 1 h |
+| 42 | [The Advisory Casebook](#chapter-42-the-advisory-casebook) | 1 h |
+| 43 | [Positioning and Public Proof](#chapter-43-positioning-and-public-proof) | 1 h 5 min |
+| 44 | [Capstone — One Project, Growing Up](#chapter-44-capstone-one-project-growing-up) | 5 min |
 
 
 ---
@@ -21974,103 +22917,381 @@ The recurring theme across this chapter: an LLM is a powerful but unreliable com
 
 # Chapter 34: Frontend and Full-Stack in Depth
 
-_⏱️ Estimated read time: ~10 min · 2086 words (study pace)_
+_⏱️ Estimated read time: ~45 min · 7450 words (study pace)_
 
-@@TODO: write this chapter's introduction (what it makes the reader able to do, how its sections connect), then remove every @@ line.@@
+[Chapter 6: Frontend Essentials](#chapter-6-frontend-essentials) gave you the browser's mechanisms: the rendering pipeline, the event loop, React's render-and-effect model, CORS and cookies from the browser's side. This chapter is about the decisions a senior full-stack developer makes on top of them, usually for a team: where HTML gets rendered, where state lives and how it is cached, what makes a frontend slow and how to prove it is fast, how to test a UI without a flaky suite, how to keep injected script from running, and how a SPA should authenticate against your API.
 
-@@SRC: old Chapter 3: ASP.NET Core & Web APIs@@
-## A Brief Note on Blazor
+The first half is frontend architecture: rendering strategies, state management at scale, performance in depth, testing, and Content Security Policy. The second half is the full-stack boundary seen from the .NET side: SPA authentication and the Backend-for-Frontend, REST versus GraphQL, file uploads, the browser end of SignalR, then Blazor and native clients for when the UI itself is C#, and accessibility in depth. As in Chapter 6, the JavaScript and TypeScript samples run in the repository (`verify/frontend/ch34`), except the few that need a real browser or a running server, which say so.
 
-**Blazor** lets you build interactive web UIs in C# instead of JavaScript. **Blazor Server** runs your components on the server and streams UI diffs to the browser over a SignalR connection — tiny download, but every interaction is a round-trip and each user holds a stateful connection. **Blazor WebAssembly** runs the .NET runtime in the browser and calls your API like any SPA would — offline-capable, at the cost of a larger initial download. From this chapter's perspective, Blazor is just another consumer of your APIs or another host in your pipeline; Chapter 29 covers the render models, JS interop, and when to choose Blazor over a JavaScript SPA.
+## Rendering Strategies: CSR, SSR, SSG, Streaming and Hydration
 
-> **Capstone tie-in:** This chapter is exercised by ShopCore Step 1 (The Honest Monolith) — you'd build a single ASP.NET Core Web API exposing CRUD-plus-checkout endpoints for products, carts, and orders. See Chapter 32.
+Where the HTML is produced decides what the user sees first, how much JavaScript they must download before the page works, and what your servers do per request. Five terms come up in every architecture meeting.
 
-@@SRC: old Chapter 29: Frontend & Full-Stack for .NET Developers@@
+- **CSR (client-side rendering).** The server sends a near-empty HTML shell and a JavaScript bundle; the browser downloads and runs the bundle, which fetches data from your API and builds the DOM. Hosting is static and cheap. The user stares at a blank or skeleton screen until all of that has happened, and a crawler that doesn't run JavaScript sees nothing.
+- **SSR (server-side rendering).** The server runs the components for each request and sends real HTML, so content appears on the first paint. The same JavaScript then loads in the browser to make the page interactive. Every request costs server CPU, and the server needs the data before it can send the page.
+- **SSG (static site generation).** The components run once, *at build time*, and the HTML is deployed as static files to a CDN. The fastest possible first byte, but the content is as old as the last build. Incremental variants re-generate pages on a schedule or on demand.
+- **Streaming SSR.** Instead of waiting for the slowest data before sending anything, the server flushes HTML in chunks as each part is ready: the header and layout go out immediately, a slow product list follows when its query finishes, with a placeholder until then. React does this with `<Suspense>` boundaries on the server; Blazor's static SSR has *streaming rendering* for the same purpose.
+- **Hydration** is the step that turns server-rendered HTML into a working app: the client-side JavaScript runs the same components again, walks the existing DOM, and attaches event handlers and state to it instead of creating new nodes.
+
+```text
+           first byte   content visible           interactive
+ CSR       fast ──────► after JS download+run+fetch ─► same moment
+ SSR       after data ─► on first paint ────────────► after JS download + hydration
+ SSG       fastest ────► on first paint ────────────► after JS download + hydration
+ Streaming fast ──────► shell first, parts as ready ─► per part, as each hydrates
+```
+
+> **Pay attention.** **Why SSR can look done and not respond to clicks.** With SSR the page *looks* ready on the first paint, but nothing is wired up until the JavaScript has downloaded, parsed and hydrated, which on a mid-range phone can take seconds. A click in that window does nothing, or is replayed later. So SSR improves LCP but does not, by itself, improve INP or reduce the JavaScript bill; it moves the cost. The mechanisms that do reduce it ship less JavaScript: *islands* (only interactive parts hydrate; the rest stays static HTML), React Server Components (components that run only on the server and send no JavaScript), and Blazor's static SSR with per-component interactivity.
+
+Hydration has a correctness rule too: the client's first render must produce exactly the HTML the server produced. Anything that differs between the two environments breaks it:
+
+```tsx
+function LastUpdated() {
+  return <p>Updated at {new Date().toISOString()}</p>;   // a different value on server and client
+}
+```
+
+Rendered on the server at 10:00:00 and hydrated two seconds later, the text no longer matches. React reports a *hydration mismatch* as a recoverable error, throws away the server's HTML for that part and renders it again on the client, so you pay for the server render and the client render, and the content flickers (the repository's test shows the error and the client value replacing the server's). The usual culprits are times and dates (including time zones), random IDs, `window` or `localStorage` checks during render, and locale-dependent formatting. The fix is to render the same thing in both places, by passing the server's value down as data, or to render the environment-specific part only after hydration in an effect. `suppressHydrationWarning` silences a single unavoidable case, such as a timestamp, and React does not patch the text in that case.
+
+| Content | Strategy |
+|---|---|
+| Marketing pages, docs, blog: public, changes rarely | SSG (with incremental regeneration if it changes daily) |
+| Public, SEO-relevant, per-request data (product pages, search results) | SSR, streaming if some data is slow |
+| Logged-in dashboard or line-of-business app | CSR is fine: nobody crawls it and interactivity dominates |
+| Mostly static page with a few interactive widgets | Islands, or Blazor static SSR with interactive components |
+
+> **Best practice.** Choose per route, not per company. A meta-framework (Next.js, Nuxt, Angular's SSR, Blazor Web Apps) lets the marketing pages be static, the product pages server-rendered and the account area client-rendered in one codebase. And measure before and after: SSR's server cost and hydration cost are real, so the decision belongs to LCP and INP numbers from real users, not to fashion.
+
+## State Management at Scale
+
+Most "state management" arguments mix two different kinds of state, and they need different tools.
+
+- **Server state** is a client-side *copy* of data the server owns: the order list, the user's profile, today's prices. It can be out of date the moment it arrives, other users change it, and it must be fetched, cached, deduplicated, refreshed and invalidated. This is a caching problem, the same one [Chapter 18](#chapter-18-data-in-depth) discusses on the server.
+- **Client state** exists only in the browser: which modal is open, the text in a half-filled form, the selected tab, a theme. It is owned by the UI, never stale, and usually local to a component.
+
+Hand-written server state, a `useEffect` that fetches into `useState`, is where most SPA bugs live: the race from Chapter 6's exercise, a missing loading or error state, two components that each fetch the same list, a list that never refreshes after an edit. **Data-fetching libraries** treat server state as a cache keyed by a *query key*. TanStack Query (React, Vue and others), SWR, RTK Query and Angular's resource APIs all work on this principle:
+
+```tsx
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+
+type Order = { id: number; status: string };
+
+function useOrders() {
+  return useQuery({
+    queryKey: ["orders"],                       // the cache key: same key, same cache entry
+    queryFn: async (): Promise<Order[]> => {
+      const res = await fetch("/api/orders");
+      if (!res.ok) throw new Error(`Orders failed: ${res.status}`);
+      return res.json();
+    },
+    staleTime: 30_000,                          // fresh for 30 s: no refetch on mount or focus
+  });
+}
+
+function OrderCount() {
+  const { data, isPending, error } = useOrders();
+  if (isPending) return <p>Loading…</p>;
+  if (error) return <p role="alert">{error.message}</p>;
+  return <p>{data.length} orders</p>;
+}
+
+function CancelButton({ id }: { id: number }) {
+  const queryClient = useQueryClient();
+  const cancel = useMutation({
+    mutationFn: () => fetch(`/api/orders/${id}/cancel`, { method: "POST" }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["orders"] }),  // refetch the list
+  });
+  return <button onClick={() => cancel.mutate()} disabled={cancel.isPending}>Cancel</button>;
+}
+```
+
+The mechanism, as the repository's tests show it: two `OrderCount` components mounted together send **one** request, because both subscribe to the `["orders"]` entry; a third mounted within `staleTime` is served from the cache with no request; and the cancel mutation marks the entry stale, which refetches it for every subscriber. The library also handles what hand-written code forgets: request cancellation when a query is no longer needed, retries, and the loading and error states.
+
+Its defaults are deliberately aggressive, and they explain the "why does it call my API so often" question you will get from the backend side. Cached data is **stale immediately** (`staleTime` 0), and stale queries refetch in the background when a new component mounts, when the window regains focus, and when the network reconnects; inactive entries are garbage-collected after 5 minutes; failed queries retry 3 times with exponential backoff. Every one of those refetches is a request to your API. Setting `staleTime` per query, from how often the data really changes, is the single most effective way to cut that traffic, and an API that sends `ETag`s lets the refetches that remain be cheap `304`s.
+
+For client state, start with the simplest place that works and move up only when a real problem appears:
+
+| Client state shared by | Put it in |
+|---|---|
+| One component | `useState` (Angular: a signal in the component) |
+| A parent and a few children | Lift it to the parent, pass props down |
+| A whole subtree, changing rarely (theme, current user, locale) | React context (Angular: a service) |
+| Many distant components, changing often | A store: Redux Toolkit, Zustand; in Angular, a signal-based service or NgRx |
+| Anything that should survive a reload or be shareable | The URL: route parameters and query string |
+
+Context has a cost that decides the fourth row: every component that reads a context re-renders when its value changes, so a frequently changing value in a context near the root re-renders much of the app. Stores let each component subscribe to just the slice it reads. And the URL is underused state storage: filters, sort order, the selected tab and pagination belong in the query string, so Back, Refresh and a shared link all work.
+
+> **Pitfall.** Copying server data into a global store "so every component can see it" recreates the cache problem by hand, without invalidation: the store holds whatever was fetched first, and every mutation must remember to update it. Keep server state in the data-fetching cache and client state in the store, and the store usually turns out to be small.
+
+## Frontend Performance in Depth
+
+[Chapter 6: Core Web Vitals](#core-web-vitals) defined the three numbers. This section is about what moves them, and how to show that a change did.
+
+### Bundle Size Is Main-Thread Time
+
+JavaScript is the most expensive byte on the web. An image is downloaded and decoded, mostly off the main thread. A script is downloaded, then **parsed, compiled and executed on the main thread**, the same thread that handles input and rendering. A large bundle therefore costs twice: it delays the first render of a CSR app (LCP) and it occupies the main thread while users try to interact (INP). Compression helps the download; it does nothing for parse and execution, which scale with the uncompressed size.
+
+Three habits keep the bundle honest:
+
+- **Look at it.** A bundle visualiser for your bundler (for Vite, `rollup-plugin-visualizer` works because Vite's plugin API follows Rollup's) shows which packages take the space. The usual finds: a date or utility library imported whole, two versions of the same dependency, a charting or editor library on every page.
+- **Help tree-shaking.** The bundler can drop unused exports only from ES modules whose imports have no side effects. CommonJS packages, and packages without `"sideEffects": false` in their `package.json`, are often included whole. Import the specific function (`import debounce from "lodash-es/debounce"`), not the namespace.
+- **Set a budget and enforce it in CI.** A size limit per entry chunk, checked on every pull request, catches the 300 KB dependency in review rather than in production.
+
+### Code Splitting
+
+Most users never visit most routes, so most of the code should not be in the first download. A dynamic `import()` tells the bundler "this module, and what only it needs, goes into a separate chunk, fetched when this line runs". React's `lazy` connects that to rendering, and `<Suspense>` shows a fallback while the chunk loads:
+
+```tsx
+import { lazy, Suspense } from "react";
+
+const ReportsPage = lazy(() => import("./ReportsPage"));   // its own chunk, fetched on first render
+
+function App({ route }: { route: string }) {
+  return (
+    <Suspense fallback={<p>Loading…</p>}>
+      {route === "/reports" ? <ReportsPage /> : <p>Home</p>}
+    </Suspense>
+  );
+}
+```
+
+The repository's tests show both halves: rendering the home route never loads the `ReportsPage` module, and the first render of `/reports` shows the fallback, loads the module, then renders the page; and a production `vite build` of this app emits `ReportsPage` as a separate chunk with a content hash in its file name. Angular does the same with `loadComponent: () => import(...)` in a route definition. Split by route first: it is the natural boundary and the one routers support directly. The trade-off is a request on first navigation to a route; preloading the likely next chunk on hover or when the browser is idle hides it.
+
+### Images, Fonts and Caching
+
+Images are usually the LCP element, and they cause most layout shift.
+
+- **Give every image its dimensions** (`width` and `height` attributes, or a CSS `aspect-ratio`), so the browser reserves the space before the file arrives. This alone fixes most CLS.
+- **Serve the right size and format.** `srcset` and `sizes` let the browser pick a file for the viewport and pixel density; AVIF and WebP are much smaller than JPEG and PNG for photos.
+- **Lazy-load below the fold, never the LCP image.** `loading="lazy"` defers off-screen images, which is right for a product grid and wrong for the hero image, which should instead get `fetchpriority="high"` so it is requested before less important resources.
+- **Fonts**: a web font that arrives late either hides text or swaps it, changing its size; `font-display` chooses between the two, and preloading the one font the first screen needs shortens the wait.
+
+```html
+<img src="/img/hero-1200.avif" srcset="/img/hero-800.avif 800w, /img/hero-1200.avif 1200w"
+     sizes="100vw" width="1200" height="600" fetchpriority="high" alt="Spring collection">
+<img src="/img/p-42.webp" width="300" height="300" loading="lazy" alt="Linen shirt, blue">
+```
+
+Caching is where the backend makes the frontend fast. Vite's content-hashed file names mean an asset's URL changes whenever its content does, so assets can be cached for a year as `immutable`, while `index.html`, which references the current hashes, must be revalidated on every load. Get it the wrong way round and users run yesterday's app until their cache expires. In ASP.NET Core, set this in the static file options (`OnPrepareResponse` lets you set `Cache-Control` per file), or at the CDN.
+
+### Fixing INP
+
+INP is the delay between an interaction and the next paint, and the cause is almost always a **long task**: JavaScript keeping the main thread busy for more than about 50 ms, so the browser cannot paint the response to the click. The tools, in the order to try them:
+
+- **Do less per interaction.** In React, a state change high in the tree re-renders everything below it; moving state down, or splitting a component so the expensive part doesn't depend on the changing state, often removes most of the work. `memo`, `useMemo` and `useCallback` skip re-rendering when inputs are unchanged, but they are a scalpel, not a default.
+- **Render less.** A table of 5,000 rows creates 5,000 rows of DOM. *Virtualisation* (react-window, TanStack Virtual, Angular CDK's virtual scroll) renders only the visible rows, and server-side pagination, your side of the API, often removes the need.
+- **Yield.** Split unavoidable long work into chunks so the browser can paint between them (Chapter 6's event-loop section), or mark a non-urgent update as a transition (React's `startTransition`) so typing stays responsive while a large list re-renders.
+- **Move it off the thread.** Parsing, sorting or crypto on large data can go to a Web Worker.
+
+### Measuring
+
+Lab tools and field data answer different questions, and senior work uses both.
+
+- **Lighthouse** (in Chrome DevTools, or Lighthouse CI on every pull request) loads the page once under simulated throttling and reports LCP, CLS, Total Blocking Time and a list of opportunities. Repeatable, so it is good for regressions; synthetic, so a score is not your users' experience, and it cannot measure INP because nobody clicks. Total Blocking Time is its stand-in for responsiveness.
+- **The DevTools Performance panel** records a trace: every task on the main thread, with long tasks flagged, layout and paint events, and which interaction was slow. This is where you find *why*.
+- **Field data** comes from your real users' browsers. The `web-vitals` library reports each metric with the element or interaction responsible; send it to an endpoint you own and aggregate the 75th percentile per page and per device class:
+
+```typescript
+import { onCLS, onINP, onLCP, type Metric } from "web-vitals";
+
+function report(metric: Metric) {
+  const body = JSON.stringify({ name: metric.name, value: metric.value, rating: metric.rating,
+                                id: metric.id, page: location.pathname });
+  navigator.sendBeacon("/api/vitals", body);   // survives the page being closed
+}
+
+onCLS(report);
+onINP(report);
+onLCP(report);
+```
+
+(This one needs a real browser's performance APIs, so the repository does not run it.) The receiving endpoint is a few lines of ASP.NET Core writing to your metrics pipeline ([Chapter 25](#chapter-25-observability-and-testing-at-scale)); Chrome's public user-experience report gives the same three numbers for public sites with enough traffic, without any code.
+
+> **Best practice.** Make one change, measure it in the field, then make the next. Frontend performance work is full of plausible changes that do nothing (or move the cost elsewhere, like SSR moving it to hydration), and the 75th-percentile field number is what users, and search ranking, see.
+
+## Frontend Testing
+
+The testing ideas from [Chapter 8: Testing](#chapter-8-testing) and the test-suite shape from [Chapter 25](#chapter-25-observability-and-testing-at-scale) apply unchanged; what differs is the tooling, and one principle that the tooling is built around.
+
+**Unit tests** cover logic with no UI: formatting, validation rules, reducers, the mapping from a ProblemDetails body to field errors. They are plain functions run by Vitest or Jest, fast and stable, and most frontend logic should be pulled out of components into such functions so it can be tested this way.
+
+**Component tests** render one component (or a small tree) into a simulated DOM, jsdom or happy-dom, act on it, and check what a user would see. **Testing Library** (for React, Angular, Vue and others) is the standard, and its principle is to test the way the user uses the page: find elements by **role and accessible name**, by label text, by visible text, never by CSS class or component internals:
+
+```tsx
+import { render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
+import { OrderList } from "./OrderList";
+
+test("cancelling an order reports that order's id", async () => {
+  const onCancel = vi.fn();
+  render(<OrderList orders={[{ id: 7, customer: "Ada", total: 12 }]} onCancel={onCancel} />);
+
+  await userEvent.click(screen.getByRole("button", { name: "Cancel" }));   // as a user would
+
+  expect(onCancel).toHaveBeenCalledWith(7);
+});
+```
+
+This is a real test of Chapter 6's `OrderList`, and it runs in the repository. `getByRole("button", { name: "Cancel" })` fails if the button becomes a `<div>` or loses its label, so the test checks accessibility as a side effect, exactly like Playwright's role locators in Chapter 25. `user-event` simulates the whole sequence a real click produces (pointer events, focus, click), where the lower-level `fireEvent` dispatches one event. Network calls are replaced at the network layer, not by mocking your own modules: stub `fetch`, or use Mock Service Worker, which intercepts requests and returns canned responses, so the component's real data-fetching code runs.
+
+> **Gotcha.** jsdom is not a browser. It has a DOM and events but no layout engine, so sizes are zero, nothing is ever "visible" by geometry, and CSS media queries don't apply. Component tests prove behaviour and markup; anything about layout, real rendering or cross-browser behaviour belongs to end-to-end tests.
+
+**End-to-end tests** drive a real browser against the running app and API. **Playwright** is the default for new work, in TypeScript on the frontend side or in C# ([Chapter 25: Playwright for .NET](#playwright-for-net) covers auto-waiting, role locators, traces and the axe-core integration, all of which are the same API in both languages):
+
+```typescript
+import { expect, test } from "@playwright/test";
+
+test("a customer can place an order", async ({ page }) => {
+  await page.goto("/products/42");
+  await page.getByRole("button", { name: "Add to basket" }).click();
+  await page.getByRole("link", { name: "Basket" }).click();
+  await page.getByRole("button", { name: "Place order" }).click();
+  await expect(page.getByRole("heading", { name: "Thank you" })).toBeVisible();
+});
+```
+
+(The repository does not run this one: it needs browsers and a deployed app.) Keep the end-to-end layer to a handful of journeys that make money or would make the news if they broke; push everything else down to component and unit tests, which are faster and fail for one reason.
+
+Two more kinds of test catch what those don't. **Contract drift** between SPA and API is best caught at compile time, by the client generated from your OpenAPI document in CI (Chapter 6), and a schema-diff step that flags breaking changes in the document itself ([Chapter 22](#api-versioning-backward-compatibility)). **Visual regression** tests (Playwright's screenshot comparison, Storybook-based services) catch the CSS change that broke a layout no assertion looks at; they need stable fonts and data, or they become the flaky suite everyone ignores.
+
+## Content Security Policy
+
+[Chapter 12: Security Headers](#security-headers) introduced CSP as the header that limits what injected script can do, and [Chapter 6: XSS from the Front End](#xss-from-the-front-end) showed how the injection happens. This is how a CSP actually works, and how to deploy one for a SPA without breaking it.
+
+**The mechanism.** A `Content-Security-Policy` response header gives the browser rules about which resources the page may load and execute: `script-src` for scripts, `style-src` for styles, `connect-src` for `fetch` and WebSocket targets, `img-src`, `frame-ancestors` for who may embed the page, and so on. Anything not allowed is blocked and reported in the console. Once a policy has a `script-src` without `'unsafe-inline'`, **inline script stops running**: `<script>` blocks without a nonce or hash, `onclick="…"` attributes, and `javascript:` URLs. Most injected XSS payloads are exactly those, so they are inert even when the injection itself succeeds.
+
+**Allowlists don't work; nonces and hashes do.** The obvious policy lists the domains you load scripts from (`script-src 'self' https://cdn.example.com …`). Research and experience show these policies are usually bypassable, because an allowed domain hosts something an attacker can abuse (an old library, a JSONP endpoint), and they grow unmaintainable. The recommended **strict CSP** trusts scripts by a per-response secret instead:
+
+```text
+Content-Security-Policy:
+  script-src 'nonce-R4nd0mPerResponse' 'strict-dynamic';
+  object-src 'none';
+  base-uri 'none'
+```
+
+A script runs only if its tag carries `nonce="R4nd0mPerResponse"`, a random value the server generates for **every response**, so an attacker who injects a `<script>` tag can't know it. `'strict-dynamic'` extends that trust to scripts loaded *by* a trusted script, which is what makes bundlers' dynamic chunks and most third-party loaders work, and it makes the browser ignore host allowlists. Instead of a nonce, a policy can list the **hash** of each allowed script (`'sha256-…'`), which suits static pages whose scripts never change.
+
+**SPAs and the nonce problem.** A nonce must be new on every response, so `index.html` can't be a static file served from a CDN. Two workable designs:
+
+- **Serve `index.html` through ASP.NET Core** and stamp the nonce into it. The server generates the nonce, sends it in the header, and writes it into the script tags of the HTML it returns. This is safe because `index.html` is your build output, not user content: stamping a nonce into HTML that contains user input would bless injected tags too.
+- **Static hosting with hashes.** Vite's build output loads the app with external module scripts and, in a typical setup, no inline script, so a hash-based or `'self'`-based policy can work from a CDN; it is weaker than `'strict-dynamic'` with nonces, but much better than none.
+
+```csharp
+app.Use(async (context, next) =>
+{
+    var nonce = Convert.ToBase64String(RandomNumberGenerator.GetBytes(16));   // new for every response
+    context.Items["csp-nonce"] = nonce;
+    context.Response.Headers.ContentSecurityPolicy =
+        $"script-src 'nonce-{nonce}' 'strict-dynamic'; object-src 'none'; base-uri 'none'";
+    await next();
+});
+
+app.MapFallback(async context =>            // index.html for every client-side route, nonce stamped in
+{
+    var html = await File.ReadAllTextAsync(Path.Combine(app.Environment.WebRootPath, "app.html"));
+    var nonce = (string)context.Items["csp-nonce"]!;
+    context.Response.ContentType = "text/html; charset=utf-8";
+    await context.Response.WriteAsync(html.Replace("<script ", $"<script nonce=\"{nonce}\" "));
+});
+```
+
+(Checked against ASP.NET Core 10: each response gets a new nonce in both the header and the script tag. The template is named `app.html` so the static-file middleware never serves it un-stamped.)
+
+**Roll it out in report-only mode.** `Content-Security-Policy-Report-Only` applies the policy without enforcing it and reports each violation, to the console and to an endpoint you declare with the `report-to` directive. Run it for a few weeks, fix or allow what legitimately breaks (an analytics snippet, a chat widget, inline styles from a component library), then switch the same policy to enforcing. Both headers can be sent at once, which is how you trial a stricter policy while the current one stays enforced.
+
+**Trusted Types** close the remaining hole, DOM XSS in your own code. With `require-trusted-types-for 'script'` in the policy, the browser refuses plain strings at the dangerous sinks (`innerHTML`, `eval`, script `src`) and accepts only values produced by a policy function you define, typically one that runs a sanitizer. Support differs between browsers (check MDN before relying on it); where it is supported, it turns "remember never to pass user text to `innerHTML`" from a code-review rule into an error.
+
+> **Pitfall.** `'unsafe-inline'` in `script-src` disables most of CSP's protection against XSS, and `'unsafe-eval'` re-enables `eval`. Both get added "temporarily" to unbreak a page and never removed. When a page breaks under the policy, find the inline script or the `eval` and move it into a file or give it a nonce; and keep an `object-src 'none'` and `base-uri 'none'` in every policy, since plugins and a hijacked `<base>` tag are classic bypasses.
+
 ## Integrating a .NET API with a JavaScript SPA — in depth
 
 ### Authentication for SPAs
 
-This is the topic most often gotten wrong. Two broad approaches:
+This is the topic most often gotten wrong. There are two broad approaches, and [Chapter 6](#cookies-localstorage-and-sessionstorage-where-browser-state-lives) showed the storage trade-off behind them.
 
-**Token-based (bearer tokens in JS).** The SPA obtains an access token (typically a JWT) and sends it in the `Authorization: Bearer` header. Simple to reason about, but the token must live somewhere in the browser. `localStorage` is readable by any JavaScript running on the page, so a single XSS vulnerability leaks it. This is the core weakness.
+**Token-based (bearer tokens in JavaScript).** The SPA obtains an access token (typically a JWT) and sends it in the `Authorization: Bearer` header. Simple to reason about, but the token must live somewhere in the browser, and anything JavaScript can read, an XSS bug or a compromised dependency can read too. That is the core weakness.
 
-**Cookie-based.** The session lives in an `HttpOnly`, `Secure`, `SameSite` cookie that JavaScript cannot read and the browser attaches automatically. Immune to token theft via XSS, but you must defend against CSRF.
+**Cookie-based.** The session lives in an `HttpOnly`, `Secure`, `SameSite` cookie that JavaScript cannot read and the browser attaches automatically. Immune to token theft through XSS, but you must defend against CSRF.
 
-For obtaining tokens, the modern standard is **OIDC (OpenID Connect) with the Authorization Code flow plus PKCE**. PKCE (Proof Key for Code Exchange) protects the code exchange for public clients that cannot keep a secret — which is every browser app. The implicit flow is deprecated; do not use it.
+For obtaining tokens, the standard is **OIDC with the Authorization Code flow plus PKCE** ([Chapter 12: Authorization Code Flow with PKCE](#authorization-code-flow-with-pkce)); the implicit flow is deprecated. The pattern now recommended for browser SPAs combines the two approaches:
 
-The pattern the industry now recommends for browser SPAs is the **Backend-for-Frontend (BFF)**:
+> **Best practice — the BFF pattern.** Put a lightweight server component (often your ASP.NET Core app) between the SPA and your APIs. The BFF performs the OIDC login as a confidential client, holds the tokens *server-side*, and gives the browser only an `HttpOnly` session cookie. The SPA never touches a token, which removes the whole class of token-exfiltration-through-XSS attacks; the IETF draft *OAuth 2.0 for Browser-Based Applications* strongly recommends this architecture for business and sensitive applications and those handling personal data.
 
-> **Best practice — the BFF pattern.** Put a lightweight server component (often your ASP.NET Core app) between the SPA and your APIs. The BFF performs the OIDC login, holds the tokens *server-side*, and issues the browser only an `HttpOnly` session cookie. The SPA never touches a token. This eliminates the entire class of token-exfiltration-via-XSS attacks and is the guidance echoed by the OAuth working group and Microsoft's own SPA samples.
+Concretely: the SPA calls `/bff/api/orders`, the cookie authenticates the request, and the BFF forwards it to the downstream API with the access token it kept. `Duende.BFF` packages this for .NET, and YARP can do the forwarding. The SPA and the BFF should share an origin, so cookies are first-party and no CORS is needed; the BFF then needs CSRF protection on its endpoints. The same IETF draft's approach is to require a custom request header: a cross-site page can only send one through a CORS preflight, which the BFF refuses. [Chapter 21: API Gateway and Backend for Frontend](#api-gateway-and-backend-for-frontend) covers the BFF as an architectural pattern beyond authentication.
 
-Concretely: the SPA calls `/bff/api/orders`, the cookie authenticates the request, and the BFF forwards it to the downstream API with the real access token it kept safely. `Duende.BFF` packages this for .NET.
+### API Shape: REST vs. GraphQL
 
-### API shape: REST vs. GraphQL
+**REST** over JSON is the default and the right choice for most systems: resource URLs, HTTP verbs, status codes, HTTP caching. **GraphQL** lets clients request exactly the fields they need in one round-trip, which shines when you have many clients with divergent data needs or deeply nested graphs. It costs you HTTP caching (most queries are `POST`s to one URL) and adds server complexity: query cost limits, N+1 resolution handled by batching data loaders, and authorization per field (`HotChocolate` is the leading .NET server). Default to REST; reach for GraphQL when over-fetching across many screens is a demonstrated problem, or put a BFF in front of REST services that shapes responses per screen.
 
-**REST** over JSON is the default and the right choice for most systems: resource URLs, HTTP verbs, status codes, cacheable. **GraphQL** lets clients request exactly the fields they need in one round-trip, which shines when you have many clients with divergent data needs or deeply nested graphs. It costs you caching simplicity and adds server complexity (`HotChocolate` is the leading .NET server). Default to REST; reach for GraphQL when field over-fetching across many screens is a demonstrated problem.
+### File Uploads
 
-### File uploads
-
-Uploads go as `multipart/form-data`, not JSON. On the server:
+Uploads go as `multipart/form-data`, not JSON; from the browser that is a `FormData` body with no hand-written `Content-Type` (Chapter 6). On the server:
 
 ```csharp
 app.MapPost("/api/upload", async (IFormFile file) =>
 {
-    await using var stream = File.Create(Path.Combine("uploads", file.FileName));
+    var name = $"{Guid.NewGuid()}{Path.GetExtension(file.FileName)}";   // never trust the client's name
+    await using var stream = File.Create(Path.Combine("uploads", name));
     await file.CopyToAsync(stream);
-    return Results.Ok(new { file.FileName, file.Length });
+    return Results.Ok(new { name, file.Length });
 }).DisableAntiforgery(); // or supply the token from the SPA
 ```
+
+The client's file name is attacker-controlled (`../../appsettings.json` is a file name too), so generate your own and keep the original only as display metadata.
 
 > **Pitfall:** Kestrel and IIS cap request body size (~28-30 MB by default). Large uploads need `RequestSizeLimit` raised, or better, a resumable/chunked strategy or a pre-signed direct-to-blob-storage upload so the file never transits your API at all.
 
 ### Real-time with SignalR
 
-Polling wastes resources. For live updates — notifications, dashboards, chat — use **SignalR**, which abstracts WebSockets (falling back to Server-Sent Events / long polling) behind a hub. Server hub:
+For live updates (notifications, dashboards, chat), SignalR pushes from server to browser over WebSockets, falling back to Server-Sent Events or long polling. The hub, groups, `IHubContext` and scaling with a backplane are in [Chapter 22: SignalR](#signalr). The browser end is the `@microsoft/signalr` npm package, and in a SPA the part to get right is the connection's lifecycle, which is an effect from [Chapter 6](#effects-and-their-dependency-arrays): open on mount, close in the cleanup.
 
-```csharp
-public class NotificationHub : Hub
-{
-    public Task Broadcast(string message) =>
-        Clients.All.SendAsync("ReceiveNotification", message);
-}
-// app.MapHub<NotificationHub>("/hubs/notifications");
-```
-
-JavaScript client (`@microsoft/signalr` from npm):
-
-```typescript
+```tsx
 import { HubConnectionBuilder } from "@microsoft/signalr";
+import { useEffect, useState } from "react";
 
-const conn = new HubConnectionBuilder().withUrl("/hubs/notifications").build();
-conn.on("ReceiveNotification", (msg: string) => showToast(msg));
-await conn.start();
+function Notifications() {
+  const [messages, setMessages] = useState<string[]>([]);
+
+  useEffect(() => {
+    const conn = new HubConnectionBuilder()
+      .withUrl("/hubs/notifications")              // same origin: the auth cookie goes along
+      .withAutomaticReconnect()
+      .build();
+    conn.on("notify", (msg: string) => setMessages((m) => [...m, msg]));
+    conn.start().catch((err) => console.error("SignalR connection failed", err));
+    return () => { conn.stop(); };                 // unmount, or StrictMode's dev re-run
+  }, []);
+
+  return <ul>{messages.map((m, i) => <li key={i}>{m}</li>)}</ul>;
+}
 ```
 
-@@SRC: old Chapter 29: Frontend & Full-Stack for .NET Developers@@
+(Not run in the repository: it needs a running hub.) Without the cleanup, every remount leaks a connection, and StrictMode's development re-run opens two. `withAutomaticReconnect` retries on a schedule, but messages sent while disconnected are lost, so a dashboard should refetch its data when the connection comes back (the `onreconnected` callback). Bearer-token APIs can't use headers on a WebSocket from the browser, so the client passes the token through `accessTokenFactory` and SignalR sends it in the query string, which the server must then read; with a BFF and a same-origin cookie, none of that is needed. (Index keys are acceptable in this list because messages are only ever appended.)
+
 ## Blazor: C# in the Browser (and on the Server)
 
-Blazor lets you build interactive web UI in C# and Razor instead of JavaScript. For a .NET team this is compelling — one language, shared models, shared validation. But "Blazor" is really a family of hosting and rendering models, and picking wrong is a common regret.
+Blazor lets you build interactive web UI in C# and Razor instead of JavaScript. For a .NET team this is compelling: one language, shared models, shared validation. But "Blazor" is really a family of hosting and rendering models, and picking wrong is a common regret. Its render modes map directly onto the rendering strategies at the start of this chapter.
 
-### The two classic models
+### The Two Classic Models
 
 **Blazor Server** runs your components on the server. The browser holds a thin JS runtime connected over a SignalR WebSocket; UI events go to the server, C# runs, and a *diff of the DOM* is sent back. Tiny download, full server power and secrets, instant startup — but every interaction is a network round-trip (latency-sensitive), and each user holds an open connection consuming server memory. It scales in the "many concurrent connections" dimension, not the "cheap stateless" dimension.
 
-**Blazor WebAssembly (WASM)** compiles the .NET runtime to WebAssembly and runs your components *entirely in the browser*, like a normal SPA. It works offline, offloads work to the client, and needs only static hosting. The cost is a larger initial download (the runtime) and no direct access to server resources — it calls your API just like a React app would.
+**Blazor WebAssembly (WASM)** runs the .NET runtime in WebAssembly and runs your components *entirely in the browser*, like a normal SPA. It works offline, offloads work to the client, and needs only static hosting. The cost is a larger initial download (the runtime) and no direct access to server resources — it calls your API just like a React app would.
 
-### .NET 8+ unified render modes
+### .NET 8+ Unified Render Modes
 
 .NET 8 unified these into one component model with per-component **render modes**, which is how you should think about Blazor today:
 
-- **Static SSR** — components render to HTML on the server with *no interactivity*. Fast, SEO-friendly, great for content pages. This made Blazor a legitimate choice for traditional server-rendered sites.
+- **Static SSR** — components render to HTML on the server with *no interactivity*: server-side rendering with no hydration at all, with optional streaming rendering for slow data. Fast, SEO-friendly, great for content pages. This made Blazor a legitimate choice for traditional server-rendered sites.
 - **Interactive Server** — the classic Blazor Server model (SignalR circuit), applied per-component.
 - **Interactive WebAssembly** — the classic WASM model, per-component.
 - **Auto** — starts with Interactive Server for a fast first load, then downloads the WASM runtime in the background and switches to client-side for subsequent visits. Best of both, at the cost of writing components that work under both (no direct server-only calls in interactive code).
 
-> **Best practice:** Default new Blazor Web apps to **Static SSR**, and opt individual components into interactivity only where you need it. Most of a typical app is display; you pay the interactivity tax only on the interactive islands.
+> **Best practice:** Default new Blazor Web apps to **Static SSR**, and opt individual components into interactivity only where you need it. Most of a typical app is display; you pay the interactivity tax only on the interactive islands, which is the islands architecture from the rendering section, in C#.
 
-### The component model
+### The Component Model
 
-A Blazor component is a `.razor` file mixing markup and C#. State is just fields; changing them and calling `StateHasChanged` (often implicit) re-renders.
+A Blazor component is a `.razor` file mixing markup and C#. State is just fields; changing them and calling `StateHasChanged` (often implicit, after an event handler) re-renders.
 
 ```razor
 @* Counter.razor *@
@@ -22083,9 +23304,9 @@ A Blazor component is a `.razor` file mixing markup and C#. State is just fields
 }
 ```
 
-`[Parameter]` properties are the inputs (like React props). Components compose, raise `EventCallback`s to parents, and share state via cascading values or injected services. The mental model is close to modern component frameworks — the difference is it is C# all the way down.
+`[Parameter]` properties are the inputs (React's props). Components compose, raise `EventCallback`s to parents, and share state via cascading values or injected services. The mental model is the one Chapter 6 taught for React — render from state, diff, patch the DOM — with C# all the way down; `@key` plays the role of React's `key` in lists.
 
-### JS interop
+### JS Interop
 
 Blazor cannot escape JavaScript entirely; the browser's APIs (geolocation, some charting libraries, `localStorage`) are JS. `IJSRuntime` bridges the gap:
 
@@ -22098,9 +23319,9 @@ Blazor cannot escape JavaScript entirely; the browser's APIs (geolocation, some 
 }
 ```
 
-Interop crosses a serialization boundary and, in WASM, JS calls are async. Use it deliberately, not as a habit — heavy interop erodes Blazor's single-language advantage.
+Interop crosses a serialization boundary and is asynchronous (in Interactive Server it is a network round-trip). Use it deliberately, not as a habit — heavy interop erodes Blazor's single-language advantage.
 
-### When Blazor fits, and when a JS SPA is better
+### When Blazor Fits, and When a JS SPA Is Better
 
 **Choose Blazor when:** your team is C#-heavy with little JS depth; you want to share DTOs and validation between client and server; it is a line-of-business app (admin panels, internal tools, dashboards) where the vast npm UI ecosystem is not decisive; and you value not context-switching languages.
 
@@ -22108,7 +23329,6 @@ Interop crosses a serialization boundary and, in WASM, JS calls are async. Use i
 
 > **Honest caveat:** Blazor WASM's runtime download and Blazor Server's latency/connection model are real constraints, not marketing footnotes. Prototype the *worst* interaction on a *realistic* network before committing an entire product to a model.
 
-@@SRC: old Chapter 29: Frontend & Full-Stack for .NET Developers@@
 ## Native Clients from C#: MAUI, Uno, Avalonia
 
 Native desktop and mobile UI is its own discipline, and a backend-leaning book does not need a deep tour of it. What you need is to recognize the three frameworks a .NET shop reaches for, because sooner or later one of them will be calling your API:
@@ -22119,14 +23339,30 @@ Native desktop and mobile UI is its own discipline, and a backend-leaning book d
 
 The senior-relevant point is that all three are *API consumers*. What they depend on is your side of the boundary: a clean, documented OpenAPI contract; token-based auth flows that work without browser cookies; resilience to flaky mobile networks; and above all versioning discipline — an installed app cannot be force-refreshed like a SPA, so old client versions will hit your API for months. Design that boundary well and the client framework is their choice, not your problem.
 
-@@SRC: old Chapter 29: Frontend & Full-Stack for .NET Developers@@
 ## Accessibility: The Part That Is Now Law — in depth
 
-### Blazor-specific pitfalls
+[Chapter 6](#accessibility-the-part-that-is-now-law) covered the law, WCAG's principles, semantic HTML before ARIA, keyboard operability and accessible forms. This section covers what changes in a SPA, how to test, and the Blazor-specific traps.
 
-Blazor generates HTML, so everything above applies unchanged. But its component model introduces two problems that catch teams out:
+WCAG 2.2 added a handful of criteria worth knowing because they catch modern UI patterns: focus must not be entirely hidden behind sticky headers, drag operations need a single-pointer alternative, click targets need a minimum size, and users must not be forced to re-enter information they already gave you in the same process.
 
-**Route changes don't announce themselves.** In a server-rendered app, navigating to a new page resets focus and the screen reader announces the new document. In an interactive Blazor app (as in any SPA), navigation swaps the DOM and focus stays wherever it was — often on a link that no longer exists. The fix is to move focus to the new page's `<h1>` after navigation and announce the change:
+### Route Changes in a SPA
+
+In a server-rendered app, navigating to a new page resets focus to the top and the screen reader announces the new document's title. In a SPA, client-side navigation swaps part of the DOM and focus stays wherever it was, often on a link that no longer exists, while nothing is announced. Keyboard and screen-reader users are left on a page that changed without telling them. The fix, in any framework: after each navigation, move focus to the new page's main heading (give it `tabindex="-1"` so it can take focus without entering the Tab order), update `document.title`, and optionally announce the change through an `aria-live` region. Some frameworks do part of this for you (Blazor's router template includes a `FocusOnNavigate` component that focuses the new page's `<h1>`); check what yours does with a keyboard rather than assuming.
+
+### Testing It
+
+Automated checking is genuinely useful and genuinely limited, and knowing the ratio matters. Rules-based tools like **axe-core** reliably catch missing alt text, insufficient contrast, unlabelled inputs, duplicate IDs, and invalid ARIA — which is a real slice of the problem, and exactly the slice that regresses silently. Published analyses consistently put automated coverage at **roughly 30–40% of WCAG issues**. The rest — is the alt text *meaningful*, is the focus order *logical*, does the error message actually help, is this custom widget usable with a screen reader — requires a human.
+
+So run both:
+
+- **In CI**, axe-core against your key pages, failing the build on new violations. The wiring is in [Chapter 25: Accessibility checks in the same run](#accessibility-checks-in-the-same-run); component tests that find elements by role (the testing section above) add coverage for free.
+- **By hand, periodically**: the keyboard-only pass from Chapter 6, a zoom-to-200% pass, and a screen reader pass (NVDA on Windows is free; VoiceOver ships on macOS). Half an hour with a screen reader on your own product is the most effective accessibility training available, and it is uncomfortable in a way that changes how you write markup afterwards.
+
+### Blazor-Specific Pitfalls
+
+Blazor generates HTML, so everything above applies unchanged. But its component model introduces two problems that catch teams out.
+
+**Route changes don't announce themselves**, as in any SPA. The template's `<FocusOnNavigate RouteData="routeData" Selector="h1" />` in the router handles the common case; where it was removed, or a component needs to move focus itself, do it after render:
 
 ```razor
 @inject NavigationManager Nav
@@ -22146,24 +23382,49 @@ Blazor generates HTML, so everything above applies unchanged. But its component 
 
 Pair it with an `aria-live` region that announces the new page title, so users who don't move with focus still learn where they are.
 
-**Render modes change when your JS runs.** With `InteractiveServer` or `InteractiveWebAssembly`, the page is served as static HTML first and becomes interactive later. Any accessibility behaviour you implemented in `OnAfterRenderAsync` or via JS interop does not exist during that window — and on a slow connection that window is seconds long. Prefer solutions that work in the initial markup (a real `<button>`, a real `<label>`) over ones that depend on interactivity having arrived.
+**Render modes change when your JS runs.** With `InteractiveServer` or `InteractiveWebAssembly`, the page is served as static HTML first and becomes interactive later — the hydration gap from the rendering section. Any accessibility behaviour you implemented in `OnAfterRenderAsync` or via JS interop does not exist during that window — and on a slow connection that window is seconds long. Prefer solutions that work in the initial markup (a real `<button>`, a real `<label>`) over ones that depend on interactivity having arrived.
 
 Also: `NavLink` renders an `<a>`, which is correct — but a `NavLink` styled as a button, or an `<a>` with no `href` used as a click target, reintroduces the `div`-as-button problem in Razor syntax. And component libraries vary enormously in accessibility quality; check the one you adopt against a keyboard pass before it is load-bearing across forty screens.
 
-@@SRC: old Chapter 29: Frontend & Full-Stack for .NET Developers@@
 ## Sources & Further Reading
 
-- **Microsoft Learn — ASP.NET Core Blazor** (hosting models, render modes, components, JS interop): learn.microsoft.com/aspnet/core/blazor
-- **Microsoft Learn — .NET MAUI documentation** (single project, Blazor Hybrid): learn.microsoft.com/dotnet/maui
-- **Microsoft Learn — Enable CORS in ASP.NET Core** and **API versioning with Asp.Versioning**
-- **Microsoft Learn — Overview of ASP.NET Core SignalR**
-- **Microsoft Learn — Secure SPAs / Backend-for-Frontend guidance** and **Duende BFF** documentation
-- **MDN Web Docs** — HTML, CSS, JavaScript, the DOM, the event loop, Fetch API, CORS, and Same-Origin Policy references: developer.mozilla.org
-- **React documentation** (component model, rendering, hydration): react.dev
-- **Vite documentation** (dev server, bundling): vitejs.dev
-- **OpenAPI Specification** and **NSwag** project documentation (client generation)
-- **IETF OAuth 2.0 for Browser-Based Apps** (BFF and PKCE recommendations)
-- **Uno Platform** (platform.uno) and **Avalonia UI** (avaloniaui.net) project documentation
+- **React documentation** (react.dev): `hydrateRoot` and hydration mismatches, `lazy` and `Suspense`, `startTransition`, Server Components.
+- **TanStack Query documentation** (tanstack.com/query): "Important Defaults", query keys, invalidation.
+- **web.dev**: rendering on the web, optimizing LCP, INP and CLS, image performance; the **`web-vitals`** library (GitHub `GoogleChrome/web-vitals`).
+- **MDN Web Docs**: Content Security Policy (strict CSP, nonces, hashes, `'strict-dynamic'`, report-only), Trusted Types, `<img>` loading and `fetchpriority`.
+- **Testing Library** (testing-library.com) and **Playwright** (playwright.dev) documentation.
+- **Vite documentation** (vite.dev): building for production, code splitting.
+- **IETF, OAuth 2.0 for Browser-Based Applications** (BFF and PKCE recommendations) and **Duende BFF** documentation.
+- **ASP.NET Core documentation** (source: GitHub `dotnet/AspNetCore.Docs`): Blazor hosting models, render modes, components, JS interop and accessibility; CORS; SignalR's JavaScript client; secure SPAs.
+- **.NET MAUI documentation** (single project, Blazor Hybrid); **Uno Platform** (platform.uno) and **Avalonia UI** (avaloniaui.net) project documentation.
+- **OpenAPI Specification** and **NSwag** project documentation (client generation).
+
+## Interview Questions
+
+**SSR or CSR for this page, and what does hydration cost?**
+Decide by content and audience: public and SEO-relevant pages want SSR or SSG for a fast LCP; a logged-in app can be CSR. Hydration means the client downloads and re-runs the components to attach handlers, so SSR improves first paint but not the JavaScript cost or INP, and a server/client mismatch makes React re-render that part on the client.
+
+**Red flag:** "SSR makes the app faster." It makes content *visible* sooner; it does not make it interactive sooner, and it adds server cost.
+
+**Why does the SPA call our API so often, and what would you change?**
+A data-fetching cache like TanStack Query treats data as stale immediately by default and refetches on mount, window focus and reconnect. Set `staleTime` from how often the data really changes, invalidate on mutations instead of polling, and give the API `ETag`s so the remaining refetches are cheap.
+
+**Server state versus client state?**
+Server state is a cached copy of data the server owns: it needs fetching, deduplication, invalidation and refresh, so it belongs in a data-fetching cache. Client state belongs to the UI (open modals, form drafts) and lives as locally as possible; the URL holds anything that should survive a reload.
+
+**How do you make a slow SPA fast?**
+Measure first: field data for the 75th percentile, the Performance panel for causes. Then: split code by route, cut and tree-shake the bundle, give images dimensions and the right size, cache hashed assets forever and `index.html` never, and fix INP by doing less work per interaction (state placement, virtualisation, yielding).
+
+**What does a strict CSP look like, and how do you deploy it on a SPA?**
+`script-src 'nonce-…' 'strict-dynamic'; object-src 'none'; base-uri 'none'` with a fresh nonce per response, so injected inline script doesn't run. A SPA either serves `index.html` through the server to stamp the nonce in, or uses hashes from static hosting. Roll out in report-only mode first.
+
+**Where should a browser SPA's tokens live?**
+On the server, behind a BFF that does the OIDC code flow with PKCE as a confidential client and gives the browser only an `HttpOnly`, `Secure`, `SameSite` cookie; the BFF then needs CSRF protection.
+
+**Red flag:** "The token is in `localStorage`, but we have a CSP, so XSS can't happen." CSP reduces XSS; it doesn't make storing a bearer token where any script can read it a good idea.
+
+**How do you test a frontend without a flaky suite?**
+Logic in unit tests; components with Testing Library, querying by role and label, network stubbed at the `fetch` layer; a handful of Playwright journeys end to end; and API contract drift caught at compile time by a generated client.
 
 
 ---
@@ -27942,6 +29203,66 @@ Native AOT (Ahead-Of-Time) compiles your app directly to a self-contained native
 # What's New
 
 This page is the handbook's changelog. When a new release lands, a popup announces it on your next visit. Under each release, **Site & functionality** items are plain notes, while **Content updates** link to every chapter that changed — a link is ticked off (✓, stored locally in your browser) once you visit it, so you can work through an update at your own pace and see what's still unread.
+
+## Release — October 9, 2026
+
+**🔧 Site & functionality**
+
+- The handbook is now one book read in order: Part 1 (Junior → Middle, Chapters 1–16), then Part 2 (Middle → Senior, Chapters 17–44), in one sidebar with Next and Previous walking the whole book.
+- The Part 1 / Part 2 / Full book switcher is gone; there is a single navigation.
+- Old chapter addresses, bookmarks and links in earlier releases still open: each one redirects to the chapter that holds its content now.
+- Long web addresses in reading lists wrap on phone screens.
+- The frontend chapters' JavaScript, TypeScript and React samples are run and tested in the repository, like the C# ones.
+
+**📖 Content updates**
+
+- [Preface & Contents](#the-middle-senior-net-developer-handbook) — How the two parts fit together, and the new study-time figures.
+- [Part 1: Junior → Middle](#part-1-junior-middle) — How to read Part 1, and its sixteen chapters.
+- [Part 2: Middle → Senior](#part-2-middle-senior) — How to read Part 2, and its twenty-eight chapters.
+- [Chapter 1: C# Essentials](#chapter-1-c-essentials) — Rewritten: value and reference types, generics, delegates and LINQ in one teaching order, with its Prove it program and interview questions.
+- [Chapter 2: Data Structures and Algorithms Essentials](#chapter-2-data-structures-and-algorithms-essentials) — New chapter from the algorithms material: Big-O, the .NET collections and when to use each, key algorithms, and interview questions.
+- [Chapter 3: How .NET Runs Your Code](#chapter-3-how-net-runs-your-code) — Rewritten: the memory model, GC basics, configuration, dependency injection and the Generic Host.
+- [Chapter 4: Async Essentials](#chapter-4-async-essentials) — Rewritten: what await does, the sync-over-async deadlock, cancellation and WhenAll, with the verified Find the bug exercise.
+- [Chapter 5: HTTP and Web APIs](#chapter-5-http-and-web-apis) — New combined chapter: how HTTP and TCP work, then the ASP.NET Core pipeline, routing, binding, HttpClientFactory and REST.
+- [Chapter 6: Frontend Essentials](#chapter-6-frontend-essentials) — New chapter: the frontend a .NET developer needs, from how the browser renders a page and JavaScript's event loop to React, Angular, TypeScript and CORS, with tested samples.
+- [Chapter 7: Data Access](#chapter-7-data-access) — Rewritten: schema design, SQL and indexes, EF Core, concurrency, Dapper, caching and migrations, with two Prove it programs.
+- [Chapter 8: Testing](#chapter-8-testing) — Rewritten: xUnit, test doubles, integration tests and deterministic tests.
+- [Chapter 9: Exceptions, Logging and First Diagnosis](#chapter-9-exceptions-logging-and-first-diagnosis) — Rewritten: logging, the exception strategy, ProblemDetails and the first diagnosis of a slow endpoint.
+- [Chapter 10: Design Basics](#chapter-10-design-basics) — Rewritten: principles first, then patterns, clean code and layered or clean architecture.
+- [Chapter 11: Messaging and Background Work](#chapter-11-messaging-and-background-work) — Rewritten: brokers, delivery guarantees, the idempotent consumer, the outbox, background services and 202 request-reply.
+- [Chapter 12: Security Essentials](#chapter-12-security-essentials) — Rewritten: OWASP, authentication and authorization, OAuth and JWT, secrets, cryptography and TLS.
+- [Chapter 13: Git and CI/CD](#chapter-13-git-and-cicd) — Rewritten: Git as it really works, the dotnet CLI and tools, and a complete CI pipeline.
+- [Chapter 14: Containers and Linux](#chapter-14-containers-and-linux) — New combined chapter: Linux and the shell for .NET developers, then Docker and Compose.
+- [Chapter 15: Dates, Money and Strings](#chapter-15-dates-money-and-strings) — Now in Part 1: dates, time zones, money and culture-sensitive strings, with its Prove it program.
+- [Chapter 16: Working Like a Middle Developer](#chapter-16-working-like-a-middle-developer) — Rewritten: communication, code review, estimates, debugging and safe change.
+- [Chapter 17: Runtime Internals and Performance](#chapter-17-runtime-internals-and-performance) — New Part 2 chapter: benchmarking and profiling, GC depth, the thread pool under load, ValueTask, channels and the JIT.
+- [Chapter 18: Data in Depth](#chapter-18-data-in-depth) — New Part 2 chapter: execution plans in PostgreSQL, NoSQL, Redis, scaling, sharding and multi-tenancy.
+- [Chapter 19: The Slow-Query Lab — Reading Execution Plans](#chapter-19-the-slow-query-lab-reading-execution-plans) — The slow-query lab, now the practice for data in depth.
+- [Chapter 20: Distributed Systems](#chapter-20-distributed-systems) — New Part 2 chapter: distributed-systems theory, reliability, sagas, idempotency across services and chaos engineering.
+- [Chapter 21: Architecture](#chapter-21-architecture) — New Part 2 chapter: architecture styles, DDD, CQRS, specifications and service boundaries.
+- [Chapter 22: API Evolution, Real-Time and Serialization](#chapter-22-api-evolution-real-time-and-serialization) — New Part 2 chapter: API versioning and contract evolution, gRPC, SignalR and serialization formats.
+- [Chapter 23: System Design](#chapter-23-system-design) — New Part 2 chapter: a system-design process with worked examples.
+- [Chapter 24: Working with Legacy & Brownfield Code](#chapter-24-working-with-legacy-brownfield-code) — Working with legacy and brownfield code, now in Part 2.
+- [Chapter 25: Observability and Testing at Scale](#chapter-25-observability-and-testing-at-scale) — New Part 2 chapter: metrics, tracing, SLOs and burn-rate alerts, load tests and advanced testing.
+- [Chapter 26: Delivery and Platform](#chapter-26-delivery-and-platform) — New Part 2 chapter: Kubernetes, pipelines, deployment strategies, the edge and platform engineering.
+- [Chapter 27: Security in Depth and the Supply Chain](#chapter-27-security-in-depth-and-the-supply-chain) — New Part 2 chapter: zero trust, workload identity, crypto agility and the software supply chain.
+- [Chapter 28: Cloud Fundamentals — AWS & Azure](#chapter-28-cloud-fundamentals-aws-azure) — Cloud fundamentals for AWS and Azure, now the start of Part 2's cloud section.
+- [Chapter 29: Azure in Depth for .NET Developers](#chapter-29-azure-in-depth-for-net-developers) — Azure in depth, renumbered with its cross-references updated.
+- [Chapter 30: The Azure Casebook — Real Incidents, Real Fixes](#chapter-30-the-azure-casebook-real-incidents-real-fixes) — The Azure casebook, renumbered with its cross-references updated.
+- [Chapter 31: Compliance, Data Privacy & Cloud Cost (FinOps)](#chapter-31-compliance-data-privacy-cloud-cost-finops) — Compliance, data privacy and FinOps, now in Part 2's cloud section.
+- [Chapter 32: The AI-Native Developer — Thriving in the AI Era](#chapter-32-the-ai-native-developer-thriving-in-the-ai-era) — The AI-native developer, merged with AI-assisted development.
+- [Chapter 33: Building AI-Powered Systems](#chapter-33-building-ai-powered-systems) — Building AI-powered systems, renumbered with its cross-references updated.
+- [Chapter 34: Frontend and Full-Stack in Depth](#chapter-34-frontend-and-full-stack-in-depth) — New Part 2 chapter: rendering strategies, state management, frontend performance and testing, CSP, SPA auth and Blazor.
+- [Chapter 35: Production Incidents](#chapter-35-production-incidents) — Production incidents: one triage method, then the twelve scenarios.
+- [Chapter 36: Senior Behaviours, Career and Interviews](#chapter-36-senior-behaviours-career-and-interviews) — New Part 2 chapter: mentoring, influence, career growth, interviews and how to keep learning.
+- [Chapter 37: The Story Bank & Evidence Portfolio](#chapter-37-the-story-bank-evidence-portfolio) — The story bank and evidence portfolio lab, renumbered.
+- [Chapter 38: Having a Point of View](#chapter-38-having-a-point-of-view) — Having a point of view, now the start of the Trusted Advisor section.
+- [Chapter 39: Discovery and Diagnosis](#chapter-39-discovery-and-diagnosis) — Discovery and diagnosis, renumbered with its cross-references updated.
+- [Chapter 40: Lab — The .NET Health Check](#chapter-40-lab-the-net-health-check) — The .NET health-check lab, renumbered with its kit references updated.
+- [Chapter 41: Recommendations, Proposals and Estimates](#chapter-41-recommendations-proposals-and-estimates) — Recommendations, proposals and estimates, with its sections renumbered.
+- [Chapter 42: The Advisory Casebook](#chapter-42-the-advisory-casebook) — The advisory casebook, renumbered with its cross-references updated.
+- [Chapter 43: Positioning and Public Proof](#chapter-43-positioning-and-public-proof) — Positioning and public proof, now with how to handle a client interviewing you.
+- [Chapter 44: Capstone — One Project, Growing Up](#chapter-44-capstone-one-project-growing-up) — The capstone project, with every step linked to its new chapters.
 
 ## Release — October 8, 2026
 

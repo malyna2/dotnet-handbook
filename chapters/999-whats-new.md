@@ -2,6 +2,66 @@
 
 This page is the handbook's changelog. When a new release lands, a popup announces it on your next visit. Under each release, **Site & functionality** items are plain notes, while **Content updates** link to every chapter that changed — a link is ticked off (✓, stored locally in your browser) once you visit it, so you can work through an update at your own pace and see what's still unread.
 
+## Release — October 9, 2026
+
+**🔧 Site & functionality**
+
+- The handbook is now one book read in order: Part 1 (Junior → Middle, Chapters 1–16), then Part 2 (Middle → Senior, Chapters 17–44), in one sidebar with Next and Previous walking the whole book.
+- The Part 1 / Part 2 / Full book switcher is gone; there is a single navigation.
+- Old chapter addresses, bookmarks and links in earlier releases still open: each one redirects to the chapter that holds its content now.
+- Long web addresses in reading lists wrap on phone screens.
+- The frontend chapters' JavaScript, TypeScript and React samples are run and tested in the repository, like the C# ones.
+
+**📖 Content updates**
+
+- [Preface & Contents](#the-middle-senior-net-developer-handbook) — How the two parts fit together, and the new study-time figures.
+- [Part 1: Junior → Middle](#part-1-junior-middle) — How to read Part 1, and its sixteen chapters.
+- [Part 2: Middle → Senior](#part-2-middle-senior) — How to read Part 2, and its twenty-eight chapters.
+- [Chapter 1: C# Essentials](#chapter-1-c-essentials) — Rewritten: value and reference types, generics, delegates and LINQ in one teaching order, with its Prove it program and interview questions.
+- [Chapter 2: Data Structures and Algorithms Essentials](#chapter-2-data-structures-and-algorithms-essentials) — New chapter from the algorithms material: Big-O, the .NET collections and when to use each, key algorithms, and interview questions.
+- [Chapter 3: How .NET Runs Your Code](#chapter-3-how-net-runs-your-code) — Rewritten: the memory model, GC basics, configuration, dependency injection and the Generic Host.
+- [Chapter 4: Async Essentials](#chapter-4-async-essentials) — Rewritten: what await does, the sync-over-async deadlock, cancellation and WhenAll, with the verified Find the bug exercise.
+- [Chapter 5: HTTP and Web APIs](#chapter-5-http-and-web-apis) — New combined chapter: how HTTP and TCP work, then the ASP.NET Core pipeline, routing, binding, HttpClientFactory and REST.
+- [Chapter 6: Frontend Essentials](#chapter-6-frontend-essentials) — New chapter: the frontend a .NET developer needs, from how the browser renders a page and JavaScript's event loop to React, Angular, TypeScript and CORS, with tested samples.
+- [Chapter 7: Data Access](#chapter-7-data-access) — Rewritten: schema design, SQL and indexes, EF Core, concurrency, Dapper, caching and migrations, with two Prove it programs.
+- [Chapter 8: Testing](#chapter-8-testing) — Rewritten: xUnit, test doubles, integration tests and deterministic tests.
+- [Chapter 9: Exceptions, Logging and First Diagnosis](#chapter-9-exceptions-logging-and-first-diagnosis) — Rewritten: logging, the exception strategy, ProblemDetails and the first diagnosis of a slow endpoint.
+- [Chapter 10: Design Basics](#chapter-10-design-basics) — Rewritten: principles first, then patterns, clean code and layered or clean architecture.
+- [Chapter 11: Messaging and Background Work](#chapter-11-messaging-and-background-work) — Rewritten: brokers, delivery guarantees, the idempotent consumer, the outbox, background services and 202 request-reply.
+- [Chapter 12: Security Essentials](#chapter-12-security-essentials) — Rewritten: OWASP, authentication and authorization, OAuth and JWT, secrets, cryptography and TLS.
+- [Chapter 13: Git and CI/CD](#chapter-13-git-and-cicd) — Rewritten: Git as it really works, the dotnet CLI and tools, and a complete CI pipeline.
+- [Chapter 14: Containers and Linux](#chapter-14-containers-and-linux) — New combined chapter: Linux and the shell for .NET developers, then Docker and Compose.
+- [Chapter 15: Dates, Money and Strings](#chapter-15-dates-money-and-strings) — Now in Part 1: dates, time zones, money and culture-sensitive strings, with its Prove it program.
+- [Chapter 16: Working Like a Middle Developer](#chapter-16-working-like-a-middle-developer) — Rewritten: communication, code review, estimates, debugging and safe change.
+- [Chapter 17: Runtime Internals and Performance](#chapter-17-runtime-internals-and-performance) — New Part 2 chapter: benchmarking and profiling, GC depth, the thread pool under load, ValueTask, channels and the JIT.
+- [Chapter 18: Data in Depth](#chapter-18-data-in-depth) — New Part 2 chapter: execution plans in PostgreSQL, NoSQL, Redis, scaling, sharding and multi-tenancy.
+- [Chapter 19: The Slow-Query Lab — Reading Execution Plans](#chapter-19-the-slow-query-lab-reading-execution-plans) — The slow-query lab, now the practice for data in depth.
+- [Chapter 20: Distributed Systems](#chapter-20-distributed-systems) — New Part 2 chapter: distributed-systems theory, reliability, sagas, idempotency across services and chaos engineering.
+- [Chapter 21: Architecture](#chapter-21-architecture) — New Part 2 chapter: architecture styles, DDD, CQRS, specifications and service boundaries.
+- [Chapter 22: API Evolution, Real-Time and Serialization](#chapter-22-api-evolution-real-time-and-serialization) — New Part 2 chapter: API versioning and contract evolution, gRPC, SignalR and serialization formats.
+- [Chapter 23: System Design](#chapter-23-system-design) — New Part 2 chapter: a system-design process with worked examples.
+- [Chapter 24: Working with Legacy & Brownfield Code](#chapter-24-working-with-legacy-brownfield-code) — Working with legacy and brownfield code, now in Part 2.
+- [Chapter 25: Observability and Testing at Scale](#chapter-25-observability-and-testing-at-scale) — New Part 2 chapter: metrics, tracing, SLOs and burn-rate alerts, load tests and advanced testing.
+- [Chapter 26: Delivery and Platform](#chapter-26-delivery-and-platform) — New Part 2 chapter: Kubernetes, pipelines, deployment strategies, the edge and platform engineering.
+- [Chapter 27: Security in Depth and the Supply Chain](#chapter-27-security-in-depth-and-the-supply-chain) — New Part 2 chapter: zero trust, workload identity, crypto agility and the software supply chain.
+- [Chapter 28: Cloud Fundamentals — AWS & Azure](#chapter-28-cloud-fundamentals-aws-azure) — Cloud fundamentals for AWS and Azure, now the start of Part 2's cloud section.
+- [Chapter 29: Azure in Depth for .NET Developers](#chapter-29-azure-in-depth-for-net-developers) — Azure in depth, renumbered with its cross-references updated.
+- [Chapter 30: The Azure Casebook — Real Incidents, Real Fixes](#chapter-30-the-azure-casebook-real-incidents-real-fixes) — The Azure casebook, renumbered with its cross-references updated.
+- [Chapter 31: Compliance, Data Privacy & Cloud Cost (FinOps)](#chapter-31-compliance-data-privacy-cloud-cost-finops) — Compliance, data privacy and FinOps, now in Part 2's cloud section.
+- [Chapter 32: The AI-Native Developer — Thriving in the AI Era](#chapter-32-the-ai-native-developer-thriving-in-the-ai-era) — The AI-native developer, merged with AI-assisted development.
+- [Chapter 33: Building AI-Powered Systems](#chapter-33-building-ai-powered-systems) — Building AI-powered systems, renumbered with its cross-references updated.
+- [Chapter 34: Frontend and Full-Stack in Depth](#chapter-34-frontend-and-full-stack-in-depth) — New Part 2 chapter: rendering strategies, state management, frontend performance and testing, CSP, SPA auth and Blazor.
+- [Chapter 35: Production Incidents](#chapter-35-production-incidents) — Production incidents: one triage method, then the twelve scenarios.
+- [Chapter 36: Senior Behaviours, Career and Interviews](#chapter-36-senior-behaviours-career-and-interviews) — New Part 2 chapter: mentoring, influence, career growth, interviews and how to keep learning.
+- [Chapter 37: The Story Bank & Evidence Portfolio](#chapter-37-the-story-bank-evidence-portfolio) — The story bank and evidence portfolio lab, renumbered.
+- [Chapter 38: Having a Point of View](#chapter-38-having-a-point-of-view) — Having a point of view, now the start of the Trusted Advisor section.
+- [Chapter 39: Discovery and Diagnosis](#chapter-39-discovery-and-diagnosis) — Discovery and diagnosis, renumbered with its cross-references updated.
+- [Chapter 40: Lab — The .NET Health Check](#chapter-40-lab-the-net-health-check) — The .NET health-check lab, renumbered with its kit references updated.
+- [Chapter 41: Recommendations, Proposals and Estimates](#chapter-41-recommendations-proposals-and-estimates) — Recommendations, proposals and estimates, with its sections renumbered.
+- [Chapter 42: The Advisory Casebook](#chapter-42-the-advisory-casebook) — The advisory casebook, renumbered with its cross-references updated.
+- [Chapter 43: Positioning and Public Proof](#chapter-43-positioning-and-public-proof) — Positioning and public proof, now with how to handle a client interviewing you.
+- [Chapter 44: Capstone — One Project, Growing Up](#chapter-44-capstone-one-project-growing-up) — The capstone project, with every step linked to its new chapters.
+
 ## Release — October 8, 2026
 
 **🔧 Site & functionality**
