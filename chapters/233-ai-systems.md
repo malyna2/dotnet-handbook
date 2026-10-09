@@ -1,6 +1,6 @@
 # Chapter 33: Building AI-Powered Systems
 
-Chapter 18 was about *using* AI to write software. This chapter flips the relationship: now the AI model is a *component inside* the software you ship. This is a different discipline. When you use an assistant to write a function, you review the output once and move on. When you embed a model in a running system, that model produces fresh, non-deterministic output on every request, for every user, forever — and you own the consequences. That single fact reshapes how you design, test, and operate the application.
+[Chapter 32](#chapter-32-the-ai-native-developer-thriving-in-the-ai-era) was about *using* AI to write software. This chapter flips the relationship: now the AI model is a *component inside* the software you ship. This is a different discipline. When you use an assistant to write a function, you review the output once and move on. When you embed a model in a running system, that model produces fresh, non-deterministic output on every request, for every user, forever — and you own the consequences. That single fact reshapes how you design, test, and operate the application.
 
 This chapter is a practical field guide to the popular AI system archetypes of 2025–2026 — retrieval-augmented generation (RAG), chatbots, workflows, and agents — with a .NET focus. We will build up from fundamentals (how to reason about an LLM as a component) through the modern .NET AI stack, and finish with the unglamorous production concerns that separate a demo from a product: evaluation, observability, cost, and safety. A theme worth flagging up front, because it shapes half the decisions in this chapter: the interesting engineering question is rarely *which model*, it is **how much of the control flow you keep in your own code** — and the answer is almost always "more than the demo suggests".
 
@@ -352,7 +352,7 @@ The chatbot section treated memory as a context-window problem — trim or summa
 
 **Facts conflict and go stale.** Two conversations produce "prefers email" and "prefers SMS". You need a resolution rule — last-write-wins by timestamp is the honest default — and a decay policy, because a preference from two years ago is not evidence about today. A memory store without expiry becomes a slowly accumulating source of confidently wrong context.
 
-**Memory is a tenancy and privacy boundary, and this is where it gets dangerous.** A memory store is a database of personal statements keyed by user, which means it inherits every obligation from Chapters 14 and 28: it is personal data, it is subject to deletion requests, and it must be isolated per tenant. Two specific failure modes to design against:
+**Memory is a tenancy and privacy boundary, and this is where it gets dangerous.** A memory store is a database of personal statements keyed by user, which means it inherits every obligation from [Chapter 12](#chapter-12-security-essentials) and [Chapter 31](#chapter-31-compliance-data-privacy-cloud-cost-finops): it is personal data, it is subject to deletion requests, and it must be isolated per tenant. Two specific failure modes to design against:
 
 - **Cross-tenant bleed.** If retrieval over the memory store isn't filtered by tenant *in the query*, one customer's extracted facts can surface in another's prompt. Filter at the store, not by trimming results afterwards — the same rule as RAG retrieval.
 - **Undeletable memory.** "Delete my data" must reach the memory store, the embeddings derived from it, and any rolling summary that absorbed the fact. A summary is a derived work containing the original personal data; if your deletion job only clears the source table, you have not deleted anything. Keep the link from summary back to its sources so deletion can invalidate and regenerate.
@@ -467,7 +467,7 @@ Minimally, the loop is just tool-calling run until completion — which is exact
 
 Every agent example in this chapter — and in most articles about agents — is a `while` loop in a request handler. That is a demo. A real agent run takes minutes to hours, makes a dozen calls to flaky remote services, and may need to pause for two days waiting for a human to approve a refund. A loop in memory holds all of its state on the stack of one process, which means the run dies with the pod. Kubernetes recycles that pod during a routine deploy, and forty minutes of reasoning and $6 of tokens evaporate with no way to resume.
 
-This is not a new problem; it's the long-running-workflow problem the .NET ecosystem already solved for order fulfilment and payment processing. Chapter 9's sagas and Chapter 22's background services and actors are the machinery. What's new is only that one of the steps is an LLM call.
+This is not a new problem; it's the long-running-workflow problem the .NET ecosystem already solved for order fulfilment and payment processing. The sagas and actors of [Chapter 20](#chapter-20-distributed-systems) and the background services of [Chapter 11](#chapter-11-messaging-and-background-work) are the machinery. What's new is only that one of the steps is an LLM call.
 
 **The shape of the fix is durable execution.** Instead of holding the loop's state in memory, you persist it after every step — the message history, the tool results, the iteration count — so any process can pick the run up where it stopped. The mental shift is that an agent run stops being a *method call* and becomes a **workflow instance with an id**, one you can query, resume, cancel, and audit.
 
@@ -483,15 +483,15 @@ no history after the fact          every step replayable for debugging
 ### What to use in .NET
 
 - **Durable Functions / the Durable Task SDK** — the most direct fit. Your orchestrator function calls activities (each LLM call, each tool execution), and the framework checkpoints after each one, replaying deterministically to rebuild state after a restart. Long waits are first-class: `WaitForExternalEvent` holds a run open for days at zero compute cost. Note the constraint the replay model imposes — orchestrator code must be deterministic, so **every model call and tool invocation belongs in an activity**, never inline in the orchestrator. An LLM call in orchestrator code is the canonical way to break replay.
-- **Dapr Workflow** — the same durable-execution model as a sidecar, if you're already on Dapr (Chapter 22). Workflows are plain C#, state and retries are handled by the runtime.
+- **Dapr Workflow** — the same durable-execution model as a sidecar, if you're already on Dapr ([Chapter 20](#chapter-20-distributed-systems)). Workflows are plain C#, state and retries are handled by the runtime.
 - **A hosted agent service** — Azure AI Foundry's Agent Service and the equivalents from other providers persist threads and run state for you. Least code, least control, and a real dependency: your agent's state now lives in a vendor's store.
-- **Roll your own on the message bus** — with MassTransit or a queue plus a state table, each agent step is a message and the state machine is explicit (Chapter 9). More work, but the most control, and it fits naturally if the rest of your system is already event-driven.
+- **Roll your own on the message bus** — with MassTransit or a queue plus a state table, each agent step is a message and the state machine is explicit ([Chapter 11](#chapter-11-messaging-and-background-work)). More work, but the most control, and it fits naturally if the rest of your system is already event-driven.
 
 ### The parts that are specific to agents
 
 Durable execution solves persistence. Four problems remain, and they're the ones that make agent runs different from order fulfilment:
 
-**Tool calls must be idempotent, because replay will repeat them.** A durable framework replays history to rebuild state, and a crash between "sent the email" and "recorded that we sent the email" means the run resumes and sends it again. This is exactly the exactly-once problem from Chapter 9, and the answer is the same: an idempotency key per tool invocation, derived from the run id plus the step index, checked by the tool implementation before it acts. Read-only tools are free; every tool with a side effect needs a key.
+**Tool calls must be idempotent, because replay will repeat them.** A durable framework replays history to rebuild state, and a crash between "sent the email" and "recorded that we sent the email" means the run resumes and sends it again. This is exactly the exactly-once problem from [Chapter 11](#chapter-11-messaging-and-background-work), and the answer is the same: an idempotency key per tool invocation, derived from the run id plus the step index, checked by the tool implementation before it acts. Read-only tools are free; every tool with a side effect needs a key.
 
 **Compensation, because agents fail halfway through.** An agent that booked a flight and then failed to book the hotel has left the world in a state nobody asked for. Model the reversible actions as saga steps with compensations, and — the agent-specific part — **have your code run the compensations, not the model**. An LLM asked to "undo what you did" will improvise. The compensation for `BookFlight` is a `CancelFlight` call your code invokes from a `catch`, exactly as it would in any distributed transaction.
 
@@ -511,7 +511,7 @@ if (!approval.Granted)
 
 **Budgets are run-scoped state, so they must be persisted too.** The bounded-iteration and token caps from the previous section only work if the counters survive the restart that resumes the run. A budget held in a local variable resets to zero every time the run resumes — and an agent that resumes with a fresh budget after each crash has, in effect, no budget at all. Keep the spend counter in the run state and check it inside the loop.
 
-> **Best practice.** Give every agent run a durable id, and put that id in your logs, traces, and any ticket the run creates. When the run does something inexplicable four days later, the ability to pull up the full replayable history of a specific run — every prompt, every tool call, every result — is the difference between a diagnosis and a shrug. This is Chapter 13's correlation id, applied to a process that reasons.
+> **Best practice.** Give every agent run a durable id, and put that id in your logs, traces, and any ticket the run creates. When the run does something inexplicable four days later, the ability to pull up the full replayable history of a specific run — every prompt, every tool call, every result — is the difference between a diagnosis and a shrug. This is the correlation id of [Chapter 9](#chapter-9-exceptions-logging-and-first-diagnosis), applied to a process that reasons.
 
 > **Pitfall — durable does not mean safe to resume.** A run that resumes after two days is holding a two-day-old view of the world: stale prices, a cancelled order, a revoked permission. Re-validate the preconditions of any consequential action *at the moment of execution* rather than trusting the state the model reasoned over before the pause. The longer the pause, the more the model's context is a historical document rather than a description of the present.
 
@@ -535,7 +535,7 @@ The .NET ecosystem matured fast — and then consolidated, which is the part mos
 Two more pieces sit alongside rather than in the stack:
 
 - **Kernel Memory** — a service/library dedicated to RAG ingestion and retrieval: loading, chunking, embedding, storage, and query as a pipeline you can run in-process or standalone. Reach for it instead of hand-rolling the plumbing shown earlier.
-- **ONNX Runtime / local models** — for running smaller models locally (on-device or on your own hardware) for privacy, offline use, or cost. Microsoft.Extensions.AI can front a local model behind the same `IChatClient`, so local vs. cloud becomes a configuration choice. **.NET Aspire** is the pragmatic way to wire this up in development: model a local model runner and a vector store as Aspire resources so the whole AI stack comes up with `dotnet run` and gets swapped for hosted services in production (Chapter 11).
+- **ONNX Runtime / local models** — for running smaller models locally (on-device or on your own hardware) for privacy, offline use, or cost. Microsoft.Extensions.AI can front a local model behind the same `IChatClient`, so local vs. cloud becomes a configuration choice. **.NET Aspire** is the pragmatic way to wire this up in development: model a local model runner and a vector store as Aspire resources so the whole AI stack comes up with `dotnet run` and gets swapped for hosted services in production ([Chapter 26](#chapter-26-delivery-and-platform)).
 
 > **Pitfall — the framework is not the hard part.** Teams spend weeks choosing between orchestration frameworks and then discover the difficulty was never orchestration; it was retrieval quality, evals, and cost. All four layers above will happily run a badly grounded prompt. Pick a layer in an afternoon and spend the saved week on your eval set.
 
@@ -614,7 +614,7 @@ Microsoft ships **Microsoft.Extensions.AI.Evaluation**, a .NET library for build
 
 > **Takeaway:** treat evals as the regression suite for your AI features. No eval set, no confident change. A model or prompt update without a re-run is a blind deploy.
 
-**Evals are not the whole test suite.** The temptation is to conclude that because the output is nondeterministic, the feature can only be evaluated. That's backwards: an AI feature is mostly ordinary code — prompt assembly, retrieval, chunking, tool implementations, schema validation, budget enforcement, control flow — and that code carries most of the bugs. Program against `IChatClient` and a fake client makes all of it unit-testable in the normal way: assert the prompt you built, the branch you took, the budget you enforced, the malformed tool argument you rejected. Save the eval suite for the one thing a unit test genuinely cannot pin, which is the quality of the generated text. Chapter 25 covers the full portfolio — faking the model, gating CI on an aggregate pass rate rather than individual cases, and keeping the eval set growing from production failures.
+**Evals are not the whole test suite.** The temptation is to conclude that because the output is nondeterministic, the feature can only be evaluated. That's backwards: an AI feature is mostly ordinary code — prompt assembly, retrieval, chunking, tool implementations, schema validation, budget enforcement, control flow — and that code carries most of the bugs. Program against `IChatClient` and a fake client makes all of it unit-testable in the normal way: assert the prompt you built, the branch you took, the budget you enforced, the malformed tool argument you rejected. Save the eval suite for the one thing a unit test genuinely cannot pin, which is the quality of the generated text. [Chapter 25](#chapter-25-observability-and-testing-at-scale) covers the full portfolio — faking the model, gating CI on an aggregate pass rate rather than individual cases, and keeping the eval set growing from production failures.
 
 ### Observability
 
@@ -749,13 +749,13 @@ MCP made tools composable, which means it also made them a supply chain. An MCP 
 - **Cross-server shadowing.** With several servers connected, one can describe its tools so as to intercept traffic intended for another. Namespacing and per-server review matter.
 - **Over-broad scopes.** The convenient path is to hand a server a token with everything. That token is now exposed to whatever the server does with it.
 
-Practically: pin server versions the way you pin any dependency (Chapter 35), prefer servers you or a vendor you have a contract with operate, give each server its own least-privilege credential, review tool descriptions as *code that will be executed*, and — for anything touching production data — run servers you control rather than public ones.
+Practically: pin server versions the way you pin any dependency ([Chapter 27](#chapter-27-security-in-depth-and-the-supply-chain)), prefer servers you or a vendor you have a contract with operate, give each server its own least-privilege credential, review tool descriptions as *code that will be executed*, and — for anything touching production data — run servers you control rather than public ones.
 
 ### Data leakage
 
 Three distinct leaks, often confused:
 
-- **Into the model provider.** Whatever you put in a prompt leaves your boundary. Know your provider's retention and training terms (they differ significantly between consumer and enterprise tiers), and redact or tokenize PII you don't need the model to see. This is also a GDPR question — see Chapter 28 for the lawful-basis and data-transfer angle.
+- **Into the model provider.** Whatever you put in a prompt leaves your boundary. Know your provider's retention and training terms (they differ significantly between consumer and enterprise tiers), and redact or tokenize PII you don't need the model to see. This is also a GDPR question — see [Chapter 31](#chapter-31-compliance-data-privacy-cloud-cost-finops) for the lawful-basis and data-transfer angle.
 - **Into your logs.** The observability guidance above says to capture full prompts and responses. Those transcripts now contain everything the user typed and everything you retrieved on their behalf, in a system that historically has looser access controls than your database. Apply retention limits, redaction, and real access control to LLM traces.
 - **Across tenants.** Retrieval is the dangerous path: a filter applied *after* the vector search, or a cache keyed without the tenant, will happily serve one customer's documents to another. Filter inside the query, key every cache by tenant, and write an integration test that proves it — this is one of the few AI failure modes that is fully deterministic and fully testable.
 
@@ -765,7 +765,7 @@ Three distinct leaks, often confused:
 
 Traditional DoS makes your service unavailable. With a metered model behind it, an attacker has a better option: keep it *available* and make it expensive. A single crafted request that triggers a long retrieval, a large context, a reasoning budget, and a twenty-step agent loop can cost dollars. A script running that request costs you thousands overnight.
 
-Defenses are ordinary engineering, and they must exist *before* launch: per-user and per-tenant rate limits on AI endpoints specifically (they are not like your other endpoints), a hard token budget per request and per user per day, caps on retrieved context and agent iterations, a provider-side spend limit as the backstop, and an alert on cost-per-hour rather than cost-per-month — a monthly budget alert tells you about the incident four weeks late. Chapter 20 covers the abuse side of this in general, and Chapter 28 the FinOps side.
+Defenses are ordinary engineering, and they must exist *before* launch: per-user and per-tenant rate limits on AI endpoints specifically (they are not like your other endpoints), a hard token budget per request and per user per day, caps on retrieved context and agent iterations, a provider-side spend limit as the backstop, and an alert on cost-per-hour rather than cost-per-month — a monthly budget alert tells you about the incident four weeks late. [Chapter 26](#chapter-26-delivery-and-platform) covers the abuse side of this in general, and [Chapter 31](#chapter-31-compliance-data-privacy-cloud-cost-finops) the FinOps side.
 
 ### Defence in depth, ranked by what actually holds
 
@@ -797,7 +797,7 @@ A short review you can run in fifteen minutes:
 
 ### Responsible AI, briefly
 
-Distinct from security, but it lives in the same review. Be transparent that the user is talking to AI; provide a path to a human; watch for bias in outputs that affect people differently; and keep a named human accountable for consequential decisions. Do not let a model make the final call on credit, hiring, medical or safety outcomes unaided — quite apart from the ethics, the EU AI Act's risk tiers (Chapter 28) attach real obligations to exactly those use cases.
+Distinct from security, but it lives in the same review. Be transparent that the user is talking to AI; provide a path to a human; watch for bias in outputs that affect people differently; and keep a named human accountable for consequential decisions. Do not let a model make the final call on credit, hiring, medical or safety outcomes unaided — quite apart from the ethics, the EU AI Act's risk tiers ([Chapter 31](#chapter-31-compliance-data-privacy-cloud-cost-finops)) attach real obligations to exactly those use cases.
 
 > **Takeaway:** you cannot make a model immune to being talked into things. You can make it so that being talked into things doesn't matter — by giving it less to reach, authorizing every reach in code, and putting a human in front of anything you cannot undo.
 
