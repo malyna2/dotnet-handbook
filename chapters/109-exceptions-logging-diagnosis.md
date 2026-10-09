@@ -512,9 +512,7 @@ The consumer extracts the same context and starts its span as a child of the pro
 
 ## Health Checks: The Tie-In
 
-Health checks are the cheapest operational signal there is: an endpoint that tells the orchestrator whether an instance is **alive** (if not, restart it) and **ready** (if not, stop sending it traffic, but don't restart it). [Health Checks](#health-checks) in Chapter 5 shows how ASP.NET Core runs them, how tags keep liveness and readiness apart, and why both must stay cheap.
-
-The tie-in with this chapter is that a check's verdict is telemetry too. A rising count of failing readiness checks is an early warning that a dependency is degrading, often before the error rate moves, so put the results where your dashboards and alerts can see them (`IHealthCheckPublisher` pushes them on a timer). Health checks are the first signal to implement and the last one to ignore.
+During diagnosis, a readiness check's verdict is telemetry too: a rising count of failing readiness checks names the dependency that is degrading, often before the error rate moves, so publish the results where your dashboards and alerts can see them. How ASP.NET Core runs the checks and keeps liveness apart from readiness is in [Health Checks](#health-checks) in Chapter 5.
 
 ## Diagnosing a Performance Problem (a worked methodology)
 
