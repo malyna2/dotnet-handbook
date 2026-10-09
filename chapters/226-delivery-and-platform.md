@@ -1,8 +1,9 @@
 # Chapter 26: Delivery and Platform
 
-@@TODO: write this chapter's introduction (what it makes the reader able to do, how its sections connect), then remove every @@ line.@@
+Part 1 taught you to build, test and containerize one service ([Chapter 13: Git and CI/CD](#chapter-13-git-and-cicd), [Chapter 14: Containers and Linux](#chapter-14-containers-and-linux)). This chapter is about everything between that image and a user, and about doing it for many services and many teams. It makes you able to run a .NET service on a VM or a Kubernetes cluster and know what each probe, limit and manifest does; to read and fix an Azure Pipelines build and promote one artifact through gated environments; to release safely with rolling, blue-green and canary deployments and feature flags; to put the right box in front of your servers and defend it against traffic that is trying to hurt you; and to judge a platform team and its delivery metrics.
 
-@@SRC: old Chapter 6: Architecture & Application Design@@
+The sections follow the path of a release. First the contract a service must honour to run anywhere — the twelve factors — then where it runs: a Linux VM under systemd, then Kubernetes with its manifests, Helm and Kustomize, a service mesh, and .NET Aspire for the inner loop. Then how changes get there: Azure Pipelines, NuGet, deployment strategies and feature flags. Then the edge between users and your servers: load balancers, reverse proxies, CDNs, rate limiting, and abuse traffic. Last, the organizational layer above all the machinery: platform engineering, and how to measure delivery without destroying the measurement.
+
 ## The 12-Factor App
 
 The Twelve-Factor App is a methodology for building software-as-a-service that is portable, disposable, and cloud-friendly; it predates Kubernetes but maps perfectly onto containerized .NET services. All twelve, at a glance:
@@ -24,49 +25,97 @@ The Twelve-Factor App is a methodology for building software-as-a-service that i
 
 Four of these carry the .NET-specific weight:
 
-- **Config (3).** Connection strings and secrets come from environment variables or a secret store, never a checked-in `appsettings.json`; .NET's layered configuration providers make this natural, so one artifact flows unchanged through every environment.
+- **Config (3).** Connection strings and secrets come from environment variables or a secret store, never a checked-in `appsettings.json`; .NET's [layered configuration providers](#the-configuration-system) make this natural, so one artifact flows unchanged through every environment.
 - **Statelessness + backing services (4, 6).** Nothing persisted in local memory or disk between requests; sessions and caches live in attached resources. This is the precondition for horizontal scaling (8).
-- **Disposability (9).** Handle `SIGTERM`, finish in-flight work, release resources — the generic host's graceful-shutdown pipeline exists for this; it is what makes rolling deploys and elastic scaling safe.
-- **Logs (11).** Structured logs to stdout; the platform aggregates. An app managing its own log files fights every orchestrator it runs under.
+- **Disposability (9).** Handle `SIGTERM`, finish in-flight work, release resources — the generic host's [graceful-shutdown pipeline](#processes-signals-graceful-shutdown) exists for this; it is what makes rolling deploys and elastic scaling safe.
+- **Logs (11).** Structured logs to stdout ([Chapter 9](#chapter-9-exceptions-logging-and-first-diagnosis)); the platform aggregates. An app managing its own log files fights every orchestrator it runs under.
 
 > **Why this matters for a senior .NET dev:** these factors are the contract that makes an app cloud-native. Violate them and no amount of Kubernetes will save you.
 
-@@SRC: old Chapter 6: Architecture & Application Design@@
-## .NET Aspire
+The simplest place to honour those factors is a single Linux machine. Containers are the usual target today, but plenty of .NET services still run on plain VMs, and the mechanics are worth knowing either way.
 
-Building distributed .NET systems means juggling many moving parts — several services, a database, Redis, a message broker, and the glue to wire them together locally and in the cloud. **.NET Aspire** is Microsoft's opinionated stack for exactly this: a cloud-ready framework for building observable, production-grade distributed applications. It is now GA and versioned independently of the annual .NET release (Aspire 9.x), so it ships on its own cadence rather than being pinned to a single .NET version.
+## systemd: Running a .NET App as a Service
 
-Aspire's pieces:
+When you deploy to a plain Linux VM instead of a container, you need your app to start on boot, restart on crash, and log properly. **systemd** is the init system that manages this. You describe your service in a **unit file** under `/etc/systemd/system/`.
 
-- **App Host** — a C# project (the orchestrator) where you describe your application's topology in code: which projects, containers, and cloud resources exist and how they connect. During local development it spins them all up together.
+```ini
+# /etc/systemd/system/myapp.service
+[Unit]
+Description=My ASP.NET Core App
+After=network.target
 
-```csharp
-var builder = DistributedApplication.CreateBuilder(args);
+[Service]
+WorkingDirectory=/var/www/myapp
+ExecStart=/usr/bin/dotnet /var/www/myapp/MyApp.dll
+Restart=always
+RestartSec=10
+User=www-data
+Environment=ASPNETCORE_ENVIRONMENT=Production
+Environment=ASPNETCORE_URLS=http://localhost:5000
 
-var cache = builder.AddRedis("cache");
-var db    = builder.AddPostgres("pg").AddDatabase("orders");
-
-var api = builder.AddProject<Projects.OrdersApi>("orders-api")
-                 .WithReference(db)
-                 .WithReference(cache);
-
-builder.AddProject<Projects.WebFrontend>("web")
-       .WithReference(api);
-
-builder.Build().Run();
+[Install]
+WantedBy=multi-user.target
 ```
 
-- **Service Discovery & Configuration** — `WithReference` wires connection strings and endpoints automatically, so services find each other without hand-managed config.
-- **Components/Integrations** — curated NuGet packages for common backing services (Redis, PostgreSQL, RabbitMQ, Azure resources) with sensible defaults, health checks, telemetry, and resilience baked in.
-- **Dashboard** — a local developer dashboard showing every resource, its logs, distributed traces, and metrics via OpenTelemetry out of the box.
-- **Deployment** — the same App Host model generates deployment manifests (e.g., to Azure Container Apps or Kubernetes via tools like Aspir8).
+Then manage it:
 
-> **Where Aspire fits:** it directly addresses the *inner-loop* pain of distributed development (many-service orchestration, observability, configuration) and nudges you toward 12-Factor practices. It is not a service mesh or a runtime platform — it's a composition and developer-experience layer. For a team building a modular monolith or a handful of services, it dramatically lowers the friction of doing distributed .NET *well*.
+```bash
+sudo systemctl daemon-reload        # tell systemd to re-read unit files
+sudo systemctl enable myapp         # start automatically on boot
+sudo systemctl start myapp          # start it now
+sudo systemctl status myapp         # is it running? recent log lines
+sudo systemctl restart myapp        # restart after a deploy
+```
 
-@@SRC: old Chapter 11: Containers & Orchestration@@
+`Restart=always` gives you crash recovery; `User=www-data` runs the app unprivileged. Note that systemd sends **SIGTERM** on `stop`, so the same [graceful-shutdown handling as in a container](#processes-signals-graceful-shutdown) applies here.
+
+**Container vs. service:** in a container you don't use systemd — the container runtime *is* your process supervisor, and your app is PID 1. Use systemd for traditional VM deployments; use the container orchestrator's restart policy for containerized ones. Don't try to run systemd inside a container.
+
+## Shell Scripting for Automation
+
+A shell script bundles commands into a reusable file. You'll write these for deploys, health checks, and CI glue. Here's an annotated deploy-and-verify script:
+
+```bash
+#!/usr/bin/env bash
+# The line above (shebang) tells the OS to run this with bash.
+
+set -euo pipefail
+# -e  : exit immediately if any command fails
+# -u  : error on use of an unset variable (catches typos)
+# -o pipefail : a pipeline fails if ANY stage fails, not just the last
+
+APP_DIR="/var/www/myapp"
+HEALTH_URL="http://localhost:5000/health"
+
+echo "Building..."
+dotnet publish -c Release -o "$APP_DIR"
+
+echo "Restarting service..."
+sudo systemctl restart myapp
+
+echo "Waiting for health check..."
+for i in {1..10}; do
+  if curl -sf "$HEALTH_URL" > /dev/null; then
+    echo "App is healthy."
+    exit 0
+  fi
+  echo "  attempt $i failed, retrying in 3s..."
+  sleep 3
+done
+
+echo "App failed to become healthy." >&2
+exit 1
+```
+
+Key ideas: the **shebang** picks the interpreter; **`set -euo pipefail`** is the single most important line for robust scripts (fail fast, fail loud); `$VAR` reads variables; the `for` loop with `curl -sf` (silent, fail-on-error) polls the health endpoint; a non-zero `exit` tells CI the deploy failed.
+
+> **Best practice:** Start every non-trivial script with `set -euo pipefail`. Without it, a failed command in the middle is silently ignored and the script marches on, often making things worse. This one line turns sloppy scripts into safe ones.
+
+A VM and a restart policy carry one machine. A fleet needs something that decides where each process runs and keeps it running.
+
 ## Kubernetes Fundamentals
 
-Compose is wonderful for one machine. But production wants many machines, automatic restarts of crashed apps, rolling updates with zero downtime, scaling under load, and self-healing when a server dies. That is the job of an **orchestrator**, and **Kubernetes** (K8s) is the de facto standard.
+[Compose](#docker-compose-for-local-development) is wonderful for one machine. But production wants many machines, automatic restarts of crashed apps, rolling updates with zero downtime, scaling under load, and self-healing when a server dies. That is the job of an **orchestrator**, and **Kubernetes** (K8s) is the de facto standard.
 
 The mental shift from Compose to Kubernetes is from *imperative* to *declarative*. You don't tell Kubernetes "start this container." You declare "I want three replicas of this app running," and Kubernetes' **control loops** continuously work to make reality match that declaration — restarting failed containers, rescheduling pods off dead nodes, all without you intervening.
 
@@ -113,7 +162,6 @@ Each **worker node** runs:
 
 **Namespace** — a virtual cluster within the cluster, for isolating environments or teams (e.g. `dev`, `staging`, `team-payments`). Names must be unique within a namespace, not across the whole cluster, and you can apply resource quotas and access policies per namespace.
 
-@@SRC: old Chapter 11: Containers & Orchestration@@
 ## Kubernetes YAML for a .NET Deployment
 
 Let's deploy the API. We'll define a ConfigMap, a Secret, a Deployment, and a Service. Kubernetes manifests are declarative YAML; you apply them with `kubectl apply -f`.
@@ -222,7 +270,7 @@ Kubernetes needs to know two different things about your app, and it uses two di
 - **Readiness probe** — "Is this container ready to *serve traffic right now*?" If it fails, Kubernetes **removes the pod from the Service's load balancer** but does *not* restart it. Use it when the app is alive but temporarily can't serve — still warming up, or a dependency is briefly unavailable. When it recovers, traffic resumes.
 - **Startup probe** — "Has the app *finished starting*?" Slow-booting apps need this. Until the startup probe succeeds, the liveness and readiness probes are suspended. This prevents a slow starter from being killed by an impatient liveness probe. Here `failureThreshold: 30 × periodSeconds: 2` grants up to 60 seconds to start before liveness takes over.
 
-> **Pitfall:** Don't make your liveness probe check downstream dependencies like the database. If the database blips, every pod's liveness probe fails at once, Kubernetes restarts them *all* in a storm, and you turn a small outage into a cascading one. Dependency health belongs in the *readiness* probe (drain traffic), never in liveness (which kills). ASP.NET Core's health-check middleware supports separate `/healthz/live` and `/healthz/ready` endpoints for exactly this split.
+> **Pitfall:** Don't make your liveness probe check downstream dependencies like the database. If the database blips, every pod's liveness probe fails at once, Kubernetes restarts them *all* in a storm, and you turn a small outage into a cascading one. Dependency health belongs in the *readiness* probe (drain traffic), never in liveness (which kills). ASP.NET Core's [health-check middleware](#health-checks) supports separate `/healthz/live` and `/healthz/ready` endpoints for exactly this split.
 
 ### Resource requests and limits
 
@@ -260,7 +308,6 @@ spec:
 
 The HPA watches average CPU across the pods and, when it drifts above 70% of each pod's CPU *request*, adds replicas (up to 20); when load drops, it scales back down (never below 3). Note that "70% utilization" is measured against the `requests` value — another reason setting requests correctly matters. The HPA depends on the **metrics-server** add-on being installed to supply those numbers.
 
-@@SRC: old Chapter 11: Containers & Orchestration@@
 ## Helm and Kustomize: Managing Manifests at Scale
 
 You've now got a stack of YAML: deployment, service, configmap, secret, HPA, ingress. Now multiply it by three environments (dev, staging, prod) that differ only in replica counts, image tags, and hostnames. Copy-pasting and hand-editing five files across three environments is a recipe for drift and mistakes. Two tools solve this differently.
@@ -311,7 +358,6 @@ Apply with `kubectl apply -k overlays/prod`. The base stays untouched and valid 
 
 > **Best practice:** Reach for **Kustomize** when environments differ by simple, structural tweaks (replica counts, tags, resource sizes) and you value plain readable YAML. Reach for **Helm** when you need real templating logic, want to distribute a packaged application for others to install, or need release/rollback tracking. Many teams use both — Helm to install third-party dependencies, Kustomize for their own apps.
 
-@@SRC: old Chapter 11: Containers & Orchestration@@
 ## Essential kubectl Commands
 
 `kubectl` is your primary interface to the cluster. The commands you'll use daily:
@@ -334,7 +380,6 @@ kubectl get events --sort-by=.lastTimestamp     # recent cluster events
 
 > **Best practice:** When a pod misbehaves, `kubectl describe pod` first — the **Events** section at the bottom usually names the problem (image pull failure, failed probe, insufficient resources, `CrashLoopBackOff`) before you ever reach for logs.
 
-@@SRC: old Chapter 11: Containers & Orchestration@@
 ## Service Mesh: Awareness
 
 As microservices multiply, cross-cutting networking concerns pile up: mutual TLS between every service, retries and timeouts, fine-grained traffic splitting for canary releases, and detailed request-level telemetry. Building all of that into each application — across multiple languages — is repetitive and inconsistent.
@@ -343,42 +388,49 @@ A **service mesh** (Istio, Linkerd) moves those concerns *out* of your app and i
 
 The trade-off is real complexity and per-pod resource overhead from all those proxies. **Linkerd** favors simplicity and low overhead; **Istio** is more powerful and more configurable at the cost of a steeper learning curve. You don't need a mesh for a handful of services — but as a system grows into dozens of services with strict security and traffic-management requirements, a mesh becomes compelling. For now, know what it is and when to reach for it.
 
-@@SRC: old Chapter 11: Containers & Orchestration@@
-## .NET Aspire: Orchestration for Local Development
+## .NET Aspire
 
-Docker Compose is language-agnostic, which means it doesn't know anything about your .NET projects. **.NET Aspire** is Microsoft's opinionated stack for building and running cloud-native, multi-service .NET apps — and it dramatically improves the *inner-loop* (local development) experience. It is GA and versioned independently of the .NET release (Aspire 9.x), on its own cadence rather than tied to a specific .NET version.
+Building distributed .NET systems means juggling many moving parts — several services, a database, Redis, a message broker, and the glue to wire them together locally and in the cloud. Docker Compose ([Chapter 14](#docker-compose-for-local-development)) is language-agnostic, which means it doesn't know anything about your .NET projects. **.NET Aspire** is Microsoft's opinionated stack for exactly this: a cloud-ready framework for building observable, production-grade distributed applications, which dramatically improves the *inner-loop* (local development) experience. It is GA and versioned independently of the annual .NET release, so it ships on its own cadence rather than being pinned to a single .NET version.
 
-You describe your application's topology in C#, in an **AppHost** project, rather than in YAML:
+Aspire's pieces:
+
+- **App Host** — a C# project (the orchestrator) where you describe your application's topology in code rather than YAML: which projects, containers, and cloud resources exist and how they connect. During local development it spins them all up together.
 
 ```csharp
 // AppHost Program.cs
 var builder = DistributedApplication.CreateBuilder(args);
 
-var postgres = builder.AddPostgres("db").AddDatabase("appdb");
-var redis = builder.AddRedis("cache");
+var cache = builder.AddRedis("cache");
+var db    = builder.AddPostgres("pg").AddDatabase("orders");
 
-builder.AddProject<Projects.MyApi>("api")
-       .WithReference(postgres)   // injects the connection string automatically
-       .WithReference(redis);
+var api = builder.AddProject<Projects.OrdersApi>("orders-api")
+                 .WithReference(db)      // injects the connection string automatically
+                 .WithReference(cache);
+
+builder.AddProject<Projects.WebFrontend>("web")
+       .WithReference(api);
 
 builder.Build().Run();
 ```
 
-Run it, and Aspire starts your projects, spins up Postgres and Redis in containers, **wires the connection strings into each project via service discovery automatically**, and opens a **dashboard** showing every service's logs, distributed traces, and metrics (OpenTelemetry is wired in out of the box). `WithReference` is doing what you'd otherwise hand-write as environment variables in Compose — but type-safe and discovered automatically.
+Run it, and Aspire starts your projects, spins up Postgres and Redis in containers, and wires everything together. The other pieces:
 
-Two clarifications that matter:
+- **Service Discovery & Configuration** — `WithReference` injects connection strings and endpoints automatically, so services find each other without hand-managed config. It is doing what you'd otherwise hand-write as environment variables in Compose — but type-safe and discovered automatically.
+- **Components/Integrations** — curated NuGet packages for common backing services (Redis, PostgreSQL, RabbitMQ, Azure resources): resilient, telemetry-instrumented client libraries with sensible defaults and health checks baked in.
+- **Dashboard** — a local developer dashboard showing every resource, its logs, distributed traces, and metrics via OpenTelemetry out of the box ([Chapter 25](#chapter-25-observability-and-testing-at-scale) explains what you are looking at).
+- **Deployment** — the same App Host model generates deployment manifests, integrating with tools that publish to Kubernetes or Azure Container Apps (Aspir8, for example). So the same C# app model that runs your inner loop also informs your deployment.
 
-- Aspire is primarily a **development-time and composition** tool, plus a set of "components" (resilient, telemetry-instrumented client libraries for Redis, Postgres, service bus, and so on). It is *not* itself a production runtime.
-- For production, Aspire can **generate deployment manifests** — it integrates with tools that publish to Kubernetes or Azure Container Apps. So the same C# app model that runs your inner loop also informs your deployment.
+> **Where Aspire fits:** it is primarily a **development-time and composition** layer that nudges you toward 12-Factor practices. It is *not* itself a production runtime, nor a service mesh. For a team building a modular monolith or a handful of services, it dramatically lowers the friction of doing distributed .NET *well*.
 
 > **Best practice:** Use Aspire to make local multi-service development pleasant and observable, and to standardize resilient, instrumented client configuration across services. Still learn Kubernetes and its manifests — that's where your app ultimately runs, and Aspire complements that knowledge rather than replacing it.
 
-> **Capstone tie-in:** This chapter is exercised by ShopCore Steps 3 (Dockerize) and 8 (Deploy with Infrastructure as Code) — you'd package the API with a multi-stage Dockerfile and Compose, then run the services on a managed Kubernetes cluster or cloud container service. See Chapter 32.
+> **Capstone tie-in:** The sections so far are exercised by ShopCore Steps 3 (Dockerize) and [8 (Deploy with Infrastructure as Code)](#step-8-deploy-with-infrastructure-as-code) in [Chapter 44](#chapter-44-capstone-one-project-growing-up) — you'd package the API with a multi-stage Dockerfile and Compose, then run the services on a managed Kubernetes cluster or cloud container service.
 
-@@SRC: old Chapter 12: DevOps & CI/CD@@
+That is where a service runs. The next sections are how a change gets there: the pipeline that builds and promotes it, the packages it depends on, and the strategies that replace the running version without users noticing.
+
 ## Azure Pipelines in Practice
 
-If you work on .NET professionally there is a good chance the build you are asked to fix is an Azure Pipelines build, not a GitHub Actions one. The reasons are historical and structural: Azure DevOps predates Actions, Microsoft shipped first-class .NET tasks for it, and it grew the enterprise machinery—approvals, audited environments, Key Vault-backed variable groups, org-wide templates—that regulated shops need. The concepts you just learned all transfer. What changes is the vocabulary and, in one important place, the shape of the file.
+If you work on .NET professionally there is a good chance the build you are asked to fix is an Azure Pipelines build, not a GitHub Actions one. The reasons are historical and structural: Azure DevOps predates Actions, Microsoft shipped first-class .NET tasks for it, and it grew the enterprise machinery—approvals, audited environments, Key Vault-backed variable groups, org-wide templates—that regulated shops need. The concepts of [Chapter 13: Git and CI/CD](#chapter-13-git-and-cicd), taught there on GitHub Actions, all transfer. What changes is the vocabulary and, in one important place, the shape of the file.
 
 ### Coming from GitHub Actions: A Translation Table
 
@@ -589,7 +641,7 @@ Note `${{ }}`—compile-time expansion—versus `$[ ]` for runtime and `$( )` fo
 
 **Private feeds need `NuGetAuthenticate@1`.** Azure Artifacts feeds are not anonymous. The task injects credentials for the build identity into the NuGet provider so a plain `dotnet restore` works; without it you get `NU1101` (package not found), because an unauthenticated feed returns nothing rather than a 401. If the feed lives in another organization, you also need a service connection and to name it in the task's `nuGetServiceConnections` input.
 
-**Service connections are the credential boundary.** A service connection is a stored, permissioned identity that tasks use to talk to Azure, AWS, Docker registries, or Kubernetes. The old form stored a service-principal client secret that someone had to rotate. The modern form is **workload identity federation**: the connection is configured to trust tokens issued by your Azure DevOps organization for a specific service connection, so the agent exchanges a short-lived OIDC token for an Azure access token at run time and *no secret exists to leak or rotate*. Convert your Azure connections to workload identity federation; it removes an entire category of incident. This is the same reasoning as the managed-identity advice in *Secrets in Pipelines* below; the trust chain it rests on — and the trust-policy condition that is the whole security boundary — is worked through in the *Zero Trust and Workload Identity* section of [Chapter 14: Security](#chapter-14-security).
+**Service connections are the credential boundary.** A service connection is a stored, permissioned identity that tasks use to talk to Azure, AWS, Docker registries, or Kubernetes. The old form stored a service-principal client secret that someone had to rotate. The modern form is **workload identity federation**: the connection is configured to trust tokens issued by your Azure DevOps organization for a specific service connection, so the agent exchanges a short-lived OIDC token for an Azure access token at run time and *no secret exists to leak or rotate*. Convert your Azure connections to workload identity federation; it removes an entire category of incident. This is the same reasoning as the managed-identity advice in [Chapter 13: Secrets in Pipelines](#secrets-in-pipelines); the trust chain it rests on — and the trust-policy condition that is the whole security boundary — is worked through in [Chapter 27: Zero Trust and Workload Identity](#zero-trust-and-workload-identity).
 
 ### Reading and Fixing the Build
 
@@ -616,7 +668,7 @@ Most of the time the build is not a design problem, it is a reading problem. A s
 | `MSB3277: conflicts between different versions of the same assembly` | Two packages bind to different major versions of one assembly | Read the `/v:detailed` output for the winning version, unify via CPM, and only reach for `binding redirects`/`AutoGenerateBindingRedirects` on .NET Framework targets |
 | `A compatible .NET SDK was not found` / `global.json` mismatch | The pinned SDK is not on the agent image | `UseDotNet@2` with `useGlobalJson: true`; or add `rollForward: latestFeature` to `global.json` |
 | `The active test run was aborted` | The test host process crashed—stack overflow from recursion, a `AccessViolation` in a native dependency, or `Environment.Exit` in a test | Re-run with `--blame-crash --blame-hang-timeout 5m`; the resulting sequence file names the test that killed the host |
-| Testcontainers tests fail with "Cannot connect to the Docker daemon" | The job is on a `windows-latest` agent, which has no Linux Docker daemon for Linux containers | Move the integration-test job to `ubuntu-latest`, or use a self-hosted agent with Docker configured—see [Chapter 7: Testing](#chapter-7-testing) |
+| Testcontainers tests fail with "Cannot connect to the Docker daemon" | The job is on a `windows-latest` agent, which has no Linux Docker daemon for Linux containers | Move the integration-test job to `ubuntu-latest`, or use a self-hosted agent with Docker configured—see [Chapter 8: Testing](#chapter-8-testing) |
 | `No space left on device` mid-build | Microsoft-hosted agents give you ~10 GB total; layered Docker builds, NuGet caches, and coverage output eat it fast | Prune between steps (`docker system prune -af`), avoid `--self-contained` publishes you do not need, or move to a self-hosted agent |
 | `The job running on agent ... exceeded the maximum time of 60 minutes` | The free tier caps a private-project job at 60 minutes regardless of `timeoutInMinutes` | Split the work into parallel jobs, cache aggressively, or buy a parallel job (which raises the cap to 360 minutes) |
 
@@ -636,7 +688,6 @@ Both are mature and both will build .NET well; the honest answer depends on wher
 
 The pragmatic middle ground is common and works well: keep the code and pull-request checks on GitHub Actions, where developers already live, and let Azure Pipelines own the deployment stages where the approvals and audit trail matter. Both can consume the same immutable artifact from the same registry—which is the point of building once and promoting, and the reason the choice is less consequential than it feels.
 
-@@SRC: old Chapter 12: DevOps & CI/CD@@
 ## NuGet in Depth
 
 NuGet is .NET's package manager. As a senior engineer you should be comfortable on both sides: consuming packages and producing them.
@@ -674,9 +725,8 @@ dotnet nuget push ./nupkgs/Contoso.Ordering.Client.2.3.1.nupkg \
 </configuration>
 ```
 
-> **Pitfall — dependency confusion:** If an internal package name also exists on the public feed, a misconfigured restore can pull the *public* one, which an attacker may have planted. Defend against this by using upstream sources correctly and by reserving your package name prefixes (package ID prefix reservation) on public feeds.
+> **Pitfall — dependency confusion:** If an internal package name also exists on the public feed, a misconfigured restore can pull the *public* one, which an attacker may have planted. Defend against this by using upstream sources correctly and by reserving your package name prefixes (package ID prefix reservation) on public feeds. [Chapter 27](#dependency-confusion-and-why-pinning-does-not-fix-it) works through the attack and the full set of defences.
 
-@@SRC: old Chapter 12: DevOps & CI/CD@@
 ## Deployment Strategies
 
 Getting a validated artifact built is only half the job; *how* you replace the running version determines whether users notice.
@@ -691,7 +741,6 @@ Getting a validated artifact built is only half the job; *how* you replace the r
 
 **Artifact management** underpins all of this. Build an artifact *once*—a container image, a NuGet package, a published zip—store it in a registry or artifact feed, and promote that *same* immutable artifact through environments (dev → staging → production). Tag it by commit SHA or SemVer so you know exactly what is running. Rebuilding per environment reintroduces the risk that staging and production differ.
 
-@@SRC: old Chapter 12: DevOps & CI/CD@@
 ## Feature Flags
 
 Trunk-based development and continuous deployment rely on decoupling *deploy* from *release*. You merge and deploy incomplete or risky code, but keep it dark behind a **feature flag** until you deliberately turn it on—for everyone, or for a chosen cohort.
@@ -719,105 +768,8 @@ Flags are configured externally—`appsettings.json`, Azure App Configuration, o
 
 > **Pitfall:** Feature flags are debt if you never remove them. A codebase littered with stale flags becomes an unreadable maze of dead branches. Track flags and delete both the flag and the losing code path once a feature is fully rolled out and stable.
 
-@@SRC: old Chapter 12: DevOps & CI/CD@@
-## Platform Engineering and Measuring Delivery
+A released version still sits behind a stack of infrastructure before any user reaches it — and in front of every user who should not.
 
-Everything so far in this chapter is machinery: pipelines, artifacts, gates, secrets. This section is about the two questions that sit above the machinery and get asked of senior engineers rather than of pipelines — **who builds and owns this for everyone?** and **how do we know any of it is working?**
-
-### The problem platform engineering exists to solve
-
-"You build it, you run it" was a corrective to a real dysfunction: developers throwing code over a wall at an operations team who had no context and no way to say no. It worked. Then it kept going, and the accumulated result is a backend developer who is also expected to be fluent in Terraform, Kubernetes, Helm, a service mesh, three observability products, an IaC linter, a secrets manager, two cloud IAM models, and the CI DSL of the week — while shipping features.
-
-That is a **cognitive load** problem, and it does not resolve by hiring more senior people. Past a certain organizational size, every team independently solving the same infrastructure problems produces twelve slightly different, slightly wrong solutions, and the cost is paid forever in maintenance and incidents.
-
-**Platform engineering** is the response: a small team builds and operates an internal product whose customers are the other engineers. The word *product* is load-bearing — it implies users you can talk to, adoption you have to earn, a roadmap driven by demand, and the possibility of building the wrong thing.
-
-| | DevOps (the practice) | SRE | Platform engineering |
-|---|---|---|---|
-| Core idea | Dev and ops share ownership | Reliability as an engineering discipline | Infrastructure capability as an internal product |
-| Primary output | Culture, automation, feedback loops | SLOs, error budgets, toil reduction | Golden paths, self-service tooling |
-| Fails when | It becomes a job title for one team | Error budgets are advisory only | The platform team becomes a ticket queue |
-
-They are complements, not alternatives. SRE gives you the reliability vocabulary (Chapter 13); platform engineering gives you the leverage to apply it consistently.
-
-### Golden paths, and why paved beats gated
-
-A **golden path** is the supported, opinionated way to do a common thing: create a service, add a database, expose an endpoint, ship to production. It is not the *only* way — that distinction matters enormously — it is the way that is already solved.
-
-A good golden path for a new .NET service delivers, from one command, a repository with the company's project layout and analyzer settings, a working CI pipeline, containerization, health checks and OpenTelemetry wired up, an entry in the service catalog, a dashboard, an on-call rotation, and a deployment to a dev environment. What used to take a competent engineer two weeks of copying from a neighbouring repo takes an afternoon, and — the real prize — the twentieth service is configured the same way as the first.
-
-The design principle that decides whether this succeeds:
-
-> **Best practice — pave, don't gate.** Make the supported path so obviously easier than the alternatives that people choose it. The moment the platform's primary mechanism is *refusing* things, engineers route around it, and you have built a bureaucracy that also has an on-call rotation.
-
-That does not mean no guardrails. It means guardrails should be *defaults* rather than *approvals*: the template already has the right IAM scope, the base image is already hardened, the pipeline already runs the security gates. Reserve hard blocks (admission control, required checks) for the small set of things that genuinely must never happen — an unsigned image reaching production, a secret in a commit — and let everything else be a default that a team can deviate from with a written reason.
-
-**Golden paths rot.** A template generated a year ago is a snapshot; a hundred services generated from it drift into a hundred variations. Budget for propagating changes — a tool that can re-apply template updates to existing repositories and open PRs — or accept that your golden path describes only new services, which is a much smaller benefit than it looked.
-
-### Service catalogs and ownership
-
-The most valuable thing an internal platform holds is not the tooling — it is the answer to *"who owns this?"*. Every organization past about thirty services has some component that nobody can confidently claim, and it is invariably load-bearing.
-
-**Backstage** (the CNCF project originating at Spotify) is the common open-source implementation, and it is a big commitment — a Node application your team maintains, with plugins to build. Several commercial alternatives exist. Before adopting any of them, be clear about what makes a catalog useful, because it is not the software:
-
-- Ownership is **current** — enforced by CI (a `CODEOWNERS` or catalog entry required for the pipeline to run), not maintained by goodwill.
-- It is **generated** from things that are already true (repositories, deployments, dashboards) rather than typed in by hand.
-- People actually **land in it** during real work — from an alert, from a dependency graph, from a "who do I ask about this" moment.
-
-A catalog nobody consults because its data is nine months stale is worse than none, because it answers questions confidently and wrongly.
-
-### DORA: four metrics, and exactly how each is gamed
-
-The DORA research programme identified four measures that correlate with software delivery performance. They are the industry's common language, and knowing how each one breaks is more useful than knowing the definitions.
-
-| Metric | What it measures | How it gets gamed |
-|---|---|---|
-| **Deployment frequency** | How often you release to production | Deploy the same artifact repeatedly; count no-op deploys; redefine "deployment" |
-| **Lead time for changes** | Commit → running in production | Start the clock at PR-open rather than first commit, hiding the weeks of work before it |
-| **Change failure rate** | Share of deployments causing degradation | Reclassify incidents as "planned maintenance"; raise the bar for what counts as a failure |
-| **Failed deployment recovery time** | How long to restore service | Close incidents when mitigated rather than resolved; split one incident into several short ones |
-
-Two structural warnings.
-
-**They are throughput and stability, not value.** A team can hit elite numbers on all four while shipping features nobody uses. DORA measures how well your delivery machine runs, not whether it is pointed anywhere useful. It was never intended as a proxy for value, and using it that way is the most common misreading.
-
-**They stop measuring the moment they become targets.** This is Goodhart's law and it is not avoidable by choosing better metrics. The mitigation is to use them as a *team's own diagnostic*, trended over time, discussed in retrospectives — and specifically **not** to compare teams against each other or attach them to performance reviews. The instant lead time appears on a manager's dashboard next to individual names, you are measuring reporting behaviour.
-
-> **Gotcha.** Change failure rate and deployment frequency are a *pair*. Improving one at the expense of the other is not improvement, and looking at either alone rewards exactly the wrong behaviour — either reckless shipping or paralysis. Read them together, always.
-
-### SPACE: the corrective
-
-SPACE was proposed by researchers (including some of the DORA authors) precisely because single-dimension metrics distort. It says productivity is multidimensional and you should sample across five dimensions rather than optimize one:
-
-- **S**atisfaction and well-being — how do developers feel about their tools and work? Burnout precedes attrition, which destroys delivery.
-- **P**erformance — outcomes: did the change work, is quality holding?
-- **A**ctivity — counts of things done. Necessary but the most misleading alone.
-- **C**ommunication and collaboration — review latency, discoverability, how knowledge moves.
-- **E**fficiency and flow — uninterrupted time, wait states, handoffs.
-
-The practical guidance: pick **at least three dimensions, including at least one from a survey**, and never report activity alone. Developer surveys are not soft data here — they are frequently the only instrument that detects the thing actually blocking a team, and DORA's own research consistently finds the biggest constraints are organizational rather than technical.
-
-### Measuring whether AI assistance is helping
-
-This is the live version of the measurement problem, and it is where the discipline above earns its keep. The evidence is genuinely mixed — including a 2025 randomized trial in which experienced developers working on codebases they knew well were *slower* with AI assistance while believing they had been substantially faster. Perceived speed is not evidence.
-
-The mechanics of measuring it honestly — which metrics mislead (lines of code, percentage AI-generated, PR count), which help (cycle time paired with change failure rate, review latency as the leading indicator, token spend per merged PR), and why the answer varies with codebase familiarity — are worked through in [Chapter 18](#chapter-18-the-ai-native-developer-thriving-in-the-ai-era). The point to carry here is structural: **AI assistance moves the bottleneck from writing to reviewing**, and if your delivery metrics show PRs arriving faster while review latency climbs, you have not increased throughput. You have grown a queue.
-
-### Feedback loop time is a first-class engineering problem
-
-The least glamorous, highest-return thing a platform team can do is make the loop shorter. A developer waiting 25 minutes for CI does not wait — they context-switch, and the cost of that switch dwarfs the CI time itself. A suite slow enough to discourage running it locally is a suite that stops catching things.
-
-Where the time usually goes, in rough order of payoff:
-
-- **Cache what is deterministic.** NuGet restore keyed on `packages.lock.json` (see *Caching only pays off if restore is deterministic*, above), Docker layers ordered so source changes don't invalidate dependency layers, and the build output itself.
-- **Parallelize.** Independent jobs should not be sequential stages. xUnit runs test collections in parallel by default; check you haven't disabled it with a shared fixture.
-- **Run the right subset on the right trigger.** Unit tests on every push; integration and E2E on PR; the full matrix nightly. Affected-project selection (from the changed paths) is a large win in a solution with many projects.
-- **Right-size the runner.** A build that is CPU-bound on a two-core runner is an easy purchase decision — engineer-hours cost more than compute.
-- **Measure it.** Track p50 and p95 pipeline duration as a metric your team actually looks at, the same way you'd track service latency. Slow CI degrades continuously and silently until someone charts it.
-
-**Monorepo or many repos** shapes all of this. A monorepo gives atomic cross-service changes, one dependency version, and trivially consistent tooling, at the cost of needing affected-target selection and good ownership boundaries to stay fast. Many repositories give independence and simple CI at the cost of coordinating changes that cross boundaries, and of versioning your internal libraries as if they were public. Both work at scale; what does not work is a monorepo without build-graph tooling, or polyrepo without a way to propagate a change across forty repositories. Pick the failure mode you can afford to engineer around.
-
-@@SRC: old Chapter 20: Networking & Web Fundamentals@@
 ## Load Balancers, Reverse Proxies, API Gateways, and CDNs
 
 Between your users and your servers sits a stack of infrastructure whose job is to distribute, protect, and accelerate traffic. Senior engineers need to know what each box does.
@@ -901,7 +853,6 @@ app.MapGet("/report/{id}", (int id, HttpContext ctx) =>
 
 > **Best practice:** Fingerprint static assets (`app.a1b2c3.js`) and serve them with `Cache-Control: immutable, max-age=31536000`. Because the filename changes when content changes, you can cache forever with zero staleness risk. Reserve short/`no-cache` TTLs for HTML and API responses that change.
 
-@@SRC: old Chapter 20: Networking & Web Fundamentals@@
 ## Rate Limiting and Timeouts at the Edge
 
 Two defensive controls belong at the network edge, protecting your services from abuse and from themselves.
@@ -929,9 +880,8 @@ using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
 var response = await client.GetAsync(url, cts.Token);
 ```
 
-> **Best practice:** Combine timeouts, retries (with **exponential backoff and jitter** so retries don't stampede in lockstep), and **circuit breakers** (stop hammering a failing dependency) — the resilience trio. In .NET, `Microsoft.Extensions.Http.Resilience` (built on Polly) wires all three into `IHttpClientFactory` declaratively; Chapter 21 builds the full pipeline and explains how the strategies layer.
+> **Best practice:** Combine timeouts, retries (with **exponential backoff and jitter** so retries don't stampede in lockstep), and **circuit breakers** (stop hammering a failing dependency) — the resilience trio. In .NET, `Microsoft.Extensions.Http.Resilience` (built on Polly) wires all three into `IHttpClientFactory` declaratively ([Chapter 5](#ihttpclientfactory-resilience-with-polly)); [Chapter 20](#a-concrete-net-resilience-pipeline-with-polly) builds the full pipeline and explains how the strategies layer.
 
-@@SRC: old Chapter 20: Networking & Web Fundamentals@@
 ## Abuse, Bots, and Traffic You Did Not Ask For
 
 The rate limiter in the previous section is configured for a *cooperative* world: a well-meaning client with a runaway retry loop, a mobile app polling too eagerly, a partner integration that misread the docs. Set a limit, return `429`, they back off, everyone is happy.
@@ -1007,7 +957,7 @@ What distinguishes it from a brute-force attack is the shape: **one or two attem
 Defences that match the actual shape:
 
 - **Check passwords against breach corpora** at registration and at password change (the Have I Been Pwned range API does this without you ever sending a password — you send the first five characters of the SHA-1 hash and search the returned suffixes locally). This removes the attack's entire premise for your users.
-- **Passkeys / WebAuthn**, which have no shared secret to stuff (Chapter 14). This is the real fix, and it is now practical.
+- **Passkeys / WebAuthn**, which have no shared secret to stuff ([Chapter 12](#passkeys-webauthn-fido2)). This is the real fix, and it is now practical.
 - **Rate limit on the global failure rate for the endpoint**, not just per account: a sudden jump in the ratio of failed to successful logins is the signal, and it is visible even when every individual account looks quiet.
 - **Risk-based friction** — a challenge or a second factor when the request comes from an unfamiliar device, an unusual geography, or a source already failing elsewhere — rather than uniform friction that trains users to click through.
 
@@ -1019,13 +969,13 @@ Elastic infrastructure changed the objective. Against a fixed-capacity server, a
 
 The endpoints that make this profitable are the ones where a small request buys a large amount of work:
 
-- **LLM endpoints**, where one crafted request can trigger a long retrieval, a large context, and a multi-step agent loop — dollars per request, and the reason Chapter 19 treats unbounded consumption as a first-class risk.
+- **LLM endpoints**, where one crafted request can trigger a long retrieval, a large context, and a multi-step agent loop — dollars per request, and the reason [Chapter 33](#chapter-33-building-ai-powered-systems) treats unbounded consumption as a first-class risk.
 - **Search and report generation**, where a pathological query scans everything.
 - **Export and download**, which converts directly into egress charges.
 - **Image and document processing**, where a small upload becomes minutes of CPU.
 - **Anything that fans out** to paid third-party APIs on your account.
 
-The defences are unremarkable and must exist before launch rather than after the invoice: hard per-user and per-tenant quotas on expensive operations specifically (your global API rate limit is not sized for them), a bounded cost budget per request, request-size and complexity limits (including query depth if you expose GraphQL), and **alerting on rate of spend rather than absolute spend** — a monthly budget alarm tells you about last night four weeks late. Chapter 28 covers the cost-management side.
+The defences are unremarkable and must exist before launch rather than after the invoice: hard per-user and per-tenant quotas on expensive operations specifically (your global API rate limit is not sized for them), a bounded cost budget per request, request-size and complexity limits (including query depth if you expose GraphQL), and **alerting on rate of spend rather than absolute spend** — a monthly budget alarm tells you about last night four weeks late. [Chapter 31](#part-b-cloud-cost-finops) covers the cost-management side.
 
 ### Shed load deliberately
 
@@ -1033,83 +983,101 @@ When capacity does run out — from attack, from a launch, from a dependency slo
 
 The default behaviour is the worst one: every request is accepted, every request queues, every request times out, and nobody is served while all the work is done anyway. Under overload, **rejecting early is a service, not a failure.** Return `429` or `503` with `Retry-After` promptly rather than accepting work you cannot finish.
 
-Then choose your priority order in advance, because you will not design it well at 3 a.m.: authenticated over anonymous, paying tenants over free, checkout over browsing, writes over analytics. Wire it as a queue policy or a concurrency limiter per class of traffic, and — this is the part teams miss — **load-test the degraded path**. A graceful degradation nobody has exercised is a hypothesis. Chapter 21's material on failure injection is how you turn it into a fact.
+Then choose your priority order in advance, because you will not design it well at 3 a.m.: authenticated over anonymous, paying tenants over free, checkout over browsing, writes over analytics. Wire it as a queue policy or a concurrency limiter per class of traffic, and — this is the part teams miss — **load-test the degraded path**. A graceful degradation nobody has exercised is a hypothesis. [Chapter 20's failure injection](#verifying-resilience-chaos-engineering-in-practice) is how you turn it into a fact.
 
-@@SRC: old Chapter 31: Linux & the Command Line for .NET Developers@@
-## systemd: Running a .NET App as a Service
+## Platform Engineering and Measuring Delivery
 
-When you deploy to a plain Linux VM instead of a container, you need your app to start on boot, restart on crash, and log properly. **systemd** is the init system that manages this. You describe your service in a **unit file** under `/etc/systemd/system/`.
+Everything so far in this chapter is machinery: pipelines, artifacts, gates, secrets, clusters, proxies. This section is about the two questions that sit above the machinery and get asked of senior engineers rather than of pipelines — **who builds and owns this for everyone?** and **how do we know any of it is working?**
 
-```ini
-# /etc/systemd/system/myapp.service
-[Unit]
-Description=My ASP.NET Core App
-After=network.target
+### The problem platform engineering exists to solve
 
-[Service]
-WorkingDirectory=/var/www/myapp
-ExecStart=/usr/bin/dotnet /var/www/myapp/MyApp.dll
-Restart=always
-RestartSec=10
-User=www-data
-Environment=ASPNETCORE_ENVIRONMENT=Production
-Environment=ASPNETCORE_URLS=http://localhost:5000
+"You build it, you run it" was a corrective to a real dysfunction: developers throwing code over a wall at an operations team who had no context and no way to say no. It worked. Then it kept going, and the accumulated result is a backend developer who is also expected to be fluent in Terraform, Kubernetes, Helm, a service mesh, three observability products, an IaC linter, a secrets manager, two cloud IAM models, and the CI DSL of the week — while shipping features.
 
-[Install]
-WantedBy=multi-user.target
-```
+That is a **cognitive load** problem, and it does not resolve by hiring more senior people. Past a certain organizational size, every team independently solving the same infrastructure problems produces twelve slightly different, slightly wrong solutions, and the cost is paid forever in maintenance and incidents.
 
-Then manage it:
+**Platform engineering** is the response: a small team builds and operates an internal product whose customers are the other engineers. The word *product* is load-bearing — it implies users you can talk to, adoption you have to earn, a roadmap driven by demand, and the possibility of building the wrong thing.
 
-```bash
-sudo systemctl daemon-reload        # tell systemd to re-read unit files
-sudo systemctl enable myapp         # start automatically on boot
-sudo systemctl start myapp          # start it now
-sudo systemctl status myapp         # is it running? recent log lines
-sudo systemctl restart myapp        # restart after a deploy
-```
+| | DevOps (the practice) | SRE | Platform engineering |
+|---|---|---|---|
+| Core idea | Dev and ops share ownership | Reliability as an engineering discipline | Infrastructure capability as an internal product |
+| Primary output | Culture, automation, feedback loops | SLOs, error budgets, toil reduction | Golden paths, self-service tooling |
+| Fails when | It becomes a job title for one team | Error budgets are advisory only | The platform team becomes a ticket queue |
 
-`Restart=always` gives you crash recovery; `User=www-data` runs the app unprivileged. Note that systemd sends **SIGTERM** on `stop`, so the same graceful-shutdown handling from containers applies here.
+They are complements, not alternatives. SRE gives you the reliability vocabulary ([Chapter 25](#alerting-slis-slos-slas-and-error-budgets)); platform engineering gives you the leverage to apply it consistently.
 
-**Container vs. service:** in a container you don't use systemd — the container runtime *is* your process supervisor, and your app is PID 1. Use systemd for traditional VM deployments; use the container orchestrator's restart policy for containerized ones. Don't try to run systemd inside a container.
+### Golden paths, and why paved beats gated
 
-@@SRC: old Chapter 31: Linux & the Command Line for .NET Developers@@
-## Shell Scripting for Automation
+A **golden path** is the supported, opinionated way to do a common thing: create a service, add a database, expose an endpoint, ship to production. It is not the *only* way — that distinction matters enormously — it is the way that is already solved.
 
-A shell script bundles commands into a reusable file. You'll write these for deploys, health checks, and CI glue. Here's an annotated deploy-and-verify script:
+A good golden path for a new .NET service delivers, from one command, a repository with the company's project layout and analyzer settings, a working CI pipeline, containerization, health checks and OpenTelemetry wired up, an entry in the service catalog, a dashboard, an on-call rotation, and a deployment to a dev environment. What used to take a competent engineer two weeks of copying from a neighbouring repo takes an afternoon, and — the real prize — the twentieth service is configured the same way as the first.
 
-```bash
-#!/usr/bin/env bash
-# The line above (shebang) tells the OS to run this with bash.
+The design principle that decides whether this succeeds:
 
-set -euo pipefail
-# -e  : exit immediately if any command fails
-# -u  : error on use of an unset variable (catches typos)
-# -o pipefail : a pipeline fails if ANY stage fails, not just the last
+> **Best practice — pave, don't gate.** Make the supported path so obviously easier than the alternatives that people choose it. The moment the platform's primary mechanism is *refusing* things, engineers route around it, and you have built a bureaucracy that also has an on-call rotation.
 
-APP_DIR="/var/www/myapp"
-HEALTH_URL="http://localhost:5000/health"
+That does not mean no guardrails. It means guardrails should be *defaults* rather than *approvals*: the template already has the right IAM scope, the base image is already hardened, the pipeline already runs the security gates. Reserve hard blocks (admission control, required checks) for the small set of things that genuinely must never happen — an unsigned image reaching production, a secret in a commit — and let everything else be a default that a team can deviate from with a written reason.
 
-echo "Building..."
-dotnet publish -c Release -o "$APP_DIR"
+**Golden paths rot.** A template generated a year ago is a snapshot; a hundred services generated from it drift into a hundred variations. Budget for propagating changes — a tool that can re-apply template updates to existing repositories and open PRs — or accept that your golden path describes only new services, which is a much smaller benefit than it looked.
 
-echo "Restarting service..."
-sudo systemctl restart myapp
+### Service catalogs and ownership
 
-echo "Waiting for health check..."
-for i in {1..10}; do
-  if curl -sf "$HEALTH_URL" > /dev/null; then
-    echo "App is healthy."
-    exit 0
-  fi
-  echo "  attempt $i failed, retrying in 3s..."
-  sleep 3
-done
+The most valuable thing an internal platform holds is not the tooling — it is the answer to *"who owns this?"*. Every organization past about thirty services has some component that nobody can confidently claim, and it is invariably load-bearing.
 
-echo "App failed to become healthy." >&2
-exit 1
-```
+**Backstage** (the CNCF project originating at Spotify) is the common open-source implementation, and it is a big commitment — a Node application your team maintains, with plugins to build. Several commercial alternatives exist. Before adopting any of them, be clear about what makes a catalog useful, because it is not the software:
 
-Key ideas: the **shebang** picks the interpreter; **`set -euo pipefail`** is the single most important line for robust scripts (fail fast, fail loud); `$VAR` reads variables; the `for` loop with `curl -sf` (silent, fail-on-error) polls the health endpoint; a non-zero `exit` tells CI the deploy failed.
+- Ownership is **current** — enforced by CI (a `CODEOWNERS` or catalog entry required for the pipeline to run), not maintained by goodwill.
+- It is **generated** from things that are already true (repositories, deployments, dashboards) rather than typed in by hand.
+- People actually **land in it** during real work — from an alert, from a dependency graph, from a "who do I ask about this" moment.
 
-> **Best practice:** Start every non-trivial script with `set -euo pipefail`. Without it, a failed command in the middle is silently ignored and the script marches on, often making things worse. This one line turns sloppy scripts into safe ones.
+A catalog nobody consults because its data is nine months stale is worse than none, because it answers questions confidently and wrongly.
+
+### DORA: four metrics, and exactly how each is gamed
+
+The DORA research programme identified four measures that correlate with software delivery performance. They are the industry's common language, and knowing how each one breaks is more useful than knowing the definitions.
+
+| Metric | What it measures | How it gets gamed |
+|---|---|---|
+| **Deployment frequency** | How often you release to production | Deploy the same artifact repeatedly; count no-op deploys; redefine "deployment" |
+| **Lead time for changes** | Commit → running in production | Start the clock at PR-open rather than first commit, hiding the weeks of work before it |
+| **Change failure rate** | Share of deployments causing degradation | Reclassify incidents as "planned maintenance"; raise the bar for what counts as a failure |
+| **Failed deployment recovery time** | How long to restore service | Close incidents when mitigated rather than resolved; split one incident into several short ones |
+
+Two structural warnings.
+
+**They are throughput and stability, not value.** A team can hit elite numbers on all four while shipping features nobody uses. DORA measures how well your delivery machine runs, not whether it is pointed anywhere useful. It was never intended as a proxy for value, and using it that way is the most common misreading.
+
+**They stop measuring the moment they become targets.** This is Goodhart's law and it is not avoidable by choosing better metrics. The mitigation is to use them as a *team's own diagnostic*, trended over time, discussed in retrospectives — and specifically **not** to compare teams against each other or attach them to performance reviews. The instant lead time appears on a manager's dashboard next to individual names, you are measuring reporting behaviour.
+
+> **Gotcha.** Change failure rate and deployment frequency are a *pair*. Improving one at the expense of the other is not improvement, and looking at either alone rewards exactly the wrong behaviour — either reckless shipping or paralysis. Read them together, always.
+
+### SPACE: the corrective
+
+SPACE was proposed by researchers (including some of the DORA authors) precisely because single-dimension metrics distort. It says productivity is multidimensional and you should sample across five dimensions rather than optimize one:
+
+- **S**atisfaction and well-being — how do developers feel about their tools and work? Burnout precedes attrition, which destroys delivery.
+- **P**erformance — outcomes: did the change work, is quality holding?
+- **A**ctivity — counts of things done. Necessary but the most misleading alone.
+- **C**ommunication and collaboration — review latency, discoverability, how knowledge moves.
+- **E**fficiency and flow — uninterrupted time, wait states, handoffs.
+
+The practical guidance: pick **at least three dimensions, including at least one from a survey**, and never report activity alone. Developer surveys are not soft data here — they are frequently the only instrument that detects the thing actually blocking a team, and DORA's own research consistently finds the biggest constraints are organizational rather than technical.
+
+### Measuring whether AI assistance is helping
+
+This is the live version of the measurement problem, and it is where the discipline above earns its keep. The evidence is genuinely mixed — including a 2025 randomized trial in which experienced developers working on codebases they knew well were *slower* with AI assistance while believing they had been substantially faster. Perceived speed is not evidence.
+
+The mechanics of measuring it honestly — which metrics mislead (lines of code, percentage AI-generated, PR count), which help (cycle time paired with change failure rate, review latency as the leading indicator, token spend per merged PR), and why the answer varies with codebase familiarity — are worked through in [Chapter 32](#chapter-32-the-ai-native-developer-thriving-in-the-ai-era). The point to carry here is structural: **AI assistance moves the bottleneck from writing to reviewing**, and if your delivery metrics show PRs arriving faster while review latency climbs, you have not increased throughput. You have grown a queue.
+
+### Feedback loop time is a first-class engineering problem
+
+The least glamorous, highest-return thing a platform team can do is make the loop shorter. A developer waiting 25 minutes for CI does not wait — they context-switch, and the cost of that switch dwarfs the CI time itself. A suite slow enough to discourage running it locally is a suite that stops catching things.
+
+Where the time usually goes, in rough order of payoff:
+
+- **Cache what is deterministic.** NuGet restore keyed on `packages.lock.json` (see *Caching only pays off if restore is deterministic*, above), Docker layers ordered so source changes don't invalidate dependency layers, and the build output itself.
+- **Parallelize.** Independent jobs should not be sequential stages. xUnit runs test collections in parallel by default; check you haven't disabled it with a shared fixture.
+- **Run the right subset on the right trigger.** Unit tests on every push; integration and E2E on PR; the full matrix nightly. Affected-project selection (from the changed paths) is a large win in a solution with many projects.
+- **Right-size the runner.** A build that is CPU-bound on a two-core runner is an easy purchase decision — engineer-hours cost more than compute.
+- **Measure it.** Track p50 and p95 pipeline duration as a metric your team actually looks at, the same way you'd track service latency. Slow CI degrades continuously and silently until someone charts it.
+
+**Monorepo or many repos** shapes all of this. A monorepo gives atomic cross-service changes, one dependency version, and trivially consistent tooling, at the cost of needing affected-target selection and good ownership boundaries to stay fast. Many repositories give independence and simple CI at the cost of coordinating changes that cross boundaries, and of versioning your internal libraries as if they were public. Both work at scale; what does not work is a monorepo without build-graph tooling, or polyrepo without a way to propagate a change across forty repositories. Pick the failure mode you can afford to engineer around.
