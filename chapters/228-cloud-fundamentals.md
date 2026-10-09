@@ -2,7 +2,7 @@
 
 For most of computing history, running software meant owning hardware. You bought servers, racked them in a room with expensive cooling, hired people to replace failed disks at 3 a.m., and paid for enough capacity to survive your busiest day of the year — capacity that sat idle the other 364 days. The cloud rewired this economic model. Instead of buying a power station, you plug into the grid and pay for the kilowatt-hours you actually use. That single shift in mindset — from *owning capacity* to *renting capability* — is the thread that runs through everything in this chapter.
 
-As a .NET developer moving toward senior level, you don't need to become a network engineer. But you do need to understand what these services *are*, *why* they exist, and *when* to reach for each one. This chapter builds that mental map for both AWS and Azure, then shows you how to provision it all as code.
+As a .NET developer moving toward senior level, you don't need to become a network engineer. But you do need to understand what these services *are*, *why* they exist, and *when* to reach for each one. This chapter builds that mental map for both AWS and Azure, maps one provider's services onto the other's, and shows you how to provision it all as code. It ends with the trade-offs that decide how you use the cloud: serverless cold starts, the cost and security habits that matter, and the honest economics of lock-in. [Chapter 29](#chapter-29-azure-in-depth-for-net-developers) then takes Azure in depth, [Chapter 30](#chapter-30-the-azure-casebook-real-incidents-real-fixes) works through real incidents, and [Chapter 31](#chapter-31-compliance-data-privacy-cloud-cost-finops) covers compliance and cloud cost.
 
 ## Cloud Fundamentals
 
@@ -140,7 +140,7 @@ Console.WriteLine($"Uploaded, ETag: {response.ETag}");
 
 ## Azure Core Services
 
-Azure is Microsoft's cloud and the natural home for .NET. The tooling, documentation, and identity model are built with .NET developers in mind. Here's the equivalent map. For the mechanisms behind it, and real incidents, see [Chapter 50](#chapter-50-azure-in-depth-for-net-developers) and [Chapter 51](#chapter-51-the-azure-casebook-real-incidents-real-fixes).
+Azure is Microsoft's cloud and the natural home for .NET. The tooling, documentation, and identity model are built with .NET developers in mind. Here's the equivalent map. For the mechanisms behind it, and real incidents, see [Chapter 29](#chapter-29-azure-in-depth-for-net-developers) and [Chapter 30](#chapter-30-the-azure-casebook-real-incidents-real-fixes).
 
 ### Compute
 
@@ -417,7 +417,7 @@ Occasionally this is right — usually when you genuinely run on two clouds toda
 - The abstraction is **wrong until it's tested**, and it isn't tested, because you only have one provider. The day you migrate you discover your interface leaked assumptions about the original — retry semantics, consistency, ordering, error codes.
 - It is **code your team maintains forever** instead of code a vendor maintains.
 
-> **Best practice.** Prefer *portable seams* over portability layers. Keep provider-specific code behind the boundaries your architecture already has — a repository, a message publisher, an ACL at a bounded-context edge (Chapters 6 and 30) — and let it be genuinely provider-specific inside. That gives you a known, contained blast radius for a future migration without paying an ongoing abstraction tax. Where the abstraction already exists and is free — `IDistributedCache`, `ILogger`, OpenTelemetry, S3-compatible APIs, a Postgres wire protocol — take it. Where you'd have to build it, usually don't.
+> **Best practice.** Prefer *portable seams* over portability layers. Keep provider-specific code behind the boundaries your architecture already has — a repository, a message publisher, an ACL at a bounded-context edge ([Chapter 21](#chapter-21-architecture) and [Chapter 24](#chapter-24-working-with-legacy-brownfield-code)) — and let it be genuinely provider-specific inside. That gives you a known, contained blast radius for a future migration without paying an ongoing abstraction tax. Where the abstraction already exists and is free — `IDistributedCache`, `ILogger`, OpenTelemetry, S3-compatible APIs, a Postgres wire protocol — take it. Where you'd have to build it, usually don't.
 
 ### Repatriation: when leaving actually pays
 
@@ -430,13 +430,13 @@ Occasionally this is right — usually when you genuinely run on two clouds toda
 
 And what you give up is real: capacity you can't get in an hour, DR that isn't a config change, managed service SLAs, and the ability for a small team to run a large system. Most published success stories are companies with large steady workloads and existing infrastructure teams. Most teams reading this book are not that.
 
-> **Gotcha.** The most common repatriation-shaped saving does not require leaving the cloud at all. Before anyone builds a business case for a datacenter, run the Chapter 28 checklist: right-sizing, reserved capacity or savings plans for the steady baseline, spot for the tolerant parts, deleting zombie resources, and fixing the top three egress paths. Teams routinely find 30–50% this way, in a fortnight, with no migration risk. Do that first; if the number still justifies leaving, you now have a much better-informed case.
+> **Gotcha.** The most common repatriation-shaped saving does not require leaving the cloud at all. Before anyone builds a business case for a datacenter, run the [Chapter 31](#chapter-31-compliance-data-privacy-cloud-cost-finops) checklist: right-sizing, reserved capacity or savings plans for the steady baseline, spot for the tolerant parts, deleting zombie resources, and fixing the top three egress paths. Teams routinely find 30–50% this way, in a fortnight, with no migration risk. Do that first; if the number still justifies leaving, you now have a much better-informed case.
 
 ### A decision rule you can use in a design review
 
 - **Use the managed service** when it does something meaningfully hard (a database's durability and failover, a broker's delivery guarantees, a CDN's footprint), and its switching cost is proportionate.
 - **Be deliberate about proprietary glue.** Logic that lives in a vendor's configuration language is the most expensive kind to move and the easiest to accumulate accidentally. If a workflow is central to your business, consider keeping it in code you own.
-- **Write down what leaving would cost** for the two or three services you depend on most. Not a plan — an estimate, one paragraph each, in an ADR (Chapter 17). This converts a recurring argument into a known number, and the number is usually smaller than the loudest person in the room thinks.
+- **Write down what leaving would cost** for the two or three services you depend on most. Not a plan — an estimate, one paragraph each, in an ADR ([Chapter 16](#chapter-16-working-like-a-middle-developer)). This converts a recurring argument into a known number, and the number is usually smaller than the loudest person in the room thinks.
 - **Revisit when the shape changes.** The right answer at 10 engineers and spiky traffic is different at 200 engineers and a flat baseline. Lock-in decisions should be reviewed when the business changes, not defended forever.
 
 ## Summary
