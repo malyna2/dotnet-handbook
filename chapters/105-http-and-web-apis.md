@@ -467,11 +467,7 @@ When the client disconnects mid-query, EF Core cancels the database command and 
 
 This matters most under load. Clients time out, abandon their requests and *retry*; if the server ignores cancellation, each abandoned query keeps running while its retry starts a duplicate. Load doubles exactly when the system is already struggling, and a slowdown snowballs into an outage. Propagating the token lets abandoned work stop.
 
-> **Pay attention.** **A token stops only the calls it reaches.**
->
-> Cancellation is cooperative: `Cancel()` sets a flag and runs the callbacks registered on the token, nothing more. Code stops only where it checks the flag, or where an API you passed the token to registered a callback: SqlClient registers one that cancels the running command on the server, and `HttpClient` aborts the request. One method in the chain that takes no token, or doesn't forward it, leaves everything below it running to completion.
->
-> Fix: accept a `CancellationToken` in every async method on a request path and forward it. Analyzer CA2016 flags a call that could take the token in scope but doesn't; in .NET 10 it is only a suggestion by default, so raise it to a warning in `.editorconfig`.
+Cancellation is cooperative, so the token stops only the calls it reaches: [CancellationToken: Cooperative Cancellation](#cancellationtoken-cooperative-cancellation) in Chapter 4 has the mechanism, and the analyzer that finds a token left behind.
 
 > **Gotcha:** Not everything should be cancellable. If you've charged a payment and are about to write the outbox record, cancelling *mid-write* because the client hung up is far worse than finishing wasted work: you'd take the money and lose the event. Past such a point of no return, pass `CancellationToken.None` (or a token decoupled from the request). The skill is knowing which operations are safe to abandon and which have already committed you.
 
@@ -939,7 +935,56 @@ CORS is a browser security mechanism: a page on origin A calling an API on origi
 
 ## Prove it
 
-The program registers a scoped `AppDb` and a singleton `PriceCache` that takes one, resolves both in two request scopes, then repeats the resolve with scope validation on. Predict the three lines before you run it.
+Two programs. Predict each output before you run it.
+
+**1. A new `HttpClient` per request leaves a socket behind every time.**
+
+`verify/path/HttpClientPerRequest/Program.cs` · run it from `verify/path` with `dotnet run --project HttpClientPerRequest`:
+
+```csharp
+using System.Net.NetworkInformation;
+
+// Prove it: a new HttpClient per request opens (and closes) one TCP connection per request, and
+// every closed connection then sits in TIME_WAIT. A shared client reuses its pooled connections.
+int port = Random.Shared.Next(20_000, 30_000);     // a fresh port, so earlier runs don't count
+var builder = WebApplication.CreateSlimBuilder();
+builder.Logging.ClearProviders();
+builder.WebHost.UseUrls($"http://127.0.0.1:{port}");
+var server = builder.Build();
+server.MapGet("/", () => "ok");
+await server.StartAsync();
+
+var shared = new HttpClient();
+await Measure("one shared HttpClient", () => shared.GetStringAsync($"http://127.0.0.1:{port}/"));
+await Measure("new HttpClient per request", async () =>
+{
+    using var perRequest = new HttpClient();
+    return await perRequest.GetStringAsync($"http://127.0.0.1:{port}/");
+});
+
+async Task Measure(string label, Func<Task<string>> call)
+{
+    int before = SocketsInTimeWait();
+    for (int i = 0; i < 500; i++) await call();
+    Console.WriteLine($"{label,-27} 500 requests, new sockets in TIME_WAIT: {SocketsInTimeWait() - before}");
+}
+
+int SocketsInTimeWait() => IPGlobalProperties.GetIPGlobalProperties().GetActiveTcpConnections()
+    .Count(c => c.State == TcpState.TimeWait && c.RemoteEndPoint.Port == port);
+```
+
+```text
+one shared HttpClient       500 requests, new sockets in TIME_WAIT: 0
+new HttpClient per request  500 requests, new sockets in TIME_WAIT: 500
+```
+
+What to notice:
+
+- **One shared client: zero new sockets.** It reused one pooled connection for all 500 requests.
+- **A client per request: 500 sockets in `TIME_WAIT`.** Each client opened a connection and closed it on `Dispose`. The side that closes keeps the socket, and its local port, in `TIME_WAIT`: 60 s on Linux.
+- **At production rates the ports run out.** Ports come back only as fast as `TIME_WAIT` expires, which caps new connections per second to one destination; on App Service the cap is far lower, 128 SNAT ports per instance and destination, each reclaimed four minutes after its connection closes. A test suite never reaches either rate; a traffic peak does.
+
+**2. A singleton that takes a scoped service keeps one instance of it.** The program registers a scoped `AppDb` and a singleton `PriceCache` that takes one, resolves both in two request scopes, then repeats the resolve with scope validation on. Predict the three lines before you run it.
 
 `verify/path/CaptiveDependency/Program.cs` · run it from `verify/path` with `dotnet run --project CaptiveDependency`:
 
