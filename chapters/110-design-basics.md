@@ -1,14 +1,118 @@
 # Chapter 10: Design Basics
 
-@@TODO: write this chapter's introduction (what it makes the reader able to do, how its sections connect), then remove every @@ line.@@
+A senior developer is not someone who has memorized twenty-three patterns from a book. It is someone who can look at a tangle of code and *feel* where the seams should be, who reaches for a pattern the way a carpenter reaches for the right chisel, and who — crucially — knows when to leave the chisel in the box and just drive the nail. This chapter is about that judgment: the force that pushes you toward a design, the cost the design extracts, and the point at which the cure becomes worse than the disease.
 
-@@SRC: introduction of old Chapter 5: Design Patterns, Principles & Clean Code@@
+It makes you able to explain each SOLID principle by what breaks without it, to choose between a plain `if`, a Strategy and a Decorator (including when no pattern is the right answer), to name the smell in a piece of code and the refactoring that removes it, and to place code in layers so the business rules don't depend on the database. Every rule here is a bet on where the next change will land: it gathers the code that changes for one reason into one place, behind a seam, and the indirection is repaid only if that change actually comes.
 
-A senior developer is not someone who has memorized twenty-three patterns from a book. A senior developer is someone who can look at a tangle of code and *feel* where the seams should be, who reaches for a pattern the way a carpenter reaches for the right chisel, and who — crucially — knows when to leave the chisel in the box and just drive the nail.
+The principles come first, because they are what the rest applies. The classic patterns follow as those principles turned into code, then the application patterns you meet daily in .NET. Clean code and code smells bring the same forces down to a single name or method, and the last sections scale them up to a whole solution: layered and clean architecture. Their depth — DDD, CQRS, vertical slices, monoliths and microservices — is [Chapter 21: Architecture](#chapter-21-architecture).
 
-This chapter is about developing that instinct. We will walk through the classic patterns and the enterprise patterns you actually meet in modern .NET, but the goal is not encyclopedic coverage. The goal is *judgment*: understanding the force that pushes you toward a pattern, the cost that pattern extracts, and the point at which the cure becomes worse than the disease.
+## Principles: The Foundation Under the Patterns
 
-@@SRC: old Chapter 5: Design Patterns, Principles & Clean Code@@
+Patterns are specific moves; principles are the strategy that tells you which move to make. If you internalize the principles, most patterns become obvious — and, just as importantly, you learn when *not* to reach for one.
+
+### SOLID
+
+Five principles that together push you toward code that is easy to change.
+
+**S — Single Responsibility Principle.** A class should have one reason to change. Put differently: it should answer to one stakeholder or concern.
+
+```csharp
+// BEFORE: this class has three reasons to change — report format,
+// business rules, and delivery mechanism all live together.
+public class InvoiceService
+{
+    public decimal CalculateTotal(Invoice inv) { /* business rules */ return 0; }
+    public string RenderPdf(Invoice inv) { /* formatting */ return ""; }
+    public void SendEmail(Invoice inv) { /* delivery */ }
+}
+
+// AFTER: each concern is separable and independently testable.
+public class InvoiceCalculator { public decimal CalculateTotal(Invoice inv) => 0; }
+public class InvoicePdfRenderer { public string Render(Invoice inv) => ""; }
+public class InvoiceEmailSender { public void Send(Invoice inv) { } }
+public record Invoice;
+```
+
+When the PDF library changes, only the renderer changes. When tax rules change, only the calculator changes. That isolation is the whole point.
+
+**O — Open/Closed Principle.** Software should be open for extension but closed for modification — you should add behavior by adding code, not editing existing, tested code.
+
+```csharp
+// BEFORE: every new shipping method edits this switch. Closed for extension.
+public decimal Cost(string method, Order o) => method switch
+{
+    "standard" => 5m,
+    "express"  => 15m,
+    _ => throw new ArgumentException()
+};
+
+// AFTER: the Strategy pattern (below). A new method = a new class.
+// The calculator is never touched again.
+```
+
+Open/Closed is *why* Strategy, Decorator, and Factory exist. When you add a case to a `switch` for the third time, that's the principle telling you to refactor.
+
+**L — Liskov Substitution Principle.** Subtypes must be usable anywhere their base type is expected, without surprising the caller. A derived class must honor the base class's contract.
+
+```csharp
+// VIOLATION: Square "is a" Rectangle mathematically, but overriding the
+// setters to keep sides equal breaks code that sets width and height
+// independently and expects them to stay independent.
+public class Rectangle { public virtual int Width { get; set; } public virtual int Height { get; set; } }
+public class Square : Rectangle
+{
+    public override int Width { set { base.Width = base.Height = value; } }
+    public override int Height { set { base.Width = base.Height = value; } }
+}
+// A test expecting (w=5, set h=4 => area 20) suddenly gets 16. The subtype lied.
+```
+
+The fix is usually to rethink the hierarchy (composition, or a shared `IShape` interface) rather than force an "is-a" that isn't behaviorally true. LSP is a warning about inheritance abused for code reuse.
+
+**I — Interface Segregation Principle.** Don't force clients to depend on methods they don't use. Prefer many small, focused interfaces over one fat one.
+
+```csharp
+// BEFORE: a printer that only prints is forced to implement scanning and faxing.
+public interface IMachine { void Print(); void Scan(); void Fax(); }
+
+// AFTER: split by capability; a class implements only what it truly does.
+public interface IPrinter { void Print(); }
+public interface IScanner { void Scan(); }
+// A simple printer implements IPrinter alone; a multifunction device implements both.
+```
+
+Fat interfaces spread coupling: a change to `Fax()` recompiles and re-tests every implementer, even ones that stubbed it with `throw new NotImplementedException()` — itself an LSP violation waiting to happen.
+
+**D — Dependency Inversion Principle.** High-level modules should depend on abstractions, not on low-level concrete details; both depend on abstractions.
+
+```csharp
+// BEFORE: the high-level order logic is welded to a concrete SMTP class.
+public class OrderProcessor
+{
+    private readonly SmtpEmailSender _sender = new();  // hard dependency
+}
+
+// AFTER: depend on an abstraction, injected in. The concrete type is chosen
+// at composition time, and tests substitute a fake freely.
+public class OrderProcessor
+{
+    private readonly IEmailSender _sender;
+    public OrderProcessor(IEmailSender sender) => _sender = sender;
+}
+public interface IEmailSender { void Send(string to, string body); }
+```
+
+Dependency Inversion is the principle behind the entire .NET [dependency injection](#dependency-injection) system (Chapter 3). Every constructor that takes an interface instead of a `new`-ed concrete class is applying it. This is the principle that makes all the others practical.
+
+### The Rest of the Toolkit
+
+- **DRY (Don't Repeat Yourself):** Every piece of *knowledge* should have one authoritative representation. Note "knowledge," not "text" — two methods that look identical but change for different reasons are *not* a violation, and merging them creates false coupling. Over-eager DRY is a real senior-level mistake; sometimes a little duplication is cheaper than the wrong abstraction.
+- **KISS (Keep It Simple, Stupid):** Prefer the simplest solution that works. The clever one-liner you're proud of is a liability the next reader must decode.
+- **YAGNI (You Aren't Gonna Need It):** Don't build for imagined future requirements. The abstraction you add "just in case" is usually the wrong one when the case finally arrives — and pure cost until then. This is the principle that reins in pattern overuse.
+- **Separation of Concerns:** Different aspects of a system — UI, business logic, data access — belong in different modules. Layered and clean architectures, at the end of this chapter, are this principle scaled up.
+- **Law of Demeter (principle of least knowledge):** A method should talk only to its immediate collaborators, not reach through them. `order.Customer.Address.Country.Code` is a "train wreck" that couples you to the whole object graph; ask the nearest object for what you need instead. (LINQ chains are a deliberate exception — they operate on one pipeline, not a web of distinct objects.)
+- **Composition over Inheritance:** Prefer assembling behavior from small, injected parts over deep inheritance trees. Inheritance is rigid — it's decided at compile time, exposes you to fragile-base-class problems, and forces the whole contract of the parent onto the child. Composition (the engine behind Strategy, Decorator, and DI) is flexible and testable. When you're about to write `class X : Y` for code reuse rather than a true "is-a" relationship, stop and ask whether X should instead *have* a Y.
+
 ## What a Design Pattern Actually Is
 
 A design pattern is a named, reusable solution to a recurring design problem.
@@ -29,7 +133,6 @@ The failure mode has a name in the community — "pattern-itis" or "architecture
 
 The right mental model: patterns are a response to *pain you already feel*, not insurance against pain you imagine. Write the simple version first. When it starts to hurt — when you find yourself editing the same `switch` in five places, when a class has grown three unrelated reasons to change — *then* refactor toward the pattern that relieves that specific pain. This is why patterns are best learned alongside refactoring: they are destinations, and refactoring is the road.
 
-@@SRC: old Chapter 5: Design Patterns, Principles & Clean Code@@
 ## Creational Patterns
 
 Creational patterns are about *how objects come into existence*. The common thread: they decouple the code that uses an object from the code that decides which concrete object to create and how to wire it up.
@@ -171,13 +274,12 @@ Now the reasons this pattern has a bad reputation:
 > - **It destroys testability.** You cannot substitute a fake in a unit test, because the dependency is hard-wired via a static property rather than injected. Tests also leak state into one another through the shared instance.
 > - **Lifetime is tied to the process, not to a scope.** In a web app you frequently want "one per request," which a static singleton cannot express.
 
-> **Best practice: prefer DI-managed lifetime over the Singleton pattern.** Register the type with singleton *lifetime* and let the container hand it out: `services.AddSingleton<IConfigurationCache, ConfigurationCache>()`. You get the single-instance guarantee, but the dependency is now explicit in constructors, fully mockable, and free of global static access. The *lifetime* is what you wanted; the *global access point* was never a feature — it was a liability. Reserve the hand-rolled Singleton for the rare cases where no container is available.
+> **Best practice: prefer DI-managed lifetime over the Singleton pattern.** Register the type with singleton *lifetime* ([Service lifetimes](#service-lifetimes) in Chapter 3) and let the container hand it out: `services.AddSingleton<IConfigurationCache, ConfigurationCache>()`. You get the single-instance guarantee, but the dependency is now explicit in constructors, fully mockable, and free of global static access. The *lifetime* is what you wanted; the *global access point* was never a feature — it was a liability. Reserve the hand-rolled Singleton for the rare cases where no container is available.
 
 ### Prototype (brief)
 
-The Prototype pattern creates new objects by *cloning* an existing instance rather than constructing from scratch, useful when construction is expensive or when you want a copy of a configured object. In C# this maps to copy constructors, `ICloneable` (best avoided — its shallow/deep contract is ambiguous), or, most idiomatically, records with `with` expressions: `var modified = original with { Status = "Revised" };` produces a shallow clone with one property changed. That single language feature has made the explicit Prototype pattern nearly invisible in modern C#.
+The Prototype pattern creates new objects by *cloning* an existing instance rather than constructing from scratch, useful when construction is expensive or when you want a copy of a configured object. In C# this maps to copy constructors, `ICloneable` (best avoided — its shallow/deep contract is ambiguous), or, most idiomatically, [records with `with` expressions](#records-value-equality-and-with-expressions) (Chapter 1): `var modified = original with { Status = "Revised" };` produces a shallow clone with one property changed. That single language feature has made the explicit Prototype pattern nearly invisible in modern C#.
 
-@@SRC: old Chapter 5: Design Patterns, Principles & Clean Code@@
 ## Structural Patterns
 
 Structural patterns are about *composition* — how you assemble objects and classes into larger structures while keeping those structures flexible.
@@ -271,7 +373,7 @@ public record Product(int Id, string Name);
 
 The `CachingProductRepository` *has an* `IProductRepository` and *is an* `IProductRepository`. It adds caching and delegates the real work inward. You could wrap that in turn with a `LoggingProductRepository`, then a `RetryingProductRepository`, composing behavior like layers of an onion. Each class has exactly one reason to change.
 
-> **Relate to ASP.NET Core:** The middleware pipeline is the Decorator pattern (combined with Chain of Responsibility) operating on the HTTP request. Each middleware wraps the next, optionally doing work before and after calling `await _next(context)`. When you write authentication, logging, or exception-handling middleware, you are decorating the request pipeline.
+> **Relate to ASP.NET Core:** The [middleware pipeline](#the-middleware-pipeline-request-lifecycle) (Chapter 5) is the Decorator pattern (combined with Chain of Responsibility) operating on the HTTP request. Each middleware wraps the next, optionally doing work before and after calling `await _next(context)`. When you write authentication, logging, or exception-handling middleware, you are decorating the request pipeline.
 
 > **DI decoration:** The built-in container has no first-class decorator registration, which is why the **Scrutor** library is near-ubiquitous: `services.Decorate<IProductRepository, CachingProductRepository>()`. It registers the decorator so the container injects the inner implementation automatically. This is the idiomatic way to add cross-cutting concerns to a service in .NET without editing the service.
 
@@ -283,7 +385,6 @@ The `CachingProductRepository` *has an* `IProductRepository` and *is an* `IProdu
 - **Bridge** separates an abstraction from its implementation so the two can vary independently, avoiding a combinatorial explosion of subclasses. It is rare in application code; think of it when you notice you'd otherwise need `RedButton`, `BlueButton`, `RedCheckbox`, `BlueCheckbox`... and want to split "shape" from "color."
 - **Flyweight** shares immutable state between many objects to save memory when you have a huge number of similar instances. .NET's string interning is a flyweight. You'll rarely implement it outside of performance-critical scenarios like rendering or game engines.
 
-@@SRC: old Chapter 5: Design Patterns, Principles & Clean Code@@
 ## Behavioral Patterns
 
 Behavioral patterns are about *how objects communicate and how responsibility is assigned* — the algorithms and flows of control between collaborating objects.
@@ -354,13 +455,13 @@ ticker.PriceChanged += (sym, price) => { /* update a dashboard */ };
 ticker.UpdatePrice("MSFT", 425.30m);
 ```
 
-> **Pitfall:** Events are the classic .NET memory leak. If an observer subscribes (`+=`) but never unsubscribes (`-=`), the subject holds a reference to it, keeping it alive for the subject's lifetime. Long-lived subjects with short-lived subscribers leak. Always unsubscribe, or use weak-event patterns / `IDisposable` subscriptions (which is exactly what `IObservable<T>` gives you — subscribing returns an `IDisposable` you dispose to unsubscribe).
+> **Pitfall:** A subject keeps every subscriber alive until it unsubscribes: the classic .NET event leak, explained in [Events: Delegates with Guardrails](#events-delegates-with-guardrails) (Chapter 1). `IObservable<T>` builds the fix into the API: subscribing returns an `IDisposable` you dispose to unsubscribe.
 
 ### Mediator
 
 The Mediator pattern introduces an object that encapsulates how a set of objects interact, so those objects no longer refer to each other directly — they talk *through* the mediator. It turns a tangled many-to-many web of dependencies into a tidy hub-and-spoke.
 
-In .NET this pattern is synonymous with the **MediatR** library, which most teams use to implement CQRS-style request handling. Instead of a controller depending on five services, it depends on one `IMediator` and sends a request; MediatR routes it to the single handler that knows how to process it.
+In .NET this pattern is synonymous with the **MediatR** library, which most teams use to implement CQRS-style request handling (CQRS itself is in [Chapter 21](#chapter-21-architecture)). Instead of a controller depending on five services, it depends on one `IMediator` and sends a request; MediatR routes it to the single handler that knows how to process it.
 
 ```csharp
 // A request (the message) — carries data, knows nothing about its handler.
@@ -410,10 +511,9 @@ The controller and handler are fully decoupled — neither references the other'
 - **Iterator** provides sequential access to elements without exposing the underlying structure. This is `IEnumerable<T>` / `IEnumerator<T>`, and `yield return` is the language giving you iterators for free. You use this pattern every time you write `foreach`.
 - **Memento** captures an object's internal state so it can be restored later, without violating encapsulation. Undo systems and snapshots use it.
 
-@@SRC: old Chapter 5: Design Patterns, Principles & Clean Code@@
 ## Enterprise & Application Patterns
 
-These aren't in the original GoF catalog, but they dominate day-to-day .NET architecture. This is where senior-level judgment shows most.
+These aren't in the original GoF catalog, but they dominate day-to-day .NET architecture. This is where senior-level judgment shows most. The heavier ones, Specification and CQRS, are in [Chapter 21](#chapter-21-architecture).
 
 ### Repository & Unit of Work
 
@@ -436,7 +536,7 @@ public interface IUnitOfWork
 
 Here is the senior-level nuance you must understand:
 
-> **The great Repository-over-EF-Core debate.** EF Core's `DbContext` is *already* a Unit of Work (it tracks changes and commits them via `SaveChanges`), and `DbSet<T>` is *already* a repository (a queryable collection abstraction). So wrapping EF Core in your own repository and unit-of-work layer often means building an abstraction over an abstraction.
+> **The great Repository-over-EF-Core debate.** EF Core's `DbContext` is *already* a Unit of Work (it tracks changes and commits them via `SaveChanges`, as [DbContext and Change Tracking](#dbcontext-and-change-tracking) in Chapter 7 shows), and `DbSet<T>` is *already* a repository (a queryable collection abstraction). So wrapping EF Core in your own repository and unit-of-work layer often means building an abstraction over an abstraction.
 
 Arguments **against** adding your own repository over EF Core:
 - It frequently leaks. To keep things efficient you end up exposing `IQueryable`, which drags EF's semantics right back through your "abstraction."
@@ -451,30 +551,7 @@ Arguments **for**:
 
 ### Options Pattern
 
-The Options pattern is the idiomatic .NET way to bind configuration to strongly typed classes and inject them where needed, instead of reading magic strings from `IConfiguration` everywhere.
-
-```csharp
-public sealed class SmtpOptions
-{
-    public const string SectionName = "Smtp";
-    public string Host { get; set; } = "";
-    public int Port { get; set; } = 587;
-    public bool UseSsl { get; set; } = true;
-}
-
-// Registration (Program.cs):
-builder.Services.Configure<SmtpOptions>(
-    builder.Configuration.GetSection(SmtpOptions.SectionName));
-
-// Consumption — inject the typed options, not raw configuration.
-public sealed class EmailSender
-{
-    private readonly SmtpOptions _options;
-    public EmailSender(IOptions<SmtpOptions> options) => _options = options.Value;
-}
-```
-
-Inject `IOptions<T>` for values fixed at startup, `IOptionsSnapshot<T>` for per-request reload of changed config, and `IOptionsMonitor<T>` for change notifications in singletons. You also get validation: `.ValidateDataAnnotations().ValidateOnStart()` fails fast at boot if configuration is invalid — far better than a `NullReferenceException` at 3 a.m. This is one pattern you should use by default; it's simply how configuration is done in modern .NET.
+The Options pattern binds a configuration section to a strongly typed class and injects it where needed, instead of reading magic strings from `IConfiguration` everywhere; [The Options pattern and binding](#the-options-pattern-and-binding) in Chapter 3 has the mechanics (binding, `IOptions<T>` versus `IOptionsSnapshot<T>` versus `IOptionsMonitor<T>`, validation). The design angle is what makes it a pattern rather than a convenience. Each consumer depends on a small options class for its own concern (`SmtpOptions`, not the whole configuration tree), which is Interface Segregation applied to settings; the class is a plain object a test can construct without any configuration at all; and `.ValidateDataAnnotations().ValidateOnStart()` makes a bad setting fail fast at boot instead of as a `NullReferenceException` at 3 a.m. Use it by default: it is simply how configuration is done in modern .NET.
 
 ### Result Pattern & Railway-Oriented Programming
 
@@ -515,122 +592,13 @@ return result.IsSuccess
     : Results.BadRequest(result.Error);
 ```
 
-> **Why prefer Result over exceptions for expected failures?** Exceptions are for the *exceptional* — the truly unexpected. Using them for ordinary control flow (a user typed a bad email) is expensive (stack-trace capture), hides the failure from the method's signature (you can't tell `Order Process()` might fail without reading its body), and encourages catch-all handlers that swallow bugs. A `Result<T>` return type makes failure part of the contract, visible and impossible to ignore. Reserve exceptions for genuinely exceptional conditions like a dropped database connection. Libraries such as **FluentResults** and **CSharpFunctionalExtensions** provide production-ready implementations.
+> **Result or exception?** A `Result<T>` makes an expected failure part of the contract: you can't tell that `Order Process()` might fail without reading its body, but `Result<Order> Process()` says so. Exceptions stay for the exceptional, where continuing is worse than stopping. [Exceptions vs Result, Settled Properly](#exceptions-vs-result-settled-properly) in Chapter 9 weighs the trade, with measured costs. Libraries such as **FluentResults** and **CSharpFunctionalExtensions** provide production-ready implementations.
 
 ### Null Object & Guard Clauses (brief)
 
 - **Null Object:** Instead of returning `null` and forcing callers to null-check, return a benign object that implements the interface and does nothing. A `NullLogger` that silently discards messages lets callers log unconditionally without `if (logger is not null)`. It replaces scattered null checks with polymorphism — but use it only where "do nothing" is genuinely correct behavior, not to paper over a missing value that callers *should* handle.
 - **Guard Clauses:** Validate preconditions at the top of a method and exit early, keeping the happy path unindented. `if (order is null) throw new ArgumentNullException(nameof(order));` up front beats wrapping the whole method body in an `if`. Modern C# and libraries like **Ardalis.GuardClauses** streamline this: `Guard.Against.Null(order);` or `ArgumentNullException.ThrowIfNull(order);`. .NET 8 rounds out the built-in helpers with the range-checking family — `ArgumentOutOfRangeException.ThrowIfNegative(count)`, `ThrowIfZero(...)`, and `ThrowIfGreaterThan(...)` — so most preconditions need no hand-written `if`/`throw` at all. Guard clauses are a small habit with an outsized effect on readability.
 
-@@SRC: old Chapter 5: Design Patterns, Principles & Clean Code@@
-## Principles: The Foundation Under the Patterns
-
-Patterns are specific moves; principles are the strategy that tells you which move to make. If you internalize the principles, most patterns become obvious — and, just as importantly, you learn when *not* to reach for one.
-
-### SOLID
-
-Five principles that together push you toward code that is easy to change.
-
-**S — Single Responsibility Principle.** A class should have one reason to change. Put differently: it should answer to one stakeholder or concern.
-
-```csharp
-// BEFORE: this class has three reasons to change — report format,
-// business rules, and delivery mechanism all live together.
-public class InvoiceService
-{
-    public decimal CalculateTotal(Invoice inv) { /* business rules */ return 0; }
-    public string RenderPdf(Invoice inv) { /* formatting */ return ""; }
-    public void SendEmail(Invoice inv) { /* delivery */ }
-}
-
-// AFTER: each concern is separable and independently testable.
-public class InvoiceCalculator { public decimal CalculateTotal(Invoice inv) => 0; }
-public class InvoicePdfRenderer { public string Render(Invoice inv) => ""; }
-public class InvoiceEmailSender { public void Send(Invoice inv) { } }
-public record Invoice;
-```
-
-When the PDF library changes, only the renderer changes. When tax rules change, only the calculator changes. That isolation is the whole point.
-
-**O — Open/Closed Principle.** Software should be open for extension but closed for modification — you should add behavior by adding code, not editing existing, tested code.
-
-```csharp
-// BEFORE: every new shipping method edits this switch. Closed for extension.
-public decimal Cost(string method, Order o) => method switch
-{
-    "standard" => 5m,
-    "express"  => 15m,
-    _ => throw new ArgumentException()
-};
-
-// AFTER: the Strategy pattern from earlier. A new method = a new class.
-// The calculator is never touched again.
-```
-
-Open/Closed is *why* Strategy, Decorator, and Factory exist. When you add a case to a `switch` for the third time, that's the principle telling you to refactor.
-
-**L — Liskov Substitution Principle.** Subtypes must be usable anywhere their base type is expected, without surprising the caller. A derived class must honor the base class's contract.
-
-```csharp
-// VIOLATION: Square "is a" Rectangle mathematically, but overriding the
-// setters to keep sides equal breaks code that sets width and height
-// independently and expects them to stay independent.
-public class Rectangle { public virtual int Width { get; set; } public virtual int Height { get; set; } }
-public class Square : Rectangle
-{
-    public override int Width { set { base.Width = base.Height = value; } }
-    public override int Height { set { base.Width = base.Height = value; } }
-}
-// A test expecting (w=5, set h=4 => area 20) suddenly gets 16. The subtype lied.
-```
-
-The fix is usually to rethink the hierarchy (composition, or a shared `IShape` interface) rather than force an "is-a" that isn't behaviorally true. LSP is a warning about inheritance abused for code reuse.
-
-**I — Interface Segregation Principle.** Don't force clients to depend on methods they don't use. Prefer many small, focused interfaces over one fat one.
-
-```csharp
-// BEFORE: a printer that only prints is forced to implement scanning and faxing.
-public interface IMachine { void Print(); void Scan(); void Fax(); }
-
-// AFTER: split by capability; a class implements only what it truly does.
-public interface IPrinter { void Print(); }
-public interface IScanner { void Scan(); }
-// A simple printer implements IPrinter alone; a multifunction device implements both.
-```
-
-Fat interfaces spread coupling: a change to `Fax()` recompiles and re-tests every implementer, even ones that stubbed it with `throw new NotImplementedException()` — itself an LSP violation waiting to happen.
-
-**D — Dependency Inversion Principle.** High-level modules should depend on abstractions, not on low-level concrete details; both depend on abstractions.
-
-```csharp
-// BEFORE: the high-level order logic is welded to a concrete SMTP class.
-public class OrderProcessor
-{
-    private readonly SmtpEmailSender _sender = new();  // hard dependency
-}
-
-// AFTER: depend on an abstraction, injected in. The concrete type is chosen
-// at composition time, and tests substitute a fake freely.
-public class OrderProcessor
-{
-    private readonly IEmailSender _sender;
-    public OrderProcessor(IEmailSender sender) => _sender = sender;
-}
-public interface IEmailSender { void Send(string to, string body); }
-```
-
-Dependency Inversion is the principle behind the entire .NET dependency injection system. Every constructor that takes an interface instead of a `new`-ed concrete class is applying it. This is the principle that makes all the others practical.
-
-### The Rest of the Toolkit
-
-- **DRY (Don't Repeat Yourself):** Every piece of *knowledge* should have one authoritative representation. Note "knowledge," not "text" — two methods that look identical but change for different reasons are *not* a violation, and merging them creates false coupling. Over-eager DRY is a real senior-level mistake; sometimes a little duplication is cheaper than the wrong abstraction.
-- **KISS (Keep It Simple, Stupid):** Prefer the simplest solution that works. The clever one-liner you're proud of is a liability the next reader must decode.
-- **YAGNI (You Aren't Gonna Need It):** Don't build for imagined future requirements. The abstraction you add "just in case" is usually the wrong one when the case finally arrives — and pure cost until then. This is the principle that reins in pattern overuse.
-- **Separation of Concerns:** Different aspects of a system — UI, business logic, data access — belong in different modules. Layered and clean architectures are this principle scaled up.
-- **Law of Demeter (principle of least knowledge):** A method should talk only to its immediate collaborators, not reach through them. `order.Customer.Address.Country.Code` is a "train wreck" that couples you to the whole object graph; ask the nearest object for what you need instead. (LINQ chains are a deliberate exception — they operate on one pipeline, not a web of distinct objects.)
-- **Composition over Inheritance:** Prefer assembling behavior from small, injected parts over deep inheritance trees. Inheritance is rigid — it's decided at compile time, exposes you to fragile-base-class problems, and forces the whole contract of the parent onto the child. Composition (the engine behind Strategy, Decorator, and DI) is flexible and testable. When you're about to write `class X : Y` for code reuse rather than a true "is-a" relationship, stop and ask whether X should instead *have* a Y.
-
-@@SRC: old Chapter 5: Design Patterns, Principles & Clean Code@@
 ## Clean Code & Code Smells
 
 Code is read far more often than it is written, so the reader, not the compiler, is the customer. The principles above are the *structural* side of good code; clean code is the *local* side — what a single name, method or file looks like up close — and messy code taxes every future change and every estimate.
@@ -765,9 +733,9 @@ For **public APIs**, XML doc comments (`/// <summary>`) are the right kind of co
 
 ### Formatting, error handling, and everyday discipline
 
-Formatting is not about beauty; it is about reducing the reader's cognitive load, and its single rule is **consistency** — which you should not enforce by hand. Push it into an `.editorconfig` and Roslyn analyzers so CI fails on drift (see the Tooling chapter); arguing about brace placement in code review wastes expensive human attention a tool settles for free. Beyond that, aim for **locality**: declare variables near first use, keep a private helper just below the method that calls it, and use blank lines as punctuation between distinct thoughts.
+Formatting is not about beauty; it is about reducing the reader's cognitive load, and its single rule is **consistency** — which you should not enforce by hand. Push it into an `.editorconfig` and Roslyn analyzers so CI fails on drift ([Formatting in CI](#formatting-in-ci), Chapter 13); arguing about brace placement in code review wastes expensive human attention a tool settles for free. Beyond that, aim for **locality**: declare variables near first use, keep a private helper just below the method that calls it, and use blank lines as punctuation between distinct thoughts.
 
-Error handling shapes how readable the *success* path is. Prefer exceptions to error codes — returning `-1` or `false` pollutes the happy path and makes ignoring failure the default — and reach for the Result pattern covered earlier when failure is *expected* rather than exceptional. Never swallow exceptions: an empty `catch { }` hides exactly the information you will want later. Fail fast — validate at the boundary and throw immediately rather than letting a bad value travel deep into the system — and flatten nesting with the guard clauses covered earlier. Finally, **do not return `null`** as a routine result: prefer an empty collection for "no results" (callers just `foreach`), a `Result<T>` for meaningful failure, and nullable reference types so any remaining risk is at least visible to the compiler.
+Error handling shapes how readable the *success* path is. Prefer exceptions to error codes — returning `-1` or `false` pollutes the happy path and makes ignoring failure the default — and reach for the Result pattern covered earlier when failure is *expected* rather than exceptional. Never swallow exceptions: an empty `catch { }` hides exactly the information you will want later ([Where to Catch](#where-to-catch) in Chapter 9 has the whole rule). Fail fast — validate at the boundary and throw immediately rather than letting a bad value travel deep into the system — and flatten nesting with the guard clauses covered earlier. Finally, **do not return `null`** as a routine result: prefer an empty collection for "no results" (callers just `foreach`), a `Result<T>` for meaningful failure, and nullable reference types so any remaining risk is at least visible to the compiler.
 
 Two closing habits round this out. The **Boy-Scout Rule**: leave the code a little cleaner than you found it — rename one confusing variable, delete one block of commented-out code each time you pass through; small improvement compounds and reverses entropy. And a healthy suspicion of **clever code**: the deeply nested ternary or fifteen-line LINQ trick is satisfying to write and miserable to read. Cleverness that saves a line but costs the reader a minute is a bad trade — this is KISS applied at the keyboard, and the senior move is the boring version your teammates understand instantly.
 
@@ -841,25 +809,17 @@ The other two headline refactorings you have already seen in this chapter. **Lon
 
 ### Refactor under tests, in tiny steps
 
-Notice that the right-hand column of the smells table reduces to a small vocabulary of named moves — Extract Method/Class, Move Method, Parameter Object, Value Object, Replace Conditional with Polymorphism, Named Constant — that you will use constantly. The non-negotiable discipline around all of them: **refactor under test coverage, in tiny steps.** Refactoring by definition preserves behavior, and the only way you *know* behavior is preserved is a green test suite (see the Testing chapter). Make one small move, run the tests, commit; make the next. The catastrophic refactor is the one done in a single giant, untested edit — that is not refactoring, that is rewriting with extra confidence and no safety net.
+Notice that the right-hand column of the smells table reduces to a small vocabulary of named moves — Extract Method/Class, Move Method, Parameter Object, Value Object, Replace Conditional with Polymorphism, Named Constant — that you will use constantly. The non-negotiable discipline around all of them: **refactor under test coverage, in tiny steps.** Refactoring by definition preserves behavior, and the only way you *know* behavior is preserved is a green test suite ([Chapter 8: Testing](#chapter-8-testing)). Make one small move, run the tests, commit; make the next. The catastrophic refactor is the one done in a single giant, untested edit — that is not refactoring, that is rewriting with extra confidence and no safety net.
 
-You also do not have to sniff out every smell by hand: **Roslyn analyzers** flag many issues at build time, **SonarQube**/SonarLint track duplication, complexity, and a large smell ruleset across the codebase, and cyclomatic-complexity metrics put a number on "this method is too tangled." Wire them into the pipeline as described in the Tooling chapter so smells surface in pull requests rather than in production incidents.
+You also do not have to sniff out every smell by hand: **Roslyn analyzers** flag many issues at build time, **SonarQube**/SonarLint track duplication, complexity, and a large smell ruleset across the codebase, and cyclomatic-complexity metrics put a number on "this method is too tangled." Wire them into the pipeline ([Static Analysis Gates in CI](#static-analysis-gates-in-ci), Chapter 13) so smells surface in pull requests rather than in production incidents.
 
 A last pragmatic note: it is entirely possible to over-refactor — to shatter a perfectly readable 30-line method into eight one-line methods that force the reader to jump around the file to reconstruct a single thought, or to extract abstractions so eagerly that you commit Speculative Generality in the name of curing other smells. The goal is never "zero smells." The goals are **readability and changeability**: code a teammate can understand quickly and modify safely. If a refactoring serves those two ends, do it; if it only satisfies a checklist, leave it alone.
 
 > **Further reading:** *Clean Code* (Robert C. Martin), *Refactoring* (Martin Fowler), *The Pragmatic Programmer*.
 
-@@SRC: old Chapter 5: Design Patterns, Principles & Clean Code@@
-## Closing Thought
-
-Notice how many of these patterns dissolved into ordinary C# — Iterator became `yield`, Prototype became `with`, Observer became `event`, Strategy became `Func<>`, Singleton became a DI lifetime. That is not a coincidence. As a language and its ecosystem mature, yesterday's patterns become today's built-in features. The patterns worth carrying in your head are the ones the language *hasn't* absorbed and the *principles* underneath all of them.
-
-So hold the patterns lightly and the principles tightly. When you feel real pain — a growing `switch`, a class with three jobs, a test you can't write because a dependency is hard-wired — let a pattern relieve exactly that pain and no more. Resist the urge to build cathedrals of indirection for problems you don't yet have. The mark of a senior developer is not how many patterns they can deploy, but how much needless complexity they can keep out of the codebase.
-
-@@SRC: old Chapter 6: Architecture & Application Design@@
 ## Layered / N-Tier Architecture
 
-The oldest and most intuitive structure is the **layered architecture**. You stack responsibilities and each layer talks only to the one directly below it.
+Scale Separation of Concerns and Dependency Inversion up from classes to projects and you get the two structures found in almost every .NET solution. The oldest and most intuitive is the **layered architecture**. You stack responsibilities and each layer talks only to the one directly below it.
 
 ```
 +---------------------------------------------+
@@ -879,7 +839,6 @@ This is a perfectly reasonable default for many applications, and dismissing it 
 
 > **The pitfall of layered architecture:** the business logic depends *downward* on the data layer. That means your core domain rules are coupled to Entity Framework, to `DbContext`, to the very shape of your tables. Change your persistence and you ripple upward through the "pure" business layer. This inversion of importance — the most valuable code (business rules) depending on the least valuable (infrastructure) — is exactly what the next family of architectures sets out to fix.
 
-@@SRC: old Chapter 6: Architecture & Application Design@@
 ## Clean, Onion, and Hexagonal Architecture
 
 Clean Architecture, Onion Architecture, and Hexagonal Architecture (Ports & Adapters) are three names that arrived from different authors but describe essentially the same idea. Rather than treat them as rivals, understand the shared principle and note where the vocabulary differs.
@@ -906,7 +865,7 @@ The single most important idea is the **Dependency Rule**: *source code dependen
                   Dependencies point INWARD --->
 ```
 
-How do you point a dependency *inward* when the application layer genuinely needs to save data to a database that lives in the outer ring? Through the **Dependency Inversion Principle**. The application layer *defines an interface* — `IOrderRepository` — that expresses what it needs in its own terms. The infrastructure layer *implements* that interface. Now the dependency arrow points from infrastructure inward to the domain's interface, even though the runtime call flows outward. This is the "port" in Ports & Adapters: the interface is a port, the concrete class is an adapter.
+How do you point a dependency *inward* when the application layer genuinely needs to save data to a database that lives in the outer ring? Through the **Dependency Inversion Principle** from the start of this chapter. The application layer *defines an interface* — `IOrderRepository` — that expresses what it needs in its own terms. The infrastructure layer *implements* that interface. Now the dependency arrow points from infrastructure inward to the domain's interface, even though the runtime call flows outward. This is the "port" in Ports & Adapters: the interface is a port, the concrete class is an adapter.
 
 - **Hexagonal (Ports & Adapters)** emphasizes symmetry: the application is a hexagon with ports on every side. Driving adapters (UI, tests) push requests in through primary ports; driven adapters (DB, email) are called out through secondary ports. The hexagon shape carries no meaning beyond "many sides, many adapters."
 - **Onion** emphasizes concentric rings and the inward dependency direction.
@@ -958,10 +917,14 @@ public sealed class EfOrderRepository : IOrderRepository { /* ... uses DbContext
 
 > **Trade-off:** Clean Architecture buys you testability, flexibility, and a domain that reads like the business rather than the database schema. It costs you indirection and ceremony — more projects, more interfaces, more mapping between DTOs and entities. For a CRUD admin tool it is over-engineering. For a system with rich, long-lived business rules it pays for itself many times over. **Match the ceremony to the complexity of the domain, not to fashion.**
 
-@@SRC: practice from old module page Part 1 · Module 10: Design Basics@@
+## Closing Thought
+
+Notice how many of these patterns dissolved into ordinary C# — Iterator became `yield`, Prototype became `with`, Observer became `event`, Strategy became `Func<>`, Singleton became a DI lifetime. That is not a coincidence. As a language and its ecosystem mature, yesterday's patterns become today's built-in features. The patterns worth carrying in your head are the ones the language *hasn't* absorbed and the *principles* underneath all of them.
+
+So hold the patterns lightly and the principles tightly. When you feel real pain — a growing `switch`, a class with three jobs, a test you can't write because a dependency is hard-wired — let a pattern relieve exactly that pain and no more. Resist the urge to build cathedrals of indirection for problems you don't yet have, and match an architecture's ceremony to the domain's complexity in the same way. The mark of a senior developer is not how many patterns they can deploy, but how much needless complexity they can keep out of the codebase.
 
 ## Check at work
 
 **Inspect.** Open the class in your service that changes most often (`git log --format= --name-only | sort | uniq -c | sort -rn | head`). List its reasons to change; more than one is a candidate for Extract Class. Then search for `switch` statements on the same type or enum in more than one file, and for interfaces with exactly one implementation and no test double. Good: each is justified in one sentence. Bad: "we might need it".
 
-**Measure.** In your next three pull requests, name every smell you notice from the Chapter 5 table in a review comment, with the refactoring it points to. Count how many the author agreed with; the ones they didn't are where your reasoning needs one more sentence.
+**Measure.** In your next three pull requests, name every smell you notice from this chapter's smells table in a review comment, with the refactoring it points to. Count how many the author agreed with; the ones they didn't are where your reasoning needs one more sentence.
