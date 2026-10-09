@@ -1,6 +1,6 @@
 # Chapter 19: The Slow-Query Lab — Reading Execution Plans
 
-[Chapter 4](#chapter-4-data-access-databases) explains how to read a query plan. In this lab you read nine of them, on a dataset big enough for the difference to show: a million customers, five million orders and eighteen million order lines, with the skew real data has — one customer who places 5% of all orders, one product that appears in 8% of all lines. Every slow query comes from EF Core code that would pass a code review. For each one you find the mechanism in the plan, fix it at the right layer (the LINQ, the schema or the configuration), and prove the fix by running the same measurement again.
+[Chapter 18](#chapter-18-data-in-depth) explains how to read a query plan, building on the SQL and index basics of [Chapter 7](#chapter-7-data-access). In this lab you read nine of them, on a dataset big enough for the difference to show: a million customers, five million orders and eighteen million order lines, with the skew real data has — one customer who places 5% of all orders, one product that appears in 8% of all lines. Every slow query comes from EF Core code that would pass a code review. For each one you find the mechanism in the plan, fix it at the right layer (the LINQ, the schema or the configuration), and prove the fix by running the same measurement again.
 
 You finish with the most convincing performance artifact there is: a table of before and after numbers, where every row links to two plans and a paragraph explaining *why*.
 
@@ -257,7 +257,7 @@ Two lessons:
 
 ## Interview hook
 
-"A page got slow — what do you do?" comes up in almost every senior .NET loop, in one form or another. [Chapter 34](#chapter-34-interview-questions-how-to-answer-them) covers the general method; this lab gives you nine concrete cases and a story. Be open about where it comes from: "In a practice lab on a five-million-order dataset…" is a strong opening, and passing a lab off as production is not (the honesty rules are in [Chapter 36](#chapter-36-the-story-bank-evidence-portfolio)).
+"A page got slow — what do you do?" comes up in almost every senior .NET loop, in one form or another. [Chapter 9](#chapter-9-exceptions-logging-and-first-diagnosis) covers the general method; this lab gives you nine concrete cases and a story. Be open about where it comes from: "In a practice lab on a five-million-order dataset…" is a strong opening, and passing a lab off as production is not (the honesty rules are in [Chapter 37](#chapter-37-the-story-bank-evidence-portfolio)).
 
 **"Tell me about a query you made faster"** — as STAR, built on rung 9, because it has the best follow-ups:
 
@@ -294,7 +294,7 @@ The fix is one projection that includes the nested collection:
            .ToList()))
 ```
 
-EF Core turns it into a `LEFT JOIN` against a subquery that picks the 50 orders first. The result is 1 statement, the same 291 buffers, and 9.1 ms. `AsSplitQuery()` also passes: two statements. The database's work did not change at all; the round trips did. That is why N+1 is invisible in any single plan: the cost is in the round trips, as [Chapter 4](#the-n1-problem-seeing-it-and-killing-it) explains, and you find it by counting statements.
+EF Core turns it into a `LEFT JOIN` against a subquery that picks the 50 orders first. The result is 1 statement, the same 291 buffers, and 9.1 ms. `AsSplitQuery()` also passes: two statements. The database's work did not change at all; the round trips did. That is why N+1 is invisible in any single plan: the cost is in the round trips, as [Chapter 7](#the-n1-problem-seeing-it-and-killing-it) explains, and you find it by counting statements.
 </details>
 
 <details>
@@ -465,7 +465,7 @@ The costs belong to the product, not to the database:
 - the sort needs a unique tiebreaker (`id`);
 - the cursor has to travel with the request.
 
-[Chapter 15](#chapter-15-performance-optimization) makes the same point for unbounded lists.
+[Chapter 18](#chapter-18-data-in-depth) makes the same point for unbounded lists.
 </details>
 
 <details>
