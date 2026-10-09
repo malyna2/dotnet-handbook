@@ -1,113 +1,154 @@
 # Chapter 9: Exceptions, Logging and First Diagnosis
 
-@@TODO: write this chapter's introduction (what it makes the reader able to do, how its sections connect), then remove every @@ line.@@
+Every service fails, and what decides how fast a failure gets fixed is the trail it leaves: one log entry carrying the whole exception, a response that tells the caller what they can do about it, and one id that joins the two. This chapter teaches the habits that leave that trail, and the first measurements to take when the complaint is not an error but slowness.
 
-@@SRC: introduction of old Chapter 13: Observability@@
+It starts with the tool every later section uses: `ILogger` and structured logging, where a message template keeps typed properties a log store can query, a level says who has to act, and secrets stay out. The exception-handling strategy then settles where a failure is caught (almost nowhere), what gets logged (once, at the boundary) and what the caller sees (a ProblemDetails body with a stable code and a trace id). Next comes the trace id itself: the wiring that gives every request one, and how it follows the request across services and queues so the logs of five services read as one story. The chapter closes with a method for a slow endpoint — CPU-bound or waiting, and the fingerprint of a starved thread pool — and then two programs to run, three questions and checks for your own service.
 
-Imagine you are the pilot of a modern aircraft. You cannot see the engines, you cannot feel the air pressure at 35,000 feet with your bare skin, and you certainly cannot inspect every one of the thousands of moving parts in real time. Yet you fly with confidence. Why? Because in front of you sits a cockpit full of instruments: altimeters, fuel gauges, temperature readouts, and warning lights that scream at you the moment something drifts out of tolerance. The aircraft is a black box, but the instruments make it *observable*.
-
-A distributed .NET system is your aircraft. In production, you cannot attach a debugger, you cannot step through a request as it hops across five microservices, and you cannot ask a customer in Tokyo to reproduce the bug while you watch. Your only window into the running system is the telemetry it emits. This chapter is about building a cockpit for your software so that when something goes wrong at 3 a.m., you can diagnose it in minutes instead of guessing for hours.
-
-@@SRC: old Chapter 2: .NET Runtime & Internals@@
 ## Logging with Microsoft.Extensions.Logging
 
 `Microsoft.Extensions.Logging` provides a **provider-agnostic logging abstraction**. Your code depends on `ILogger<T>`; the actual output (console, files, Seq, Application Insights, Serilog) is a **provider** configured at startup. This decoupling means you can swap logging backends without touching application code.
 
-**Log levels**, from most to least verbose: `Trace`, `Debug`, `Information`, `Warning`, `Error`, `Critical`. You configure a minimum level (globally and per-namespace via configuration), and messages below it are cheaply skipped.
+### Why Structured Beats String Logging
 
-### Structured logging
-
-The most important concept for senior developers is **structured logging**. Instead of building a formatted string, you pass a **message template** with named placeholders and the values separately. The logging framework captures these as **structured key-value pairs**, not just text.
+Most developers start with logs like this:
 
 ```csharp
-public class OrderService(ILogger<OrderService> logger)
-{
-    public void Place(int orderId, decimal amount)
-    {
-        // GOOD: structured — 'OrderId' and 'Amount' become queryable fields
-        logger.LogInformation("Order {OrderId} placed for {Amount:C}", orderId, amount);
+logger.LogInformation($"User {userId} placed order {orderId} for {amount:C}");
+```
 
-        // BAD: interpolated string — collapses to opaque text, loses structure
-        logger.LogInformation($"Order {orderId} placed for {amount:C}");
-    }
+It produces `User 42 placed order 9981 for $59.99`, which reads fine until ten million such lines must answer "what did user 42 order today?" with regular expressions over text nobody designed to be parsed.
+
+**Structured logging** keeps the values as named fields instead of baking them into text:
+
+```csharp
+logger.LogInformation("User {UserId} placed order {OrderId} for {Amount}", userId, orderId, amount);
+```
+
+Those are **message template** tokens, not interpolation holes. The framework captures `UserId`, `OrderId` and `Amount` as separate, typed properties of the event; the rendered text is the same, but `UserId = 42 AND Amount > 50` is now a query.
+
+The interpolated version also costs more. The compiler builds the string before the call, so it is built *always*, even when the level is disabled and the line is thrown away. The template version defers formatting until an enabled provider needs it, but its arguments are still boxed into a `params object[]` on every call. On hot paths, the `[LoggerMessage]` source generator emits a method that checks `IsEnabled` first and passes the values without boxing.
+
+> **Pay attention.** **The template is the kind of event.**
+>
+> `ILogger.Log` hands every provider a `state` object, not a string. For a template call it is a list of key-value pairs: one per placeholder, holding the original typed value, plus `{OriginalFormat}`, the template itself. Log stores use that last entry as the event's type, so every "order placed" event groups and counts together. An interpolated string is built by the compiler before the call: the provider receives no properties, and `{OriginalFormat}` is the finished text, a new "type" for every value. The *LogTemplate* program at the end of this chapter prints both states side by side.
+>
+> Use templates in every log call. The analyzer rule that flags interpolation, CA2254, is only a suggestion by default (.NET 10), so the build stays green: set `dotnet_diagnostic.CA2254.severity = warning` in `.editorconfig`.
+
+> **Best practice.** Placeholders are matched to arguments **by position**, not by name, so order matters. Use **log scopes** (`logger.BeginScope`) to attach contextual properties, such as a correlation id, to every log line within a block; the Serilog section below shows the same idea as `LogContext`.
+
+### Log Levels: A Shared Vocabulary
+
+A level answers one question: who has to act on this entry, and how soon. It is also a filter: the configured minimum (`Logging:LogLevel:Default`, overridden per category such as `Microsoft.AspNetCore`) is checked before a message is formatted, so a disabled level costs almost nothing.
+
+- **Trace / Verbose** — extremely detailed diagnostic flow, usually off in production.
+- **Debug** — internal state useful during development or targeted troubleshooting.
+- **Information** — normal, noteworthy business events: "order placed," "user registered." The heartbeat of your application.
+- **Warning** — something unexpected happened but the system recovered or degraded gracefully: a retry succeeded, a cache missed, a deprecated path was hit.
+- **Error** — an operation failed and a user or process was affected. A caught exception that broke a request.
+- **Critical / Fatal** — the application or a major subsystem is unusable. Database unreachable, out of memory.
+
+> **Pitfall:** Alerts and error-rate dashboards count `Error` entries. Every entry at `Error` that needs no action — a validation failure, a 404, a client that disconnected — teaches on-call to ignore the alert; every real failure logged at `Information` never reaches it. Reserve `Error` for failures someone must act on, and log each one once.
+
+### What Not to Log: Secrets and PII
+
+> **Critical pitfall:** Never log passwords, API keys, connection strings, bearer tokens, full credit card numbers, government IDs, or personal data like full names, emails, or addresses unless you have a lawful basis and proper redaction. Logs are frequently shipped to third-party systems, retained for months, and accessible to broad audiences. A logged secret is a leaked secret.
+
+Concrete defenses:
+
+- When destructuring objects with `{@Object}`, they may contain sensitive fields. Configure a Serilog destructuring policy or `[NotLogged]`-style attributes to strip them.
+- Log a hashed or masked version instead: `****1234` for a card, or a stable pseudonymous user ID instead of an email.
+- Under GDPR and similar regimes, personal data in logs is subject to retention and deletion rules. The safest log is one that contains no PII at all.
+
+### Serilog in Depth
+
+Serilog is the de facto structured logging library for .NET. Its mental model has four moving parts worth understanding deeply: **message templates**, **sinks**, **enrichers**, and the **LoggerConfiguration** pipeline.
+
+A basic setup in a modern ASP.NET Core app looks like this:
+
+```csharp
+using Serilog;
+using Serilog.Events;
+
+var builder = WebApplication.CreateBuilder(args);
+
+builder.Host.UseSerilog((context, services, configuration) => configuration
+    .MinimumLevel.Information()
+    .MinimumLevel.Override("Microsoft.AspNetCore", LogEventLevel.Warning)
+    .Enrich.FromLogContext()
+    .Enrich.WithMachineName()
+    .Enrich.WithProperty("Application", "OrderService")
+    .WriteTo.Console(outputTemplate:
+        "[{Timestamp:HH:mm:ss} {Level:u3}] {Message:lj} {Properties:j}{NewLine}{Exception}")
+    .WriteTo.Seq("http://localhost:5341"));
+
+var app = builder.Build();
+```
+
+Let's dissect each concept.
+
+**Message templates** are the heart of Serilog. When you write `logger.LogInformation("Order {OrderId} shipped", orderId)`, Serilog stores the raw template *and* the property. This means events with the same template but different IDs are recognized as the same *kind* of event, which is enormously valuable for grouping and analysis.
+
+A subtle but powerful feature is the `@` destructuring operator:
+
+```csharp
+var order = new Order { Id = 9981, Total = 59.99m, Items = 3 };
+logger.LogInformation("Processing {@Order}", order);
+```
+
+The `@` tells Serilog to serialize the object's properties into structured data rather than calling `ToString()`. Without it (`{Order}`), you would get the type name. With `$` (`{$Order}`) you force stringification. Use `@` when you want the object's shape preserved in your log store.
+
+**Sinks** are output destinations. Serilog's architecture is a pipeline where one log event fans out to many sinks. Console, File, Seq, Elasticsearch, Application Insights, Datadog — each is a separate NuGet package. You can attach as many as you like:
+
+```csharp
+.WriteTo.Console()
+.WriteTo.File("logs/app-.log", rollingInterval: RollingInterval.Day)
+.WriteTo.Seq("http://localhost:5341")
+```
+
+For high-throughput services, wrap slow sinks in the **async** sink so logging never blocks a request thread:
+
+```csharp
+.WriteTo.Async(a => a.File("logs/app-.log", rollingInterval: RollingInterval.Day))
+```
+
+**Enrichers** automatically attach context to every event. Rather than manually adding the machine name to each log call, an enricher does it once for all events. `Enrich.FromLogContext()` is the most important one: it lets you push properties onto an ambient scope that all logs within that scope inherit.
+
+```csharp
+using (LogContext.PushProperty("CorrelationId", correlationId))
+{
+    logger.LogInformation("Started processing");   // has CorrelationId
+    await DoWorkAsync();                             // any log inside also has it
+    logger.LogInformation("Finished processing");  // has CorrelationId
 }
 ```
 
-Why it matters: with structured logs feeding a system like Seq or Elasticsearch, you can query `OrderId = 4567` across millions of log lines, or aggregate by `Amount`. The interpolated version throws that away, and it *always* builds the string, even when the level is disabled, because the compiler evaluates it before the call. The template version defers formatting until an enabled provider needs it, but its arguments are still boxed into a `params object[]` on every call. On hot paths, the `[LoggerMessage]` source generator emits a method that checks `IsEnabled` first and passes the values without boxing.
-
-> **Best practice:** always use message templates with named placeholders, never string interpolation, inside logging calls. Note that placeholders are matched to arguments **by position**, not by name — order matters. Use **log scopes** (`logger.BeginScope`) to attach contextual properties (like a correlation ID) to every log line within a block.
-
-@@SRC: old Chapter 3: ASP.NET Core & Web APIs@@
-## Error Handling with ProblemDetails (RFC 7807)
-
-Every API needs *one* error shape. **ProblemDetails** — RFC 7807, since replaced by RFC 9457, which the current ASP.NET Core docs cite — is the standard: a JSON object with `type`, `title`, `status`, `detail` and `instance`, so clients and tools parse every error the same way.
+This is how you implement **correlation IDs** cleanly. Every log emitted while that scope is active is stamped with the same ID, so you can later filter your entire log store to a single request's journey. In practice you set this in middleware:
 
 ```csharp
-builder.Services.AddProblemDetails();
-
-app.UseExceptionHandler(); // With AddProblemDetails, emits RFC 7807 on unhandled errors.
-```
-
-For richer control, implement `IExceptionHandler` (a clean, testable seam) rather than stuffing logic into middleware:
-
-```csharp
-public class ValidationExceptionHandler : IExceptionHandler
+app.Use(async (context, next) =>
 {
-    public async ValueTask<bool> TryHandleAsync(
-        HttpContext ctx, Exception ex, CancellationToken ct)
+    var correlationId = context.Request.Headers["X-Correlation-ID"].FirstOrDefault()
+                        ?? Guid.NewGuid().ToString();
+    context.Response.Headers["X-Correlation-ID"] = correlationId;
+
+    using (Serilog.Context.LogContext.PushProperty("CorrelationId", correlationId))
     {
-        if (ex is not FluentValidation.ValidationException vex) return false;
-
-        var problem = new ValidationProblemDetails(
-            vex.Errors.GroupBy(e => e.PropertyName)
-                      .ToDictionary(g => g.Key, g => g.Select(e => e.ErrorMessage).ToArray()))
-        {
-            Status = StatusCodes.Status400BadRequest
-        };
-        ctx.Response.StatusCode = problem.Status.Value;
-        await ctx.Response.WriteAsJsonAsync(problem, ct);
-        return true; // Handled — stop the chain.
+        await next();
     }
-}
-// builder.Services.AddExceptionHandler<ValidationExceptionHandler>();
+});
 ```
 
-> **Tip — `AddExceptionHandler` vs writing your own exception middleware.** `UseExceptionHandler()` *is* the middleware; `AddExceptionHandler<T>()` registers handlers it calls in registration order until one returns `true`, and anything unhandled falls through to the default ProblemDetails response. A hand-rolled `try/catch` middleware makes you own what the built-in one already does: status 500 and cleared cache headers, a response that has already started, content negotiation through `IProblemDetailsService`, and the logs and metrics tooling expects. `IExceptionHandler` classes are plain DI services, testable without `RequestDelegate` plumbing, one class per exception family. Keep custom middleware for work that isn't "map this exception to a response", or for targets before .NET 8, where the `UseExceptionHandler(errorApp => ...)` overload fills the role.
+> **Best practice:** Configure logging as early as possible in `Program.cs`, and wrap the whole application in a `try/catch` that logs fatal startup exceptions to a bootstrap logger. A crash during startup that produces no log is the worst kind of silent failure.
 
-> **Pay attention.** **What reaches the caller, and what reaches the log.**
->
-> - **The trace id goes out by default.** The default ProblemDetails writer adds `traceId` (`Activity.Current?.Id`, else `HttpContext.TraceIdentifier`) to every body it writes, so write your responses through `IProblemDetailsService` rather than `WriteAsJsonAsync` and the caller always has the key that finds your log entry.
-> - **The stack trace goes out only through the environment.** In Development, `WebApplication` adds the developer exception page itself. A client that doesn't ask for HTML gets a ProblemDetails whose `exception` field holds `ex.ToString()` and *every request header*, `Authorization` included. A production container started with `ASPNETCORE_ENVIRONMENT=Development` serves that to anyone. Pin the environment in deployment, and never call `UseDeveloperExceptionPage` unconditionally.
-> - **The middleware logs too.** It writes its own `Error` entry for each exception it catches. On .NET 10 it skips that entry when an `IExceptionHandler` returned `true` (`ExceptionHandlerOptions.SuppressDiagnosticsCallback` changes the rule); before .NET 10 it always writes it, so a handler that also logs records every failure twice.
->
-> Put `detail` text that is safe to show a client; the details belong in the one log entry the `traceId` points to.
+### NLog, Briefly
 
-@@SRC: old Chapter 3: ASP.NET Core & Web APIs@@
-## Observability Wiring
+NLog is the other mature structured logging library for .NET. It is configuration-file-driven (XML `nlog.config`) by tradition, with "targets" (equivalent to Serilog sinks) and "rules" that route loggers to targets by name and level. It also supports structured properties via the same `{Name}` template syntax through the `Microsoft.Extensions.Logging` bridge. Functionally the two are close; Serilog's fluent C# configuration and richer ecosystem of sinks have made it the more common choice in greenfield .NET projects, but NLog remains excellent and slightly faster in some file-logging benchmarks. Pick one and standardize.
 
-ASP.NET Core is instrumented *out of the box*. Kestrel and the hosting layer emit metrics (request rate, duration, active connections) through `System.Diagnostics.Metrics` and the older EventCounters, and every request runs inside an `Activity` — .NET's native distributed-tracing span. The instrumentation is always there; what's missing by default is something *listening*. That's what OpenTelemetry provides:
+> **Modern note:** The **OpenTelemetry Logs signal is now stable in .NET**. An `ILogger` → OpenTelemetry bridge — wired via `AddOpenTelemetry().WithLogging(...)`, sitting right alongside `.WithTracing()` and `.WithMetrics()` — lets your existing `ILogger` calls flow straight out over OTLP, completing the "one SDK for logs, metrics, and traces" story of [Observability Wiring](#observability-wiring) later in this chapter.
 
-```csharp
-builder.Services.AddOpenTelemetry()
-    .ConfigureResource(r => r.AddService("shop-api"))
-    .WithTracing(t => t
-        .AddAspNetCoreInstrumentation()      // Span per incoming request.
-        .AddHttpClientInstrumentation()      // Span per outbound call.
-        .AddOtlpExporter())                  // Ship to your collector.
-    .WithMetrics(m => m
-        .AddAspNetCoreInstrumentation()
-        .AddHttpClientInstrumentation()
-        .AddOtlpExporter());
-```
-
-With those few lines, every request produces a trace: a root span from the ASP.NET Core instrumentation, child spans for each `HttpClient` call, all exported over OTLP to whatever backend you run (Jaeger, Tempo, an APM vendor — the wire format is standard). Better still, propagation is automatic: `HttpClient` injects the **W3C trace-context** `traceparent` header on outbound calls and ASP.NET Core reads it on inbound ones, so when service A calls service B, both ends land in the *same* trace without either team writing propagation code. Combine that with the `IHttpClientFactory` discipline from earlier in this chapter and a slow endpoint stops being a mystery — the trace shows you exactly which downstream call ate the time budget.
-
-Chapter 13 covers observability as a discipline — custom `ActivitySource` spans, metrics design, log correlation, propagating context through message queues. The point here is narrower but important: the web framework *participates natively*. A few lines in `Program.cs` and every request carries a trace.
-
-@@SRC: old Chapter 5: Design Patterns, Principles & Clean Code@@
 ## Exception Handling Strategy
 
-Most codebases have a *style* of exception handling — `try`/`catch` wherever someone was once burned, a `catch (Exception ex) { _logger.LogError(ex.Message); throw; }` copied from file to file, a global handler that returns `"An error occurred"` — and no *strategy*. A strategy answers three questions: **where do I catch, what do I log, and what do I surface?** Each answer depends on a prior question: what kind of failure is this?
+Most codebases have a *style* of exception handling — `try`/`catch` wherever someone was once burned, a `catch (Exception ex) { _logger.LogError(ex.Message); throw; }` copied from file to file, a global handler that returns `"An error occurred"` — and no *strategy*. A strategy answers three questions: **where do I catch, what do I log, and what do I surface?** Each answer depends on a prior question: what kind of failure is this? The logging rules above are the tool; this section decides where it is used.
 
 ### Classify the Failure First
 
@@ -115,9 +156,9 @@ You cannot decide how to handle a failure until you know what *kind* of failure 
 
 **A bug.** The code is wrong. A `NullReferenceException`, an `InvalidCastException`, an index off the end of an array, an `InvalidOperationException` because an object was in a state its own invariants say is impossible. There is no correct handling for a bug at runtime, because the process no longer knows what is true. The right response is to *not catch it*: let it tear down the current request, let the boundary log it with full fidelity, let the alert fire, and go fix the code. A `catch` around a bug converts a loud, diagnosable failure into a quiet, undiagnosable one.
 
-**An environmental or transient failure.** A socket reset, a connection timeout, a SQL deadlock victim, a 503 from a dependency that is mid-deploy. Nothing is wrong with your code and nothing is wrong with the request — the world was briefly unavailable. These are the only failures where *retry* is a coherent response, because the same call with the same inputs may well succeed a moment later. This is Polly's territory: see the resilience pipelines in [Chapter 3: ASP.NET Core & Web APIs](#chapter-3-aspnet-core-web-apis) for the `HttpClient` wiring, and [Chapter 9: Messaging & Distributed Systems](#chapter-9-messaging-distributed-systems) for the wider retry/circuit-breaker/idempotency picture.
+**An environmental or transient failure.** A socket reset, a connection timeout, a SQL deadlock victim, a 503 from a dependency that is mid-deploy. Nothing is wrong with your code and nothing is wrong with the request — the world was briefly unavailable. These are the only failures where *retry* is a coherent response, because the same call with the same inputs may well succeed a moment later. This is Polly's territory: see [Resilience with Polly](#resilience-with-polly) in Chapter 5 for the `HttpClient` wiring, and [Chapter 20: Distributed Systems](#chapter-20-distributed-systems) for the wider retry, circuit-breaker and idempotency picture.
 
-**A domain rule violation.** The request is well-formed, the system is healthy, and the business says no: insufficient balance, coupon expired, order already shipped. Nothing here is exceptional — this is one of the outcomes the feature was designed to produce. This is exactly where the `Result<T>` from earlier in this chapter belongs, and it is the category most often mishandled, because throwing an `InsufficientFundsException` *works*, so nobody notices that it has made an ordinary business outcome invisible in the method signature.
+**A domain rule violation.** The request is well-formed, the system is healthy, and the business says no: insufficient balance, coupon expired, order already shipped. Nothing here is exceptional — this is one of the outcomes the feature was designed to produce. This is exactly where a `Result<T>` return value belongs ([Chapter 10](#result-pattern-railway-oriented-programming) builds one), and it is the category most often mishandled, because throwing an `InsufficientFundsException` *works*, so nobody notices that it has made an ordinary business outcome invisible in the method signature.
 
 | Failure kind | Examples | Mechanism | What the caller sees |
 |---|---|---|---|
@@ -130,7 +171,7 @@ You cannot decide how to handle a failure until you know what *kind* of failure 
 
 ### Exceptions vs Result, Settled Properly
 
-The earlier Result-pattern section made the case for `Result<T>`; here is the other half of the trade, stated honestly, because "exceptions are slow" is repeated far more often than it is understood.
+A `Result<T>` is a return value that holds either the success value or an error, so an expected failure becomes part of the method's contract; the [Result pattern](#result-pattern-railway-oriented-programming) in Chapter 10 builds one and chains steps on it. The choice between the two deserves an honest statement of the trade, because "exceptions are slow" is repeated far more often than it is understood.
 
 **Exceptions are unignorable** — their single greatest property. If a method throws and you write no handler, the failure propagates and something eventually notices. Compare a method returning `Result<T>`: a caller can write `_ = DoTheThing();` and discard the failure entirely, and the compiler will not blink. Unignorability is why exceptions are right for the *exceptional*, where continuing is worse than stopping. **Results, in exchange, are visible in the signature and force a decision.** `Result<Order> Place(...)` tells you failure is expected without reading the body; `Order Place(...)` does not. The cost is signature pollution: `Result<T>` is viral, spreading up through every caller, and code that mixes both conventions gets the worst of each.
 
@@ -219,7 +260,7 @@ await CleanupAsync();
 captured?.Throw();      // original stack trace intact, rethrow site appended
 ```
 
-**`AggregateException` and `Task.WhenAll`.** When three tasks in a `Task.WhenAll` fault, `await` rethrows only one of the exceptions, and the other two stay invisible unless you read the task's `Exception` property. It is a common source of "we fixed the error and it still fails": you were only ever shown one of three. [Exception Handling with WhenAll](#exception-handling-with-whenall) in Chapter 8 has the mechanism, which exception you get, and the logging pattern.
+**`AggregateException` and `Task.WhenAll`.** When three tasks in a `Task.WhenAll` fault, `await` rethrows only one of the exceptions, and the other two stay invisible unless you read the task's `Exception` property. It is a common source of "we fixed the error and it still fails": you were only ever shown one of three. [Exception Handling with WhenAll](#exception-handling-with-whenall) in Chapter 4 has the mechanism, which exception you get, and the logging pattern.
 
 **`OperationCanceledException` is not a failure.** It is a *successful* response to a request to stop: the client closed the connection, a shutdown began. Logging it as an error trains your team to ignore errors, and in a busy API client disconnects alone can drown a real incident. Filter it at the boundary and log it at `Information` or `Debug`.
 
@@ -274,7 +315,7 @@ _logger.LogError(ex, "Failed to place order for customer {CustomerId} (cart {Car
 _logger.LogError($"Failed to place order: {ex.Message}");
 ```
 
-That first argument is not a stylistic preference. Logging providers treat the exception parameter specially, serializing type, message, stack, and the full inner-exception chain as structured data; interpolating `ex.Message` into the template throws all of that away and, for good measure, destroys the message template that makes logs aggregatable. See [Chapter 13: Observability](#chapter-13-observability) for structured logging, message templates, and log scopes.
+That first argument is not a stylistic preference. Logging providers treat the exception parameter specially, serializing type, message, stack, and the full inner-exception chain as structured data; interpolating `ex.Message` into the template throws all of that away and, for good measure, destroys the message template that makes logs aggregatable. It is the [structured-logging](#why-structured-beats-string-logging) rule from the start of this chapter, applied to the exception.
 
 **The log-and-rethrow anti-pattern.** This is the most common exception mistake in enterprise .NET:
 
@@ -297,15 +338,23 @@ One failure now produces four `Error` entries. They are not four problems and th
 >
 > Read down to the first frame in your own code: frames above it are the library that threw, frames below it are how you got there.
 
-### What to Surface
+### What to Surface: ProblemDetails
 
-The response to the outside world is a **product decision**, not a debugging artifact. Never surface a stack trace, a SQL statement, a connection string, an internal type name, or raw inner-exception text: at best it confuses the caller, at worst it is a reconnaissance gift to an attacker (see the error-handling notes in [Chapter 14: Security](#chapter-14-security)).
+The response to the outside world is a **product decision**, not a debugging artifact. Never surface a stack trace, a SQL statement, a connection string, an internal type name, or raw inner-exception text: at best it confuses the caller, at worst it is a reconnaissance gift to an attacker (see [A05: Security Misconfiguration](#a05-security-misconfiguration) in Chapter 12).
 
-What a caller does need is: **a stable machine-readable code** they can branch on, **a human-readable summary** they can act on, and **a correlation/trace id** they can quote to your support team. RFC 7807 `ProblemDetails` is the standard shape, and ASP.NET Core produces it natively — see [Chapter 3: ASP.NET Core & Web APIs](#chapter-3-aspnet-core-web-apis) for `AddProblemDetails` and `IExceptionHandler`, and [Chapter 13: Observability](#chapter-13-observability) for wiring the trace id that ties the response back to the log entry.
+What a caller does need is: **a stable machine-readable code** they can branch on, **a human-readable summary** they can act on, and **a trace id** they can quote to your support team. Every API needs *one* error shape to carry them, and **ProblemDetails** is the standard: RFC 7807, since replaced by RFC 9457, which the current ASP.NET Core docs cite. It is a JSON object with `type`, `title`, `status`, `detail` and `instance`, plus any extension members, so clients and tools parse every error the same way. ASP.NET Core produces it natively:
 
 ```csharp
-public sealed class OrderingExceptionHandler(ILogger<OrderingExceptionHandler> logger)
-    : IExceptionHandler
+builder.Services.AddProblemDetails();
+
+app.UseExceptionHandler(); // With AddProblemDetails, emits RFC 7807 on unhandled errors.
+```
+
+To map your own exceptions, implement `IExceptionHandler` (a clean, testable seam) rather than stuffing logic into middleware. This one maps the `OrderingException` family from above and writes through `IProblemDetailsService`, so the response gets the same defaults, and the same `traceId`, as every other error the app returns:
+
+```csharp
+public sealed class OrderingExceptionHandler(
+    IProblemDetailsService problemDetails, ILogger<OrderingExceptionHandler> logger) : IExceptionHandler
 {
     public async ValueTask<bool> TryHandleAsync(HttpContext ctx, Exception ex, CancellationToken ct)
     {
@@ -313,21 +362,28 @@ public sealed class OrderingExceptionHandler(ILogger<OrderingExceptionHandler> l
         logger.LogError(ex, "Ordering failure {ErrorCode} on {Path}",
                         ordering.ErrorCode, ctx.Request.Path);
 
-        var problem = new ProblemDetails
+        ctx.Response.StatusCode = StatusCodes.Status503ServiceUnavailable;
+        return await problemDetails.TryWriteAsync(new ProblemDetailsContext
         {
-            Status = StatusCodes.Status503ServiceUnavailable,
-            Title  = "The order could not be processed.",
-            Type   = $"https://errors.example.com/{ordering.ErrorCode}",
-            // No stack, no SQL, no inner message. A code and an id.
-            Extensions = { ["code"] = ordering.ErrorCode,
-                           ["traceId"] = Activity.Current?.Id ?? ctx.TraceIdentifier }
-        };
-        ctx.Response.StatusCode = problem.Status!.Value;
-        await ctx.Response.WriteAsJsonAsync(problem, ct);
-        return true;
+            HttpContext = ctx,
+            Exception = ex,
+            ProblemDetails = new ProblemDetails
+            {
+                Status = StatusCodes.Status503ServiceUnavailable,
+                Title  = "The order could not be processed.",
+                Type   = $"https://errors.example.com/{ordering.ErrorCode}",
+                // No stack, no SQL, no inner message: a code, plus the traceId the writer adds.
+                Extensions = { ["code"] = ordering.ErrorCode }
+            }
+        });
     }
 }
+// builder.Services.AddExceptionHandler<OrderingExceptionHandler>();
 ```
+
+A FluentValidation `ValidationException` maps the same way, to a 400 `ValidationProblemDetails`; validation at the edge, before your code runs, is in [Model Binding & Validation](#model-binding-validation) in Chapter 5.
+
+> **Tip — `AddExceptionHandler` vs writing your own exception middleware.** `UseExceptionHandler()` *is* the middleware; `AddExceptionHandler<T>()` registers handlers it calls in registration order until one returns `true`, and anything unhandled falls through to the default ProblemDetails response. A hand-rolled `try/catch` middleware makes you own what the built-in one already does: status 500 and cleared cache headers, a response that has already started, content negotiation through `IProblemDetailsService`, and the logs and metrics tooling expects. `IExceptionHandler` classes are plain DI services, testable without `RequestDelegate` plumbing, one class per exception family. Keep custom middleware for work that isn't "map this exception to a response", or for targets before .NET 8, where the `UseExceptionHandler(errorApp => ...)` overload fills the role.
 
 The status code carries the most important piece of information, so choose it deliberately. The dividing line is **who can fix this**: 4xx means the caller can change something and succeed; 5xx means only you can. Getting this wrong is expensive in both directions — 500s for user mistakes wake up your on-call for nothing, and 200s or 400s for server faults hide real outages from your dashboards and stop clients from retrying.
 
@@ -341,23 +397,17 @@ The status code carries the most important piece of information, so choose it de
 | Dependency down / retries exhausted | **503** (+ `Retry-After`) | Transient; tells clients it is worth trying again |
 | Client cancelled / disconnected | **no response** | The caller is gone. Do not manufacture a 500 for a socket nobody is reading |
 
+> **Pay attention.** **What reaches the caller, and what reaches the log.**
+>
+> - **The trace id goes out by default.** The default ProblemDetails writer adds `traceId` (`Activity.Current?.Id`, else `HttpContext.TraceIdentifier`) to every body it writes, so write your responses through `IProblemDetailsService` rather than `WriteAsJsonAsync` and the caller always has the key that finds your log entry.
+> - **The stack trace goes out only through the environment.** In Development, `WebApplication` adds the developer exception page itself. A client that doesn't ask for HTML gets a ProblemDetails whose `exception` field holds `ex.ToString()` and *every request header*, `Authorization` included. A production container started with `ASPNETCORE_ENVIRONMENT=Development` serves that to anyone. Pin the environment in deployment, and never call `UseDeveloperExceptionPage` unconditionally.
+> - **The middleware logs too.** It writes its own `Error` entry for each exception it catches. On .NET 10 it skips that entry when an `IExceptionHandler` returned `true` (`ExceptionHandlerOptions.SuppressDiagnosticsCallback` changes the rule); before .NET 10 it always writes it, so a handler that also logs records every failure twice.
+>
+> Put `detail` text that is safe to show a client; the details belong in the one log entry the `traceId` points to.
+
 ### Process-Level Safety Nets
 
-**`BackgroundService`.** Since .NET 6, an unhandled exception in `ExecuteAsync` stops the **entire host** by default (`BackgroundServiceExceptionBehavior.StopHost`) — a deliberate change, because the previous behavior silently killed the service and left the process running as a hollow shell that looked healthy to every probe. Keep that default and put your `try`/`catch` *inside* the loop, so one bad message does not take down the worker while a genuinely broken worker still takes down the host and lets the orchestrator restart it. [Chapter 22: Background Processing, Scheduling & the Actor Model](#chapter-22-background-processing-scheduling-the-actor-model) covers the loop shape in detail.
-
-```csharp
-protected override async Task ExecuteAsync(CancellationToken stoppingToken)
-{
-    while (!stoppingToken.IsCancellationRequested)
-    {
-        try { await ProcessNextAsync(stoppingToken); }
-        catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested) { break; }
-        catch (Exception ex) { _logger.LogError(ex, "Work item failed; continuing."); }
-        //  ↑ per-item boundary: one poisoned item must not kill the loop.
-        //    An exception escaping ExecuteAsync itself stops the host — by design.
-    }
-}
-```
+**`BackgroundService`.** Since .NET 6, an unhandled exception in `ExecuteAsync` stops the **entire host** by default (`BackgroundServiceExceptionBehavior.StopHost`) — a deliberate change, because the previous behavior silently killed the service and left the process running as a hollow shell that looked healthy to every probe. Keep that default and put your `try`/`catch` *inside* the loop, so one bad message does not take down the worker while a genuinely broken worker still takes down the host and lets the orchestrator restart it. The `QueueProcessor` in [The Generic Host and Background Services](#the-generic-host-and-background-services) (Chapter 3) has exactly that shape: the loop body is the per-item boundary. Filter its cancellation catch with `when (stoppingToken.IsCancellationRequested)`, for the reason given under *The Mechanics That Bite*. [Part A — Background Processing in .NET](#part-a-background-processing-in-net) in Chapter 11 covers the worker itself.
 
 **`AppDomain.CurrentDomain.UnhandledException`** fires for exceptions escaping any thread. It is a *last-chance logger*, not a handler: you cannot prevent the process from terminating, and you have limited time before it dies — use it to flush a final log entry, nothing more. **`TaskScheduler.UnobservedTaskException`** fires when a faulted `Task` is garbage-collected without anyone having observed its exception. Since .NET 4.5 that no longer crashes the process, which means these failures are entirely silent by default; subscribing to the event is one of the highest-value ten-line additions you can make to a service, because it is how you discover the fire-and-forget `_ = DoWorkAsync();` calls that have been failing in production for months.
 
@@ -379,8 +429,9 @@ Run down this list on any pull request that touches error handling:
 - [ ] Custom exceptions carry structured properties, are named for the situation, and there are few of them.
 - [ ] `TaskScheduler.UnobservedTaskException` is subscribed somewhere in the host.
 
-@@SRC: old Chapter 13: Observability@@
 ## Why Observability, and How It Differs from Monitoring
+
+Everything so far ends a failure in one log entry and a response carrying a trace id. The rest of the chapter is about that id and the telemetry around it, because in production you cannot attach a debugger, step through a request as it hops across five services, or ask a customer to reproduce the bug while you watch: what the running system emits is your only window into it.
 
 The words *monitoring* and *observability* are often used interchangeably, but the distinction matters and it reveals a shift in how we operate systems.
 
@@ -396,146 +447,29 @@ The foundation of observability rests on **three pillars**: **logs**, **metrics*
 - **Metrics** are numeric measurements aggregated over time. "Requests per second," "p99 latency," "queue depth." They are cheap to store and perfect for trends and alerting.
 - **Traces** follow a single request as it travels through your system, showing where time was spent across service boundaries. They are the story of one journey.
 
-Think of it this way: metrics are the vital signs on the patient monitor (heart rate, blood pressure), logs are the doctor's detailed notes on each symptom, and a trace is the timeline of the patient's entire visit from admission to discharge. A good diagnostician uses all three.
+Think of it this way: metrics are the vital signs on the patient monitor (heart rate, blood pressure), logs are the doctor's detailed notes on each symptom, and a trace is the timeline of the patient's entire visit from admission to discharge. A good diagnostician uses all three. This chapter wires them up and joins them by the trace id; [Chapter 25: Observability and Testing at Scale](#chapter-25-observability-and-testing-at-scale) designs metrics, custom spans and alerts.
 
-@@SRC: old Chapter 13: Observability@@
-## Structured Logging
+## Observability Wiring
 
-### Why Structured Beats String Logging
-
-Most developers start with logs like this:
+ASP.NET Core is instrumented *out of the box*. Kestrel and the hosting layer emit metrics (request rate, duration, active connections) through `System.Diagnostics.Metrics` and the older EventCounters, and every request runs inside an `Activity` — .NET's native distributed-tracing span. The instrumentation is always there; what's missing by default is something *listening*. That's what OpenTelemetry provides:
 
 ```csharp
-logger.LogInformation($"User {userId} placed order {orderId} for {amount:C}");
+builder.Services.AddOpenTelemetry()
+    .ConfigureResource(r => r.AddService("shop-api"))
+    .WithTracing(t => t
+        .AddAspNetCoreInstrumentation()      // Span per incoming request.
+        .AddHttpClientInstrumentation()      // Span per outbound call.
+        .AddOtlpExporter())                  // Ship to your collector.
+    .WithMetrics(m => m
+        .AddAspNetCoreInstrumentation()
+        .AddHttpClientInstrumentation()
+        .AddOtlpExporter());
 ```
 
-It produces `User 42 placed order 9981 for $59.99`, which reads fine until ten million such lines must answer "what did user 42 order today?" with regular expressions over text nobody designed to be parsed.
+With those few lines, every request produces a trace: a root span from the ASP.NET Core instrumentation, child spans for each `HttpClient` call, all exported over OTLP to whatever backend you run (Jaeger, Tempo, an APM vendor — the wire format is standard). Better still, propagation is automatic: `HttpClient` injects the **W3C trace-context** `traceparent` header on outbound calls and ASP.NET Core reads it on inbound ones, so when service A calls service B, both ends land in the *same* trace without either team writing propagation code. Combine that with the [`IHttpClientFactory`](#ihttpclientfactory-resilience-with-polly) discipline from Chapter 5 and a slow endpoint stops being a mystery — the trace shows you exactly which downstream call ate the time budget.
 
-**Structured logging** keeps the values as named fields instead of baking them into text:
+The point is that the web framework *participates natively*: a few lines in `Program.cs` and every request carries a trace. Custom `ActivitySource` spans and metrics design are Part 2 material, in Chapter 25; the next sections put the trace id to work in your logs.
 
-```csharp
-logger.LogInformation("User {UserId} placed order {OrderId} for {Amount}", userId, orderId, amount);
-```
-
-Those are **message template** tokens, not interpolation holes. The framework captures `UserId`, `OrderId` and `Amount` as separate, typed properties of the event; the rendered text is the same, but `UserId = 42 AND Amount > 50` is now a query.
-
-> **Pay attention.** **The template is the kind of event.**
->
-> `ILogger.Log` hands every provider a `state` object, not a string. For a template call it is a list of key-value pairs: one per placeholder, holding the original typed value, plus `{OriginalFormat}`, the template itself. Log stores use that last entry as the event's type, so every "order placed" event groups and counts together. An interpolated string is built by the compiler before the call: the provider receives no properties, and `{OriginalFormat}` is the finished text, a new "type" for every value. Part 1, Module 6 prints both states side by side.
->
-> Use templates in every log call. The analyzer rule that flags interpolation, CA2254, is only a suggestion by default (.NET 10), so the build stays green: set `dotnet_diagnostic.CA2254.severity = warning` in `.editorconfig`.
-
-### Serilog in Depth
-
-Serilog is the de facto structured logging library for .NET. Its mental model has four moving parts worth understanding deeply: **message templates**, **sinks**, **enrichers**, and the **LoggerConfiguration** pipeline.
-
-A basic setup in a modern ASP.NET Core app looks like this:
-
-```csharp
-using Serilog;
-using Serilog.Events;
-
-var builder = WebApplication.CreateBuilder(args);
-
-builder.Host.UseSerilog((context, services, configuration) => configuration
-    .MinimumLevel.Information()
-    .MinimumLevel.Override("Microsoft.AspNetCore", LogEventLevel.Warning)
-    .Enrich.FromLogContext()
-    .Enrich.WithMachineName()
-    .Enrich.WithProperty("Application", "OrderService")
-    .WriteTo.Console(outputTemplate:
-        "[{Timestamp:HH:mm:ss} {Level:u3}] {Message:lj} {Properties:j}{NewLine}{Exception}")
-    .WriteTo.Seq("http://localhost:5341"));
-
-var app = builder.Build();
-```
-
-Let's dissect each concept.
-
-**Message templates** are the heart of Serilog. When you write `logger.LogInformation("Order {OrderId} shipped", orderId)`, Serilog stores the raw template *and* the property. This means events with the same template but different IDs are recognized as the same *kind* of event, which is enormously valuable for grouping and analysis.
-
-A subtle but powerful feature is the `@` destructuring operator:
-
-```csharp
-var order = new Order { Id = 9981, Total = 59.99m, Items = 3 };
-logger.LogInformation("Processing {@Order}", order);
-```
-
-The `@` tells Serilog to serialize the object's properties into structured data rather than calling `ToString()`. Without it (`{Order}`), you would get the type name. With `$` (`{$Order}`) you force stringification. Use `@` when you want the object's shape preserved in your log store.
-
-**Sinks** are output destinations. Serilog's architecture is a pipeline where one log event fans out to many sinks. Console, File, Seq, Elasticsearch, Application Insights, Datadog — each is a separate NuGet package. You can attach as many as you like:
-
-```csharp
-.WriteTo.Console()
-.WriteTo.File("logs/app-.log", rollingInterval: RollingInterval.Day)
-.WriteTo.Seq("http://localhost:5341")
-```
-
-For high-throughput services, wrap slow sinks in the **async** sink so logging never blocks a request thread:
-
-```csharp
-.WriteTo.Async(a => a.File("logs/app-.log", rollingInterval: RollingInterval.Day))
-```
-
-**Enrichers** automatically attach context to every event. Rather than manually adding the machine name to each log call, an enricher does it once for all events. `Enrich.FromLogContext()` is the most important one: it lets you push properties onto an ambient scope that all logs within that scope inherit.
-
-```csharp
-using (LogContext.PushProperty("CorrelationId", correlationId))
-{
-    logger.LogInformation("Started processing");   // has CorrelationId
-    await DoWorkAsync();                             // any log inside also has it
-    logger.LogInformation("Finished processing");  // has CorrelationId
-}
-```
-
-This is how you implement **correlation IDs** cleanly. Every log emitted while that scope is active is stamped with the same ID, so you can later filter your entire log store to a single request's journey. In practice you set this in middleware:
-
-```csharp
-app.Use(async (context, next) =>
-{
-    var correlationId = context.Request.Headers["X-Correlation-ID"].FirstOrDefault()
-                        ?? Guid.NewGuid().ToString();
-    context.Response.Headers["X-Correlation-ID"] = correlationId;
-
-    using (Serilog.Context.LogContext.PushProperty("CorrelationId", correlationId))
-    {
-        await next();
-    }
-});
-```
-
-> **Best practice:** Configure logging as early as possible in `Program.cs`, and wrap the whole application in a `try/catch` that logs fatal startup exceptions to a bootstrap logger. A crash during startup that produces no log is the worst kind of silent failure.
-
-### Log Levels: A Shared Vocabulary
-
-A level answers one question: who has to act on this entry, and how soon. It is also a filter: the configured minimum (`Logging:LogLevel:Default`, overridden per category such as `Microsoft.AspNetCore`) is checked before a message is formatted, so a disabled level costs almost nothing.
-
-- **Trace / Verbose** — extremely detailed diagnostic flow, usually off in production.
-- **Debug** — internal state useful during development or targeted troubleshooting.
-- **Information** — normal, noteworthy business events: "order placed," "user registered." The heartbeat of your application.
-- **Warning** — something unexpected happened but the system recovered or degraded gracefully: a retry succeeded, a cache missed, a deprecated path was hit.
-- **Error** — an operation failed and a user or process was affected. A caught exception that broke a request.
-- **Critical / Fatal** — the application or a major subsystem is unusable. Database unreachable, out of memory.
-
-> **Pitfall:** Alerts and error-rate dashboards count `Error` entries. Every entry at `Error` that needs no action — a validation failure, a 404, a client that disconnected — teaches on-call to ignore the alert; every real failure logged at `Information` never reaches it. Reserve `Error` for failures someone must act on, and log each one once.
-
-### What Not to Log: Secrets and PII
-
-> **Critical pitfall:** Never log passwords, API keys, connection strings, bearer tokens, full credit card numbers, government IDs, or personal data like full names, emails, or addresses unless you have a lawful basis and proper redaction. Logs are frequently shipped to third-party systems, retained for months, and accessible to broad audiences. A logged secret is a leaked secret.
-
-Concrete defenses:
-
-- When destructuring objects with `{@Object}`, they may contain sensitive fields. Configure a Serilog destructuring policy or `[NotLogged]`-style attributes to strip them.
-- Log a hashed or masked version instead: `****1234` for a card, or a stable pseudonymous user ID instead of an email.
-- Under GDPR and similar regimes, personal data in logs is subject to retention and deletion rules. The safest log is one that contains no PII at all.
-
-### NLog, Briefly
-
-NLog is the other mature structured logging library for .NET. It is configuration-file-driven (XML `nlog.config`) by tradition, with "targets" (equivalent to Serilog sinks) and "rules" that route loggers to targets by name and level. It also supports structured properties via the same `{Name}` template syntax through the `Microsoft.Extensions.Logging` bridge. Functionally the two are close; Serilog's fluent C# configuration and richer ecosystem of sinks have made it the more common choice in greenfield .NET projects, but NLog remains excellent and slightly faster in some file-logging benchmarks. Pick one and standardize.
-
-> **Modern note:** The **OpenTelemetry Logs signal is now stable in .NET**. An `ILogger` → OpenTelemetry bridge — wired via `AddOpenTelemetry().WithLogging(...)`, sitting right alongside `.WithTracing()` and `.WithMetrics()` — lets your existing `ILogger` calls flow straight out over OTLP, completing the "one SDK for logs, metrics, and traces" story you meet later in this chapter.
-
-@@SRC: old Chapter 13: Observability@@
 ## Centralized Logging
 
 In a fleet of containers, SSHing into a box to `tail` a log file is hopeless — the box may already be gone. Centralized logging ships every log to one searchable place.
@@ -544,10 +478,9 @@ In a fleet of containers, SSHing into a box to `tail` a log file is hopeless —
 - **Loki** — Grafana's log aggregation system, designed to be cheaper than ELK by indexing only labels (not the full log text) and storing the rest compressed in object storage. It pairs naturally with Prometheus and Grafana for a unified pane of glass.
 - **Seq** — a logging server built specifically for structured logs, and a joy for .NET developers. It understands Serilog's structured events natively, so you can query with real filters (`Amount > 50 and PaymentMethod = 'stripe'`), build dashboards, and set alerts, all with almost zero setup. For a .NET team, Seq is often the fastest path to genuinely useful structured logging, especially in development and small-to-mid production systems.
 
-@@SRC: old Chapter 13: Observability@@
 ## Correlation Across Services
 
-Everything in this chapter converges on one goal: given a single symptom, reconstruct the whole story. That requires **correlation** — the ability to jump from a metric spike to the exact traces behind it, and from a trace to the exact logs of each span.
+The logging, the exception boundary and the tracing above all serve one goal: given a single symptom, reconstruct the whole story. That requires **correlation** — the ability to jump from a metric spike to the exact traces behind it, and from a trace to the exact logs of each span.
 
 The unifying key is the **trace ID**. W3C Trace Context propagates it over HTTP, and `Activity.Current` holds it for the code handling the request, so logs only need to record it. With `Microsoft.Extensions.Logging` under the generic host this is on by default: the host sets `ActivityTrackingOptions` to `TraceId | SpanId | ParentId`, which adds them to every entry's scope (a provider prints scopes only if configured to, such as the console's `IncludeScopes`). Current Serilog versions read `Activity.Current` themselves and store `TraceId` and `SpanId` on every event; older code used the `Serilog.Enrichers.Span` package for this. To add it by hand:
 
@@ -577,34 +510,15 @@ The consumer extracts the same context and starts its span as a child of the pro
 >
 > A custom `X-Correlation-ID` header travels only as far as code copies it: the middleware earlier in this chapter reads it and pushes it into the log context, but an outgoing `HttpClient` call doesn't send it unless a `DelegatingHandler` adds it, so the chain breaks at the first service that forgot. The trace id needs no such code over HTTP: it lives in `Activity.Current`, which flows with the async call chain, `HttpClient` writes it into `traceparent`, ASP.NET Core starts the next request's activity as its child, and logs and spans record the same id. Use the trace id as the correlation id — return it to clients (ProblemDetails does, as `traceId`) and search logs by it. Keep a business key, such as an order id, as an ordinary log property; it identifies the order, not the request.
 
-@@SRC: old Chapter 13: Observability@@
 ## Health Checks: The Tie-In
 
-Observability's closest operational cousin is the **health check** — a lightweight endpoint that reports whether an instance is fit to serve traffic. ASP.NET Core has first-class support:
+Health checks are the cheapest operational signal there is: an endpoint that tells the orchestrator whether an instance is **alive** (if not, restart it) and **ready** (if not, stop sending it traffic, but don't restart it). [Health Checks](#health-checks) in Chapter 5 shows how ASP.NET Core runs them, how tags keep liveness and readiness apart, and why both must stay cheap.
 
-```csharp
-builder.Services.AddHealthChecks()
-    .AddDbContextCheck<OrderDbContext>()
-    .AddCheck("payment-gateway", () =>
-        _gateway.IsReachable ? HealthCheckResult.Healthy() : HealthCheckResult.Degraded("Slow"))
-    .AddCheck<RedisHealthCheck>("redis");
+The tie-in with this chapter is that a check's verdict is telemetry too. A rising count of failing readiness checks is an early warning that a dependency is degrading, often before the error rate moves, so put the results where your dashboards and alerts can see them (`IHealthCheckPublisher` pushes them on a timer). Health checks are the first signal to implement and the last one to ignore.
 
-app.MapHealthChecks("/health/live", new HealthCheckOptions
-{
-    Predicate = _ => false   // liveness: is the process running at all?
-});
-app.MapHealthChecks("/health/ready", new HealthCheckOptions
-{
-    Predicate = check => check.Tags.Contains("ready")  // readiness: can it serve?
-});
-```
-
-Distinguish **liveness** (is the process alive? if not, restart it) from **readiness** (are its dependencies ready? if not, stop sending traffic but do not restart). Kubernetes uses these two probes to make orchestration decisions, and they feed your metrics: a rising count of failing readiness checks is an early warning that a dependency is degrading. Health checks are the simplest, cheapest observability signal, and the first one you should implement.
-
-@@SRC: old Chapter 34: Interview Questions & How to Answer Them@@
 ## Diagnosing a Performance Problem (a worked methodology)
 
-*Revise: Ch. 15 — Performance & Optimization · Ch. 13 — Observability*
+Not every incident throws. When the complaint is "it's slow", the discipline is the same as for an exception: let the system tell you what happened before you change anything. The method below is phrased as the interview question it usually arrives as.
 
 **Walk me through how you diagnose a slow endpoint.**
 1. **Reproduce and quantify.** Get a percentile (p95/p99), a throughput figure and the conditions (endpoint, payload, load): "slow" is not a number.
@@ -620,7 +534,7 @@ Check CPU while the endpoint is slow. High CPU with low throughput → CPU-bound
 
 > **Pay attention.** **Starvation looks like a slow dependency: how to tell them apart.**
 >
-> Sync-over-async parks pool threads while the continuations that would free them queue behind new requests, and the pool adds threads slowly ([Chapter 8](#the-sync-over-async-deadlock) has the mechanism). Three signals give it away:
+> Sync-over-async parks pool threads while the continuations that would free them queue behind new requests, and the pool adds threads slowly ([The Sync-Over-Async Deadlock](#the-sync-over-async-deadlock) in Chapter 4 has the mechanism). Three signals give it away:
 >
 > - **Counters.** Queue length grows and thread count climbs steadily while CPU stays low. In `dotnet-counters`, read them as `ThreadPool Queue Length` and `ThreadPool Thread Count` (`threadpool-queue-length`, `threadpool-thread-count`): on .NET 8 they are the default `System.Runtime` view, on .NET 9 and 10 pass `--counters 'EventCounters\System.Runtime'`. The newer `dotnet.thread_pool.queue.length` and `dotnet.thread_pool.thread.count` are published as *monotonic* counters on .NET 9 and 10, so `dotnet-counters` shows their change per second, not the value: a pool that has grown to dozens of threads reads a small number each second, and a draining queue reads negative. The runtime's main branch already declares both as up-down counters. Before you trust a dashboard built on them, check whether it plots the value or a rate.
 > - **Every endpoint slows down**, including ones that never call the slow dependency. With async code, a slow dependency delays only its own callers.
@@ -635,6 +549,8 @@ Check CPU while the endpoint is slow. High CPU with low throughput → CPU-bound
 - APM (Application Insights, OpenTelemetry, Datadog): distributed traces show *which hop* in a request eats the time.
 - DB: `EXPLAIN`/`EXPLAIN ANALYZE` (Postgres), the actual execution plan (SQL Server), the slow-query log.
 
+[Profiling](#profiling-finding-the-bottleneck-in-a-running-system) in Chapter 17 runs each of these tools against a live process.
+
 **What are the usual culprits you look for?**
 - **N+1 queries**: a loop issuing one query per row. Fix with a join, `Include` or a batched load.
 - **Missing or unusable index**: a scan where a seek should be; the plan shows it.
@@ -646,17 +562,13 @@ Check CPU while the endpoint is slow. High CPU with low throughput → CPU-bound
 > **Follow-up:** *The p99 is bad but p50 is fine — what does that tell you?* Something intermittent: GC pauses, lock contention, a cold cache, a slow downstream that only some requests hit, or connection-pool exhaustion under bursts. A fine median with a bad tail points at contention or resource limits, not raw algorithmic cost.
 
 **The DB is the bottleneck — now what?**
-Pull the execution plan for the slow query ([Execution Plans](#execution-plans) in Chapter 4). Look for scans that should be seeks (a missing index, or one the predicate can't use because it wraps the column in a function or forces an implicit conversion), bad join order from stale statistics, or far more rows than the caller needs. Then consider, cheapest first: indexing, a query rewrite, pagination, caching, read replicas.
-
----
-
-@@SRC: practice from old module page Part 1 · Module 6: Exceptions, Logging and First Diagnosis@@
+Pull the execution plan for the slow query ([Execution Plans](#execution-plans) in Chapter 7; [Chapter 19](#chapter-19-the-slow-query-lab-reading-execution-plans) is a lab on reading them). Look for scans that should be seeks (a missing index, or one the predicate can't use because it wraps the column in a function or forces an implicit conversion), bad join order from stale statistics, or far more rows than the caller needs. Then consider, cheapest first: indexing, a query rewrite, pagination, caching, read replicas.
 
 ## Prove it
 
 Predict each output before you run it.
 
-**6a. `throw;` keeps the frame that threw; `throw ex;` erases it.**
+**`throw;` keeps the frame that threw; `throw ex;` erases it.**
 
 `verify/path/ThrowVsThrowEx/Program.cs` · run it from `verify/path` with `dotnet run --project ThrowVsThrowEx`:
 
@@ -710,7 +622,7 @@ What to notice:
 - **The SDK already warns.** `throw ex;` is warning CA2200 by default, which is why the program needs a `#pragma` to build with warnings as errors.
 - **A frame can be missing.** Release builds inline small methods into their callers, and an inlined method has no frame of its own. `NoInlining` keeps these two visible.
 
-**6b. A template keeps a typed property; interpolation flattens it.**
+**A template keeps a typed property; interpolation flattens it.**
 
 `verify/path/LogTemplate/Program.cs` · run it from `verify/path` with `dotnet run --project LogTemplate`:
 
