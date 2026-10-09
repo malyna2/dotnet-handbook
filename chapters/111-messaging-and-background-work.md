@@ -421,11 +421,21 @@ The mirror image is the **inbox**: the processed-message claims from *Idempotent
 
 ## Background Processing in .NET
 
-The queue's consumer, the outbox relay and every other piece of work no request waits on run in-process as hosted services. [Chapter 3: The Generic Host and Background Services](#the-generic-host-and-background-services) introduced them: the host starts every `IHostedService` at startup and stops it at shutdown, `BackgroundService` reduces that to one `ExecuteAsync` method, and a worker is a singleton that opens a DI scope per unit of work. This section is about what goes wrong inside that loop.
+The queue's consumer, the outbox relay and every other piece of work no request waits on run in-process, inside the Generic Host that [Chapter 3: The Generic Host and Background Services](#the-generic-host-and-background-services) introduced as the owner of DI, configuration, logging and the application's lifetime. This section is the full treatment of the work the host runs: the hosted-service contract, the worker loop, shutdown, and what changes when several instances run it.
 
 ### `IHostedService` and `BackgroundService`
 
-`IHostedService.StartAsync` is expected to *return quickly*: the host awaits each one before it considers itself started, so a long loop awaited inside it would block startup. `BackgroundService` handles that for you:
+The host owns a collection of `IHostedService` instances. When it starts, it calls `StartAsync` on each; when it stops, it calls `StopAsync`. This is the hook for anything that lives as long as the application: a message consumer, a polling loop, a cache warmer.
+
+```csharp
+public interface IHostedService
+{
+    Task StartAsync(CancellationToken cancellationToken);
+    Task StopAsync(CancellationToken cancellationToken);
+}
+```
+
+Implementing it raw is fiddly: `StartAsync` is expected to *return quickly* (the host awaits each one before it considers itself started), so you cannot simply `await` a long loop inside it. You would have to start a `Task`, keep it in a field, wire up a `CancellationTokenSource`, and join it in `StopAsync`. `BackgroundService` is that boilerplate, written once:
 
 ```csharp
 public abstract class BackgroundService : IHostedService, IDisposable
@@ -436,7 +446,9 @@ public abstract class BackgroundService : IHostedService, IDisposable
 }
 ```
 
-The comment is the contract that matters for the rest of this section: shutdown is a cancelled `stoppingToken` followed by a bounded wait. `ExecuteAsync` runs on a background flow, not a request, so there is no `HttpContext` and no ambient scope.
+You override one method, `ExecuteAsync`, and treat the supplied `stoppingToken` as your signal to wind down. The comment is the contract that matters for the rest of this section: shutdown is a cancelled `stoppingToken` followed by a bounded wait.
+
+> **Key mental model:** `ExecuteAsync` runs on a background flow, not a request. There is no ambient `HttpContext`, no scoped services unless you create a scope, and no per-request lifetime. A `BackgroundService` is registered as a singleton, so one that needs a scoped `DbContext` **must** open its own scope per unit of work; capturing the scoped service in the constructor is the captive dependency from [Chapter 3](#captive-dependencies-the-classic-di-bug).
 
 ### The Worker Service template
 
