@@ -1,14 +1,17 @@
 # The Middle → Senior .NET Developer Handbook
 
-### A self-contained, deep-dive textbook covering everything a mid-level .NET developer needs to grow toward senior level
+### A self-contained, deep-dive textbook: the key concepts first, then the depth
 
 ---
 
 ## Preface
 
-This book grew out of a simple roadmap — a checklist of "things a middle .NET developer should know." A checklist tells you *what* to learn but not *why* it works or *how* to apply it. This handbook fills that gap: every heading in the original roadmap is expanded into a full teaching chapter with explanations, idiomatic C# code, pitfalls, and best practices, so you can learn each topic without leaving this file.
+This book grew out of a simple roadmap — a checklist of "things a middle .NET developer should know." A checklist tells you *what* to learn but not *why* it works or *how* to apply it. This handbook fills that gap: every topic is a teaching chapter with explanations, idiomatic C# code, pitfalls and best practices, so you can learn it without leaving the book.
 
-**How to read this book.** You don't have to read it front to back. Each chapter stands on its own. That said, the early chapters (C#, the runtime, ASP.NET Core, data access) are the foundation everything else builds on, so if you're unsure where to start, start there. The final chapter ties everything together with a single capstone project that exercises the whole book — many people find it motivating to skim that first, then dive into the chapters it references.
+**How the book is organised.** It is one book in two parts, read in order.
+
+- **[Part 1: Junior → Middle](#part-1-junior-middle)** teaches the key concepts and topics a developer needs to work as a solid middle without help: C#, data structures and algorithms, the runtime, async code, HTTP and Web APIs, the frontend basics, data access, testing, diagnosis, design, messaging, security, Git and CI/CD, containers and Linux, dates and money, and the working habits a team relies on. Each one is explained by its mechanism, not listed: what actually happens, where the trap is, and how to fix it.
+- **[Part 2: Middle → Senior](#part-2-middle-senior)** takes the same topics deeper and adds the harder and wider ones: runtime internals and performance, data at scale, distributed systems, architecture and system design, observability, delivery and platform, cloud and Azure, AI, the frontend in depth, production incidents, seniority and career, and client-facing expertise. It builds on Part 1 instead of repeating it.
 
 **A note on depth vs. breadth.** Nobody masters all of this at once, and you shouldn't try. The goal is broad *awareness* of the whole landscape plus deep *expertise* in the areas your day-to-day work demands. Read a chapter, build something real with it, then move on. Depth beats breadth, and applied knowledge beats memorized knowledge.
 
@@ -16,7 +19,7 @@ This book grew out of a simple roadmap — a checklist of "things a middle .NET 
 
 > This is the kind of hard-won advice that saves you a debugging session at 2 a.m.
 
-Where a topic references another chapter, it's noted so you can jump around. The appendix at the end reproduces the original quick-reference roadmap so you can use it as a checklist to track your progress.
+*Pay attention* callouts spell out the mechanism behind the most common wrong answer, the one an interviewer's "why?" finds. Where a topic is taught in another chapter, the text links there instead of repeating it.
 
 Let's begin.
 
@@ -24,18 +27,10 @@ Let's begin.
 
 ## Contents
 
-> **Total study time: ~34 hours** (reading prose at ~200 wpm and parsing every code sample at ~60 wpm — the pace behind each chapter's own estimate under its heading). A straight cover-to-cover read (prose at ~250 wpm, code at ~100) is closer to **25 hours**; a quick skim (~300 and ~200 wpm), **~19 hours**.
->
-> **Practice time comes on top.** The labs in Part XI are measured in hours of hands-on work, not reading: so far about **5–6 hours** to build your story bank and portfolio (Chapter 36), then about 45 minutes a week to keep them going, about **10 hours** for the slow-query lab (Chapter 37), and about **9–11 hours** for the .NET health check (Chapter 62).
+> **Total study time: about 38 hours** — Part 1 about 14 hours, Part 2 about 24 hours (reading prose at ~200 wpm and every code sample at ~60 wpm, the pace behind each chapter's own estimate). A straight read (prose at ~250 wpm, code at ~100) is closer to **29 hours**; a quick skim (~300 and ~200 wpm), **22 hours**. Practice and labs come on top.
 
-Use the **sidebar** on the left (or the **Browse chapters** cards below) to jump to any chapter.
+Use the **sidebar** on the left (or the cards below) to jump to any chapter; the **Next →** button at the bottom of every page walks the book in reading order.
 
-**Two learning paths sit on top of the chapters.** Use the bar at the top of the page to switch between them. [Part 1: Junior → Middle](#part-1-junior-middle) covers the basics a developer needs to work as a solid middle without help, inside one service: async code, data access, messaging, diagnosis, the C# underneath and the working habits a team relies on. [Part 2: Middle → Senior](#part-2-middle-senior) covers what turns a middle into a senior: runtime and database internals, behaviour under load, consistency across services, architecture, production and the decisions made for a team. Each module names the mechanism that ties its topic together, links the chapter sections that teach it, and gives you a short program to run, three "why?" questions and a check to do at work. *Full book* shows every chapter, as before.
-
-**Parts I–X teach; Part XI makes you practise.** The chapters in *Part XI — The Practice Gym* are labs. Each has a goal, a time budget, tasks in three levels with checkable acceptance criteria, and a list of the evidence to keep in your own public portfolio repo — because the gap between middle and senior is rarely knowledge, and almost always proof. Start with [Chapter 36](#chapter-36-the-story-bank-evidence-portfolio), which builds the story bank the other labs feed.
-
-**Part XII goes deep on one cloud.** [Chapter 50](#chapter-50-azure-in-depth-for-net-developers) takes the Azure services from Chapter 10's map down to their mechanisms: identity, compute, storage, Cosmos DB, Azure SQL, messaging, networking and observability, at the depth a strong middle developer needs and far past what the AZ-900 exam asks. [Chapter 51](#chapter-51-the-azure-casebook-real-incidents-real-fixes) is a casebook of real Azure incidents, each with the diagnosis and the fix. (Chapter numbers 38–49 are kept free for the Practice Gym labs still to come.)
-
-**Part XIII turns expertise into advice.** Clients pay for judgment, not knowledge: a point of view you can defend, a diagnosis before a prescription, and proof they can read. [Chapter 60](#chapter-60-having-a-point-of-view) builds your written positions, [Chapter 61](#chapter-61-discovery-and-diagnosis) the first client conversation, and [Chapter 62](#chapter-62-lab-the-net-health-check) is a lab in which you assess a real open-source .NET codebase and write a client-ready report. [Chapter 63](#chapter-63-recommendations-proposals-and-estimates) covers options memos, proposals and estimates, [Chapter 64](#chapter-64-the-advisory-casebook) is a casebook of hard client situations, and [Chapter 65](#chapter-65-positioning-and-public-proof) turns all of it into positioning and public proof.
+**Practice is part of the book.** Most Part 1 chapters end with a 30-line program to run, three questions and a check to do in your own codebase. Part 2 adds labs measured in hours of hands-on work, not reading: the slow-query lab (Chapter 19), the story bank and evidence portfolio (Chapter 37) and the .NET health check (Chapter 40). Your own solutions, numbers and write-ups belong in your own public portfolio repo, not in this one.
 
 ---

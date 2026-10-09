@@ -1,6 +1,6 @@
-# Lab kit — Chapter 62: The .NET Health Check
+# Lab kit — Chapter 40: The .NET Health Check
 
-A script that collects the raw evidence for a .NET health check, templates for turning it into a client-ready report, and the reference run behind every number in Chapter 62. The target is Microsoft's [eShop](https://github.com/dotnet/eShop) reference app, pinned to commit `b4a40872005d4bb29e5b1fa1ff7e244143d39215` (`main`, 2026-08-28).
+A script that collects the raw evidence for a .NET health check, templates for turning it into a client-ready report, and the reference run behind every number in Chapter 40. The target is Microsoft's [eShop](https://github.com/dotnet/eShop) reference app, pinned to commit `b4a40872005d4bb29e5b1fa1ff7e244143d39215` (`main`, 2026-08-28).
 
 > **The portfolio rule.** Nothing you write for this lab goes into *this* repository. Your eShop report, finding cards and evidence folder go in **your own public portfolio repo**. An assessment of a real employer's or client's code is confidential: keep it private, and use it in your portfolio only as an anonymized story.
 
@@ -16,7 +16,7 @@ A script that collects the raw evidence for a .NET health check, templates for t
 scripts/health-check.sh --build     # clone eShop into .work/, check out the pinned commit, run every check
 ls .work/out/                       # one evidence file per area, plus SUMMARY.md
 
-cp templates/*.md ~/my-portfolio/eshop-health-check/   # then fill them in (Chapter 62, Tasks)
+cp templates/*.md ~/my-portfolio/eshop-health-check/   # then fill them in (Chapter 40, Tasks)
 ```
 
 Other targets:
@@ -32,15 +32,15 @@ scripts/health-check.sh --no-dotnet                                             
 | File | Area | Chapter |
 |---|---|---|
 | `00-environment.txt` | machine, OS, SDKs, target and commit | — |
-| `01-inventory-runtime.txt` | projects, target frameworks, `global.json`, support phases and recent patches from `dotnet/core` | 30, App. B |
-| `02-dependencies-summary.txt`, `02-packages-*.json`, `02-restore.log` | `dotnet list package --outdated/--vulnerable/--deprecated --include-transitive` | 35 |
-| `03-supply-chain.txt` | sources, source mapping, pinning, audit switches, action pins, base images | 35 |
-| `04-hotspots.tsv`, `04-hotspots-all-history.tsv`, `04-churn-by-folder.txt` | churn × branch count, last 365 days and whole history | 30 |
-| `05-architecture.txt` | project references, fan-in, size per project | 6 |
-| `06-tests.txt` | test projects, attributes, test vs production lines | 7, 25 |
-| `07-code-signals.txt` | security, observability and performance **leads** (production code only) | 14, 13, 15, 4 |
-| `08-build-ci-cost.txt` | CI, build settings, what the AppHost provisions, AI clients | 11, 12, 28 |
-| `09-build-tests.txt`, `09-build.log` | with `--build`: does it build, and do the unit-test projects pass | 7, 12 |
+| `01-inventory-runtime.txt` | projects, target frameworks, `global.json`, support phases and recent patches from `dotnet/core` | 24, Appendix |
+| `02-dependencies-summary.txt`, `02-packages-*.json`, `02-restore.log` | `dotnet list package --outdated/--vulnerable/--deprecated --include-transitive` | 27 |
+| `03-supply-chain.txt` | sources, source mapping, pinning, audit switches, action pins, base images | 27 |
+| `04-hotspots.tsv`, `04-hotspots-all-history.tsv`, `04-churn-by-folder.txt` | churn × branch count, last 365 days and whole history | 24 |
+| `05-architecture.txt` | project references, fan-in, size per project | 21 |
+| `06-tests.txt` | test projects, attributes, test vs production lines | 8, 25 |
+| `07-code-signals.txt` | security, observability and performance **leads** (production code only) | 12, 9, 17, 7 |
+| `08-build-ci-cost.txt` | CI, build settings, what the AppHost provisions, AI clients | 14, 13, 31 |
+| `09-build-tests.txt`, `09-build.log` | with `--build`: does it build, and do the unit-test projects pass | 8, 13 |
 
 Every line of output is a lead. Open the file before it becomes a finding.
 
@@ -63,7 +63,7 @@ Every line of output is a lead. Open the file before it becomes a finding.
 ## For maintainers
 
 - `verify.sh` runs the script with `--no-dotnet` and checks that every expected file is written, that the pinned commit is checked out, and that the commit-only files (`03`–`08`, and `01` above the live support table) match `reference-runs/` byte for byte. `verify.sh --full` also runs the dotnet sections with `--build` and reports drift in `02` and `09` without failing, because those depend on NuGet's current state and the network.
-- To re-capture after changing the script: `git -C .work/eShop clean -xdf && scripts/health-check.sh --build && cp -r .work/out/. reference-runs/`, then delete `reference-runs/02-packages-all.json` and `02-packages-outdated.json` (about 590 KB together; the summary keeps the numbers). Re-check every number quoted in Chapter 62.
+- To re-capture after changing the script: `git -C .work/eShop clean -xdf && scripts/health-check.sh --build && cp -r .work/out/. reference-runs/`, then delete `reference-runs/02-packages-all.json` and `02-packages-outdated.json` (about 590 KB together; the summary keeps the numbers). Re-check every number quoted in Chapter 40.
 
 ## Last verified
 

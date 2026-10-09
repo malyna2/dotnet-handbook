@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Extract the C# and Bicep samples from Chapters 50 and 51 so they can be compiled as printed.
+"""Extract the C# and Bicep samples from Chapters 29 and 30 (Azure in depth and the Azure casebook) so they can be compiled as printed.
 
 Each ```csharp block is written to Generated/ChNN_BlockK.cs, wrapped according to BLOCKS below:
   "types"        the block declares types; it is placed in a namespace as-is
@@ -23,25 +23,25 @@ WEB = "WebApplicationBuilder builder, WebApplication app, TokenCredential creden
 
 # (chapter file, index among ```csharp blocks) → wrapping mode
 BLOCKS = {
-    ("50-azure-in-depth.md", 0): "body:string[] args",
-    ("50-azure-in-depth.md", 1): "body:" + WEB,
-    ("50-azure-in-depth.md", 2): "body:string[] args",
-    ("50-azure-in-depth.md", 3): "types",
-    ("50-azure-in-depth.md", 4): "member:Refunds",
-    ("50-azure-in-depth.md", 5): "types",
-    ("50-azure-in-depth.md", 6): "types",
-    ("50-azure-in-depth.md", 7): "body:" + WEB,
-    ("50-azure-in-depth.md", 8): "body:ServiceBusClient client, IPaymentService payments, ILogger logger",
-    ("50-azure-in-depth.md", 9): "body:" + WEB,
-    ("50-azure-in-depth.md", 10): "body:WebApplicationBuilder builder, TokenCredential credential",
-    ("50-azure-in-depth.md", 11): "body:" + WEB,
-    ("51-azure-casebook.md", 0): "member:PaymentGateway",
-    ("51-azure-casebook.md", 1): "body:" + WEB,
-    ("51-azure-casebook.md", 2): "member:DeadLetterTools",
-    ("51-azure-casebook.md", 3): "member:StockService",
-    ("51-azure-casebook.md", 4): "exercise:exercises/Ch51/BlobLostUpdate.cs",
-    ("51-azure-casebook.md", 5): "exercise:exercises/Ch51/BlobLostUpdate.cs",
-    ("51-azure-casebook.md", 6): "exercise:exercises/Ch51/LockExpiry.cs",
+    ("229-azure-in-depth.md", 0): "body:string[] args",
+    ("229-azure-in-depth.md", 1): "body:" + WEB,
+    ("229-azure-in-depth.md", 2): "body:string[] args",
+    ("229-azure-in-depth.md", 3): "types",
+    ("229-azure-in-depth.md", 4): "member:Refunds",
+    ("229-azure-in-depth.md", 5): "types",
+    ("229-azure-in-depth.md", 6): "types",
+    ("229-azure-in-depth.md", 7): "body:" + WEB,
+    ("229-azure-in-depth.md", 8): "body:ServiceBusClient client, IPaymentService payments, ILogger logger",
+    ("229-azure-in-depth.md", 9): "body:" + WEB,
+    ("229-azure-in-depth.md", 10): "body:WebApplicationBuilder builder, TokenCredential credential",
+    ("229-azure-in-depth.md", 11): "body:" + WEB,
+    ("230-azure-casebook.md", 0): "member:PaymentGateway",
+    ("230-azure-casebook.md", 1): "body:" + WEB,
+    ("230-azure-casebook.md", 2): "member:DeadLetterTools",
+    ("230-azure-casebook.md", 3): "member:StockService",
+    ("230-azure-casebook.md", 4): "exercise:exercises/Ch51/BlobLostUpdate.cs",
+    ("230-azure-casebook.md", 5): "exercise:exercises/Ch51/BlobLostUpdate.cs",
+    ("230-azure-casebook.md", 6): "exercise:exercises/Ch51/LockExpiry.cs",
 }
 
 COMMON_USINGS = """using Azure.Core;

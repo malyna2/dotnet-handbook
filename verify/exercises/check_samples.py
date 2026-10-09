@@ -14,8 +14,8 @@ CHAPTERS = os.path.join(HERE, "..", "..", "chapters")
 
 # (chapter file, heading the sample sits under, tested file relative to this folder)
 SAMPLES = [
-    ("04-data.md", "### Find the bug", "Ch04/SummaryEndpoint.cs"),
-    ("08-async.md", "### Find the bug", "Ch08/ReportsController.cs"),
+    ("107-data-access.md", "### Find the bug", "Ch04/SummaryEndpoint.cs"),
+    ("104-async-essentials.md", "### Find the bug", "Ch08/ReportsController.cs"),
 ]
 
 

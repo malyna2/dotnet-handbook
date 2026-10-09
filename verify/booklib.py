@@ -133,13 +133,28 @@ def links_outside_code(lines):
     return out
 
 
+def aliases():
+    """chapters/_aliases.json: an old chapter address -> the chapter that holds it now."""
+    import json
+    p = os.path.join(CHAPTERS, "_aliases.json")
+    return json.load(open(p, encoding="utf-8")) if os.path.exists(p) else {}
+
+
+_ALIASES = None
+
+
 def resolve(book, chapter, target, owner, from_whats_new=False):
     """Where app.js sends a click on `#target` from `chapter`: (chapter, heading id or None), or
-    None if the click goes nowhere."""
+    None if the click goes nowhere. An old chapter address resolves through its alias."""
+    global _ALIASES
+    if _ALIASES is None:
+        _ALIASES = aliases()
     by_slug = {c.slug: c for c in book}
     t = target[1:] if target.startswith("#") else target
     if t in by_slug:
         return by_slug[t], None
+    if t in _ALIASES and _ALIASES[t] in by_slug:
+        return by_slug[_ALIASES[t]], None
     if not from_whats_new and t in chapter.ids:
         return chapter, t
     o = owner.get(t)
