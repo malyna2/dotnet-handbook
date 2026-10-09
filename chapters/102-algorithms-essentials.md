@@ -1,14 +1,11 @@
 # Chapter 2: Data Structures and Algorithms Essentials
 
-@@TODO: write this chapter's introduction (what it makes the reader able to do, how its sections connect), then remove every @@ line.@@
+This chapter makes you able to say what a piece of code costs as its input grows, and to pick the .NET collection whose cost matches the job: why `Dictionary` lookups are constant time and what makes them linear, why `List<T>.Add` is cheap on average and occasionally not, why `Array.Sort` is not stable, and when a plain list beats every clever structure. That is the instinct that spots a nested loop over a growing list long before it becomes an incident, and the vocabulary interviewers test.
 
-@@SRC: introduction of old Chapter 27: Data Structures, Algorithms & System Design Fundamentals@@
+It runs in three steps. **Big-O** gives the language for cost. **Core data structures** explains each BCL collection by how it is built, because the internals are what produce its costs. **Key algorithms and patterns** covers the handful of techniques (sorting, binary search, two pointers, sliding window, hashing, BFS/DFS, dynamic programming, greedy) that most coding questions and much real code reduce to. A short framing for real problems and the interview questions close it.
 
-Most working developers can build features all day without ever writing a sorting algorithm from scratch. So why does this material still matter? Because the moment you cross from "mid-level" to "senior," your job stops being "make it work" and becomes "make it work *at scale, under constraints, and predictably*." A senior engineer is the person who looks at a nested loop over a growing list and quietly senses it will become a production incident in six months. That instinct is not magic — it is fluency in the language of data structures, algorithms, and system design.
+The same habit applied to whole systems (load estimates, caches, queues, replicas) is [Chapter 23: System Design](#chapter-23-system-design); measuring the cost of real code with a profiler and BenchmarkDotNet is [Chapter 17: Runtime Internals and Performance](#chapter-17-runtime-internals-and-performance).
 
-This chapter is a refresher and a consolidation. You already know C#. Here we sharpen the mental models: what each collection in the .NET base class library actually does under the hood, how to reason about cost, and how to zoom out to whole-system design. Think of it as learning the physics of your codebase so you can predict how it behaves before you run it.
-
-@@SRC: old Chapter 27: Data Structures, Algorithms & System Design Fundamentals@@
 ## Big-O: The Language of "How Bad Does This Get?"
 
 Big-O notation describes how the *cost* of an operation grows as the *input* grows. It deliberately ignores constants and lower-order terms because they wash out at scale. If one algorithm takes `3n + 50` steps and another takes `n²`, then for small `n` the first might even be slower — but we care about the trend, and eventually `n²` dwarfs everything.
@@ -20,7 +17,7 @@ We track two dimensions:
 - **Time complexity** — how the number of operations grows.
 - **Space complexity** — how the extra memory grows (not counting the input itself).
 
-There is often a trade between them. Caching results (a hash map) turns an O(n²) scan into O(n) time but costs O(n) space. Senior engineers negotiate this trade consciously.
+There is often a trade between them. Caching results (a hash map) turns an O(n²) scan into O(n) time but costs O(n) space. Make that trade on purpose, and say so when you explain a solution.
 
 ### The Common Classes
 
@@ -44,7 +41,6 @@ Some operations are *usually* cheap but *occasionally* expensive, and amortized 
 
 Amortized O(1) is not the same as worst-case O(1). If you have a hard latency ceiling on *every* operation (real-time systems, some trading paths), that occasional O(n) resize can matter, and you'd pre-size the collection.
 
-@@SRC: old Chapter 27: Data Structures, Algorithms & System Design Fundamentals@@
 ## Core Data Structures and Their .NET Types
 
 The single most valuable skill in this section is matching a problem to a structure. Each structure trades away something to be fast at something else. Let's walk them in the order you'll reach for them.
@@ -75,13 +71,13 @@ Use raw arrays when the size is known and stable, when you need maximum throughp
 
 ```csharp
 var list = new List<int>();
-for (int i = 0; i < 1000; i++) list.Add(i); // ~10 internal resizes total
+for (int i = 0; i < 1000; i++) list.Add(i); // 9 array allocations: capacity 4, 8, 16 ... 1024
 
 // If you know the size, pre-size to skip the resizes and copies:
 var sized = new List<int>(capacity: 1000);
 ```
 
-> **Best practice:** if you know roughly how many items you'll add, pass a capacity to the constructor. You skip a chain of allocations and array copies, which reduces GC pressure — a cheap, senior-level win.
+> **Best practice:** if you know roughly how many items you'll add, pass a capacity to the constructor. You skip a chain of allocations and array copies, which reduces GC pressure — a cheap win.
 
 > **Pitfall:** reaching for `Insert(0, ...)` in a loop to build a reversed list is a classic accidental O(n²). Either add to the end and reverse once, or use a different structure.
 
@@ -129,9 +125,11 @@ public sealed class Point : IEquatable<Point>
 }
 ```
 
-> **Best practice:** use a `record` or `readonly record struct` for key types. The compiler generates a correct, value-based `Equals` and `GetHashCode` for you, and immutability protects you from the "mutated a key" bug.
+> **Best practice:** use a `record` or `readonly record struct` for key types. The compiler generates a correct, value-based `Equals` and `GetHashCode` for you, and immutability protects you from the "mutated a key" bug. [Chapter 1](#records-value-equality-and-with-expressions) shows what a record compares, and why a collection-valued member breaks it.
 
 > **Pitfall:** overriding `Equals` but forgetting `GetHashCode` (or vice versa) silently breaks dictionary and set behavior — objects you consider equal end up in different buckets and "disappear." The compiler warns you; don't ignore it.
+
+> **Gotcha:** `string.GetHashCode()` is randomized per process in .NET (Core and later): the same string hashes differently in the next run. That defends dictionaries against inputs crafted to collide, and it means a hash code is never something to persist, send to another process, or use as a stable ID.
 
 Use a dictionary whenever you find yourself scanning a list to find a matching item by some key. That `O(n)` `First(x => x.Id == id)` inside a loop is an `O(n²)` waiting to happen; a `Dictionary<Id, T>` makes it O(n) total.
 
@@ -182,16 +180,32 @@ Console.WriteLine(pq.Dequeue()); // "urgent!" (priority 1 = lowest = first)
 
 This is the engine behind Dijkstra's shortest-path, A* pathfinding, event simulations, and "process the most important item next" schedulers.
 
+> **Gotcha:** `PriorityQueue` does not guarantee first-in, first-out order among elements with equal priority; a heap reorders them freely. If arrival order must break ties, make it part of the priority, for example a `(priority, sequenceNumber)` tuple.
+
+### Choosing a Collection at a Glance
+
+| Collection | Lookup | Add / remove | Order | Reach for it when... |
+|------------|--------|--------------|-------|----------------------|
+| `T[]` | O(1) by index, O(n) search | fixed size | as written | the size is known and the loop is hot |
+| `List<T>` | O(1) by index, O(n) `Contains` | O(1) amortized at the end, O(n) at the front | insertion | a growable sequence you iterate or append to |
+| `Dictionary<K,V>` | O(1) average by key | O(1) average | none | you find things **by key** |
+| `HashSet<T>` | O(1) average `Contains` | O(1) average | none | membership tests and de-duplication |
+| `SortedDictionary<K,V>` / `SortedSet<T>` | O(log n) | O(log n) | sorted | lookups **and** ordered iteration or ranges |
+| `Stack<T>` / `Queue<T>` | top or front only | O(1) amortized | LIFO / FIFO | most recent first / arrival order |
+| `PriorityQueue<E,P>` | O(1) peek at the minimum | O(log n) | by priority | "the most important item next" |
+| `LinkedList<T>` | O(n) | O(1) given a node | insertion | many splices at nodes you already hold (rare) |
+
+For a lookup table built **once and read many times**, such as reference data loaded at start-up, .NET 8 added `FrozenDictionary<TKey,TValue>` and `FrozenSet<T>` (`System.Collections.Frozen`): they spend more time on construction to make every later read faster than `Dictionary`/`HashSet`.
+
 ### When *Not* to Reach for a Fancy Structure
 
 > **Best practice:** for small collections (a handful to a few dozen items), a plain `List<T>` with a linear scan often *beats* a `Dictionary` or `SortedSet`. Hashing has constant overhead, tree nodes fragment memory, and cache locality wins at small `n`. Don't build an index for ten items.
 
-The discipline of a senior engineer isn't reaching for the most sophisticated structure — it's reaching for the *simplest one that meets the actual constraints*. Premature "optimization" with heavyweight structures adds complexity and can be slower. Know your `n`.
+The discipline isn't reaching for the most sophisticated structure — it's reaching for the *simplest one that meets the actual constraints*. Premature "optimization" with heavyweight structures adds complexity and can be slower. Know your `n`.
 
-@@SRC: old Chapter 27: Data Structures, Algorithms & System Design Fundamentals@@
 ## Key Algorithms and Patterns
 
-You rarely implement these from scratch at work, but recognizing when a problem *is* one of these — that's the payoff. Interviews test the same recognition.
+You rarely implement these from scratch at work, but recognizing when a problem *is* one of these is the payoff, and interviews test the same recognition. Most of them lean on a structure from the previous section: binary search on a sorted array, BFS on a `Queue<T>`, dedup on a `HashSet<T>`, memoization on a `Dictionary`.
 
 ### Sorting, and Why `Array.Sort` Is Introsort
 
@@ -332,9 +346,8 @@ The two hallmarks that signal DP: **overlapping subproblems** (the same smaller 
 
 ### Greedy
 
-A greedy algorithm makes the locally best choice at each step and hopes it leads to a global optimum. It's fast and simple — but only *correct* for problems with the right structure. Making change with standard coin denominations works greedily (always take the largest coin that fits); with arbitrary denominations it can fail, and you need DP. The senior skill is knowing *when* greedy is provably correct versus when it's a seductive trap.
+A greedy algorithm makes the locally best choice at each step and hopes it leads to a global optimum. It's fast and simple — but only *correct* for problems with the right structure. Making change with standard coin denominations works greedily (always take the largest coin that fits); with arbitrary denominations it can fail, and you need DP. The skill is knowing *when* greedy is provably correct versus when it's a seductive trap.
 
-@@SRC: old Chapter 27: Data Structures, Algorithms & System Design Fundamentals@@
 ## Choosing the Right Tool for a Real Problem
 
 When a task lands on your desk, resist jumping to code. Frame it first:
@@ -344,21 +357,54 @@ When a task lands on your desk, resist jumping to code. Frame it first:
 3. **What are the constraints?** Memory ceiling? Latency ceiling on *every* op (worst-case matters, not just amortized)? Ordering requirements?
 4. **What's the dominant cost?** Optimize the operation that runs most often or on the largest data. A slow one-time setup with fast repeated lookups is usually the right trade.
 
-> The framing itself is the senior move. Juniors ask "which data structure is best?" Seniors ask "what does this problem actually need, and what's the simplest structure that delivers it within the constraints?"
+> The framing itself is the skill. "Which data structure is best?" has no answer; "what does this problem actually need, and what's the simplest structure that delivers it within the constraints?" does.
 
-@@SRC: old Chapter 27: Data Structures, Algorithms & System Design Fundamentals@@
+> **Pay attention.** **LINQ hides the loop, not its cost.** Each operator is a pass over its source, so a lambda that calls `Contains`, `First` or `Any` on a `List<T>` runs a full scan per element. `orders.Where(o => vipIds.Contains(o.CustomerId))` is O(n·m) with `vipIds` as a list and O(n) with it as a `HashSet<int>`, and the code looks the same. Likewise `Distinct`, `GroupBy` and `ToLookup` build hash tables internally (O(n) time, O(n) space), and `OrderBy` sorts (O(n log n)). Fix: before writing a lambda, ask what each call inside it costs per element, and build a set or dictionary once outside the query.
+
 ## Bringing It Together
 
-The through-line of this chapter is a single habit: **reason about cost before you commit to code.** At the small scale, that means picking the collection whose Big-O matches your access pattern and your `n`. At the large scale, it means estimating load and composing building blocks whose trade-offs you understand. The techniques differ in size, not in kind — a distributed cache is a dictionary, a message queue is a `Queue<T>` that survives across machines, and a load balancer is horizontal scaling made physical.
+The through-line is one habit: **reason about cost before you commit to code.** Pick the collection whose Big-O matches your access pattern and your realistic `n`, know which internal mechanism (contiguous array, hash buckets, balanced tree, binary heap) produces that cost and what breaks it (a bad hash, a mutated key, unsorted input to a binary search), and recognize the handful of algorithmic patterns most problems reduce to. Strong engineers are not the ones who memorized the most algorithms; they are the ones who reliably ask "how does this behave as it grows?" and have the vocabulary to answer.
 
-Senior engineers aren't the ones who memorized the most algorithms. They're the ones who reliably ask "how does this behave as it grows?" — and have the vocabulary to answer.
+## Interview Questions
 
-@@SRC: old Chapter 27: Data Structures, Algorithms & System Design Fundamentals@@
+Algorithm questions reward the same order every time: restate the problem and its edge cases, give the brute-force solution and its complexity, then improve it by naming the structure or pattern that removes the repeated work, and finish by testing it aloud on a small input. The general approach to an interview is in [Chapter 36: Senior Behaviours, Career and Interviews](#chapter-36-senior-behaviours-career-and-interviews).
+
+**What does Big-O describe, and what does it leave out?**
+How cost grows with input size, ignoring constants and lower-order terms. It leaves out exactly what dominates at small `n`: constant overhead and cache behavior. That is why a linear scan over ten items can beat a dictionary, and why `List<T>` often beats `LinkedList<T>` despite a worse Big-O for middle inserts.
+
+**Why is `List<T>.Add` O(1) if it sometimes copies the whole array?**
+It is *amortized* O(1). When the backing array fills, the list allocates one twice as large and copies, an O(n) step; because the capacity doubles, those copies happen so rarely that the total work over n adds is O(n), so O(1) per add on average. The worst case of a single add is still O(n), which is why a latency-critical path pre-sizes the list.
+
+**How does a `Dictionary` achieve O(1), and when does it degrade?**
+`GetHashCode` picks a bucket, and `Equals` resolves the short chain of entries that collide there. It degrades towards O(n) when many keys collide (a poor hash) and silently loses entries when a key's hash changes after insertion (a mutated key), so keys should be immutable and implement `Equals` and `GetHashCode` consistently.
+
+**Red flag:** overriding `Equals` without `GetHashCode` — equal keys land in different buckets and lookups "lose" them.
+
+**`Dictionary` vs `SortedDictionary` — when each?**
+`Dictionary` for lookups by key at O(1) average with no ordering; `SortedDictionary` (a red-black tree) when you also need ordered iteration, minimum and maximum, or range queries, at O(log n) per operation. If order matters only once, at the end, a dictionary plus one sort is usually cheaper.
+
+**Is `Array.Sort` stable? What algorithm does it use?**
+No. It is introsort: quicksort, switching to heapsort when recursion gets too deep and to insertion sort for partitions of about 16 elements or fewer, which guarantees O(n log n) in the worst case. LINQ's `OrderBy` is stable; use it when equal keys must keep their original order.
+
+**You need the shortest path in an unweighted graph. BFS or DFS?**
+BFS: it explores level by level with a queue, so the first time it reaches the goal it has used the fewest edges. DFS (a stack or recursion) suits cycle detection, topological sorting and exhaustive search. Both need a `visited` set, or a cycle loops forever; with weighted edges, use Dijkstra on a `PriorityQueue`.
+
+**How do you find duplicates in an array of n items?**
+One pass with a `HashSet<T>`: `Add` returns `false` for an item already seen. O(n) time and O(n) space, against O(n²) for comparing every pair; sorting first gives O(n log n) time with no extra set, a valid trade when memory is tight.
+
+**When is recursion the wrong choice?**
+When the depth can grow with the input. Each call uses a stack frame, and a `StackOverflowException` cannot be caught: the process terminates. For deep or unbounded structures, iterate with an explicit `Stack<T>`, which is bounded only by heap memory.
+
+**What makes a problem a dynamic-programming problem?**
+Overlapping subproblems (the same smaller question recurs) and optimal substructure (the best answer is built from the best answers to its parts). Cache each subproblem's answer, by memoization or by filling a table bottom-up, and an exponential recursion such as naive Fibonacci becomes linear.
+
+**Red flag:** reaching for greedy without arguing why it is correct — greedy coin change works for standard denominations and fails for arbitrary ones, where DP is needed.
+
 ## Sources & Further Reading
 
 - Microsoft Learn — *System.Collections.Generic Namespace* and the individual type references (`List<T>`, `Dictionary<TKey,TValue>`, `HashSet<T>`, `SortedDictionary<TKey,TValue>`, `Queue<T>`, `Stack<T>`, `PriorityQueue<TElement,TPriority>`). https://learn.microsoft.com/en-us/dotnet/api/system.collections.generic
 - Microsoft Learn — *Array.Sort Method* (documents the introsort hybrid used by the runtime). https://learn.microsoft.com/en-us/dotnet/api/system.array.sort
 - Microsoft Learn — *Guidelines for overriding Equals() and GetHashCode()* and the `HashCode.Combine` reference.
+- Microsoft Learn — *System.Collections.Frozen Namespace* (`FrozenDictionary<TKey,TValue>`, `FrozenSet<T>`) and the `PriorityQueue<TElement,TPriority>` remarks on equal priorities.
 - Thomas H. Cormen, Charles E. Leiserson, Ronald L. Rivest, Clifford Stein — *Introduction to Algorithms (CLRS)*, 4th edition (Big-O, sorting, graph algorithms, dynamic programming, amortized analysis).
 - Gayle Laakmann McDowell — *Cracking the Coding Interview*, 6th edition (data-structure selection, interview algorithm patterns).
-- Alex Xu — *System Design Interview: An Insider's Guide*, Volumes 1 & 2 (the design process, building blocks, URL shortener and rate limiter case studies).
