@@ -1,19 +1,12 @@
 # Chapter 27: Security in Depth and the Supply Chain
 
-@@TODO: write this chapter's introduction (what it makes the reader able to do, how its sections connect), then remove every @@ line.@@
+[Chapter 12: Security Essentials](#chapter-12-security-essentials) covered what every middle developer must get right inside one application: authentication and authorization, the OWASP Top 10, storing secrets, TLS, the cryptography you call, and scanning dependencies for known CVEs. This chapter is the depth above that, where the decisions span services, pipelines and years. It makes you able to remove long-lived credentials instead of guarding them, to plan a cryptographic migration before it is forced on you, and to defend the chain of code and builds that ends in the artifact you ship.
 
-@@SRC: introduction of old Chapter 35: Software Supply Chain Security@@
+Three threads, in that order. **Zero trust and workload identity** replace "this request came from inside the network" and "this service holds a secret" with identities the platform attests and credentials that expire in minutes — in production and in CI. **Crypto agility** takes the algorithms themselves off the list of things you assume, because the post-quantum migration has already started. And the **software supply chain** applies the same thinking to the packages you consume, the build that assembles them, and the artifacts you publish, ending with what to do on the day an advisory lands and where to start.
 
-Open your solution and count the projects. Now run `dotnet list package --include-transitive` and count the packages. For a typical ASP.NET Core service the second number is somewhere between fifty and four hundred. Almost none of it was written by anyone you can name, reviewed by anyone on your team, or built on a machine you control. It arrives as a compressed archive from a public server, and your build system unpacks it and links it into the thing you ship to customers.
-
-That is the software supply chain, and for most of the last two decades our profession treated it as somebody else's problem. It isn't any more. Attackers worked out that compromising one popular package buys them access to thousands of downstream organizations, which is a far better return than attacking those organizations one at a time. The 2025 revision of the OWASP Top 10 promoted supply chain failures to their own category. The EU's Cyber Resilience Act turns parts of this chapter into a legal obligation for anyone selling software into Europe.
-
-This chapter is about the three places that trust can be violated — **what you consume**, **where you build**, and **what you publish** — and the specific controls that close each gap in a .NET shop. As always, the point is the mechanism. "Use a lockfile" is advice; understanding *which attack a lockfile actually stops, and which it doesn't*, is knowledge you can apply when the next attack looks slightly different.
-
-@@SRC: old Chapter 14: Security@@
 ## Zero Trust and Workload Identity
 
-Secrets management, above, is about storing credentials safely. This section is about the better move: **not having them.**
+[Chapter 12: Secrets Management](#secrets-management) is about storing credentials safely. This section is about the better move: **not having them.**
 
 ### What zero trust actually claims
 
@@ -87,13 +80,13 @@ app.Use(async (ctx, next) =>
 });
 ```
 
-In practice you rarely write that yourself. A **service mesh** (Istio, Linkerd) puts a sidecar or node proxy in the path that terminates mTLS, rotates certificates, and enforces policy — so mTLS becomes a platform property rather than something each team implements. That is a genuine benefit and a real cost: the mesh hides the identity plumbing, which is fine until you are debugging a 403 that your application code never saw. Know what the mesh is doing on your behalf before you rely on it. Chapter 11 covers the operational side.
+In practice you rarely write that yourself. A **service mesh** (Istio, Linkerd) puts a sidecar or node proxy in the path that terminates mTLS, rotates certificates, and enforces policy — so mTLS becomes a platform property rather than something each team implements. That is a genuine benefit and a real cost: the mesh hides the identity plumbing, which is fine until you are debugging a 403 that your application code never saw. Know what the mesh is doing on your behalf before you rely on it. [Chapter 26](#service-mesh-awareness) covers the operational side.
 
 > **Gotcha.** mTLS authenticates the *service*, not the *user*. A request arriving from `orders-api` over mTLS still carries an end user whose permissions must be checked separately. Conflating the two is how you build a system where any authenticated service can read any customer's data — the confused deputy, wearing a certificate.
 
 ### OIDC federation: killing the last static credential in CI
 
-The most valuable place to apply this is your build pipeline, because that is where the highest-value long-lived credentials traditionally live. Chapter 12 mentions workload identity federation for Azure DevOps service connections; here is the mechanism, because the security of the whole arrangement rests on one configuration detail.
+The most valuable place to apply this is your build pipeline, because that is where the highest-value long-lived credentials traditionally live. [Chapter 26](#azure-pipelines-in-practice) mentions workload identity federation for Azure DevOps service connections; here is the mechanism, because the security of the whole arrangement rests on one configuration detail.
 
 1. Your CI platform runs a job and mints a **short-lived, signed JWT** describing it: issuer (`https://token.actions.githubusercontent.com`), and claims including `repository`, `ref`, `workflow`, `environment`, and a composite `sub`.
 2. The job presents that token to your cloud's STS.
@@ -145,12 +138,9 @@ Zero trust is a direction, not a binary state, and honest engineering means nami
 
 The goal is not a perfect score. It is that the number of long-lived, broadly-scoped credentials in your organization trends toward zero, and that you can name every remaining one.
 
-@@SRC: old Chapter 14: Security@@
-## Cryptography for Developers — in depth
+## Crypto Agility and the Post-Quantum Migration
 
-### Crypto Agility and the Post-Quantum Migration
-
-Everything above assumes the algorithms hold. For most of your career they have, which has let us bake algorithm choices into code, config files, database columns, and certificate chains without thinking twice. That assumption now has an expiry date, and the interesting engineering problem is less "which algorithm" than "how quickly could we change ours?"
+The cryptography of [Chapter 12](#cryptography-for-developers), and the workload identity above, assume the algorithms hold. For most of your career they have, which has let us bake algorithm choices into code, config files, database columns, and certificate chains without thinking twice. That assumption now has an expiry date, and the interesting engineering problem is less "which algorithm" than "how quickly could we change ours?"
 
 **Why this is a today problem, not a 2035 problem.** A sufficiently large quantum computer running Shor's algorithm breaks the mathematics that RSA and elliptic-curve cryptography rest on. No such machine exists, and credible estimates of when one might are all over the map. That would be someone else's problem except for one detail: **an adversary can record your encrypted traffic today and decrypt it later.** This is called *harvest now, decrypt later*, and it is not speculative — bulk capture of encrypted traffic is a known activity of well-resourced intelligence services.
 
@@ -188,7 +178,14 @@ Note the split. **Key exchange is the urgent half** — that is what harvest-now
 
 **The related deadline that will bite sooner.** Independently of quantum anything, the CA/Browser Forum has agreed a schedule that shortens the maximum lifetime of public TLS certificates in stages — from today's 398 days down to 47 days by March 2029, with domain validation reuse shrinking alongside it. Whatever you think about post-quantum timelines, **this one is dated and certain**, and it makes manual certificate handling untenable. If any certificate in your estate is renewed by a human following a runbook, that is now a scheduled outage. Automate issuance and renewal (ACME via Let's Encrypt, your cloud's certificate manager, or `cert-manager` in Kubernetes), monitor expiry as a first-class alert, and make sure the automation covers the awkward ones — internal services, client certificates, mutual TLS between services, and the load balancer nobody remembers configuring.
 
-@@SRC: old Chapter 35: Software Supply Chain Security@@
+## The Software Supply Chain
+
+Open your solution and count the projects. Now run `dotnet list package --include-transitive` and count the packages. For a typical ASP.NET Core service the second number is somewhere between fifty and four hundred. Almost none of it was written by anyone you can name, reviewed by anyone on your team, or built on a machine you control. It arrives as a compressed archive from a public server, and your build system unpacks it and links it into the thing you ship to customers.
+
+That is the software supply chain, and for most of the last two decades our profession treated it as somebody else's problem. It isn't any more. Attackers worked out that compromising one popular package buys them access to thousands of downstream organizations, which is a far better return than attacking those organizations one at a time. The 2025 revision of the OWASP Top 10 promoted supply chain failures to their own category. The EU's Cyber Resilience Act turns parts of what follows into a legal obligation for anyone selling software into Europe.
+
+The rest of this chapter is about the three places that trust can be violated — **what you consume**, **where you build**, and **what you publish** — and the specific controls that close each gap in a .NET shop. As always, the point is the mechanism. "Use a lockfile" is advice; understanding *which attack a lockfile actually stops, and which it doesn't*, is knowledge you can apply when the next attack looks slightly different.
+
 ## The Shape of the Problem
 
 Start with the arithmetic, because it explains why intuition fails here.
@@ -219,7 +216,6 @@ Note the middle row. A great deal of energy goes into reviewing dependencies, wh
 
 > **The core reframe.** Supply chain security is not about auditing other people's code — you cannot read two hundred packages, and neither can anyone else. It is about *limiting what an untrusted dependency can reach*, *knowing exactly what you shipped*, and *being able to answer questions quickly when something turns out to be bad*.
 
-@@SRC: old Chapter 35: Software Supply Chain Security@@
 ## Attacks on What You Consume
 
 ### Typosquatting, and its newer cousin
@@ -287,7 +283,6 @@ Since then the same pattern has scaled up. Phishing campaigns against registry m
 
 So a compromised NuGet package does not need you to call its API. It needs you to *build*. Treat "we restored it but never referenced the type" as no protection at all.
 
-@@SRC: old Chapter 35: Software Supply Chain Security@@
 ## Pinning What You Actually Build
 
 ### Lockfiles
@@ -321,7 +316,7 @@ What it does **not** buy you: protection from a malicious version you deliberate
 
 ### Central package management
 
-For a solution with more than a handful of projects, `Directory.Packages.props` gives you one place where every version lives:
+For a solution with more than a handful of projects, `Directory.Packages.props` ([Chapter 13](#msbuild-directorybuildprops-and-central-package-management)) gives you one place where every version lives — and one property that matters for security:
 
 ```xml
 <Project>
@@ -375,9 +370,8 @@ A workable middle:
 - **Security patches**: fast lane. Automated PR, auto-merge on green for patch-level bumps of packages you already trust.
 - **Everything else**: batched weekly or monthly, reviewed as a group, with the lockfile diff as the review artifact.
 - **A cooldown window.** Configure your bot to ignore releases younger than a few days (Renovate calls this `minimumReleaseAge`). Most malicious releases are detected and yanked within hours; a 3–7 day delay costs you almost nothing and steps around the majority of these incidents entirely. This is the highest-leverage single setting in your dependency automation.
-- **`dotnet list package --vulnerable --include-transitive`** in CI, failing on high severity, plus GitHub's dependency review on pull requests.
+- **`dotnet list package --vulnerable --include-transitive`** in CI, failing on high severity ([Chapter 12](#dependency-scanning)), plus GitHub's dependency review on pull requests.
 
-@@SRC: old Chapter 35: Software Supply Chain Security@@
 ## The Build Is Part of the Attack Surface
 
 Here is the row people skip. Your CI runner checks out your source, has credentials to your registries and clouds, and produces the artifact that goes to production. It is, in effect, a production machine with a shell exposed to anyone who can influence a workflow file.
@@ -420,7 +414,7 @@ jobs:
 
 A static `AWS_SECRET_ACCESS_KEY` in repository secrets is a credential that never expires, is copied into every job that references it, and appears in the memory of every step that runs. OIDC federation replaces it: the runner requests a short-lived signed token asserting *which repository, branch, and workflow* is running, and your cloud exchanges it for credentials valid for minutes.
 
-This is the same trust-chain machinery covered in the zero trust section of Chapter 14 — including the failure mode where a too-loose `sub` claim condition on the cloud side lets *any* repository in your org, or in some misconfigurations any repository at all, assume the role. Get that condition right; it is the whole security boundary.
+This is the trust-chain machinery of [OIDC federation](#oidc-federation-killing-the-last-static-credential-in-ci) earlier in this chapter — including the failure mode where a too-loose `sub` claim condition on the cloud side lets *any* repository in your org, or in some misconfigurations any repository at all, assume the role. Get that condition right; it is the whole security boundary.
 
 ### Deterministic builds
 
@@ -445,7 +439,6 @@ Two builds of the same commit should produce the same bytes. When they do, anyon
 - **Isolate the privileged steps.** The job that runs tests (executing arbitrary contributor code) should not be the job that holds the signing key.
 - **Egress control on the runner** is the control that turns a successful compromise into a failed exfiltration. If the build only needs nuget.org and your registry, an allowlist means the credential-stealer has nowhere to send what it stole.
 
-@@SRC: old Chapter 35: Software Supply Chain Security@@
 ## Knowing What You Shipped: SBOMs
 
 A **Software Bill of Materials** is a machine-readable inventory of everything in a build: components, versions, and ideally hashes and licences. Two formats matter — **CycloneDX** (OWASP; security-oriented) and **SPDX** (Linux Foundation; originally licence-oriented, now an ISO standard). Either is fine; consistency matters more than the choice.
@@ -465,7 +458,6 @@ The honest value proposition:
 
 > **Best practice.** Feed SBOMs into something that continuously re-evaluates them against new advisories — OWASP Dependency-Track is the common open-source choice. The value is in the *standing query*, not the document.
 
-@@SRC: old Chapter 35: Software Supply Chain Security@@
 ## Proving How You Built It: Provenance
 
 An SBOM says what is inside. **Provenance** says where the artifact came from: which source commit, which build system, which workflow, at what time. It is a signed statement produced by the build platform itself, so it cannot be forged by someone who merely has your package.
@@ -506,7 +498,6 @@ And a signature nobody verifies is decoration. The verification has to live some
 
 > **Deploy-time is the right gate.** Build-time checks catch mistakes; admission control catches attacks. The attacker's whole objective is to introduce an artifact that never went through your build.
 
-@@SRC: old Chapter 35: Software Supply Chain Security@@
 ## When It Happens: The Response Playbook
 
 Assume, one Tuesday, an advisory lands: a package in your graph shipped a malicious version for eleven hours two days ago. Prepared teams work this in an hour; unprepared teams work it for a week. The difference is entirely in what you set up beforehand.
@@ -520,7 +511,6 @@ Assume, one Tuesday, an advisory lands: a package in your graph shipped a malici
 
 > **Gotcha.** Yanking a package from a registry does not remove it from your caches. Build agents, `~/.nuget/packages`, Docker layer caches, and internal mirrors will keep serving it happily. Purge the caches explicitly, or your "fixed" build will restore the malicious version from disk.
 
-@@SRC: old Chapter 35: Software Supply Chain Security@@
 ## The Regulatory Floor
 
 For a long time everything above was optional diligence. That is changing, and it is worth knowing the shape of the obligations even if compliance isn't your job — they determine what your customers will start demanding of you in procurement questionnaires.
@@ -531,7 +521,6 @@ For a long time everything above was optional diligence. That is changing, and i
 
 The common thread is that *knowing and proving what you shipped* is becoming a legal requirement, not just an engineering good idea. Teams that already generate SBOMs and provenance will find compliance mostly a documentation exercise. Teams that don't will find it a re-platforming project.
 
-@@SRC: old Chapter 35: Software Supply Chain Security@@
 ## Where to Start
 
 You cannot do all of this next sprint. Ordered by value per hour of effort, for a typical team:
@@ -549,14 +538,14 @@ You cannot do all of this next sprint. Ordered by value per hour of effort, for 
 
 Items 1, 2 and 4 together take an afternoon and remove the three most commonly exploited paths. Do those first, then argue about the rest.
 
-@@SRC: old Chapter 35: Software Supply Chain Security@@
 ## Summary
+
+Two habits run under the whole chapter. First, prefer *not having* a secret to guarding one: zero trust means network position confers no trust, workload identity lets the platform vouch for a service instead of the service holding a password, and OIDC federation removes the last static credential from CI — provided the trust policy pins the subject exactly. Second, assume your current choices will have to change: inventory where cryptography lives, version your ciphertext, turn on hybrid key exchange where the switch exists, and automate certificates before shrinking lifetimes make manual renewal an outage.
 
 Your dependency graph is a list of people who can reach production, and it is longer than you think. Three surfaces need defending, not one: what you consume, the build that assembles it, and what you publish onward. Package source mapping structurally eliminates dependency confusion; lockfiles make graph changes visible and incident response a query rather than an excavation; signature verification with named owners raises the cost of impersonation. In CI, pin actions by SHA because tags are mutable pointers into someone else's repository, cut token permissions to the floor, replace long-lived cloud credentials with short-lived OIDC, and remember that a build runner is a production machine holding your secrets. On the way out, an SBOM tells you what you shipped and provenance proves where it came from — but only if something verifies them at deploy time, and only if you actually query them when the advisory lands.
 
 None of this makes an untrusted dependency trustworthy. That is not the goal. The goal is that when — not if — one of those hundred maintainers has a bad day, you find out fast, you know exactly what you shipped, and the blast radius stops well short of production.
 
-@@SRC: old Chapter 35: Software Supply Chain Security@@
 ## Sources & Further Reading
 
 - **Microsoft Learn — "Package Source Mapping"** and **"Central Package Management"**, NuGet documentation. https://learn.microsoft.com/nuget/consume-packages/package-source-mapping
@@ -570,3 +559,6 @@ None of this makes an untrusted dependency trustworthy. That is not the goal. Th
 - **European Commission — Cyber Resilience Act**, obligations and application timeline. https://digital-strategy.ec.europa.eu/en/policies/cyber-resilience-act
 - **CISA / NSA — "Securing the Software Supply Chain"** guidance series for developers and suppliers. https://www.cisa.gov/
 - Post-incident write-ups worth reading in full: the **xz-utils backdoor (CVE-2024-3094)** for multi-year social engineering into a build system, **SolarWinds** for build-time injection with clean source, and the **`tj-actions/changed-files` compromise (CVE-2025-30066)** for mutable tags in CI.
+
+- **SPIFFE / SPIRE documentation** — SPIFFE IDs, SVIDs, and node and workload attestation. https://spiffe.io/
+- **NIST FIPS 203, 204 and 205** — ML-KEM, ML-DSA and SLH-DSA, the first post-quantum standards. https://csrc.nist.gov/
