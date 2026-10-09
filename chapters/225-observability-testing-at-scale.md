@@ -1,62 +1,14 @@
 # Chapter 25: Observability and Testing at Scale
 
-@@TODO: write this chapter's introduction (what it makes the reader able to do, how its sections connect), then remove every @@ line.@@
+[Chapter 9: Exceptions, Logging and First Diagnosis](#chapter-9-exceptions-logging-and-first-diagnosis) gave you the log line, and [Chapter 8: Testing](#chapter-8-testing) gave you unit and integration tests inside one service. This chapter starts where a request leaves the process and where a codebase outgrows one team. It makes you able to decide what a service must emit so that a page at 3 a.m. leads to a cause in minutes, to set an SLO and alert on how fast its budget burns instead of on CPU, and to choose which expensive tests — contract, property-based, end-to-end, load, mutation, evals — earn their cost for the system in front of you.
 
-@@SRC: introduction of old Chapter 25: Advanced & Specialized Testing@@
+The first half is observability beyond logs. **Metrics** are aggregates: they keep a number per time series and throw the requests away, so they are cheap enough to keep always on and to alert on, and through bounded tags they say *that* something is wrong and *where*. **Traces** keep one request's detail across every hop, so they are sampled, and they say *which hop*. Together with the logs of Chapter 9 they meet in the SLO, the alert that fires on it, and a walk through one incident from metric to trace to log line — joined by a single propagated trace ID.
 
-Chapter 7 gave you the foundations: unit tests with xUnit, mocking with Moq or NSubstitute, integration tests, and spinning up real dependencies with Testcontainers. Those techniques carry most teams a long way. But as a system grows from a single service into a fleet of services, and as a codebase matures from "does it work?" into "can we change it safely for the next five years?", a new set of problems appears that the foundational techniques do not address well.
+The second half is testing what unit tests can't see: interface drift between independently deployed services, inputs nobody thought to write, whole-stack breakage through a real browser, latency under concurrency, tests that execute code but assert nothing, and model output that no fixed assertion can pin. The through-line is one habit of mind: **treat your telemetry and your tests as systems to be engineered, with their own costs, failure modes, and return on investment** — and measure both against the same yardstick, the user-visible SLI.
 
-This chapter is about those problems and the specialized tools built for them. Contract testing tames the combinatorial explosion of cross-service integration tests. Property-based testing finds the inputs you never thought to write an assertion for. End-to-end and UI testing verify the whole stack through a real browser. Load testing tells you whether the system survives Black Friday. Eval suites extend the portfolio to features whose output a model generates, where no fixed assertion applies. And a cluster of supporting disciplines — deterministic time, test data management, and mutation testing — keep the whole test suite honest.
-
-The through-line is a single senior-level habit of mind: **treat your tests as a system to be engineered, with their own costs, failure modes, and return on investment**, not as a checkbox you tick after the "real" code is done.
-
-> **A shifting runner underneath it all:** the *engine* that runs your tests is changing. **Microsoft.Testing.Platform (MTP)** is the new, lightweight test runner that replaces the older VSTest host — each test project builds into a self-contained executable, and xUnit, NUnit, and MSTest now support running on it. Built exclusively on MTP is **TUnit**, a newer framework whose tests are *source-generated* at compile time (rather than reflected at runtime), run in parallel by default, and support Native AOT; it is still young (pre-1.0) but gaining real attention in 2025–2026 for its speed. None of the techniques below depend on your choice of runner, but it is worth knowing the ground is moving.
-
-@@SRC: old Chapter 7: Testing@@
-## Specialized Techniques
-
-### Snapshot Testing with Verify
-
-Some outputs are large and tedious to assert field-by-field — a serialized API response, generated code, a complex object graph. **Snapshot testing** (via the **Verify** library) records the output to a `.verified.txt` file on first run; subsequent runs diff the fresh output against the stored snapshot and fail on any difference, showing a diff.
-
-```csharp
-[Fact]
-public Task Serialize_Invoice_MatchesSnapshot()
-{
-    var invoice = InvoiceFactory.SampleWithThreeLines();
-    return Verify(invoice);   // writes .received.txt, compares to .verified.txt
-}
-```
-
-The first run produces a `.received` file you review and rename to `.verified` (or accept via tooling). Commit the `.verified` file — it *is* the assertion. This is superb for locking down serialization and preventing accidental contract changes.
-
-> **Pitfall:** snapshot tests are only as good as the discipline reviewing the diffs. A team that reflexively "accepts all" whenever a snapshot changes has converted a test into a rubber stamp. Snapshots also drift with non-deterministic content (timestamps, GUIDs) — use Verify's scrubbers to normalise those, or your snapshots will fail constantly.
-
-### Mutation Testing with Stryker.NET
-
-Code coverage tells you which lines *ran*. It does not tell you whether your tests would *notice* if those lines were wrong. **Mutation testing** answers the harder question. **Stryker.NET** deliberately introduces small bugs — "mutants" — into your code (flips a `>` to `>=`, replaces a `+` with `-`, negates a boolean) and reruns your tests. If a test fails, the mutant is "killed" — good, your tests caught the change. If all tests still pass, the mutant "survived" — your tests are blind to that logic.
-
-Your **mutation score** (killed / total mutants) is a far truer measure of test *effectiveness* than line coverage. A method with 100% coverage but no meaningful assertions will have a dismal mutation score — mutation testing exposes exactly the "tests that execute but don't verify" problem.
-
-```
-dotnet tool install -g dotnet-stryker
-dotnet stryker
-```
-
-> **Best practice:** mutation testing is slow (it reruns the suite once per mutant), so run it periodically or on critical modules rather than every commit. Use it to *audit* the quality of a suite you suspect is hollow.
-
-### Code Coverage with Coverlet
-
-**Coverlet** is the standard .NET coverage collector, integrated via the `coverlet.collector` package and run with `dotnet test --collect:"XPlat Code Coverage"`. It reports line, branch, and method coverage, typically exported as Cobertura XML for CI dashboards and tools like ReportGenerator.
-
-Coverage is a **signal, not a goal**. High coverage tells you code was executed; it says nothing about whether it was *verified*. And targeting a coverage *number* is actively harmful — it incentivises tests that touch lines without asserting anything, gaming the metric while adding maintenance burden. The pathological end state is 90% coverage and zero confidence.
-
-> **How to use coverage well:** read it as a map of *what's untested*, not a scoreboard. A sudden drop on a pull request is a useful prompt ("you added a branch with no test"). A blanket "we must hit 80%" mandate produces box-ticking. Combine coverage (did it run?) with mutation testing (would we notice a bug?) for the full picture.
-
-@@SRC: old Chapter 13: Observability@@
 ## Metrics
 
-If logs are the narrative, metrics are the numbers you graph. They are aggregated, low-cost, and ideal for answering "how much" and "how fast" over time.
+If logs ([Chapter 9](#chapter-9-exceptions-logging-and-first-diagnosis)) are the narrative, metrics are the numbers you graph. They are aggregated, low-cost, and ideal for answering "how much" and "how fast" over time.
 
 ### The Three Instrument Types
 
@@ -150,7 +102,6 @@ The **USE method** is for resources (CPU, memory, disks, connection pools):
 
 RED tells you the *symptom* (requests are slow); USE helps you find the *cause* (the database connection pool is saturated). Use them together.
 
-@@SRC: old Chapter 13: Observability@@
 ## Distributed Tracing
 
 In a monolith, a stack trace tells you the whole story. In a microservice architecture, a single user click might touch an API gateway, an orders service, a payments service, an inventory service, and three databases. When it is slow, *which hop* was slow? Distributed tracing answers exactly this.
@@ -218,7 +169,7 @@ The `activity?.` null-conditional is deliberate: if no listener is subscribed (f
 
 ### Instrumenting a .NET App End to End
 
-Here is a complete, production-shaped tracing setup for an ASP.NET Core service:
+[Chapter 9](#observability-wiring) showed the minimal wiring that makes ASP.NET Core and `HttpClient` emit spans. Here is a complete, production-shaped tracing setup for an ASP.NET Core service, with custom sources, database spans and sampling:
 
 ```csharp
 builder.Services.AddOpenTelemetry()
@@ -243,20 +194,26 @@ An **exporter** ships your telemetry out of the process. **OTLP** (OpenTelemetry
 
 **Jaeger** and **Zipkin** are popular open-source trace visualization backends that render the span waterfall. Both now ingest OTLP natively, so in modern setups you typically export OTLP everywhere and let the Collector route it.
 
-> **Local dev tip:** **.NET Aspire** ships a built-in dashboard that is itself an OTLP receiver, giving you zero-config local traces, metrics, and logs — point your app's OTLP exporter at it and read a full cross-service waterfall without standing up Jaeger, Prometheus, or a Collector on your laptop.
+> **Local dev tip:** **.NET Aspire** ([Chapter 26](#net-aspire)) ships a built-in dashboard that is itself an OTLP receiver, giving you zero-config local traces, metrics, and logs — point your app's OTLP exporter at it and read a full cross-service waterfall without standing up Jaeger, Prometheus, or a Collector on your laptop.
 
-@@SRC: old Chapter 13: Observability@@
+> **Pay attention.** **The three places the trace ID breaks.** Over HTTP propagation needs no code from you, so teams assume it always works. It breaks in three places, and each one ends an investigation early:
+>
+> - **A broker hop** where nobody injected the context into the message's properties, so the worker starts a new trace. Whether your client library does it for you, and how to inject and extract by hand, is in [Chapter 9: Correlation Across Services](#correlation-across-services).
+> - **A sampler that ignores the caller's decision** — a bare `TraceIdRatioBasedSampler`, as explained under *Sampling* above. Wrap it in `ParentBasedSampler` in every service.
+> - **An ingestion cap** that stops all telemetry once an incident multiplies the volume. Retries log every failure, so the cap trips exactly when you need the data ([Chapter 30, Case 15](#case-15-blind-in-the-middle-of-the-incident)).
+>
+> The fix for all three is the same habit: check, on a quiet afternoon, that one request through every hop — HTTP, queue, worker — shows up as one trace.
+
 ## APM Tools
 
 Application Performance Monitoring (APM) products bundle the three pillars into a polished, hosted experience with automatic instrumentation, correlation, and analytics.
 
-- **Application Insights** is Microsoft's APM, part of Azure Monitor. It integrates deeply with .NET, and its Azure-native distributed tracing, live metrics stream, and Kusto (KQL) query language make it a natural fit for Azure shops. Its data model maps cleanly onto OpenTelemetry, and the modern integration is via the Azure Monitor OpenTelemetry distro.
+- **Application Insights** is Microsoft's APM, part of Azure Monitor. It integrates deeply with .NET, and its Azure-native distributed tracing, live metrics stream, and Kusto (KQL) query language make it a natural fit for Azure shops. Its data model maps cleanly onto OpenTelemetry, and the modern integration is via the Azure Monitor OpenTelemetry distro ([Chapter 29](#observability-application-insights-and-kql) covers it with KQL).
 - **Datadog** is a comprehensive, vendor-neutral SaaS platform spanning APM, infrastructure metrics, logs, and more, with strong .NET auto-instrumentation via a profiler agent.
 - **New Relic** is another mature all-in-one APM with excellent .NET support and full OpenTelemetry ingestion.
 
 > **Best practice:** Instrument with the vendor-neutral OpenTelemetry API and SDK, then point the OTLP exporter at whichever APM you use. This keeps your instrumentation portable. If your CFO switches vendors to cut costs, you change a connection string, not a thousand lines of instrumentation code. Vendor lock-in at the instrumentation layer is a trap seniors avoid.
 
-@@SRC: old Chapter 13: Observability@@
 ## Alerting, SLIs, SLOs, SLAs, and Error Budgets
 
 Telemetry you never look at is worthless. **Alerting** turns telemetry into action — but bad alerting trains people to ignore alarms.
@@ -268,9 +225,10 @@ These four acronyms form a hierarchy of reliability thinking:
 - An **SLA (Service Level Agreement)** is a *contract* with customers, usually with financial penalties, and is deliberately looser than your SLO. If your SLA is 99.5%, your internal SLO might be 99.9% so you have margin before you breach the contract.
 - An **error budget** is the inverse of an SLO: `100% - SLO`. A 99.9% SLO permits 0.1% failures — about 43 minutes of downtime per month. That budget is a currency. As long as you have budget left, you can ship risky features fast. When you burn through it, you freeze feature work and focus on reliability. This reframes the eternal dev-versus-ops tension into a shared, quantitative decision.
 
+The error budget becomes something you can alert on through the **burn rate**: how fast the budget is being spent, measured as the observed error ratio divided by the budget ratio. At a burn rate of 1 the budget lasts exactly the window; at 14.4, one hour spends 2% of a 30-day budget (14.4 hours out of 720). Paging on burn rate measures user pain against the promise, whatever the cause — the first of the *Three questions* at the end of the chapter works through the arithmetic, including why a plain error-rate threshold both wakes you for nothing and sleeps through a real outage.
+
 > **Best practice:** Alert on **symptoms** (SLO burn rate, user-facing error rate, latency) rather than **causes** (a single machine's high CPU). A hot CPU that harms no user is not worth waking anyone. Fast SLO-burn-rate alerts catch real customer pain while staying quiet during harmless blips. Every alert should be actionable and point to a runbook; an alert nobody can act on is noise that erodes trust in the whole system.
 
-@@SRC: old Chapter 13: Observability@@
 ## The 3 a.m. Walk: One Incident, Three Signals
 
 Here is how the pillars actually combine when the page arrives. It is 3:07 a.m. and the SLO burn-rate alert fires: p99 latency on the order API has been over 2 seconds for ten minutes. Note what woke you: a **metric**. Metrics are the cheap, always-on signal, so they are the tripwire.
@@ -279,55 +237,18 @@ You open the Grafana dashboard backed by Prometheus. The RED panels tell the fir
 
 So you pick one victim. In Jaeger you query for slow traces on that route (tail sampling has kept the slow ones) and open a 4-second specimen. The waterfall is unambiguous: the ASP.NET Core root span is thin, the EF Core spans are milliseconds, and almost the entire duration sits in one child span — the `HttpClient` call to the payment gateway, created automatically by `AddHttpClientInstrumentation`. The trace has answered the second question: *which hop*.
 
-But a span only shows *that* the call took 3.8 seconds, not *why*. So you copy the trace ID from Jaeger, paste it into Seq, and — because every service stamps its logs via the Serilog span enricher — you get every structured log line from every service for that exact request. There they are: three warnings, `Payment gateway returned 429, retrying in 800ms (attempt 3)`. The gateway was not slow; it was rejecting you, and your own retries were stacking inside the span. A quick pivot on the same query shows the 429s started at 2:52 — right when the nightly reconciliation job began hammering the gateway with the same API key. Kill the job, latency recovers, go back to bed.
+But a span only shows *that* the call took 3.8 seconds, not *why*. So you copy the trace ID from Jaeger, paste it into Seq, and — because every service stamps its logs with the trace ID ([Chapter 9](#correlation-across-services)) — you get every structured log line from every service for that exact request. There they are: three warnings, `Payment gateway returned 429, retrying in 800ms (attempt 3)`. The gateway was not slow; it was rejecting you, and your own retries were stacking inside the span. A quick pivot on the same query shows the 429s started at 2:52 — right when the nightly reconciliation job began hammering the gateway with the same API key. Kill the job, latency recovers, go back to bed.
 
-Walk the chain again: the metric said *something is wrong and where*, the trace said *which hop*, the logs said *why*. Three tools, one investigation — and the only thing that connected them was the trace ID, propagated in every hop's `traceparent` header, recorded on every span, and stamped onto every log line. That correlation is not luck. It exists because the propagation, the enricher, and the sampler were wired up on a quiet afternoon, exactly as this chapter prescribed. At 3 a.m. you can only harvest what you instrumented at 3 p.m.
+Walk the chain again: the metric said *something is wrong and where*, the trace said *which hop*, the logs said *why*. Three tools, one investigation — and the only thing that connected them was the trace ID, propagated in every hop's `traceparent` header, recorded on every span, and stamped onto every log line. That correlation is not luck. It exists because the propagation, the enricher, and the sampler were wired up on a quiet afternoon, exactly as this chapter prescribes. At 3 a.m. you can only harvest what you instrumented at 3 p.m.
 
-> **Capstone tie-in:** This chapter is exercised by ShopCore Steps 5 (Caching, Auth, and Observability) and 8 (Deploy with Infrastructure as Code) — you'd add Serilog structured logging and OpenTelemetry so a single checkout produces one connected trace, then watch it cross service boundaries in a hosted backend. See Chapter 32.
+One more step exists when the trace points inside a single process — a span that is slow but makes no outbound calls. Then the next tool is a profiler on that process: `dotnet-counters` first, then whatever its reading points to ([Chapter 17: Profiling](#profiling-finding-the-bottleneck-in-a-running-system)).
 
-@@SRC: old Chapter 13: Observability@@
-## Bringing It Together
+> **Capstone tie-in:** This half of the chapter is exercised by ShopCore [Step 5](#step-5-caching-auth-and-observability) and [Step 8](#step-8-deploy-with-infrastructure-as-code) of [Chapter 44](#chapter-44-capstone-one-project-growing-up) — you'd add Serilog structured logging and OpenTelemetry so a single checkout produces one connected trace, then watch it cross service boundaries in a hosted backend.
 
-Observability is not a library you install; it is a design property you cultivate. The senior mindset treats telemetry as a first-class feature, budgeted for and reviewed like any other. Emit **structured logs** with correlation IDs and zero secrets. Record **metrics** chosen by RED and USE, guarding against cardinality explosions. Trace requests end to end with **OpenTelemetry**, propagating context across HTTP and messaging so a single trace ID unlocks the whole story. Feed **SLIs** into **SLOs** with **error budgets** that turn reliability into a shared, quantitative decision, and alert on symptoms, not noise.
+Observability tells you what production is doing. The rest of the chapter is about finding out before production does — the tests that catch the defect classes unit and in-process integration tests structurally miss.
 
-Build the cockpit before you need it. When the 3 a.m. page arrives — and it will — the difference between a five-minute fix and a five-hour outage is the instrumentation you had the discipline to add while the skies were still clear.
+> **A shifting runner underneath it all:** the *engine* that runs your tests is changing. **Microsoft.Testing.Platform (MTP)** is the new, lightweight test runner that replaces the older VSTest host — each test project builds into a self-contained executable, and xUnit, NUnit, and MSTest now support running on it. Built exclusively on MTP is **TUnit**, a newer framework whose tests are *source-generated* at compile time (rather than reflected at runtime), run in parallel by default, and support Native AOT; it is still young (pre-1.0) but gaining real attention in 2025–2026 for its speed. None of the techniques below depend on your choice of runner, but it is worth knowing the ground is moving.
 
-@@SRC: old Chapter 15: Performance & Optimization@@
-## Load Testing: Proving It Under Pressure
-
-Benchmarks and profilers examine one operation or one process. **Load testing** answers the system-level question: how does the whole service behave under many concurrent users? It reveals behaviors invisible in single-request testing — thread-pool starvation, connection-pool exhaustion, lock contention, and the difference between average and tail (p99) latency.
-
-Three tools dominate:
-
-- **k6** — a modern, developer-friendly load tester where you script scenarios in JavaScript. Excellent for CI integration and clear metrics. Great default for HTTP APIs.
-- **NBomber** — a .NET-native load testing framework where you write scenarios in **C#**. The natural choice when you want your load tests in the same language and solution as your service, testing not just HTTP but any protocol you can call from C#.
-- **JMeter** — the venerable, feature-rich Java-based tool with a GUI. Powerful and battle-tested, if heavier and less code-friendly than the other two.
-
-A minimal k6 script conveys the shape:
-
-```javascript
-import http from 'k6/http';
-import { check } from 'k6';
-
-export const options = {
-  vus: 200,          // 200 virtual users concurrently
-  duration: '2m',    // for two minutes
-  thresholds: {
-    http_req_duration: ['p(95)<200'], // 95% of requests must finish under 200ms
-  },
-};
-
-export default function () {
-  const res = http.get('https://localhost:5001/api/products');
-  check(res, { 'status is 200': (r) => r.status === 200 });
-}
-```
-
-The key discipline is reading **percentiles, not averages**. An average latency of 50ms can hide a p99 of 3 seconds — meaning one request in a hundred is agonizingly slow, which at scale is thousands of unhappy users. Averages lie; percentiles tell the truth about tail behavior, and tail behavior is what users actually feel.
-
-> **Best practice:** Load test against production-like infrastructure and data volumes, and define pass/fail thresholds (like the k6 `thresholds` above) so the test objectively fails when performance regresses. Wire it into CI to catch regressions before they ship.
-
-@@SRC: old Chapter 25: Advanced & Specialized Testing@@
 ## Contract Testing: Killing the Integration Test Explosion
 
 ### The problem
@@ -437,9 +358,27 @@ The broker checks the recorded verification matrix and answers yes or no. This i
 
 Contract testing does **not** verify business logic — it verifies that two services agree on their interface. But a huge fraction of cross-service E2E tests exist *only* to catch interface drift. Those you can and should delete, replacing them with fast, independent contract tests. Keep a thin layer of true end-to-end tests for a handful of critical user journeys where the *behaviour* of the assembled system, not just its wiring, is what you need to prove.
 
-This ties directly to **schema evolution** (Chapter 24). A pact is a living, executable record of exactly which fields and message shapes each consumer actually depends on. When you want to remove a field, the broker tells you whether any consumer's contract still references it. Contract testing and backward-compatible schema evolution are two views of the same discipline: **never break a consumer you can't see**. For asynchronous systems, Pact supports **message pacts** too — the consumer asserts on the shape of a Kafka or Service Bus message it can handle, and the provider verifies its published messages conform.
+This ties directly to **schema evolution** ([Chapter 22](#chapter-22-api-evolution-real-time-and-serialization)). A pact is a living, executable record of exactly which fields and message shapes each consumer actually depends on. When you want to remove a field, the broker tells you whether any consumer's contract still references it. Contract testing and backward-compatible schema evolution are two views of the same discipline: **never break a consumer you can't see**. For asynchronous systems, Pact supports **message pacts** too — the consumer asserts on the shape of a Kafka or Service Bus message it can handle, and the provider verifies its published messages conform.
 
-@@SRC: old Chapter 25: Advanced & Specialized Testing@@
+## Snapshot Testing with Verify
+
+Contract tests pin the interface between two services. Inside one service, the equivalent risk is an output that changes shape without anyone deciding it should.
+
+Some outputs are large and tedious to assert field-by-field — a serialized API response, generated code, a complex object graph. **Snapshot testing** (via the **Verify** library) records the output to a `.verified.txt` file on first run; subsequent runs diff the fresh output against the stored snapshot and fail on any difference, showing a diff.
+
+```csharp
+[Fact]
+public Task Serialize_Invoice_MatchesSnapshot()
+{
+    var invoice = InvoiceFactory.SampleWithThreeLines();
+    return Verify(invoice);   // writes .received.txt, compares to .verified.txt
+}
+```
+
+The first run produces a `.received` file you review and rename to `.verified` (or accept via tooling). Commit the `.verified` file — it *is* the assertion. This is superb for locking down serialization and preventing accidental contract changes.
+
+> **Pitfall:** snapshot tests are only as good as the discipline reviewing the diffs. A team that reflexively "accepts all" whenever a snapshot changes has converted a test into a rubber stamp. Snapshots also drift with non-deterministic content (timestamps, GUIDs) — use Verify's scrubbers to normalise those, or your snapshots will fail constantly.
+
 ## Property-Based Testing: Asserting the Rules, Not the Examples
 
 ### From examples to properties
@@ -513,7 +452,6 @@ public static class Generators
 
 > **When PBT beats example-based tests:** reach for it whenever the code has a clear mathematical property (parsers, serializers, encoders, financial calculations, data structures, state machines) or where the input space is large and adversarial. It complements rather than replaces example tests — keep a few named examples as living documentation of specific, business-meaningful cases, and let properties patrol the vast space between them.
 
-@@SRC: old Chapter 25: Advanced & Specialized Testing@@
 ## End-to-End, UI, and API Testing
 
 ### Playwright for .NET
@@ -546,11 +484,11 @@ public class CheckoutTests : PageTest   // from Microsoft.Playwright.NUnit / MST
 
 ### API-level E2E
 
-Not every end-to-end test needs a browser. For a service or API product, the most valuable E2E tests exercise the *deployed HTTP surface* directly — real network, real database, real auth — but with no UI. These are far faster and less flaky than browser tests while still proving the full stack integrates. Playwright itself ships an `APIRequestContext` for this; a plain `HttpClient` against a deployed environment works too. This is distinct from the in-process `WebApplicationFactory` integration tests of Chapter 7, which never leave the test host.
+Not every end-to-end test needs a browser. For a service or API product, the most valuable E2E tests exercise the *deployed HTTP surface* directly — real network, real database, real auth — but with no UI. These are far faster and less flaky than browser tests while still proving the full stack integrates. Playwright itself ships an `APIRequestContext` for this; a plain `HttpClient` against a deployed environment works too. This is distinct from the in-process `WebApplicationFactory` integration tests of [Chapter 8](#integration-testing), which never leave the test host.
 
 ### The pyramid versus the trophy
 
-The traditional **test pyramid** prescribes many fast unit tests, fewer integration tests, and very few slow E2E tests. The reasoning is economic: push confidence down to the cheapest, fastest layer that can provide it.
+[Chapter 8](#the-testing-pyramid) introduced the **test pyramid**: many fast unit tests, fewer integration tests, very few slow E2E tests, pushing confidence down to the cheapest layer that can provide it.
 
 The **testing trophy** (popularised by Kent C. Dodds) argues that for many modern applications — especially those with rich frameworks and heavy I/O — *integration* tests hit the best cost/confidence ratio, because bugs cluster at the seams between components, not inside single units. The trophy is fatter in the middle.
 
@@ -558,16 +496,14 @@ The senior takeaway is not to pick a dogma but to **shape your suite by where yo
 
 ### Controlling flakiness
 
-Flaky tests are worse than no tests: they train the team to ignore red builds. Attack flakiness structurally:
+Flaky tests are worse than no tests: they train the team to ignore red builds. The causes and the quarantine discipline are in [Chapter 8: Flaky Tests](#flaky-tests); the E2E layer, being the slowest and most timing-sensitive, adds two rules:
 
-- **Never sleep for a fixed duration.** Wait for a *condition* (Playwright's web-first assertions do this for you).
-- **Isolate state.** Each test creates its own data and cleans up (or runs in a transaction that rolls back). Shared mutable state across tests is the leading cause of order-dependent failures.
-- **Quarantine, don't ignore.** When a test flakes, move it to a quarantined lane that runs but doesn't block the pipeline, file a bug, and fix or delete it on a deadline. A permanently-ignored `[Fact(Skip = "flaky")]` is dead weight that rots.
+- **Never sleep for a fixed duration.** Wait for a *condition* — Playwright's web-first assertions do this for you.
 - **Track flake rate as a metric.** If you can't measure it, you won't fix it.
 
 ### Accessibility checks in the same run
 
-Since you already have a browser driving your app, you are one dependency away from catching a whole category of defects that unit tests structurally cannot see — and that, in the EU since June 2025, are compliance defects rather than cosmetic ones (Chapter 29 covers the standards and the markup).
+Since you already have a browser driving your app, you are one dependency away from catching a whole category of defects that unit tests structurally cannot see — and that, in the EU since June 2025, are compliance defects rather than cosmetic ones ([Chapter 6](#accessibility-the-part-that-is-now-law) and [Chapter 34](#accessibility-the-part-that-is-now-law-in-depth) cover the standards and the markup).
 
 **axe-core** is the rules engine everyone uses; `Deque.AxeCore.Playwright` wires it into Playwright for .NET:
 
@@ -600,24 +536,49 @@ Three things make the difference between this being useful and being a nuisance:
 
 **Scan the page in the state you care about.** A scan that runs before hydration, or with a modal closed, tests markup no user sees. Drive the UI to the interesting state first — modal open, validation errors shown, table sorted — and scan there. Most real violations live in the states, not the initial render.
 
-**Fail on new violations, not on all violations.** Retrofitting into an existing app produces hundreds of findings on day one, and a suite that is red on day one gets disabled by day three. Snapshot the current violations as a baseline, fail the build only on additions, and burn the baseline down deliberately. This is the same tactic as introducing any analyzer into legacy code (Chapter 30).
+**Fail on new violations, not on all violations.** Retrofitting into an existing app produces hundreds of findings on day one, and a suite that is red on day one gets disabled by day three. Snapshot the current violations as a baseline, fail the build only on additions, and burn the baseline down deliberately. This is the same tactic as introducing any analyzer into legacy code ([Chapter 24](#chapter-24-working-with-legacy-brownfield-code)).
 
 **Assert on roles and names throughout your normal E2E tests.** This is the underrated half. Playwright's `GetByRole`, `GetByLabel`, and `GetByText` locators resolve through the accessibility tree — the same tree a screen reader consumes. A test written as `Page.GetByRole(AriaRole.Button, new() { Name = "Place order" })` fails if that button loses its accessible name, becomes a `<div>`, or stops being labelled. You get accessibility regression coverage as a side effect of writing your E2E tests the way Playwright already recommends, at no extra cost.
 
 > **Gotcha — know the ceiling.** Automated rules catch roughly a third of WCAG issues: the mechanical ones (missing labels, contrast, invalid ARIA, duplicate IDs). They cannot tell you whether alt text is *meaningful*, whether focus order is *logical*, or whether a custom widget is *usable*. A green axe run is evidence of no obvious errors, not evidence of an accessible product. Budget a manual keyboard-and-screen-reader pass per release for anything user-facing, and treat the automated suite as the regression net that keeps the manual findings fixed.
 
-@@SRC: old Chapter 25: Advanced & Specialized Testing@@
-## Load & Performance Testing
+## Load Testing: Proving It Under Pressure
 
-Functional tests answer "is it correct?"; load tests answer "does it stay correct and fast under concurrency and volume?" Two tools dominate for .NET teams.
+Functional tests answer "is it correct?"; load tests answer "does it stay correct and fast under concurrency and volume?" Benchmarks and profilers ([Chapter 17](#chapter-17-runtime-internals-and-performance)) examine one operation or one process. **Load testing** answers the system-level question: how does the whole service behave under many concurrent users? It reveals behaviors invisible in single-request testing — thread-pool starvation, connection-pool exhaustion, lock contention, and the difference between average and tail (p99) latency.
 
-[k6](https://k6.io) (from Grafana) is a CLI load tester where scenarios are written in JavaScript. It's language-agnostic, excellent for HTTP/gRPC/WebSocket load, and integrates cleanly into CI and Grafana dashboards.
+Three tools dominate:
 
-[NBomber](https://nbomber.com) is the natural choice when you want load tests **in C#**, sharing models, auth helpers, and DTOs with your application code. You express load as a *scenario* with an injection rate:
+- [**k6**](https://k6.io) (from Grafana) — a CLI load tester where you script scenarios in JavaScript. Language-agnostic, excellent for HTTP/gRPC/WebSocket load, and integrates cleanly into CI and Grafana dashboards. Great default for HTTP APIs.
+- [**NBomber**](https://nbomber.com) — a .NET-native load testing framework where you write scenarios in **C#**, sharing models, auth helpers, and DTOs with your application code, and testing not just HTTP but any protocol you can call from C#.
+- **JMeter** — the venerable, feature-rich Java-based tool with a GUI. Powerful and battle-tested, if heavier and less code-friendly than the other two.
+
+A minimal k6 script conveys the shape:
+
+```javascript
+import http from 'k6/http';
+import { check } from 'k6';
+
+export const options = {
+  vus: 200,          // 200 virtual users concurrently
+  duration: '2m',    // for two minutes
+  thresholds: {
+    http_req_duration: ['p(95)<200'], // 95% of requests must finish under 200ms
+  },
+};
+
+export default function () {
+  const res = http.get('https://localhost:5001/api/products');
+  check(res, { 'status is 200': (r) => r.status === 200 });
+}
+```
+
+The key discipline is reading **percentiles, not averages**. An average latency of 50ms can hide a p99 of 3 seconds — meaning one request in a hundred is agonizingly slow, which at scale is thousands of unhappy users. Averages lie; percentiles tell the truth about tail behavior, and tail behavior is what users actually feel.
+
+In NBomber you express load as a *scenario* with an injection rate:
 
 ```csharp
 // One client for the whole run: a new HttpClient per iteration would measure connection
-// setup and can exhaust the load generator's ports (Chapter 20).
+// setup and can exhaust the load generator's ports (Chapter 5).
 using var client = new HttpClient();
 
 var scenario = Scenario.Create("checkout_load", async context =>
@@ -643,33 +604,36 @@ NBomberRunner.RegisterScenarios(scenario).Run();
 
 > **Pitfall: measuring the wrong environment.** Load-test numbers from an under-provisioned CI runner or a "dev" tier with a shared database are actively misleading. Performance results are only meaningful against an environment whose topology mirrors production.
 
-@@SRC: old Chapter 25: Advanced & Specialized Testing@@
 ## Mutation Testing: Testing Your Tests
 
 Code coverage lies. A line can be "covered" — executed during a test — while no assertion actually checks its behaviour. 100% coverage with zero assertions is entirely possible and entirely worthless. Coverage measures what your tests *touch*, not what they *verify*.
 
-**Mutation testing** measures the latter. [Stryker.NET](https://stryker-mutator.io/docs/stryker-net/introduction/) deliberately introduces small bugs — **mutants** — into your code: flipping `>` to `>=`, replacing `+` with `-`, negating a boolean, swapping a `return` value for a default. For each mutant, it reruns your test suite. If a test fails, the mutant is **killed** — your tests caught the injected bug, good. If every test still passes, the mutant **survived** — meaning your tests would not have noticed that bug in real code.
+**Coverlet** is the standard .NET coverage collector, integrated via the `coverlet.collector` package and run with `dotnet test --collect:"XPlat Code Coverage"`. It reports line, branch, and method coverage, typically exported as Cobertura XML for CI dashboards and tools like ReportGenerator. Treat what it reports as a **signal, not a goal**: targeting a coverage *number* is actively harmful, because it incentivises tests that touch lines without asserting anything, gaming the metric while adding maintenance burden. The pathological end state is 90% coverage and zero confidence.
 
-Your **mutation score** (killed ÷ total) is a far more honest measure of test *effectiveness* than line coverage. A surviving mutant is a concrete, actionable finding: "if this operator were wrong, no test would tell you." You run Stryker with a simple CLI invocation:
+**Mutation testing** measures what coverage can't. [Stryker.NET](https://stryker-mutator.io/docs/stryker-net/introduction/) deliberately introduces small bugs — **mutants** — into your code: flipping `>` to `>=`, replacing `+` with `-`, negating a boolean, swapping a `return` value for a default. For each mutant, it reruns your test suite. If a test fails, the mutant is **killed** — your tests caught the injected bug, good. If every test still passes, the mutant **survived** — meaning your tests would not have noticed that bug in real code.
+
+Your **mutation score** (killed ÷ total) is a far more honest measure of test *effectiveness* than line coverage. A method with 100% coverage but no meaningful assertions will have a dismal mutation score, and a surviving mutant is a concrete, actionable finding: "if this operator were wrong, no test would tell you." You run Stryker with a simple CLI invocation:
 
 ```
+dotnet tool install -g dotnet-stryker
 dotnet stryker --threshold-high 80 --threshold-low 60 --break-at 50
 ```
 
-> **Practical note:** mutation testing is computationally expensive — it reruns the suite once per mutant, potentially thousands of times. Don't run it on every commit over the whole solution. Run it **on the diff** in CI (Stryker supports `--since` to mutate only changed code), or on a nightly schedule for critical modules. Point it at your core domain logic, where a missed bug is most costly — not at DTOs and configuration glue.
+> **Practical note:** mutation testing is computationally expensive — it reruns the suite once per mutant, potentially thousands of times. Don't run it on every commit over the whole solution. Run it **on the diff** in CI (Stryker supports `--since` to mutate only changed code), or on a nightly schedule for critical modules. Point it at your core domain logic, where a missed bug is most costly — not at DTOs and configuration glue. Use it to *audit* a suite you suspect is hollow.
 
-@@SRC: old Chapter 25: Advanced & Specialized Testing@@
+> **How to use coverage well:** read it as a map of *what's untested*, not a scoreboard. A sudden drop on a pull request is a useful prompt ("you added a branch with no test"). A blanket "we must hit 80%" mandate produces box-ticking. Combine coverage (did it run?) with mutation testing (would we notice a bug?) for the full picture.
+
 ## Testing Nondeterministic Systems: Evals for AI Features
 
-Every technique so far assumes a fixed input produces a fixed output. Ship a feature backed by an LLM and that assumption is gone: the same prompt can return different text on every call, and *both* answers may be correct. `Assert.Equal(expected, actual)` has nothing to say about it. Chapter 19 covers building these systems; this section is about the testing portfolio they need, because teams reliably reach one of two wrong conclusions — "you can't test this" or "we'll just mock the model" — and both leave the actual risk uncovered.
+Every technique so far assumes a fixed input produces a fixed output. Ship a feature backed by an LLM and that assumption is gone: the same prompt can return different text on every call, and *both* answers may be correct. `Assert.Equal(expected, actual)` has nothing to say about it. [Chapter 33](#chapter-33-building-ai-powered-systems) covers building these systems; this section is about the testing portfolio they need, because teams reliably reach one of two wrong conclusions — "you can't test this" or "we'll just mock the model" — and both leave the actual risk uncovered.
 
 The way out is to split the system into two parts that are tested completely differently.
 
 ### Most of it is ordinary code — test it ordinarily
 
-An AI feature is mostly not the model. Prompt construction, retrieval, chunking, tool implementations, schema validation, retries, budget enforcement, and the workflow's control flow are all deterministic code, and they are where most bugs actually live. Test them with everything in Chapters 7 and 25 as normal — and to do that, you need the model out of the way.
+An AI feature is mostly not the model. Prompt construction, retrieval, chunking, tool implementations, schema validation, retries, budget enforcement, and the workflow's control flow are all deterministic code, and they are where most bugs actually live. Test them with everything in [Chapter 8](#chapter-8-testing) and this chapter as normal — and to do that, you need the model out of the way.
 
-Program against `IChatClient` (Chapter 19) and a fake becomes trivial: a stub returning a canned `ChatResponse` lets you assert that your code built the right prompt, parsed the response correctly, enforced the token budget, and took the right branch. This is where property-based testing earns a second look — a chunker is exactly the kind of component whose invariants ("no chunk exceeds the token limit", "concatenating chunks reproduces the source", "overlaps are within bounds") FsCheck will break far faster than your examples will.
+Program against `IChatClient` ([Chapter 33](#chapter-33-building-ai-powered-systems)) and a fake becomes trivial: a stub returning a canned `ChatResponse` lets you assert that your code built the right prompt, parsed the response correctly, enforced the token budget, and took the right branch. This is where property-based testing earns a second look — a chunker is exactly the kind of component whose invariants ("no chunk exceeds the token limit", "concatenating chunks reproduces the source", "overlaps are within bounds") FsCheck will break far faster than your examples will.
 
 > **Best practice — test the tools as tools.** In an agentic feature, the functions the model can invoke are the code with the real blast radius: they read databases and send emails. They're plain methods. Test them directly, with the model nowhere in sight, including the argument validation that runs when the model passes something malformed — which it will, and which a test suite that only exercises well-formed calls will never catch.
 
@@ -696,10 +660,9 @@ Three practical problems separate an eval suite that runs in CI from one that ge
 
 > **Pitfall — the eval set that only contains cases that pass.** Eval sets are usually seeded from examples someone tried while building the feature, which are the examples the feature already handles. The valuable cases are the opposite: real production inputs that produced bad answers, added the day you find them. An eval set that isn't growing from production failures is measuring how well the feature works on the demo.
 
-@@SRC: old Chapter 25: Advanced & Specialized Testing@@
 ## Choosing Your Instruments
 
-Every technique in this chapter earns its keep by catching a defect class nothing else catches — at a price. Weigh both columns before adding one to your portfolio.
+Every testing technique in this chapter earns its keep by catching a defect class nothing else catches — at a price. Weigh both columns before adding one to your portfolio.
 
 | Technique | Defect class it uniquely catches | What it costs you | Reach for it when |
 |---|---|---|---|
@@ -710,24 +673,25 @@ Every technique in this chapter earns its keep by catching a defect class nothin
 | Load testing (k6/NBomber) | Latency and error regressions under concurrency that functional tests can't see | A production-like environment; noisy results on shared runners | Before traffic events; nightly with pass/fail thresholds |
 | Mutation testing (Stryker.NET) | Assertion-free "covered" code — tests that execute but verify nothing | Reruns the suite once per mutant; very CPU-expensive | Core domain logic; run on the diff or nightly |
 | Eval suites (Microsoft.Extensions.AI.Evaluation) | Quality regressions in nondeterministic output that no assertion can pin | Token spend per run; a curated, maintained case set; threshold tuning | Any shipped feature whose output comes from a model |
-| Fake time + fixed seeds (`TimeProvider`) | Expiry/scheduling bugs; irreproducible time- and randomness-based flakes | Retrofitting injection into legacy code | Anything touching clocks, delays, timers, or random data |
+| Fake time + fixed seeds (`TimeProvider`, Chapter 8) | Expiry/scheduling bugs; irreproducible time- and randomness-based flakes | Retrofitting injection into legacy code | Anything touching clocks, delays, timers, or random data |
 
-@@SRC: old Chapter 25: Advanced & Specialized Testing@@
 ## Bringing It Together
 
-Each technique in this chapter targets a specific weakness of the foundational testing you already know:
+Observability is not a library you install; it is a design property you cultivate. The senior mindset treats telemetry as a first-class feature, budgeted for and reviewed like any other. Record **metrics** chosen by RED and USE, guarding against cardinality explosions. Trace requests end to end with **OpenTelemetry**, propagating context across HTTP and messaging so a single trace ID unlocks the whole story — including the structured logs of Chapter 9. Feed **SLIs** into **SLOs** with **error budgets** that turn reliability into a shared, quantitative decision, and alert on how fast the budget burns, not on noise. Build the cockpit before you need it: when the 3 a.m. page arrives, the difference between a five-minute fix and a five-hour outage is the instrumentation you had the discipline to add while the skies were still clear.
+
+Each testing technique in this chapter targets a specific weakness of the foundational testing you already know:
 
 - **Contract testing** replaces slow, brittle cross-service integration tests with fast, independent verification of interfaces — and, wired to a broker, becomes a safe-deployment gate that makes schema evolution auditable.
+- **Snapshot testing** locks down large outputs such as serialized responses, provided someone actually reviews the diffs.
 - **Property-based testing** finds the inputs your example tests never imagined, and shrinking hands you a minimal reproduction.
 - **Playwright and API-level E2E** prove the assembled system works through the user's eyes, while the pyramid-versus-trophy debate reminds you to shape the suite around where bugs actually live.
 - **k6 and NBomber** answer the questions functional tests can't, provided you assert on thresholds and run against realistic environments.
-- **`TimeProvider`, deterministic seeding, and disciplined test data** are the unglamorous infrastructure that makes every other test trustworthy.
 - **Mutation testing** audits the auditors, exposing the tests that execute code without actually checking it.
 - **Eval suites** extend the portfolio to output no assertion can pin, trading exact expectations for a tracked pass rate — the only way to change a prompt or a model with confidence.
+- Underneath all of them, **`TimeProvider`, deterministic seeding, and disciplined test data** ([Chapter 8](#deterministic-tests-time-async-and-test-data)) are the unglamorous infrastructure that makes every other test trustworthy.
 
-The senior mindset that unifies them: **every test is an investment with a cost and a return.** Fast, deterministic, and targeted at where failure is likely and expensive — that is the portfolio you are building, and these are the specialized instruments for building it well.
+The senior mindset that unifies both halves: **every test and every signal is an investment with a cost and a return.** Fast, deterministic, and targeted at where failure is likely and expensive — that is the portfolio you are building.
 
-@@SRC: old Chapter 25: Advanced & Specialized Testing@@
 ## Sources & Further Reading
 
 - **Pact documentation** — pact.io — consumer-driven contracts, the broker, provider states, `can-i-deploy`, and message pacts.
@@ -739,15 +703,13 @@ The senior mindset that unifies them: **every test is an investment with a cost 
 - **NBomber documentation** — nbomber.com — C# load testing scenarios and load simulations.
 - **Stryker.NET documentation** — stryker-mutator.io — mutation testing, mutation score, thresholds, and diff-based runs.
 - **Microsoft Learn: `TimeProvider` and `FakeTimeProvider`** — learn.microsoft.com — testing time-dependent code in .NET 8+.
-- **AutoFixture and Bogus** — github.com/AutoFixture/AutoFixture and github.com/bchavez/Bogus — automated and realistic test data generation.
+
 - **Microsoft.Extensions.AI.Evaluation** — learn.microsoft.com — building and running LLM eval suites inside a .NET test project.
 - Kent C. Dodds, *"Write Tests. Not Too Many. Mostly Integration."* — the testing trophy argument.
 
-@@SRC: practice from old module page Part 2 · Module 5: Observability and Testing at Scale@@
-
 ## Practice
 
-**1. Instrument a service end to end (2 h).** Take a service of your own, or a sample with an API, a queue and a worker. Follow Chapter 13's [Instrumenting a .NET App End to End](#instrumenting-a-net-app-end-to-end): traces, RED metrics with bounded tags, and logs stamped with the trace ID, exported over OTLP to a local backend (the chapter's *Local dev tip* names the Aspire dashboard). Then make the queue hop carry the context: inject at publish, extract at consume. Done when one request shows up as **one** trace from the HTTP call through the worker, and one trace ID finds every log line of that request.
+**1. Instrument a service end to end (2 h).** Take a service of your own, or a sample with an API, a queue and a worker. Follow [Instrumenting a .NET App End to End](#instrumenting-a-net-app-end-to-end) above: traces, RED metrics with bounded tags, and logs stamped with the trace ID, exported over OTLP to a local backend (the *Local dev tip* names the Aspire dashboard). Then make the queue hop carry the context: inject at publish, extract at consume ([Chapter 9](#correlation-across-services)). Done when one request shows up as **one** trace from the HTTP call through the worker, and one trace ID finds every log line of that request.
 
 **2. A load test against an SLO (2 h).** Write an SLO for one endpoint: the SLI (requests that succeed under [threshold] ms, over all valid requests), the target and the window. Encode it as k6 `thresholds` (`http_req_duration` on `p(99)`, `http_req_failed` on `rate`), and generate the load with an arrival-rate executor, so a slow server can't slow the test down (question 3 explains why). Raise the rate step by step until a threshold fails: that rate is the knee. Run it again at the knee and read the process:
 
@@ -758,7 +720,7 @@ dotnet-trace collect -p <pid> --duration 00:00:20
 
 Name the resource that saturated first (USE), and write the result down with the environment it ran on: CPU, RAM, runtime version, data scale, cache state.
 
-**3. One chaos experiment (1 h).** In staging, run Chapter 21's six steps against one dependency with a Polly chaos strategy: the SLI as steady state, the hypothesis written down before you start, a 1–5% injection rate and an abort switch you have tested. If the team has never run one, run a game day instead; the chapter explains why it finds more.
+**3. One chaos experiment (1 h).** In staging, run the six steps of [Chapter 20: Verifying Resilience](#verifying-resilience-chaos-engineering-in-practice) against one dependency with a Polly chaos strategy: the SLI as steady state, the hypothesis written down before you start, a 1–5% injection rate and an abort switch you have tested. If the team has never run one, run a game day instead; Chapter 20 explains why it finds more.
 
 **4. A mutation run (30 min).** Run Stryker.NET on one core domain project, only on what changed since `main`:
 
@@ -769,9 +731,7 @@ dotnet stryker --since:main
 
 For three surviving mutants, write the test that kills each, or argue why the mutant is equivalent.
 
-The script, the SLO, the knee, the experiment's hypothesis and result, and what you changed afterwards belong in **your own public portfolio repo**, not in this one; anything about a real employer's system stays private. The Practice Gym's planned incident gym (M4 in [`PRACTICE_ROADMAP.md`](https://github.com/malyna2/dotnet-handbook/blob/main/PRACTICE_ROADMAP.md)) will become this module's lab: eight injected faults, diagnosed from logs, metrics and traces only, timed and written up as post-mortems.
-
-Later, if you need it: [Chapter 13: Health Checks: The Tie-In](#health-checks-the-tie-in), [Chapter 50: Observability: Application Insights and KQL](#observability-application-insights-and-kql), [Chapter 33: The Incident Cheat Card](#the-incident-cheat-card), and Chapter 25's [End-to-End, UI, and API Testing](#end-to-end-ui-and-api-testing) and [Deterministic Tests](#deterministic-tests-time-async-and-test-data).
+The script, the SLO, the knee, the experiment's hypothesis and result, and what you changed afterwards belong in **your own public portfolio repo**, not in this one; anything about a real employer's system stays private. The Practice Gym's planned incident gym (M4 in [`PRACTICE_ROADMAP.md`](https://github.com/malyna2/dotnet-handbook/blob/main/PRACTICE_ROADMAP.md)) will become this chapter's lab: eight injected faults, diagnosed from logs, metrics and traces only, timed and written up as post-mortems.
 
 ## Three questions
 
@@ -806,7 +766,7 @@ CPU, memory and pool saturation belong on the dashboard you diagnose with (USE),
 
 - **A closed model slows down with the server.** A virtual user sends its next request only after the previous response arrives. When the server slows, the test sends less: the requests that would have queued are never sent, so their latency is never measured (often called *coordinated omission*). Real users arrive whether or not you are slow. Use an open model — k6's arrival-rate executors, NBomber's `Inject` — and check the achieved rate against the target.
 - **The wrong environment.** A shared CI runner, a small database, warm caches and a single instance move the knee. Run against production-like topology and data volume, and publish the environment with the number.
-- **The generator is the bottleneck.** Chapter 25's NBomber sample creates a `new HttpClient()` per iteration. That opens a connection per request (Part 1 covers why), so the test measures connection setup and can run out of local ports on the load generator. Share one client, and watch the generator's CPU and connection count during the run.
+- **The generator is the bottleneck.** A scenario that creates a `new HttpClient()` per iteration opens a connection per request ([Chapter 5](#keep-alive-connection-pooling-and-socket-exhaustion) explains why), so the test measures connection setup and can run out of local ports on the load generator. Share one client, as the NBomber sample above does, and watch the generator's CPU and connection count during the run.
 </details>
 
 ## Decide

@@ -1,13 +1,10 @@
 # Chapter 23: System Design
 
-@@TODO: write this chapter's introduction (what it makes the reader able to do, how its sections connect), then remove every @@ line.@@
-
-@@SRC: old Chapter 27: Data Structures, Algorithms & System Design Fundamentals@@
-## System Design Fundamentals
-
 Zoom out from a single function to an entire service serving millions of users. System design has no single right answer — it's about making and *justifying* trade-offs. Both in interviews and in real architecture reviews, a repeatable process keeps you from flailing.
 
-### A Repeatable Approach
+This chapter gives you that process and the small set of building blocks almost every design is assembled from, then runs two worked examples through it: a URL shortener (a read-heavy key-value service) and a rate limiter (shared state across many instances). It is deliberately short, because each building block is taught in depth elsewhere in the book — caching and replication in [Chapter 18: Data in Depth](#chapter-18-data-in-depth), queues in [Chapter 11: Messaging and Background Work](#chapter-11-messaging-and-background-work), load balancers and CDNs in [Chapter 26: Delivery and Platform](#chapter-26-delivery-and-platform), consistency and sagas in [Chapter 20: Distributed Systems](#chapter-20-distributed-systems). What this chapter adds is the thread that ties them together: **numbers first, then the architecture those numbers justify.**
+
+## A Repeatable Approach
 
 1. **Clarify requirements.** Never design against a vague prompt. Separate *functional* requirements (what it does) from *non-functional* ones (how well: latency, availability, consistency, durability). Ask: how many users? Read-heavy or write-heavy? Is stale data acceptable?
 
@@ -21,24 +18,28 @@ Zoom out from a single function to an entire service serving millions of users. 
 
 6. **Identify and address bottlenecks.** Where does it break under load? Single database? Add read replicas and a cache. Hot path? Add a CDN. Traffic spikes? Add a queue to absorb bursts.
 
-### The Building Blocks
+## The Building Blocks
 
-- **Load balancer** — spreads incoming requests across many identical app servers, enabling *horizontal scaling* and removing single points of failure. The traffic cop of your system.
-- **Cache** (e.g., Redis) — an in-memory store for hot data, turning slow database reads into microsecond lookups. The 80/20 rule applies: a small cache of the most-requested data absorbs most of the load. Watch for cache invalidation and staleness.
+Most designs are a handful of components arranged around the request flow. Know what each one buys and what it costs:
+
+- **Load balancer** — spreads incoming requests across many identical app servers, enabling *horizontal scaling* and removing single points of failure. The traffic cop of your system ([Chapter 26](#load-balancers-reverse-proxies-api-gateways-and-cdns) covers L4 vs L7 and reverse proxies).
+- **Cache** (e.g., Redis) — an in-memory store for hot data, turning slow database reads into microsecond lookups. The 80/20 rule applies: a small cache of the most-requested data absorbs most of the load. Watch for cache invalidation and staleness ([Chapter 7](#chapter-7-data-access) teaches the basics, [Chapter 18](#chapter-18-data-in-depth) the depth).
 - **CDN** — geographically distributed edge servers that serve static assets (images, JS, video) close to users, cutting latency and offloading your origin.
 - **Database with replicas** — a primary handles writes; read replicas handle reads. Since most systems are read-heavy, this scales reads dramatically. The cost is *replication lag* — replicas are slightly behind (eventual consistency).
-- **Message queue** (e.g., RabbitMQ, Kafka) — decouples producers from consumers. The web request drops a job on the queue and returns instantly; workers process asynchronously. Absorbs traffic spikes and smooths load. This is the async pattern from earlier chapters, applied at architecture scale.
+- **Message queue** (e.g., RabbitMQ, Kafka) — decouples producers from consumers. The web request drops a job on the queue and returns instantly; workers process asynchronously. Absorbs traffic spikes and smooths load. This is the background-work pattern of [Chapter 11](#chapter-11-messaging-and-background-work), applied at architecture scale.
 - **Object storage** (e.g., S3, Azure Blob) — cheap, durable, effectively infinite storage for large blobs. Don't put user-uploaded videos in your relational database; put a URL there and the bytes in object storage.
 
-### Scaling Patterns
+## Scaling Patterns
+
+When step 6 finds a bottleneck, the fix is almost always one of five moves:
 
 - **Vertical scaling** — a bigger machine. Simple, but has a hard ceiling and a single point of failure.
-- **Horizontal scaling** — more machines behind a load balancer. Nearly unlimited, but requires your app servers to be *stateless* (no session data stored locally) so any server can handle any request.
+- **Horizontal scaling** — more machines behind a load balancer. Nearly unlimited, but requires your app servers to be *stateless* (no session data stored locally) so any server can handle any request — the property [the 12-factor app](#the-12-factor-app) is built around.
 - **Caching** — the highest-leverage move for read-heavy systems.
-- **Database scaling** — replicas for read throughput; *sharding* (partitioning data across databases by some key) for write throughput when one database can't hold the load.
+- **Database scaling** — replicas for read throughput; *sharding* (partitioning data across databases by some key) for write throughput when one database can't hold the load. [Chapter 18](#chapter-18-data-in-depth) covers both, including replication lag and resharding.
 - **Asynchronous processing** — push slow work (emails, image processing, analytics) off the request path onto queues and workers.
 
-### Worked Mini-Example: A URL Shortener
+## Worked Example: A URL Shortener
 
 Let's tie it together. Design a service that turns long URLs into short codes (like `bit.ly`).
 
@@ -54,7 +55,7 @@ GET  /{code}                                         ->  301 redirect to origina
 
 **4. Data model.** A single mapping: `code -> longUrl` (plus metadata like created-at, owner). The only access patterns are "look up by code" and "insert." This is a perfect key-value workload — a NoSQL store or a well-indexed SQL table both work.
 
-**5. Generating the code.** Take an auto-incrementing ID and **Base62-encode** it (`0-9`, `a-z`, `A-Z`). Base62 packs ~62³ ≈ 238,000 codes into 3 characters and ~62⁷ ≈ 3.5 trillion into 7 — plenty, and short. This is exactly the "choose the encoding for the constraint" thinking from Big-O made concrete: a base conversion.
+**5. Generating the code.** Take an auto-incrementing ID and **Base62-encode** it (`0-9`, `a-z`, `A-Z`). Base62 packs ~62³ ≈ 238,000 codes into 3 characters and ~62⁷ ≈ 3.5 trillion into 7 — plenty, and short. This is exactly the "choose the encoding for the constraint" thinking from [Big-O](#big-o-the-language-of-how-bad-does-this-get) made concrete: a base conversion.
 
 ```csharp
 public static class Base62
@@ -77,12 +78,12 @@ public static class Base62
 }
 ```
 
-(Fill the buffer from the end and slice — building most-significant-digit-first with `Insert(0, …)` in a loop would be exactly the accidental O(n²) this chapter warned about.)
+(Fill the buffer from the end and slice — building most-significant-digit-first with `Insert(0, …)` in a loop would be exactly the accidental O(n²) that [Chapter 2](#chapter-2-data-structures-and-algorithms-essentials) warns about.)
 
 **6. Components and flow.**
 - A **load balancer** fronts several stateless app servers.
 - On `POST /shorten`: get the next ID, Base62-encode it, store `code -> url`, return the code.
-- On `GET /{code}`: **check the cache first** (Redis). On a hit — the overwhelming common case — redirect immediately. On a miss, read the database, populate the cache, then redirect. This is the hash-lookup pattern from earlier in the chapter, scaled to a distributed system: the cache *is* a giant dictionary.
+- On `GET /{code}`: **check the cache first** (Redis). On a hit — the overwhelming common case — redirect immediately. On a miss, read the database, populate the cache, then redirect. This is the hash-lookup pattern of [Chapter 2](#core-data-structures-and-their-net-types), scaled to a distributed system: the cache *is* a giant dictionary.
 - The database uses **read replicas** so redirect reads that miss the cache still scale.
 
 **7. Bottlenecks.**
@@ -92,14 +93,13 @@ public static class Base62
 
 Notice how the estimate in step 2 justified every later decision. That traceability — from numbers to architecture — is what a good design review looks for.
 
-### A Second Angle: Rate Limiting
+## Worked Example: A Rate Limiter
 
-Rate limiting protects a service from abuse and overload — "at most N requests per user per minute." A clean, common algorithm is the **token bucket**: each user has a bucket that refills at a steady rate; each request spends a token; an empty bucket means rejection. It uses the same primitives we've discussed — a per-user counter in a fast store like Redis, checked and updated on each request. At scale you'd run this in a shared cache so all app servers agree on the count, illustrating again how a humble data structure (a counter map) becomes a distributed system component.
+Rate limiting protects a service from abuse and overload — "at most N requests per user per minute." A clean, common algorithm is the **token bucket**: each user has a bucket that refills at a steady rate; each request spends a token; an empty bucket means rejection. It uses the same primitives as the shortener — a per-user counter in a fast store like Redis, checked and updated on each request. At scale you'd run this in a shared cache so all app servers agree on the count, illustrating again how a humble data structure (a counter map) becomes a distributed system component.
 
-@@SRC: old Chapter 34: Interview Questions & How to Answer Them@@
+Run it through the same six steps and the interesting decisions surface on their own: the *requirement* "work across many app instances" is what forces the shared store; the *bottleneck* is that store becoming hot; and the *trade-off* nobody mentions until asked is whether to fail open or fail closed when the store is down. The interview answer below walks the steps. [Chapter 26](#chapter-26-delivery-and-platform) covers rate limiting as it is actually deployed — at the edge, with ASP.NET Core's limiter, and against clients that are trying to get around it.
+
 ## Interview Questions
-
-*Revise: Ch. 27 — Data Structures, Algorithms & System Design Fundamentals · Ch. 33 — Real-World Scenarios & Architectural Decisions*
 
 Use one structure for every design prompt: **Requirements → Scale estimate → API → Data model → Components → Bottlenecks & trade-offs.** Talk through it out loud; the interviewer wants your reasoning, not a memorized diagram.
 
@@ -121,9 +121,7 @@ Use one structure for every design prompt: **Requirements → Scale estimate →
 **Design the checkout for an online shop.**
 - *Requirements:* create an order from a cart, reserve inventory, take payment, confirm — reliably and idempotently.
 - *Scale:* spiky (sales/launches); correctness on money and stock is non-negotiable.
-- *API:* `POST /checkout` with an **idempotency key** (retries must not double-charge); returns order status.
-- *Data:* orders, order items, inventory, payments — with a rowversion for optimistic concurrency on stock.
-- *Components:* validate cart & price → reserve inventory (optimistic concurrency or reservation) → charge via payment gateway → confirm order. Use a **saga** with compensations (release inventory if payment fails) and a **transactional outbox** to emit "order placed" events reliably.
+- *API:* `POST /checkout` with an **idempotency key** (retries must not double-charge — [Chapter 20](#chapter-20-distributed-systems)); returns order status.
+- *Data:* orders, order items, inventory, payments — with a rowversion for [optimistic concurrency](#concurrency-optimistic-vs-pessimistic) on stock.
+- *Components:* validate cart & price → reserve inventory (optimistic concurrency or reservation) → charge via payment gateway → confirm order. Use a **saga** with compensations (release inventory if payment fails) and a **transactional outbox** to emit "order placed" events reliably ([Chapter 20](#chapter-20-distributed-systems) teaches both).
 - *Bottlenecks:* inventory contention on hot items (optimistic retry, queueing), payment gateway latency/failure (timeouts, idempotent retries, circuit breaker), and exactly-once semantics (idempotency keys end-to-end).
-
----
