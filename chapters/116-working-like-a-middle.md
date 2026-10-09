@@ -348,7 +348,7 @@ Seniority is a marathon; you can't sprint for years. Sustainable practices are p
 - Sustainable pace beats hero crunches. The all-nighter that ships Friday costs you the whole next week in bugs and fatigue. Consistency wins.
 - Notice the burnout signs — cynicism, exhaustion, dread — early, and act (rest, rescope, talk to your manager) before they become a crisis. You can't create leverage while running on empty.
 
-Ownership extends to your own skills: the tools shift yearly, so keep a lightweight learning habit rather than sporadic cramming. [Chapter 36: Keep Learning](#keep-learning) turns that into a practice.
+Ownership extends to your own skills: the tools shift yearly, so keep a lightweight learning habit rather than sporadic cramming. [Chapter 36: How to Keep Learning](#how-to-keep-learning) turns that into a practice.
 
 ## Prove it
 

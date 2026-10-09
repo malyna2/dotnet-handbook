@@ -9991,7 +9991,7 @@ The output is from `verify/path/reference-runs/money-and-rounding.txt` (.NET 10.
 
 # Chapter 16: Working Like a Middle Developer
 
-_⏱️ Estimated read time: ~45 min · 7433 words (study pace)_
+_⏱️ Estimated read time: ~45 min · 7435 words (study pace)_
 
 The previous fifteen chapters are about code. This one is about the work around it, which decides how much of that code ends up useful: a message that gets read and acted on, a pull request reviewed so the author leaves smarter rather than smaller, an estimate for work you have never done, a bug found by method rather than luck, a change made safely in code you don't fully understand, and an outcome owned from the ticket to the alert. The chapter makes you able to take a vague ticket, a request for an estimate or a pull request, and send back something a teammate can act on without a meeting.
 
@@ -10341,7 +10341,7 @@ Seniority is a marathon; you can't sprint for years. Sustainable practices are p
 - Sustainable pace beats hero crunches. The all-nighter that ships Friday costs you the whole next week in bugs and fatigue. Consistency wins.
 - Notice the burnout signs — cynicism, exhaustion, dread — early, and act (rest, rescope, talk to your manager) before they become a crisis. You can't create leverage while running on empty.
 
-Ownership extends to your own skills: the tools shift yearly, so keep a lightweight learning habit rather than sporadic cramming. [Chapter 36: Keep Learning](#keep-learning) turns that into a practice.
+Ownership extends to your own skills: the tools shift yearly, so keep a lightweight learning habit rather than sporadic cramming. [Chapter 36: How to Keep Learning](#how-to-keep-learning) turns that into a practice.
 
 ## Prove it
 
@@ -19561,18 +19561,18 @@ Orders (App Service) calls Pricing (Container Apps); both are your team's and si
 
 # Chapter 30: The Azure Casebook — Real Incidents, Real Fixes
 
-_⏱️ Estimated read time: ~55 min · 9491 words (study pace)_
+_⏱️ Estimated read time: ~55 min · 9492 words (study pace)_
 
-[Chapter 50](#chapter-50-azure-in-depth-for-net-developers) explains how Azure works. This chapter is about what happens when it meets production. Each case is a situation that .NET teams on Azure run into again and again. They are composites of common incidents, not one company's post-mortem. For each one you get the same six parts:
+[Chapter 29](#chapter-29-azure-in-depth-for-net-developers) explains how Azure works. This chapter is about what happens when it meets production. Each case is a situation that .NET teams on Azure run into again and again. They are composites of common incidents, not one company's post-mortem. For each one you get the same six parts:
 
 - **Situation**: what the team was doing, and what went wrong.
 - **What you see**: the symptoms, as they reach you.
-- **What is going on**: the mechanism, usually a detail from Chapter 50.
+- **What is going on**: the mechanism, usually a detail from Chapter 29.
 - **How to confirm it**: the command, query or experiment that turns a hunch into a diagnosis.
 - **Fix**: what to change now, and what to change properly.
 - **Prevent it** and **Interview angle**: the habit that stops it happening again, and how to tell the story.
 
-Read a case's *Situation* and *What you see*, then stop and write down your own diagnosis before you read on. That habit is the one that pays off at 3 a.m. and in system-design interviews alike. [Chapter 33](#chapter-33-real-world-scenarios-architectural-decisions) does the same for cloud-agnostic scenarios. This chapter is specific to Azure.
+Read a case's *Situation* and *What you see*, then stop and write down your own diagnosis before you read on. That habit is the one that pays off at 3 a.m. and in system-design interviews alike. [Chapter 35](#chapter-35-production-incidents) does the same for cloud-agnostic scenarios. This chapter is specific to Azure.
 
 ## The Azure Triage Card
 
@@ -19582,7 +19582,7 @@ When something breaks, the first suspect is rarely your business logic. Start fr
 |---|---|---|
 | `403` from a data service (Blob, Key Vault, Service Bus, Cosmos) | Data-plane role missing, or not propagated yet · wrong identity · network rule | Error code (`AuthorizationPermissionMismatch` = RBAC); who the token belongs to (`oid`); `az role assignment list --assignee <principal-id> --all` |
 | `403` *after* enabling a private endpoint | DNS resolves to the public IP | `nslookup <name>` from **inside** the app |
-| Intermittent timeouts under load, CPU fine | SNAT port exhaustion · connection pool exhaustion · thread-pool starvation ([Chapter 8](#chapter-8-asynchronous-concurrent-programming)) | App Service *Diagnose and solve problems* → *SNAT Port Exhaustion*; dependency failures in App Insights |
+| Intermittent timeouts under load, CPU fine | SNAT port exhaustion · connection pool exhaustion · thread-pool starvation ([Chapter 4](#chapter-4-async-essentials)) | App Service *Diagnose and solve problems* → *SNAT Port Exhaustion*; dependency failures in App Insights |
 | 500s for a minute after every deployment | Cold start after a slot swap · settings that moved with the swap | Warm-up configuration; which settings are slot settings |
 | Messages processed twice | Lock expiry · crash between side effect and settlement · missing idempotency | `DeliveryCount` on the message; `MessageLockLost` in the logs |
 | Queue growing, consumers "fine" | Poison messages cycling · dead-letter queue filling · consumers throttled downstream | `ActiveMessages`, `DeadletteredMessages` metrics |
@@ -19624,7 +19624,7 @@ az role assignment list --assignee <principal-id> --all -o table
 
 If the list shows only `Contributor`, you have your answer. If it shows the right data role, check *when* it was created, and look for a deny assignment.
 
-**Fix.** Remove the subscription-wide Contributor role. Assign *Storage Blob Data Contributor* to the identity, scoped to the one container it needs. Deploy that assignment in the same Bicep module as the storage account (Chapter 50, *Infrastructure as Code*). Use a **user-assigned** identity, so the assignment exists before the app starts, and nothing waits for propagation during a deployment.
+**Fix.** Remove the subscription-wide Contributor role. Assign *Storage Blob Data Contributor* to the identity, scoped to the one container it needs. Deploy that assignment in the same Bicep module as the storage account (Chapter 29, *Infrastructure as Code*). Use a **user-assigned** identity, so the assignment exists before the app starts, and nothing waits for propagation during a deployment.
 
 **Prevent it.** Role assignments live in IaC and go through code review, with a scope that is a resource or a container. Nobody clicks them into the portal. Add an Azure Policy (or at least a periodic query) that flags Owner and Contributor assignments to service principals at subscription scope.
 
@@ -19660,7 +19660,7 @@ In the second variant, `ManagedIdentityCredential` cannot choose between two use
 
 Then list the app settings that start with `AZURE_`, and decode the `oid` claim of a token the app received, to confirm who it is.
 
-**Fix.** Delete the stray `AZURE_*` settings. Make production explicit: construct `ManagedIdentityCredential` with the user-assigned identity's client ID (Chapter 50, *Identity*, shows the code). Or keep `DefaultAzureCredential`, but set `AZURE_TOKEN_CREDENTIALS` to `ManagedIdentityCredential` (or to `prod`), and set `AZURE_CLIENT_ID` to the identity's client ID. Keep `DefaultAzureCredential` for development only.
+**Fix.** Delete the stray `AZURE_*` settings. Make production explicit: construct `ManagedIdentityCredential` with the user-assigned identity's client ID (Chapter 29, *Identity*, shows the code). Or keep `DefaultAzureCredential`, but set `AZURE_TOKEN_CREDENTIALS` to `ManagedIdentityCredential` (or to `prod`), and set `AZURE_CLIENT_ID` to the identity's client ID. Keep `DefaultAzureCredential` for development only.
 
 **Prevent it.** Treat app settings as code: generate them from IaC, and alert on drift. A policy rule, or a line in the deployment pipeline, that rejects `AZURE_CLIENT_SECRET` in production settings costs nothing.
 
@@ -19692,7 +19692,7 @@ public async Task<PaymentResult> ChargeAsync(Charge charge, CancellationToken ct
 }
 ```
 
-Every call opens a new TCP connection to the same host, and the load balancer reclaims a SNAT port only four minutes after its connection closes: above about one new connection every two seconds per instance, the preallocated ports run out ([Chapter 20](#keep-alive-connection-pooling-and-socket-exhaustion) has the arithmetic). New connections then wait for Azure to allocate a port or reclaim one, and under a burst they time out. Scaling out "helps a bit" because each instance brings its own ports, which is itself a clue.
+Every call opens a new TCP connection to the same host, and the load balancer reclaims a SNAT port only four minutes after its connection closes: above about one new connection every two seconds per instance, the preallocated ports run out ([Chapter 5](#keep-alive-connection-pooling-and-socket-exhaustion) has the arithmetic). New connections then wait for Azure to allocate a port or reclaim one, and under a burst they time out. Scaling out "helps a bit" because each instance brings its own ports, which is itself a clue.
 
 **How to confirm it.** In the portal: App Service → *Diagnose and solve problems* → the **SNAT Port Exhaustion** detector shows allocated and failed SNAT connections per instance. In code: search for `new HttpClient(`, `new BlobServiceClient(`, `new CosmosClient(` and `new ServiceBusClient(` outside of start-up code. (`new SqlConnection(` per call is fine: ADO.NET pools the physical connections.)
 
@@ -19718,7 +19718,7 @@ builder.Services.AddHttpClient<PaymentClient>(c => c.BaseAddress = new Uri(build
 
 **What you see.** A spike of 5xx and latency in the minute after each swap. For the database incident: orders missing from production reports, found later in the staging database.
 
-**What is going on.** There are two separate problems, and both come from the order of the swap steps (Chapter 50, *Deployment slots*):
+**What is going on.** There are two separate problems, and both come from the order of the swap steps (Chapter 29, *Deployment slots*):
 
 1. **No real warm-up.** By default, the swap warms each instance up with a request to `/`, and "any HTTP response" counts as warm. This API's `/` returns 404 instantly, so the swap sees it as warm, even though the first real request still pays for JIT compilation, the EF Core model build, the first database connections and empty caches.
 2. **A setting that was not sticky.** The connection string was an ordinary app setting on both slots, not a *deployment slot setting*. Non-sticky settings **move with the code** during a swap, so the staging slot's value arrived in production.
@@ -19741,7 +19741,7 @@ WEBSITE_SWAP_WARMUP_PING_STATUSES = 200
 
 **Prevent it.** A deployment checklist entry: *every new setting — sticky or not?* Better still, generate slot settings from IaC, where "sticky" is part of the definition. And alert on the 5xx rate in the ten minutes after a swap, so that a bad swap is visible within minutes, not in tomorrow's report.
 
-**Interview angle.** "How do you achieve zero-downtime deployments on App Service?" Slots, the swap order, warm-up, sticky settings, and the fact that database migrations must be backward-compatible with the version still serving traffic ([Chapter 12](#chapter-12-devops-cicd), expand/contract).
+**Interview angle.** "How do you achieve zero-downtime deployments on App Service?" Slots, the swap order, warm-up, sticky settings, and the fact that database migrations must be backward-compatible with the version still serving traffic ([Chapter 13](#chapter-13-git-and-cicd), expand/contract).
 
 ## Case 5 — Customers charged twice: the batch that outlived its locks
 
@@ -19756,7 +19756,7 @@ WEBSITE_SWAP_WARMUP_PING_STATUSES = 200
 **Fix.** Two layers, and you need both:
 
 1. **Stop outliving locks.** Use `ServiceBusProcessor`, which renews each message's lock while the handler runs (`MaxAutoLockRenewalDuration`, 5 minutes by default) and receives only as many messages as it has handlers for. Raise `MaxConcurrentCalls` for throughput, instead of batching. If you must batch, keep `batch size × processing time` well under the lock duration, or renew the locks yourself.
-2. **Make the charge idempotent**, because lock expiry is only one of several ways a message gets redelivered. Pass `PaymentId` as the provider's idempotency key (most payment APIs support one), and record processed IDs in the same transaction as the business state ([Chapter 9](#chapter-9-messaging-distributed-systems), idempotent consumer).
+2. **Make the charge idempotent**, because lock expiry is only one of several ways a message gets redelivered. Pass `PaymentId` as the provider's idempotency key (most payment APIs support one), and record processed IDs in the same transaction as the business state ([Chapter 11](#chapter-11-messaging-and-background-work), idempotent consumer).
 
 **Prevent it.** Treat "at-least-once" as a design input, never as an edge case. A test with a short lock duration, like the exercise, catches the batching mistake in CI.
 
@@ -19857,7 +19857,7 @@ That is error **10928**: the database's worker limit. The Azure SQL CPU chart is
 
 Either way it is a **migration**: create a new container with the new key, copy the data with the change feed (a processor that reads the old container and writes to the new one), switch reads, then switch writes. Plan it as a project.
 
-**Prevent it.** Design partition keys with the *largest* tenant in mind, not the average. Put an alert on normalized RU consumption per partition range, not just on the total. Load-test with realistic skew; uniform synthetic data never shows a hot partition. [Chapter 23](#chapter-23-data-at-scale-multi-tenancy) covers multi-tenant data design in depth.
+**Prevent it.** Design partition keys with the *largest* tenant in mind, not the average. Put an alert on normalized RU consumption per partition range, not just on the total. Load-test with realistic skew; uniform synthetic data never shows a hot partition. [Chapter 18](#chapter-18-data-in-depth) covers multi-tenant data design in depth.
 
 **Interview angle.** Cosmos DB partitioning questions are common in Azure interviews. The strong answer names the per-partition limits, explains why buying more RU/s did not help, and describes the migration honestly.
 
@@ -19872,7 +19872,7 @@ Either way it is a **migration**: create a new container with the new key, copy 
 1. **Cross-partition queries on a frequent path.** `SELECT * FROM c WHERE c.status = 'Open' ORDER BY c.createdAt` has no partition key filter, so it fans out to every physical partition. The admin screen refreshes it every 30 seconds for every open browser tab.
 2. **Default indexing on a write-heavy container.** Every property of every order is indexed, including a large `lineItems` array that no query touches, so every write pays for index updates on each element.
 
-**How to confirm it.** Log `RequestCharge` per query type (Chapter 50's `OrderStore` sample shows how). Look at the Cosmos DB metrics for total request units by operation type. Check the container's indexing policy.
+**How to confirm it.** Log `RequestCharge` per query type (Chapter 29's `OrderStore` sample shows how). Look at the Cosmos DB metrics for total request units by operation type. Check the container's indexing policy.
 
 **Fix.**
 
@@ -19880,7 +19880,7 @@ Either way it is a **migration**: create a new container with the new key, copy 
 - Run the export from an **analytical copy** of the data (such as Microsoft Fabric mirroring for Cosmos DB), or from the change feed, instead of querying the transactional container.
 - **Exclude** `/lineItems/*` and other unqueried paths from indexing, and add a **composite index** for the `status` + `createdAt` sort that remains.
 
-**Prevent it.** Make `RequestCharge` visible: log it in development, and add a test that asserts an upper bound on the RU cost of the hottest queries, the way Chapter 37's lab asserts *work* instead of time. Review new queries for a partition key filter as routinely as you review SQL queries for an index.
+**Prevent it.** Make `RequestCharge` visible: log it in development, and add a test that asserts an upper bound on the RU cost of the hottest queries, the way Chapter 19's lab asserts *work* instead of time. Review new queries for a partition key filter as routinely as you review SQL queries for an index.
 
 **Interview angle.** Cost is an engineering metric. "I found the three queries that were 80% of our RU spend, and cut the bill by [X]%" is a strong CV bullet, provided you keep the numbers from your own system.
 
@@ -19943,9 +19943,9 @@ A public IP in the answer settles it: the problem is DNS, and nothing in RBAC or
                                                               scan, transcode, mark the record complete
 ```
 
-Chapter 50's `UploadUrlIssuer` shows step 2. The browser uploads in blocks, so it can resume after a failure, and upload time is limited only by the SAS expiry, which should be long enough for a slow connection but no longer. The API's requests now take milliseconds. Route the `BlobCreated` event through a Service Bus queue rather than straight to the worker, so that bursts are buffered and processing gets peek-lock and dead-lettering.
+Chapter 29's `UploadUrlIssuer` shows step 2. The browser uploads in blocks, so it can resume after a failure, and upload time is limited only by the SAS expiry, which should be long enough for a slow connection but no longer. The API's requests now take milliseconds. Route the `BlobCreated` event through a Service Bus queue rather than straight to the worker, so that bursts are buffered and processing gets peek-lock and dead-lettering.
 
-**Prevent it.** A design rule: *no request does work proportional to user-controlled size or duration*. Anything that can exceed a few seconds becomes "accept, then process asynchronously" ([Chapter 22: Async Request-Reply](#async-request-reply-202-a-status-resource-and-retry-after)).
+**Prevent it.** A design rule: *no request does work proportional to user-controlled size or duration*. Anything that can exceed a few seconds becomes "accept, then process asynchronously" ([Async Request-Reply](#async-request-reply-202-a-status-resource-and-retry-after) in Chapter 11).
 
 **Interview angle.** A classic system-design follow-up ("how would you handle large file uploads?"). Name the limit, the SAS scoping (one blob, create and write only, short expiry), and the event-driven completion.
 
@@ -19955,7 +19955,7 @@ Chapter 50's `UploadUrlIssuer` shows step 2. The browser uploads in blocks, so i
 
 **What you see.** Orchestration instances in the `Failed` state, with a non-determinism error that says the orchestrator's history does not match the actions the code now schedules. Only instances created before the deployment are affected.
 
-**What is going on.** **Replay** (Chapter 50, *Durable Functions*). When an instance wakes up, because the approval event arrived, the framework re-runs the orchestrator from the beginning and compares every action the code schedules with the recorded history. The old history says "first action: `NotifyApprover`". The new code's first action is `CheckFraud`. The histories do not match, so the framework cannot continue safely, and the instance fails.
+**What is going on.** **Replay** (Chapter 29, *Durable Functions*). When an instance wakes up, because the approval event arrived, the framework re-runs the orchestrator from the beginning and compares every action the code schedules with the recorded history. The old history says "first action: `NotifyApprover`". The new code's first action is `CheckFraud`. The histories do not match, so the framework cannot continue safely, and the instance fails.
 
 The same mechanism explains the other classic Durable bug. Code that uses `DateTime.UtcNow` or `Guid.NewGuid()` in an orchestrator gets a *different* value on each replay. Timers then fire at the wrong time, and IDs change between replays.
 
@@ -19987,7 +19987,7 @@ The same mechanism explains the other classic Durable bug. Code that uses `DateT
 **Fix.**
 
 - **Rotate with overlap.** The partner accepts two keys at once. Add the new key, update Key Vault, wait until every consumer has provably picked it up (force it: restart the app, or bump the App Configuration sentinel), and only then deactivate the old key. Most providers that require rotation support two active keys for exactly this reason.
-- **Load secrets once, reload deliberately.** Use the configuration provider with a `ReloadInterval`, and `IOptionsMonitor<T>` in the code that uses the key, so a reload takes effect without a restart (Chapter 50, *Key Vault*).
+- **Load secrets once, reload deliberately.** Use the configuration provider with a `ReloadInterval`, and `IOptionsMonitor<T>` in the code that uses the key, so a reload takes effect without a restart (Chapter 29, *Key Vault*).
 - For the new service: read the secret at start-up through configuration, not per request.
 - Where the credential is for an Azure service, **remove it altogether**: a managed identity has nothing to rotate.
 
@@ -20020,7 +20020,7 @@ The second error is EF Core protecting you. A retrying strategy cannot replay ha
 
 **How to confirm it.** The error number, and its correlation with the maintenance events in the Azure SQL *Resource health* view, or with the auto-pause events in test.
 
-**Fix.** Enable `EnableRetryOnFailure` (Chapter 50, *Azure SQL*), and wrap explicit transactions in the execution strategy, so the *whole unit* is retried:
+**Fix.** Enable `EnableRetryOnFailure` (Chapter 29, *Azure SQL*), and wrap explicit transactions in the execution strategy, so the *whole unit* is retried:
 
 ```csharp
 public async Task TransferStockAsync(int fromWarehouse, int toWarehouse, int productId, int quantity, CancellationToken ct)
@@ -20070,7 +20070,7 @@ union withsource = TableName App*
 **Fix.** Now: raise the cap temporarily, and use the platform metrics (which are not affected by the cap), the log stream and Kudu for the rest of the incident. Afterwards:
 
 - Control volume at the **source**: sensible log levels (`Warning` for framework categories such as `Microsoft.EntityFrameworkCore`), no request or response bodies, and deduplicated exceptions in retry loops (log the final failure, not every attempt).
-- Use **sampling** (Chapter 50, *Observability*), keeping in mind that it can hide rare events.
+- Use **sampling** (Chapter 29, *Observability*), keeping in mind that it can hide rare events.
 - Keep the daily cap, if at all, as an emergency brake set far above normal volume, with an alert at a lower threshold, so that a human decides before ingestion stops.
 
 **Prevent it.** An **availability test** and **metric alerts** do not depend on application telemetry, so they still work when ingestion stops or when the app is too broken to send anything. Every critical service needs at least one signal that does not depend on its own logs.
@@ -20083,7 +20083,7 @@ union withsource = TableName App*
 
 **What you see.** Front Door reported the secondary region healthy, because its health probe only checked that the process answered, and routed traffic there. Every request then failed on its first dependency.
 
-**What is going on.** Availability is a property of the **whole request path**, not of the compute tier (Chapter 50, *Regions, availability zones and SLAs*). Every stateful dependency needs its own answer to "where does it live when the region is gone?", and the health probe must test the dependencies that matter, or failover routes traffic into a broken region.
+**What is going on.** Availability is a property of the **whole request path**, not of the compute tier (Chapter 29, *Regions, availability zones and SLAs*). Every stateful dependency needs its own answer to "where does it live when the region is gone?", and the health probe must test the dependencies that matter, or failover routes traffic into a broken region.
 
 **The review, dependency by dependency:**
 
@@ -20098,11 +20098,11 @@ union withsource = TableName App*
 
 **The conversation that matters.** Before buying any of this, agree on the **RTO** (how long you can be down) and **RPO** (how much data you can lose) with the business, per capability. "Checkout down for 4 hours once every few years" might be acceptable, and much cheaper than active-active. Then **rehearse** the failover. A failover that has never been tested is a hypothesis, and this incident was the test.
 
-**Interview angle.** "How would you make this system multi-region?" The strongest answers start with RTO and RPO, go through the state, not the compute, and end with how the failover is tested. [Chapter 21](#chapter-21-distributed-systems-theory-reliability-engineering) has the theory; this table is the practice.
+**Interview angle.** "How would you make this system multi-region?" The strongest answers start with RTO and RPO, go through the state, not the compute, and end with how the failover is tested. [Chapter 20](#chapter-20-distributed-systems) has the theory; this table is the practice.
 
 ## Quick Cases
 
-**The CI secret that leaked.** A client secret for the deployment service principal, stored in the CI system, turned up in a build log after someone added verbose logging to a script. The secret had *Owner* on the production subscription. *Fix:* revoke it now, then replace it with **workload identity federation** (Chapter 50, *Identity*): a federated credential that trusts only the `production` environment of this repository, and a role scoped to the resource groups the pipeline deploys. *Prevent:* there is no secret left to leak. Scope deployment identities per environment, and require environment approvals for production ([Chapter 35](#chapter-35-software-supply-chain-security)).
+**The CI secret that leaked.** A client secret for the deployment service principal, stored in the CI system, turned up in a build log after someone added verbose logging to a script. The secret had *Owner* on the production subscription. *Fix:* revoke it now, then replace it with **workload identity federation** (Chapter 29, *Identity*): a federated credential that trusts only the `production` environment of this repository, and a role scoped to the resource groups the pipeline deploys. *Prevent:* there is no secret left to leak. Scope deployment identities per environment, and require environment approvals for production ([Chapter 27](#chapter-27-security-in-depth-and-the-supply-chain)).
 
 **Event Grid events that never arrive.** A new webhook endpoint subscribed to `BlobCreated` gets nothing. The subscription shows a failed provisioning state. *Cause:* the endpoint returned `200` to the validation event without echoing `validationCode`. *Fix:* handle the `SubscriptionValidationEvent` (or subscribe a Function or a Service Bus queue instead, which needs no handshake), and configure a dead-letter container so that events that exhaust their retries (30 attempts or 24 hours by default) are kept rather than dropped.
 
@@ -20203,7 +20203,7 @@ Start from what the 403s actually were. If they were data-plane roles missing (C
 
 Then offer something that fixes the *cause* by Friday: a user-assigned identity, created once, with container- and vault-scoped data roles defined in the same Bicep module as the resources. That removes both the missing-role and the propagation failures. It is maybe half a day of work, and it can be reviewed like any other change.
 
-Finally, make the risk concrete for the non-engineers in the room without drama: with Owner, a single vulnerability in the app (an SSRF, a leaked token) would let an attacker delete every resource and read every key in the subscription. Frame it as *blast radius*, which product people understand, and write the decision down (an ADR, [Chapter 17](#chapter-17-soft-skills-engineering-practices)) if they still choose the shortcut.
+Finally, make the risk concrete for the non-engineers in the room without drama: with Owner, a single vulnerability in the app (an SSRF, a leaked token) would let an attacker delete every resource and read every key in the subscription. Frame it as *blast radius*, which product people understand, and write the decision down (an ADR, [Chapter 16](#chapter-16-working-like-a-middle-developer)) if they still choose the shortcut.
 </details>
 
 **2.** You are designing a new "document processing" service: PDFs arrive via upload (a few thousand a day, in bursts after business hours), each takes 20 seconds to 6 minutes to process with a native library that needs a specific Linux package, and results go to Azure SQL. A colleague proposes Functions on the Consumption plan, "because it's serverless and cheap".
@@ -20211,7 +20211,7 @@ Finally, make the risk concrete for the non-engineers in the room without drama:
 <details>
 <summary>How a senior engineer reasons about it</summary>
 
-Check the constraints against the hosting plans (Chapter 50, *Compute*), one at a time:
+Check the constraints against the hosting plans (Chapter 29, *Compute*), one at a time:
 
 - **Duration.** Up to 6 minutes fits under the legacy Consumption plan's 10-minute maximum, but with little margin. The plan is also documented as legacy, and its Linux version retires in 2028. That alone rules it out for a new service.
 - **Native dependency.** A specific Linux package means a **custom container**, and Flex Consumption does not support containers (it deploys code packages only). The realistic options are **Container Apps** (a job, or an app with a Service Bus scale rule), or Functions on the Premium plan or on Container Apps hosting, with a custom image.
@@ -20236,7 +20236,7 @@ Answer these from your own system, not from memory:
 - **Telemetry.** Is a daily cap set? What is the sampling configuration? Is there an availability test on every public entry point?
 - **Recovery.** For each stateful dependency: where does it live when the region is gone, and when was that last tested?
 
-Each "I don't know" is a candidate for a small, measurable improvement, and for a story in your evidence portfolio ([Chapter 36](#chapter-36-the-story-bank-evidence-portfolio)). Keep stories about a real employer private, and anonymise the numbers you share.
+Each "I don't know" is a candidate for a small, measurable improvement, and for a story in your evidence portfolio ([Chapter 37](#chapter-37-the-story-bank-evidence-portfolio)). Keep stories about a real employer private, and anonymise the numbers you share.
 
 ## Summary
 
@@ -20249,9 +20249,9 @@ Each case follows the same discipline: read the symptom, name the mechanism, con
 
 # Chapter 31: Compliance, Data Privacy & Cloud Cost (FinOps)
 
-_⏱️ Estimated read time: ~30 min · 5380 words (study pace)_
+_⏱️ Estimated read time: ~30 min · 5434 words (study pace)_
 
-For most of your early career, "the requirements" arrive from a product owner as user stories. Somewhere on the road to senior engineer, a second and third set of requirements appear that nobody writes on a sticky note but everybody expects you to honor: the law, and the invoice. A feature that leaks personal data or quietly triples the cloud bill is not "done," no matter how green the tests are. This chapter is about those invisible stakeholders — the regulator, the CFO, and increasingly the sustainability report — and the concrete engineering decisions that keep all of them satisfied. The third turns out to want mostly what the second wants, which is the most useful fact in the chapter.
+For most of your early career, "the requirements" arrive from a product owner as user stories. Somewhere on the road to senior engineer, a second and third set of requirements appear that nobody writes on a sticky note but everybody expects you to honor: the law, and the invoice. A feature that leaks personal data or quietly triples the cloud bill is not "done," no matter how green the tests are. This chapter is about those invisible stakeholders — the regulator, the CFO, and increasingly the sustainability report — and the concrete engineering decisions that keep all of them satisfied. The third turns out to want mostly what the second wants, which is the most useful fact in the chapter. Part A turns privacy law into engineering decisions (classification, minimization, erasure, residency, audit); Part B does the same for the invoice, from the cost model to the levers only a developer can pull; Part C shows that green software is mostly those same levers. The pieces build on the cloud map of [Chapter 28](#chapter-28-cloud-fundamentals-aws-azure).
 
 > **This chapter is general engineering guidance, not legal advice.** Regulations differ by jurisdiction, change over time, and depend on facts specific to your organization. When a real compliance question is on the table, involve your legal, privacy, and security teams. Your job as an engineer is to build systems that *can* comply and to speak the language well enough to collaborate.
 
@@ -20559,7 +20559,7 @@ Apply this on every non-trivial change:
 - [ ] A **budget + alert** exists for the resources I own.
 - [ ] I hunt and delete **idle/zombie** resources I created.
 
-> **Best practice.** Cost is the easiest door into an advisory conversation. Every client understands a bill, and "your non-prod environments cost [X] a month while idle" is a finding an executive acts on without a lesson in architecture. Running this checklist against a client's subscription and reporting in money is a small, bounded engagement that earns the right to discuss the bigger design questions. [Chapter 62](#chapter-62-lab-the-net-health-check) turns this into a full assessment.
+> **Best practice.** Cost is the easiest door into an advisory conversation. Every client understands a bill, and "your non-prod environments cost [X] a month while idle" is a finding an executive acts on without a lesson in architecture. Running this checklist against a client's subscription and reporting in money is a small, bounded engagement that earns the right to discuss the bigger design questions. [Chapter 40](#chapter-40-lab-the-net-health-check) turns this into a full assessment.
 
 ---
 
@@ -20595,12 +20595,12 @@ Three consequences fall straight out of that formula, and they are not the ones 
 
 **Where .NET-specific choices actually land.** Being honest about magnitude here matters, because it is easy to spend a sprint on something that changes nothing:
 
-- **Native AOT and trimming** (Chapter 15) cut startup time and memory footprint. On a long-running service that is marginal. On a serverless function invoked millions of times, or a workload that scales to zero and back frequently, shorter cold starts mean less compute-time billed and less energy burned — this is where it pays.
+- **Native AOT and trimming** ([Chapter 17](#chapter-17-runtime-internals-and-performance)) cut startup time and memory footprint. On a long-running service that is marginal. On a serverless function invoked millions of times, or a workload that scales to zero and back frequently, shorter cold starts mean less compute-time billed and less energy burned — this is where it pays.
 - **Allocation reduction** matters at the point where it changes your instance count or your scaling threshold. Shaving allocations in a service that was never CPU-bound is good craft with no energy story attached; claiming otherwise is the kind of thing that discredits the whole topic.
 - **The N+1 query and the chatty service** from the cost section are the real targets. They multiply work by a factor, and factors are what move `E`.
 - **Caching** (also from the cost section) is the clearest win of all: work not done consumes no energy.
 
-**The AI-shaped elephant.** Inference is now a meaningful share of many organizations' compute, and it is unusually energy-dense — a single large-model request can consume orders of magnitude more energy than serving a web page. Everything in Chapter 19's cost-mechanics section is therefore also an energy decision, and the ranking is the same: use the smallest model that passes your evals, cache aggressively (a cache hit is a request that never runs), batch non-interactive work, spend a reasoning budget only where the task rewards it, and cap runaway agent loops. Choosing a small model over a frontier one for a routine classification task is probably the single largest energy decision most application teams will make this year.
+**The AI-shaped elephant.** Inference is now a meaningful share of many organizations' compute, and it is unusually energy-dense — a single large-model request can consume orders of magnitude more energy than serving a web page. Everything in [Chapter 33](#chapter-33-building-ai-powered-systems)'s cost-mechanics section is therefore also an energy decision, and the ranking is the same: use the smallest model that passes your evals, cache aggressively (a cache hit is a request that never runs), batch non-interactive work, spend a reasoning budget only where the task rewards it, and cap runaway agent loops. Choosing a small model over a frontier one for a routine classification task is probably the single largest energy decision most application teams will make this year.
 
 **Reporting is arriving too.** The EU's CSRD has begun phasing in sustainability reporting obligations for large companies, and — as with the privacy rules in Part A — the effect on engineers is felt indirectly: someone from finance or legal appears and asks for numbers about your systems. The teams that can answer are the ones that already tag resources by service and team (Part B), because emissions reporting apportions the same way costs do. If you did the tagging work for FinOps, you have already done most of the sustainability data work.
 
@@ -21152,9 +21152,9 @@ So far the AI has been your collaborator. The next chapter flips the relationshi
 
 # Chapter 33: Building AI-Powered Systems
 
-_⏱️ Estimated read time: ~1 h 15 min · 13181 words (study pace)_
+_⏱️ Estimated read time: ~1 h 15 min · 13188 words (study pace)_
 
-Chapter 18 was about *using* AI to write software. This chapter flips the relationship: now the AI model is a *component inside* the software you ship. This is a different discipline. When you use an assistant to write a function, you review the output once and move on. When you embed a model in a running system, that model produces fresh, non-deterministic output on every request, for every user, forever — and you own the consequences. That single fact reshapes how you design, test, and operate the application.
+[Chapter 32](#chapter-32-the-ai-native-developer-thriving-in-the-ai-era) was about *using* AI to write software. This chapter flips the relationship: now the AI model is a *component inside* the software you ship. This is a different discipline. When you use an assistant to write a function, you review the output once and move on. When you embed a model in a running system, that model produces fresh, non-deterministic output on every request, for every user, forever — and you own the consequences. That single fact reshapes how you design, test, and operate the application.
 
 This chapter is a practical field guide to the popular AI system archetypes of 2025–2026 — retrieval-augmented generation (RAG), chatbots, workflows, and agents — with a .NET focus. We will build up from fundamentals (how to reason about an LLM as a component) through the modern .NET AI stack, and finish with the unglamorous production concerns that separate a demo from a product: evaluation, observability, cost, and safety. A theme worth flagging up front, because it shapes half the decisions in this chapter: the interesting engineering question is rarely *which model*, it is **how much of the control flow you keep in your own code** — and the answer is almost always "more than the demo suggests".
 
@@ -21506,7 +21506,7 @@ The chatbot section treated memory as a context-window problem — trim or summa
 
 **Facts conflict and go stale.** Two conversations produce "prefers email" and "prefers SMS". You need a resolution rule — last-write-wins by timestamp is the honest default — and a decay policy, because a preference from two years ago is not evidence about today. A memory store without expiry becomes a slowly accumulating source of confidently wrong context.
 
-**Memory is a tenancy and privacy boundary, and this is where it gets dangerous.** A memory store is a database of personal statements keyed by user, which means it inherits every obligation from Chapters 14 and 28: it is personal data, it is subject to deletion requests, and it must be isolated per tenant. Two specific failure modes to design against:
+**Memory is a tenancy and privacy boundary, and this is where it gets dangerous.** A memory store is a database of personal statements keyed by user, which means it inherits every obligation from [Chapter 12](#chapter-12-security-essentials) and [Chapter 31](#chapter-31-compliance-data-privacy-cloud-cost-finops): it is personal data, it is subject to deletion requests, and it must be isolated per tenant. Two specific failure modes to design against:
 
 - **Cross-tenant bleed.** If retrieval over the memory store isn't filtered by tenant *in the query*, one customer's extracted facts can surface in another's prompt. Filter at the store, not by trimming results afterwards — the same rule as RAG retrieval.
 - **Undeletable memory.** "Delete my data" must reach the memory store, the embeddings derived from it, and any rolling summary that absorbed the fact. A summary is a derived work containing the original personal data; if your deletion job only clears the source table, you have not deleted anything. Keep the link from summary back to its sources so deletion can invalidate and regenerate.
@@ -21621,7 +21621,7 @@ Minimally, the loop is just tool-calling run until completion — which is exact
 
 Every agent example in this chapter — and in most articles about agents — is a `while` loop in a request handler. That is a demo. A real agent run takes minutes to hours, makes a dozen calls to flaky remote services, and may need to pause for two days waiting for a human to approve a refund. A loop in memory holds all of its state on the stack of one process, which means the run dies with the pod. Kubernetes recycles that pod during a routine deploy, and forty minutes of reasoning and $6 of tokens evaporate with no way to resume.
 
-This is not a new problem; it's the long-running-workflow problem the .NET ecosystem already solved for order fulfilment and payment processing. Chapter 9's sagas and Chapter 22's background services and actors are the machinery. What's new is only that one of the steps is an LLM call.
+This is not a new problem; it's the long-running-workflow problem the .NET ecosystem already solved for order fulfilment and payment processing. The sagas and actors of [Chapter 20](#chapter-20-distributed-systems) and the background services of [Chapter 11](#chapter-11-messaging-and-background-work) are the machinery. What's new is only that one of the steps is an LLM call.
 
 **The shape of the fix is durable execution.** Instead of holding the loop's state in memory, you persist it after every step — the message history, the tool results, the iteration count — so any process can pick the run up where it stopped. The mental shift is that an agent run stops being a *method call* and becomes a **workflow instance with an id**, one you can query, resume, cancel, and audit.
 
@@ -21637,15 +21637,15 @@ no history after the fact          every step replayable for debugging
 ### What to use in .NET
 
 - **Durable Functions / the Durable Task SDK** — the most direct fit. Your orchestrator function calls activities (each LLM call, each tool execution), and the framework checkpoints after each one, replaying deterministically to rebuild state after a restart. Long waits are first-class: `WaitForExternalEvent` holds a run open for days at zero compute cost. Note the constraint the replay model imposes — orchestrator code must be deterministic, so **every model call and tool invocation belongs in an activity**, never inline in the orchestrator. An LLM call in orchestrator code is the canonical way to break replay.
-- **Dapr Workflow** — the same durable-execution model as a sidecar, if you're already on Dapr (Chapter 22). Workflows are plain C#, state and retries are handled by the runtime.
+- **Dapr Workflow** — the same durable-execution model as a sidecar, if you're already on Dapr ([Chapter 20](#chapter-20-distributed-systems)). Workflows are plain C#, state and retries are handled by the runtime.
 - **A hosted agent service** — Azure AI Foundry's Agent Service and the equivalents from other providers persist threads and run state for you. Least code, least control, and a real dependency: your agent's state now lives in a vendor's store.
-- **Roll your own on the message bus** — with MassTransit or a queue plus a state table, each agent step is a message and the state machine is explicit (Chapter 9). More work, but the most control, and it fits naturally if the rest of your system is already event-driven.
+- **Roll your own on the message bus** — with MassTransit or a queue plus a state table, each agent step is a message and the state machine is explicit ([Chapter 11](#chapter-11-messaging-and-background-work)). More work, but the most control, and it fits naturally if the rest of your system is already event-driven.
 
 ### The parts that are specific to agents
 
 Durable execution solves persistence. Four problems remain, and they're the ones that make agent runs different from order fulfilment:
 
-**Tool calls must be idempotent, because replay will repeat them.** A durable framework replays history to rebuild state, and a crash between "sent the email" and "recorded that we sent the email" means the run resumes and sends it again. This is exactly the exactly-once problem from Chapter 9, and the answer is the same: an idempotency key per tool invocation, derived from the run id plus the step index, checked by the tool implementation before it acts. Read-only tools are free; every tool with a side effect needs a key.
+**Tool calls must be idempotent, because replay will repeat them.** A durable framework replays history to rebuild state, and a crash between "sent the email" and "recorded that we sent the email" means the run resumes and sends it again. This is exactly the exactly-once problem from [Chapter 11](#chapter-11-messaging-and-background-work), and the answer is the same: an idempotency key per tool invocation, derived from the run id plus the step index, checked by the tool implementation before it acts. Read-only tools are free; every tool with a side effect needs a key.
 
 **Compensation, because agents fail halfway through.** An agent that booked a flight and then failed to book the hotel has left the world in a state nobody asked for. Model the reversible actions as saga steps with compensations, and — the agent-specific part — **have your code run the compensations, not the model**. An LLM asked to "undo what you did" will improvise. The compensation for `BookFlight` is a `CancelFlight` call your code invokes from a `catch`, exactly as it would in any distributed transaction.
 
@@ -21665,7 +21665,7 @@ if (!approval.Granted)
 
 **Budgets are run-scoped state, so they must be persisted too.** The bounded-iteration and token caps from the previous section only work if the counters survive the restart that resumes the run. A budget held in a local variable resets to zero every time the run resumes — and an agent that resumes with a fresh budget after each crash has, in effect, no budget at all. Keep the spend counter in the run state and check it inside the loop.
 
-> **Best practice.** Give every agent run a durable id, and put that id in your logs, traces, and any ticket the run creates. When the run does something inexplicable four days later, the ability to pull up the full replayable history of a specific run — every prompt, every tool call, every result — is the difference between a diagnosis and a shrug. This is Chapter 13's correlation id, applied to a process that reasons.
+> **Best practice.** Give every agent run a durable id, and put that id in your logs, traces, and any ticket the run creates. When the run does something inexplicable four days later, the ability to pull up the full replayable history of a specific run — every prompt, every tool call, every result — is the difference between a diagnosis and a shrug. This is the correlation id of [Chapter 9](#chapter-9-exceptions-logging-and-first-diagnosis), applied to a process that reasons.
 
 > **Pitfall — durable does not mean safe to resume.** A run that resumes after two days is holding a two-day-old view of the world: stale prices, a cancelled order, a revoked permission. Re-validate the preconditions of any consequential action *at the moment of execution* rather than trusting the state the model reasoned over before the pause. The longer the pause, the more the model's context is a historical document rather than a description of the present.
 
@@ -21689,7 +21689,7 @@ The .NET ecosystem matured fast — and then consolidated, which is the part mos
 Two more pieces sit alongside rather than in the stack:
 
 - **Kernel Memory** — a service/library dedicated to RAG ingestion and retrieval: loading, chunking, embedding, storage, and query as a pipeline you can run in-process or standalone. Reach for it instead of hand-rolling the plumbing shown earlier.
-- **ONNX Runtime / local models** — for running smaller models locally (on-device or on your own hardware) for privacy, offline use, or cost. Microsoft.Extensions.AI can front a local model behind the same `IChatClient`, so local vs. cloud becomes a configuration choice. **.NET Aspire** is the pragmatic way to wire this up in development: model a local model runner and a vector store as Aspire resources so the whole AI stack comes up with `dotnet run` and gets swapped for hosted services in production (Chapter 11).
+- **ONNX Runtime / local models** — for running smaller models locally (on-device or on your own hardware) for privacy, offline use, or cost. Microsoft.Extensions.AI can front a local model behind the same `IChatClient`, so local vs. cloud becomes a configuration choice. **.NET Aspire** is the pragmatic way to wire this up in development: model a local model runner and a vector store as Aspire resources so the whole AI stack comes up with `dotnet run` and gets swapped for hosted services in production ([Chapter 26](#chapter-26-delivery-and-platform)).
 
 > **Pitfall — the framework is not the hard part.** Teams spend weeks choosing between orchestration frameworks and then discover the difficulty was never orchestration; it was retrieval quality, evals, and cost. All four layers above will happily run a badly grounded prompt. Pick a layer in an afternoon and spend the saved week on your eval set.
 
@@ -21768,7 +21768,7 @@ Microsoft ships **Microsoft.Extensions.AI.Evaluation**, a .NET library for build
 
 > **Takeaway:** treat evals as the regression suite for your AI features. No eval set, no confident change. A model or prompt update without a re-run is a blind deploy.
 
-**Evals are not the whole test suite.** The temptation is to conclude that because the output is nondeterministic, the feature can only be evaluated. That's backwards: an AI feature is mostly ordinary code — prompt assembly, retrieval, chunking, tool implementations, schema validation, budget enforcement, control flow — and that code carries most of the bugs. Program against `IChatClient` and a fake client makes all of it unit-testable in the normal way: assert the prompt you built, the branch you took, the budget you enforced, the malformed tool argument you rejected. Save the eval suite for the one thing a unit test genuinely cannot pin, which is the quality of the generated text. Chapter 25 covers the full portfolio — faking the model, gating CI on an aggregate pass rate rather than individual cases, and keeping the eval set growing from production failures.
+**Evals are not the whole test suite.** The temptation is to conclude that because the output is nondeterministic, the feature can only be evaluated. That's backwards: an AI feature is mostly ordinary code — prompt assembly, retrieval, chunking, tool implementations, schema validation, budget enforcement, control flow — and that code carries most of the bugs. Program against `IChatClient` and a fake client makes all of it unit-testable in the normal way: assert the prompt you built, the branch you took, the budget you enforced, the malformed tool argument you rejected. Save the eval suite for the one thing a unit test genuinely cannot pin, which is the quality of the generated text. [Chapter 25](#chapter-25-observability-and-testing-at-scale) covers the full portfolio — faking the model, gating CI on an aggregate pass rate rather than individual cases, and keeping the eval set growing from production failures.
 
 ### Observability
 
@@ -21903,13 +21903,13 @@ MCP made tools composable, which means it also made them a supply chain. An MCP 
 - **Cross-server shadowing.** With several servers connected, one can describe its tools so as to intercept traffic intended for another. Namespacing and per-server review matter.
 - **Over-broad scopes.** The convenient path is to hand a server a token with everything. That token is now exposed to whatever the server does with it.
 
-Practically: pin server versions the way you pin any dependency (Chapter 35), prefer servers you or a vendor you have a contract with operate, give each server its own least-privilege credential, review tool descriptions as *code that will be executed*, and — for anything touching production data — run servers you control rather than public ones.
+Practically: pin server versions the way you pin any dependency ([Chapter 27](#chapter-27-security-in-depth-and-the-supply-chain)), prefer servers you or a vendor you have a contract with operate, give each server its own least-privilege credential, review tool descriptions as *code that will be executed*, and — for anything touching production data — run servers you control rather than public ones.
 
 ### Data leakage
 
 Three distinct leaks, often confused:
 
-- **Into the model provider.** Whatever you put in a prompt leaves your boundary. Know your provider's retention and training terms (they differ significantly between consumer and enterprise tiers), and redact or tokenize PII you don't need the model to see. This is also a GDPR question — see Chapter 28 for the lawful-basis and data-transfer angle.
+- **Into the model provider.** Whatever you put in a prompt leaves your boundary. Know your provider's retention and training terms (they differ significantly between consumer and enterprise tiers), and redact or tokenize PII you don't need the model to see. This is also a GDPR question — see [Chapter 31](#chapter-31-compliance-data-privacy-cloud-cost-finops) for the lawful-basis and data-transfer angle.
 - **Into your logs.** The observability guidance above says to capture full prompts and responses. Those transcripts now contain everything the user typed and everything you retrieved on their behalf, in a system that historically has looser access controls than your database. Apply retention limits, redaction, and real access control to LLM traces.
 - **Across tenants.** Retrieval is the dangerous path: a filter applied *after* the vector search, or a cache keyed without the tenant, will happily serve one customer's documents to another. Filter inside the query, key every cache by tenant, and write an integration test that proves it — this is one of the few AI failure modes that is fully deterministic and fully testable.
 
@@ -21919,7 +21919,7 @@ Three distinct leaks, often confused:
 
 Traditional DoS makes your service unavailable. With a metered model behind it, an attacker has a better option: keep it *available* and make it expensive. A single crafted request that triggers a long retrieval, a large context, a reasoning budget, and a twenty-step agent loop can cost dollars. A script running that request costs you thousands overnight.
 
-Defenses are ordinary engineering, and they must exist *before* launch: per-user and per-tenant rate limits on AI endpoints specifically (they are not like your other endpoints), a hard token budget per request and per user per day, caps on retrieved context and agent iterations, a provider-side spend limit as the backstop, and an alert on cost-per-hour rather than cost-per-month — a monthly budget alert tells you about the incident four weeks late. Chapter 20 covers the abuse side of this in general, and Chapter 28 the FinOps side.
+Defenses are ordinary engineering, and they must exist *before* launch: per-user and per-tenant rate limits on AI endpoints specifically (they are not like your other endpoints), a hard token budget per request and per user per day, caps on retrieved context and agent iterations, a provider-side spend limit as the backstop, and an alert on cost-per-hour rather than cost-per-month — a monthly budget alert tells you about the incident four weeks late. [Chapter 26](#chapter-26-delivery-and-platform) covers the abuse side of this in general, and [Chapter 31](#chapter-31-compliance-data-privacy-cloud-cost-finops) the FinOps side.
 
 ### Defence in depth, ranked by what actually holds
 
@@ -21951,7 +21951,7 @@ A short review you can run in fifteen minutes:
 
 ### Responsible AI, briefly
 
-Distinct from security, but it lives in the same review. Be transparent that the user is talking to AI; provide a path to a human; watch for bias in outputs that affect people differently; and keep a named human accountable for consequential decisions. Do not let a model make the final call on credit, hiring, medical or safety outcomes unaided — quite apart from the ethics, the EU AI Act's risk tiers (Chapter 28) attach real obligations to exactly those use cases.
+Distinct from security, but it lives in the same review. Be transparent that the user is talking to AI; provide a path to a human; watch for bias in outputs that affect people differently; and keep a named human accountable for consequential decisions. Do not let a model make the final call on credit, hiring, medical or safety outcomes unaided — quite apart from the ethics, the EU AI Act's risk tiers ([Chapter 31](#chapter-31-compliance-data-privacy-cloud-cost-finops)) attach real obligations to exactly those use cases.
 
 > **Takeaway:** you cannot make a model immune to being talked into things. You can make it so that being talked into things doesn't matter — by giving it less to reach, authorizing every reach in code, and putting a human in front of anything you cannot undo.
 
@@ -23201,7 +23201,7 @@ Traffic is up roughly 4×. Signups are flat.
 
 # Chapter 36: Senior Behaviours, Career and Interviews
 
-_⏱️ Estimated read time: ~25 min · 4631 words (study pace)_
+_⏱️ Estimated read time: ~25 min · 4633 words (study pace)_
 
 A senior's output is decisions that other people act on. The cost of a wrong decision grows with how much is built on it and how many people follow it, so every senior behaviour either moves a check earlier or makes a decision cheaper to revisit: the design reviewed before the lines exist, the decision written down so it can be superseded rather than relitigated, the estimate checked against how long similar work really took, the legacy behaviour pinned before it is changed. Influence runs on the same mechanism over a longer time: trust compounds from estimates that were honest, reviews that were fair and commitments that landed or were renegotiated early.
 
@@ -23332,7 +23332,7 @@ Bring data, not complaints: present the estimate, the trade-offs, and options (c
 
 Practice out loud, time yourself, and remember: interviewers hire for *reasoning you can hear*, not just answers you happen to know.
 
-## Keep Learning
+## How to Keep Learning
 
 [Chapter 16](#chapter-16-working-like-a-middle-developer) set up the habit: a few high-signal sources, release notes, learning by building and teaching. At senior level the question changes from *how to keep up* to *where to go deep*, and the sources get closer to the metal.
 
@@ -23475,23 +23475,23 @@ git log --since="12 months ago" --name-only --pretty=format: \
 
 # Chapter 37: The Story Bank & Evidence Portfolio
 
-_⏱️ Estimated read time: ~50 min · 7482 words (study pace)_
+_⏱️ Estimated read time: ~50 min · 7487 words (study pace)_
 
-Part XI is the practice gym. The thirty-five chapters before it explain how things work; the chapters in this Part make you *do* them and leave something behind that you can show. That second half is the one people skip, and it is the one that decides interviews and promotions. The gap between a middle and a senior engineer is rarely knowledge — plenty of middle engineers could pass a written exam on this book. The gap is **proof**: incidents you handled, decisions you defended, systems you measured, things you wrote that other people acted on.
+This is a lab: a chapter you *do* rather than read, which leaves something behind that you can show. That second half is the one people skip, and it is the one that decides interviews and promotions. The gap between a middle and a senior engineer is rarely knowledge — plenty of middle engineers could pass a written exam on this book. The gap is **proof**: incidents you handled, decisions you defended, systems you measured, things you wrote that other people acted on.
 
-This chapter comes first because it builds the place where all of that proof goes. You will set up a private **story bank** and a weekly **brag doc**, turn your real work into STAR stories that survive follow-up questions, rewrite your CV as claims backed by evidence, start a public **portfolio repo**, and rehearse with an AI interviewer that asks follow-ups and scores you honestly. Every lab after this one ends with an *Evidence to keep* list and an *Interview hook*; both feed the bank you build here.
+This lab builds the place where all of that proof goes, and it follows [Chapter 36](#chapter-36-senior-behaviours-career-and-interviews), which explains the behaviours the stories show and the questions they answer. You will set up a private **story bank** and a weekly **brag doc**, turn your real work into STAR stories that survive follow-up questions, rewrite your CV as claims backed by evidence, start a public **portfolio repo**, and rehearse with an AI interviewer that asks follow-ups and scores you honestly. The book's other labs — the slow-query lab in [Chapter 19](#chapter-19-the-slow-query-lab-reading-execution-plans) and the health check in [Chapter 40](#chapter-40-lab-the-net-health-check) — end with an *Evidence to keep* list and an *Interview hook*; both feed the bank you build here.
 
 ```
 daily work ──────────────┐
                          ▼
-labs in this Part ──► brag doc ──► story bank ──► mock interview ──► rewrite
+the book's labs ──► brag doc ──► story bank ──► mock interview ──► rewrite
         │            (private)     (private)            ▲               │
         │                                               └───────────────┘
         ▼
     artifacts ──► public portfolio repo ◄── evidence index ◄── CV bullets
 ```
 
-> **The portfolio rule.** Nothing you produce in Part XI goes into the handbook's repository. Your plans, test runs, post-mortems, reviews and designs go into **your own public portfolio repo**. Stories about a real employer stay **private**. Every lab repeats this, because it is the difference between doing an exercise and building evidence.
+> **The portfolio rule.** Nothing you produce in the labs goes into the handbook's repository. Your plans, test runs, post-mortems, reviews and designs go into **your own public portfolio repo**. Stories about a real employer stay **private**. Every lab repeats this, because it is the difference between doing an exercise and building evidence.
 
 The kit for this chapter — templates, interviewer prompts and a git-mining script — is at [labs/36-evidence-portfolio](https://github.com/malyna2/dotnet-handbook/tree/main/labs/36-evidence-portfolio).
 
@@ -23571,7 +23571,7 @@ A story bank is a small set of prepared stories — five is enough to start — 
 
 ### How a STAR answer is scored
 
-[Chapter 34](#chapter-34-interview-questions-how-to-answer-them) introduces STAR (Situation, Task, Action, Result). In a senior loop the proportions are what matter, because they show where your attention goes:
+[Chapter 36](#chapter-36-senior-behaviours-career-and-interviews) introduces STAR (Situation, Task, Action, Result) in its behavioural questions. In a senior loop the proportions are what matter, because they show where your attention goes:
 
 ```
 0:00       0:20   0:30                                 2:00       2:25  2:30
@@ -23580,7 +23580,7 @@ A story bank is a small set of prepared stories — five is enough to start — 
 ```
 
 - **Situation and Task are context, not content.** If the listener needs a minute to understand your system, simplify it. They need just enough to follow the Action.
-- **Action is where the evidence is**: the decisions you made, the alternatives you rejected and why, who you had to convince and how. Say "I" for what you did and "we" for what the team did, precisely. Chapter 34's warning about the spotlight applies here.
+- **Action is where the evidence is**: the decisions you made, the alternatives you rejected and why, who you had to convince and how. Say "I" for what you did and "we" for what the team did, precisely. Chapter 36's warning about the spotlight applies here.
 - **Result is a number with a baseline**, or a concrete outcome if you cannot defend a number.
 - **Reflection is what makes it senior.** It shows you learned something specific, and ideally that the lesson changed what you did later.
 
@@ -23623,11 +23623,11 @@ One file per story, in the private bank. Write notes, not prose: you will *speak
 
 ### Worksheets for the questions you will be asked
 
-These are Chapter 34's behavioral questions and its follow-up about deciding without complete information, plus two that come up in almost every senior loop: an incident you owned, and influencing without authority. For each, the notes say what the interviewer is actually probing, which story to pick, what to go and find, and what sinks the answer.
+These are Chapter 36's behavioral questions and its follow-up about deciding without complete information, plus two that come up in almost every senior loop: an incident you owned, and influencing without authority. For each, the notes say what the interviewer is actually probing, which story to pick, what to go and find, and what sinks the answer.
 
 #### "Tell me about a hard bug you solved"
 
-- **Probes:** method under uncertainty — reproduce, hypothesise, test one thing at a time, bisect (Chapter 17) — and whether you fixed the cause or only the symptom.
+- **Probes:** method under uncertainty — reproduce, hypothesise, test one thing at a time, bisect (Chapter 16) — and whether you fixed the cause or only the symptom.
 - **Pick a story where** the bug was intermittent, distributed or production-only, and you found the root cause rather than a workaround.
 - **Numbers to go find:** how often it happened (one request in N, once a week), how long it went unexplained, time from your start to root cause, recurrences since the fix.
 - **Red flags:** "I added logging and saw it" with no hypothesis; the fix was a restart; the cause was "another team's bug" and the story ends there.
@@ -23651,7 +23651,7 @@ These are Chapter 34's behavioral questions and its follow-up about deciding wit
 
 #### "How do you mentor junior developers?"
 
-- **Probes:** leverage — whether you make other people better, or just answer their questions (Chapter 17, *teach by asking*).
+- **Probes:** leverage — whether you make other people better, or just answer their questions (Chapter 36, *teach by asking*).
 - **Pick a story about** one person (anonymised), with a visible before and after in what they could do.
 - **Numbers to go find:** time to their first independent release, the first incident they handled alone, the scope they now own.
 - **Red flags:** "I review their code and answer questions"; no outcome for the mentee; mentoring as a list of activities.
@@ -23667,7 +23667,7 @@ These are Chapter 34's behavioral questions and its follow-up about deciding wit
 
 #### "How do you push back on scope or an unrealistic deadline?"
 
-- **Probes:** negotiation and estimation honesty — turning "no" into options (Chapter 17, *estimation*).
+- **Probes:** negotiation and estimation honesty — turning "no" into options (Chapter 16, *estimation*).
 - **Pick a story where** you put options on the table — cut scope, phase the delivery, move the date, accept a named risk — and someone else chose.
 - **Numbers to go find:** original versus agreed scope and date, what shipped when, how accurate your estimate turned out to be.
 - **Red flags:** you just said no; you silently worked weekends to hit it; the date slipped and you "told them so".
@@ -23683,7 +23683,7 @@ These are Chapter 34's behavioral questions and its follow-up about deciding wit
 
 #### "Tell me about an incident you owned"
 
-- **Probes:** stabilise first, diagnose second; communication under pressure; a blameless follow-up ([Chapter 17, *blameless post-mortems*](#blameless-post-mortems); [Chapter 33's incident cheat-card](#the-incident-cheat-card)).
+- **Probes:** stabilise first, diagnose second; communication under pressure; a blameless follow-up ([Chapter 16, *blameless post-mortems*](#blameless-post-mortems); [Chapter 35's incident cheat-card](#the-incident-cheat-card)).
 - **Pick a story where** you were a responder or the incident commander, and the order of your actions shows mitigation before investigation.
 - **Numbers to go find:** time to detect, time to mitigate, impact (users, orders, minutes), recurrences after the action items shipped.
 - **Red flags:** you debugged while the site stayed down; blame; action items that were never done.
@@ -23691,7 +23691,7 @@ These are Chapter 34's behavioral questions and its follow-up about deciding wit
 
 #### "Tell me about a time you influenced a decision without authority"
 
-- **Probes:** trust, data, bringing people along early (Chapter 17, *judgment and influence*).
+- **Probes:** trust, data, bringing people along early (Chapter 36, *judgment and influence*).
 - **Pick a story where** people who did not report to you adopted a change — another team, a shared standard, a platform decision.
 - **Numbers to go find:** how many teams or services adopted it, and what it changed once they had.
 - **Red flags:** your manager forced it through; "they eventually agreed", with no account of how.
@@ -23742,7 +23742,7 @@ Rules:
 - **Private by default.** It names people and internal systems.
 - **"Got wrong" is not optional.** The bad-decision story is the one people have least material for.
 
-> **Best practice.** On the last Friday of the month, turn the month into three outcome bullets and send them to your manager. This is managing up ([Chapter 17](#disagreeing-productively-and-managing-up)): the person who argues for your promotion in a room you are not in can only use what they know. A manager with twelve monthly summaries argues from evidence; one without argues from memory.
+> **Best practice.** On the last Friday of the month, turn the month into three outcome bullets and send them to your manager. This is managing up ([Chapter 16](#disagreeing-productively-and-managing-up)): the person who argues for your promotion in a room you are not in can only use what they know. A manager with twelve monthly summaries argues from evidence; one without argues from memory.
 
 ## From artifact to CV bullet
 
@@ -23793,7 +23793,7 @@ Calendar span:     2021-03 → 2024-06  = 39 months = "3 years"  ✓
 
 The overlap is real work, but it did not happen in extra years. "Three years" with two overlapping engagements is true; "four years" is not.
 
-> **Beyond interviews.** The same bank feeds client-facing proof: anonymized case studies, a public health-check report and articles that defend a position. The honesty rules above apply unchanged, with a stricter confidentiality line, since a client's name or numbers need their written permission. [Chapter 65](#chapter-65-positioning-and-public-proof) builds on this chapter for clients rather than interviewers.
+> **Beyond interviews.** The same bank feeds client-facing proof: anonymized case studies, a public health-check report and articles that defend a position. The honesty rules above apply unchanged, with a stricter confidentiality line, since a client's name or numbers need their written permission. [Chapter 43](#chapter-43-positioning-and-public-proof) builds on this chapter for clients rather than interviewers.
 
 ## The mock-interview protocol
 
@@ -23983,7 +23983,7 @@ Stress-test the stories before an interviewer does:
 | Mock transcripts and scores over time | Story bank | Private |
 | Evidence index (`README.md`) | Portfolio repo | Public |
 | CV with evidence-linked bullets | CV, portfolio repo | Public |
-| Artifacts from the labs in this Part | Portfolio repo | Public |
+| Artifacts from the book's labs | Portfolio repo | Public |
 
 ## Interview hook
 
@@ -24039,27 +24039,27 @@ Then you are not measuring anything yet. Run the canary answer through the debri
 <details>
 <summary>"English is my second language. My stories sound flat when I say them aloud."</summary>
 
-Structure carries more of the weight than vocabulary. Open with a one-line headline ("This is about a deadlock that only happened on Fridays"), use signposts ("There were two options…", "The turning point was…", "What I'd do differently is…"), and keep sentences short. Record yourself, transcribe it, and compare it with the worksheet: the missing parts are usually the *because* clauses, not the words. The English lab later in this Part has a phrase bank and speaking drills built for exactly this.
+Structure carries more of the weight than vocabulary. Open with a one-line headline ("This is about a deadlock that only happened on Fridays"), use signposts ("There were two options…", "The turning point was…", "What I'd do differently is…"), and keep sentences short. Record yourself, transcribe it, and compare it with the worksheet: the missing parts are usually the *because* clauses, not the words.
 </details>
 
 ## Further reading
 
 - **Julia Evans, "Get your work recognized: write a brag document"** (jvns.ca, 2019) — the original brag-document argument and template.
-- **Chapter 17: Soft Skills & Engineering Practices** — [career growth toward senior and staff](#career-growth-toward-senior-and-staff), [written communication](#written-communication-as-async-leverage) and [blameless post-mortems](#blameless-post-mortems), the skills the stories in this chapter show off.
-- **Chapter 34: Interview Questions & How to Answer Them** — the [behavioral question bank](#behavioral-seniority) the worksheets are built around.
+- **Chapter 36: Senior Behaviours, Career and Interviews** — [career growth toward senior and staff](#career-growth-toward-senior-and-staff); **Chapter 16: Working Like a Middle Developer** — [written communication](#written-communication-as-async-leverage) and [blameless post-mortems](#blameless-post-mortems). These are the skills the stories in this chapter show off.
+- **Chapter 36: Senior Behaviours, Career and Interviews** — the [behavioral question bank](#behavioral-seniority) the worksheets are built around.
 
 
 ---
 
 # Chapter 38: Having a Point of View
 
-_⏱️ Estimated read time: ~1 h 5 min · 11159 words (study pace)_
+_⏱️ Estimated read time: ~1 h 5 min · 11179 words (study pace)_
 
-Part XIII is about a shift that no certification measures: going from being the person a client hands tickets to, to being the person a client *asks*. For a .NET engineer placed through an outsourcing or outstaffing firm, that shift decides a lot. It decides whether you are renewed or rotated, whether you are invited to the architecture meeting or told its outcome, and whether the client's CTO asks for you by name when the next contract is signed. The vendor sells your hours. What the client comes to value, or fails to find, is your judgment.
+Chapters 38–43 are about a shift that no certification measures: going from being the person a client hands tickets to, to being the person a client *asks*. For a .NET engineer placed through an outsourcing or outstaffing firm, that shift decides a lot. It decides whether you are renewed or rotated, whether you are invited to the architecture meeting or told its outcome, and whether the client's CTO asks for you by name when the next contract is signed. The vendor sells your hours. What the client comes to value, or fails to find, is your judgment.
 
-This chapter is about the first ingredient of that judgment: **having a point of view**. That means positions you hold on purpose, can defend with a mechanism, and would drop for a stated reason. The next chapters build on it. [Chapter 61](#chapter-61-discovery-and-diagnosis) turns a point of view into a diagnosis of a specific client's system, [Chapter 62](#chapter-62-lab-the-net-health-check) practises that diagnosis on a real codebase, [Chapter 63](#chapter-63-recommendations-proposals-and-estimates) turns it into written recommendations and estimates, [Chapter 64](#chapter-64-the-advisory-casebook) walks through worked engagements, and [Chapter 65](#chapter-65-positioning-and-public-proof) makes all of it visible.
+This chapter is about the first ingredient of that judgment: **having a point of view**. That means positions you hold on purpose, can defend with a mechanism, and would drop for a stated reason. The next chapters build on it. [Chapter 39](#chapter-39-discovery-and-diagnosis) turns a point of view into a diagnosis of a specific client's system, [Chapter 40](#chapter-40-lab-the-net-health-check) practises that diagnosis on a real codebase, [Chapter 41](#chapter-41-recommendations-proposals-and-estimates) turns it into written recommendations and estimates, [Chapter 42](#chapter-42-the-advisory-casebook) walks through worked engagements, and [Chapter 43](#chapter-43-positioning-and-public-proof) makes all of it visible.
 
-What this chapter does **not** repeat is [Chapter 17](#chapter-17-soft-skills-engineering-practices): stakeholder communication, disagreeing productively, ADRs and influence without authority are covered there. Chapter 17 is about how to move a decision. This chapter is about having something worth moving.
+What this chapter does **not** repeat is how to move a decision: stakeholder communication, disagreeing productively and ADRs are covered in [Chapter 16](#chapter-16-working-like-a-middle-developer), and influence without authority in [Chapter 36](#chapter-36-senior-behaviours-career-and-interviews). Those chapters are about how to move a decision. This chapter is about having something worth moving.
 
 ```
                   what the client sees
@@ -24161,7 +24161,7 @@ COMMITTED
 
 The committed answer is only a little longer. It names the decision, the two or three facts about *this client* that decide it, the case where the other option wins, and the condition that would reverse it. That is the shape the next section formalises.
 
-> **Best practice.** When a client asks an either/or question, the first sentence of your answer is the recommendation. Reasoning comes second and trade-offs third. Engineers habitually build up to the conclusion, and a busy reader stops before reaching it. [Chapter 17](#chapter-17-soft-skills-engineering-practices) makes the same point about written communication in general: put the ask first.
+> **Best practice.** When a client asks an either/or question, the first sentence of your answer is the recommendation. Reasoning comes second and trade-offs third. Engineers habitually build up to the conclusion, and a busy reader stops before reaching it. [Chapter 16](#chapter-16-working-like-a-middle-developer) makes the same point about written communication in general: put the ask first.
 
 > **Gotcha.** "I'll lay out the options and let you decide" can be the right answer, when the decision truly turns on something only the client can weigh, such as their risk appetite, a political constraint, or a budget line you can't see. Then say *that*: "This comes down to how much you value X over Y; that's your call. If X matters more, A; if Y, B." That is still a position: a position on *what the decision turns on*. What you don't do is hand over a table and walk away.
 
@@ -24252,7 +24252,7 @@ The fix is structural, not a matter of willpower. Write the "I'd change my mind 
 
 > **Pitfall.** Confusing *confidence of delivery* with *strength of opinion*. You can state a position calmly, with an explicit probability, and still hold it strongly: "I'm fairly sure, call it 80%, that the lock contention is in the outbox relay, not the API." Clients don't need you to sound certain. They need you to be *accurate about how certain you are*. That is the whole calibration section in one sentence.
 
-> **Gotcha.** Philip Tetlock's research on expert political judgment (the "foxes and hedgehogs" distinction he borrowed from Isaiah Berlin) found that experts organised around one big idea tended to forecast worse than experts who drew on many small models and updated often. Engineers with a signature position — "everything should be event-driven", "ORMs are always a mistake" — are hedgehogs. The trap is that hedgehogs make better *content*: a single strong thesis is more quotable. [Chapter 65](#chapter-65-positioning-and-public-proof) deals with how to be visible without turning into a hedgehog.
+> **Gotcha.** Philip Tetlock's research on expert political judgment (the "foxes and hedgehogs" distinction he borrowed from Isaiah Berlin) found that experts organised around one big idea tended to forecast worse than experts who drew on many small models and updated often. Engineers with a signature position — "everything should be event-driven", "ORMs are always a mistake" — are hedgehogs. The trap is that hedgehogs make better *content*: a single strong thesis is more quotable. [Chapter 43](#chapter-43-positioning-and-public-proof) deals with how to be visible without turning into a hedgehog.
 
 ## Building Your Opinion Canon
 
@@ -24262,10 +24262,10 @@ Why write it down rather than "just know" your opinions?
 
 - **Writing exposes missing mechanisms.** Many positions that feel solid in your head turn out to be "because everyone says so" once you try to write the mechanism paragraph. Better to find that at your desk than in front of a client's architect.
 - **It makes you consistent.** A client who hears one position in week one and a contradictory one in week six, both stated confidently, will stop trusting both. The canon keeps you consistent with yourself, and when you do change, the change is deliberate and explained.
-- **It is proof as well as preparation.** A public canon is evidence of judgment that a CV cannot provide (see [Chapter 36](#chapter-36-the-story-bank-evidence-portfolio) and [Chapter 65](#chapter-65-positioning-and-public-proof)).
-- **It gives you a baseline for [diagnosis](#chapter-61-discovery-and-diagnosis).** A health check measures a system against a view of what healthy looks like. Your canon *is* that view, written down.
+- **It is proof as well as preparation.** A public canon is evidence of judgment that a CV cannot provide (see [Chapter 37](#chapter-37-the-story-bank-evidence-portfolio) and [Chapter 43](#chapter-43-positioning-and-public-proof)).
+- **It gives you a baseline for [diagnosis](#chapter-39-discovery-and-diagnosis).** A health check measures a system against a view of what healthy looks like. Your canon *is* that view, written down.
 
-> **The portfolio rule.** Your canon and your radar go in **your own public portfolio repo**, not in this handbook's repository. Stories that back them up must be anonymised. A position may rest on "a payments client in 2025", but not on a named company, and not on anything covered by an NDA without permission. When in doubt, the evidence you cite is your own lab run (Part XI), a public benchmark, or a book chapter. Real-client stories stay in your private story bank.
+> **The portfolio rule.** Your canon and your radar go in **your own public portfolio repo**, not in this handbook's repository. Stories that back them up must be anonymised. A position may rest on "a payments client in 2025", but not on a named company, and not on anything covered by an NDA without permission. When in doubt, the evidence you cite is your own lab run (Chapters 19, 37 and 40), a public benchmark, or a book chapter. Real-client stories stay in your private story bank.
 
 What follows are eight worked positions. Each is grounded in a chapter of this book that holds the full mechanism. They are *examples of the format*, and reasonable positions in their own right, but a canon you copy is worth nothing. Rewrite each one in your own words, check its mechanism against your own experience, and change it where you disagree. **Where you disagree with this book is where your canon gets interesting.**
 
@@ -24281,7 +24281,7 @@ What follows are eight worked positions. Each is grounded in a chapter of this b
 
 **I'd change my mind if.** Deploy-coordination cost becomes measurable: releases held up waiting on other modules, merge queues backing up across module boundaries. Or a module's resource profile shows up in the metrics as the thing driving the whole app's scaling.
 
-**Mechanism lives in.** [Chapter 6: Architecture & Application Design](#chapter-6-architecture-application-design) (monolith vs microservices vs modular monolith); [Chapter 32](#chapter-32-putting-it-all-together-a-capstone-learning-path) (the capstone's "split into microservices" step, and what it costs); [Chapter 21](#chapter-21-distributed-systems-theory-reliability-engineering) (the fallacies of distributed computing you sign up for).
+**Mechanism lives in.** [Chapter 21: Architecture](#chapter-21-architecture) (monolith vs microservices vs modular monolith); [Chapter 44](#chapter-44-capstone-one-project-growing-up) (the capstone's "split into microservices" step, and what it costs); [Chapter 20](#chapter-20-distributed-systems) (the fallacies of distributed computing you sign up for).
 
 ### Canon #2: EF Core by default; Dapper on measured hot paths
 
@@ -24295,7 +24295,7 @@ What follows are eight worked positions. Each is grounded in a chapter of this b
 
 **I'd change my mind if.** Profiling shows EF overhead (not the query plan, not N+1) as a large part of latency on *many* endpoints, or the SQL EF generates keeps defeating tuning on the queries that matter most.
 
-**Mechanism lives in.** [Chapter 4: Data Access & Databases](#chapter-4-data-access-databases) (EF Core internals, Dapper, mixing both in one transaction); [Chapter 15: Performance & Optimization](#chapter-15-performance-optimization) (how to measure before changing); [Chapter 37](#chapter-37-the-slow-query-lab-reading-execution-plans) (reading the plan, which is usually where the time actually goes).
+**Mechanism lives in.** [Chapter 7: Data Access](#chapter-7-data-access) (EF Core internals, Dapper, mixing both in one transaction); [Chapter 17: Runtime Internals and Performance](#chapter-17-runtime-internals-and-performance) (how to measure before changing); [Chapter 19](#chapter-19-the-slow-query-lab-reading-execution-plans) (reading the plan, which is usually where the time actually goes).
 
 ### Canon #3: The outbox over distributed transactions
 
@@ -24309,7 +24309,7 @@ What follows are eight worked positions. Each is grounded in a chapter of this b
 
 **I'd change my mind if.** Relay lag under realistic load exceeds the business's freshness requirement and tuning doesn't fix it (then look at CDC), or the outbox table's write amplification shows up as a bottleneck in the database's own metrics.
 
-**Mechanism lives in.** [Chapter 9: Messaging & Distributed Systems](#chapter-9-messaging-distributed-systems) (the outbox pattern and idempotent consumers); [Chapter 23](#chapter-23-data-at-scale-multi-tenancy) (outbox vs CDC); [Chapter 21](#chapter-21-distributed-systems-theory-reliability-engineering) (idempotency as the antidote to "did that happen?"). [Chapter 17](#chapter-17-soft-skills-engineering-practices) has a worked ADR for exactly this decision.
+**Mechanism lives in.** [Chapter 11: Messaging and Background Work](#chapter-11-messaging-and-background-work) (the outbox pattern and idempotent consumers); [Chapter 18](#chapter-18-data-in-depth) (outbox vs CDC); [Chapter 20](#chapter-20-distributed-systems) (idempotency as the antidote to "did that happen?"). [Chapter 16](#chapter-16-working-like-a-middle-developer) has a worked ADR for exactly this decision.
 
 ### Canon #4: Long-lived systems stay on LTS
 
@@ -24323,7 +24323,7 @@ What follows are eight worked positions. Each is grounded in a chapter of this b
 
 **I'd change my mind if.** The team's measured upgrade cost falls to routine, for example a major version bump handled in days, with tests catching the breaks. Then the argument for LTS weakens, and staying current gets you performance improvements sooner.
 
-**Mechanism lives in.** [Chapter 2: .NET Runtime & Internals](#chapter-2-net-runtime-internals) (release cadence, LTS vs STS); [Appendix B](#appendix-b-net-version-comparison-cheat-sheet) (dates and support windows); [Chapter 30](#chapter-30-working-with-legacy-brownfield-code) (the end-of-life treadmill).
+**Mechanism lives in.** [Chapter 3: How .NET Runs Your Code](#chapter-3-how-net-runs-your-code) (release cadence, LTS vs STS); [the appendix](#appendix-net-version-comparison-cheat-sheet) (dates and support windows); [Chapter 24](#chapter-24-working-with-legacy-brownfield-code) (the end-of-life treadmill).
 
 ### Canon #5: Managed identity over secrets
 
@@ -24337,7 +24337,7 @@ What follows are eight worked positions. Each is grounded in a chapter of this b
 
 **I'd change my mind if.** A target service in the client's stack doesn't support Entra authentication. That case is a documented exception, not a reversal. Or if the RBAC model becomes so sprawling that nobody can say which identity has access to what. That is a governance problem, but a real one.
 
-**Mechanism lives in.** [Chapter 14: Security](#chapter-14-security) (secrets management; zero trust and workload identity); [Chapter 50: Azure in Depth](#chapter-50-azure-in-depth-for-net-developers) (Entra ID, managed identity and RBAC, mechanically); [Chapter 51](#chapter-51-the-azure-casebook-real-incidents-real-fixes) (what goes wrong when the app uses a different principal than you think).
+**Mechanism lives in.** [Chapter 12: Security Essentials](#chapter-12-security-essentials) (secrets management; zero trust and workload identity); [Chapter 29: Azure in Depth for .NET Developers](#chapter-29-azure-in-depth-for-net-developers) (Entra ID, managed identity and RBAC, mechanically); [Chapter 30](#chapter-30-the-azure-casebook-real-incidents-real-fixes) (what goes wrong when the app uses a different principal than you think).
 
 ### Canon #6: Observability before microservices
 
@@ -24351,7 +24351,7 @@ What follows are eight worked positions. Each is grounded in a chapter of this b
 
 **I'd change my mind if.** Hard to see it happening. This is one of the positions where the "change my mind" clause is weak, and you should say so: a position you can't imagine being wrong about deserves *more* scrutiny, not less. Review it anyway.
 
-**Mechanism lives in.** [Chapter 13: Observability](#chapter-13-observability) (the three signals, correlation across services, and the 3 a.m. walk); [Chapter 21](#chapter-21-distributed-systems-theory-reliability-engineering) (SLOs and error budgets as what the telemetry is *for*).
+**Mechanism lives in.** [Chapter 9: Exceptions, Logging and First Diagnosis](#chapter-9-exceptions-logging-and-first-diagnosis) (the three signals, correlation across services, and the 3 a.m. walk); [Chapter 20](#chapter-20-distributed-systems) (SLOs and error budgets as what the telemetry is *for*).
 
 ### Canon #7: Test against the engine you run in production
 
@@ -24365,7 +24365,7 @@ What follows are eight worked positions. Each is grounded in a chapter of this b
 
 **I'd change my mind if.** Container start-up and image pulls make the suite slow enough that people stop running it locally. The fix is usually reusing containers and caching images, but if it doesn't work, a faster lower-fidelity tier plus a smaller real-engine tier is a reasonable compromise.
 
-**Mechanism lives in.** [Chapter 7: Testing](#chapter-7-testing) (the in-memory provider trap, Testcontainers); [Chapter 25](#chapter-25-advanced-specialized-testing) for the specialised tiers.
+**Mechanism lives in.** [Chapter 8: Testing](#chapter-8-testing) (the in-memory provider trap, Testcontainers); [Chapter 25](#chapter-25-observability-and-testing-at-scale) for the specialised tiers.
 
 ### Canon #8: Strangle; don't rewrite
 
@@ -24379,18 +24379,18 @@ What follows are eight worked positions. Each is grounded in a chapter of this b
 
 **I'd change my mind if.** The cost of keeping the old and new systems running side by side (duplicate data sync, a routing layer, two deploy pipelines) grows beyond the pace of migration for more than a couple of quarters. That means the strangling has stalled and needs a different plan.
 
-**Mechanism lives in.** [Chapter 30: Working with Legacy & Brownfield Code](#chapter-30-working-with-legacy-brownfield-code) (strangler fig vs big rewrite, .NET Framework to modern .NET).
+**Mechanism lives in.** [Chapter 24: Working with Legacy & Brownfield Code](#chapter-24-working-with-legacy-brownfield-code) (strangler fig vs big rewrite, .NET Framework to modern .NET).
 
 ### Filling out the rest of the canon
 
 Eight positions are a start; twelve more make a working canon. Some prompts, plus others you'll recognise from your own client work (coverage targets, dependency pinning, schema registries):
 
-- Where resilience lives: in every HTTP client through the standard handlers, or in a mesh? ([Chapter 21](#chapter-21-distributed-systems-theory-reliability-engineering))
-- Clean Architecture's layers: when they pay for themselves and when they are ceremony. ([Chapter 5](#chapter-5-design-patterns-principles-clean-code), [Chapter 6](#chapter-6-architecture-application-design))
-- Background work: `BackgroundService`, Hangfire/Quartz, or a queue plus workers? ([Chapter 22](#chapter-22-background-processing-scheduling-the-actor-model))
-- Multi-tenancy: shared schema with a tenant column, schema per tenant, or database per tenant? ([Chapter 23](#chapter-23-data-at-scale-multi-tenancy))
-- Kubernetes for a team of five: yes, no, or "use the managed container platform one step down"? ([Chapter 11](#chapter-11-containers-orchestration))
-- How much AI assistance in the codebase, and under which review rules? ([Chapter 18](#chapter-18-the-ai-native-developer-thriving-in-the-ai-era))
+- Where resilience lives: in every HTTP client through the standard handlers, or in a mesh? ([Chapter 20](#chapter-20-distributed-systems))
+- Clean Architecture's layers: when they pay for themselves and when they are ceremony. ([Chapter 10](#chapter-10-design-basics), [Chapter 21](#chapter-21-architecture))
+- Background work: `BackgroundService`, Hangfire/Quartz, or a queue plus workers? ([Chapter 11](#chapter-11-messaging-and-background-work))
+- Multi-tenancy: shared schema with a tenant column, schema per tenant, or database per tenant? ([Chapter 18](#chapter-18-data-in-depth))
+- Kubernetes for a team of five: yes, no, or "use the managed container platform one step down"? ([Chapter 14](#chapter-14-containers-and-linux))
+- How much AI assistance in the codebase, and under which review rules? ([Chapter 32](#chapter-32-the-ai-native-developer-thriving-in-the-ai-era))
 
 > **Best practice.** Include at least two positions where you disagree with the mainstream, or with this book. A canon that agrees with every conference talk is a summary, not a point of view. The disagreements are what a client remembers, and what shows that you think instead of repeat, as long as each one has a mechanism behind it.
 
@@ -24480,7 +24480,7 @@ Here it is applied to a question clients really do ask: *"Should we add a Redis 
 
 And the answer that goes with the table: *"It depends mostly on where the latency is. My bet is the catalogue query itself; I saw an N+1 in the product-list endpoint last week. Give me a day to profile it. If the query is the problem, we fix it and probably don't need a cache. If the query is already tight and reads dominate, an in-process cache with a short TTL gets most of the win before we add Redis."*
 
-This is a small version of what [Chapter 61](#chapter-61-discovery-and-diagnosis) does at the scale of a whole system: turning "it depends" into a short list of variables and a cheap way to measure each one.
+This is a small version of what [Chapter 39](#chapter-39-discovery-and-diagnosis) does at the scale of a whole system: turning "it depends" into a short list of variables and a cheap way to measure each one.
 
 > **Best practice.** Keep it to *two or three* variables. If you list seven, you are reciting the whole problem space, which is the neutral trade-off list again with extra steps. Part of the expertise is knowing which two variables actually decide the answer in most cases.
 
@@ -24500,7 +24500,7 @@ The mechanism behind why this works: a client can't audit most of what you say, 
 
 > **Pitfall.** "Know" claims borrowed from memory of an older version. .NET changes a lot from release to release: a default changes, an API is obsoleted, the performance characteristics of something you "know" shift completely. "EF Core can't do X" might have been true two majors ago. Unless you checked it against the current version, a remembered platform fact is a *belief*. Treat it as one.
 
-> **Best practice.** In written recommendations, make the buckets visible. A findings table with a column for evidence ("measured", "inferred", "to verify") costs one column and tells the reader exactly how much weight each row can take. [Chapter 63](#chapter-63-recommendations-proposals-and-estimates) builds this into the proposal format.
+> **Best practice.** In written recommendations, make the buckets visible. A findings table with a column for evidence ("measured", "inferred", "to verify") costs one column and tells the reader exactly how much weight each row can take. [Chapter 41](#chapter-41-recommendations-proposals-and-estimates) builds this into the proposal format.
 
 ## Calibration: Keeping Score on Yourself
 
@@ -24532,7 +24532,7 @@ What the review usually shows is a **pattern**, not a verdict. Engineers are oft
 
 > **Gotcha.** Logging only the predictions you're sure about makes your calibration look perfect and tells you nothing. And an advisor who stops committing in front of clients to protect a score has missed the point of keeping one.
 
-> **The portfolio rule, again.** The prediction log is **private**: it names clients, colleagues and internal dates. What can go public, in anonymised form, is the *method* and the *aggregate*: "I keep a prediction log; last year my estimates were systematically optimistic in [category], and here is what I changed". That is strong evidence of judgment in an interview ([Chapter 36](#chapter-36-the-story-bank-evidence-portfolio)).
+> **The portfolio rule, again.** The prediction log is **private**: it names clients, colleagues and internal dates. What can go public, in anonymised form, is the *method* and the *aggregate*: "I keep a prediction log; last year my estimates were systematically optimistic in [category], and here is what I changed". That is strong evidence of judgment in an interview ([Chapter 37](#chapter-37-the-story-bank-evidence-portfolio)).
 
 ## Updating in Public Without Losing Credibility
 
@@ -24571,7 +24571,7 @@ The distinction to protect is between **updating on evidence** and **caving to p
 | Effect on credibility | Goes up: your positions track reality | Goes down: your positions track the org chart |
 | What to do instead of caving | — | "I still think X, for reason M. It's your call, and I'll help make Y work. Can we write down what we'd watch for?" |
 
-That last cell is the professional move when the client decides against your advice: *disagree and commit*, with the disagreement **written down** where it can be seen, for example in an ADR's alternatives section ([Chapter 17](#chapter-17-soft-skills-engineering-practices)). You are not trying to win later. You are making sure that if the risk you named materialises, the team recognises it early, because someone already described what it would look like.
+That last cell is the professional move when the client decides against your advice: *disagree and commit*, with the disagreement **written down** where it can be seen, for example in an ADR's alternatives section ([Chapter 16](#chapter-16-working-like-a-middle-developer)). You are not trying to win later. You are making sure that if the risk you named materialises, the team recognises it early, because someone already described what it would look like.
 
 > **Pitfall.** Revising the canon quietly. If a published position changes, the change is a *new dated entry*, with the old version kept and marked superseded, just as an ADR is never edited to reverse it but superseded by a new one. A canon with no revision history in it looks like it has never been tested.
 
@@ -24658,7 +24658,7 @@ You're three weeks into an outstaffing engagement. In a planning meeting, the cl
 
 Three forces are pulling here. There is the evidence, which says the plan is premature. There is social pressure, since the decision was announced, not proposed. And there is commercial interest, since your employer benefits from the plan. That third force is exactly why your answer matters: if you nod along, you are showing high self-orientation in front of the client's leadership.
 
-What doesn't work: a public "this is a mistake" three weeks in. You don't have the diagnosis yet ([Chapter 61](#chapter-61-discovery-and-diagnosis)). You'd be applying a canon position before checking whether its context holds. And a head of engineering who is contradicted in their own planning meeting has every reason to dig in.
+What doesn't work: a public "this is a mistake" three weeks in. You don't have the diagnosis yet ([Chapter 39](#chapter-39-discovery-and-diagnosis)). You'd be applying a canon position before checking whether its context holds. And a head of engineering who is contradicted in their own planning meeting has every reason to dig in.
 
 What does work: answer the question you were actually asked ("anything to watch out for?") with *conditions*, not a verdict, and make the conditions checkable:
 
@@ -24689,19 +24689,19 @@ Log it as a prediction ("the first extraction will take longer than planned, 70%
 - Paul Saffo, "Strong Opinions, Weakly Held" (saffo.com, July 2008) — the original, process-oriented statement of the maxim.
 - Cedric Chin, "'Strong Opinions, Weakly Held' Doesn't Work That Well" (commoncog.com) — the critique of how the maxim is used in practice.
 - Thoughtworks, *Technology Radar* and "Build Your Own Technology Radar" (thoughtworks.com/radar) — the Adopt/Trial/Assess/Hold rings and the quadrant format.
-- .NET support dates in Canon #4: `dotnet/core` `releases.md` (github.com/dotnet/core), checked September 2026. See also [Appendix B](#appendix-b-net-version-comparison-cheat-sheet).
-- Within this book: [Chapter 17](#chapter-17-soft-skills-engineering-practices) for communication, ADRs and influence; [Chapter 36](#chapter-36-the-story-bank-evidence-portfolio) for turning positions and predictions into interview evidence; [Chapters 61](#chapter-61-discovery-and-diagnosis)–[65](#chapter-65-positioning-and-public-proof) for the rest of the advisory practice.
+- .NET support dates in Canon #4: `dotnet/core` `releases.md` (github.com/dotnet/core), checked September 2026. See also [the appendix](#appendix-net-version-comparison-cheat-sheet).
+- Within this book: [Chapter 16](#chapter-16-working-like-a-middle-developer) for communication and ADRs, [Chapter 36](#chapter-36-senior-behaviours-career-and-interviews) for influence; [Chapter 37](#chapter-37-the-story-bank-evidence-portfolio) for turning positions and predictions into interview evidence; [Chapters 39](#chapter-39-discovery-and-diagnosis)–[43](#chapter-43-positioning-and-public-proof) for the rest of the advisory practice.
 
 
 ---
 
 # Chapter 39: Discovery and Diagnosis
 
-_⏱️ Estimated read time: ~55 min · 9194 words (study pace)_
+_⏱️ Estimated read time: ~55 min · 9197 words (study pace)_
 
 A client says "we want microservices." A middle engineer hears a specification and starts sketching service boundaries. A senior engineer hears a *symptom*, and asks what hurts. Six weeks later the first engineer is splitting a monolith that was never the problem, and the second has found out that three teams share a single release train, that every deploy needs a Friday change board, and that what the client wanted all along was to ship on a Tuesday without asking permission. That can be fixed with a pipeline and a module boundary. A network doesn't have to come into it.
 
-This chapter is about the work that comes before advice: finding out what the problem actually is. [Chapter 60](#chapter-60-having-a-point-of-view) argued that clients hire an expert for a point of view. This chapter is about earning the right to give one. A point of view given before diagnosis is just an opinion, and clients can tell the difference. What the doctor does before prescribing, the consultant has to do too, for the same reason: a correct treatment for the wrong disease is still malpractice.
+This chapter is about the work that comes before advice: finding out what the problem actually is. [Chapter 38](#chapter-38-having-a-point-of-view) argued that clients hire an expert for a point of view. This chapter is about earning the right to give one. A point of view given before diagnosis is just an opinion, and clients can tell the difference. What the doctor does before prescribing, the consultant has to do too, for the same reason: a correct treatment for the wrong disease is still malpractice.
 
 ```
    the request            discovery                    diagnosis              advice
@@ -24730,7 +24730,7 @@ The table below lists common requests and the needs that tend to sit under them.
 | "We want microservices" | Deploy coupling: one change needs everyone's release. Or team contention over one codebase. Or a scaling hot spot in one module. | "Walk me through the last time a small change took too long to reach production. Where did it wait?" |
 | "Make it faster" | One slow report, one slow page, or one slow batch job. Or perceived slowness from a UI that blocks. | "Which screen, for whom, and when did they last complain?" |
 | "Move us to the cloud" | A data-centre contract ending, a hardware refresh, an acquirer's requirement, or a cost story someone promised the board. | "What date is driving this, and what happens on that date?" |
-| "Upgrade to .NET 10" | An auditor or customer questionnaire flagging an unsupported runtime ([Chapter 30](#the-eol-treadmill-legacy-is-a-verb)). Or hiring pain. Or a genuine performance need. | "Who asked for this, and what did they say?" |
+| "Upgrade to .NET 10" | An auditor or customer questionnaire flagging an unsupported runtime ([Chapter 24](#the-eol-treadmill-legacy-is-a-verb)). Or hiring pain. Or a genuine performance need. | "Who asked for this, and what did they say?" |
 | "We need better code quality" | Too many production incidents, or one bad incident with an executive watching. Or onboarding that takes months. | "What happened recently that made this urgent now?" |
 
 > **Best practice.** Treat the request with respect and hold it loosely. "That might well be the right answer. Before I agree, let me understand what's pushing you toward it" takes the client seriously and still keeps diagnosis open. Contradicting the request in the first meeting does neither.
@@ -24818,7 +24818,7 @@ Each question comes with what you are listening for. The literal answer matters 
 | "What budget range are we working within?" | Whether one exists. If they won't say, ask for a range between two numbers you name. |
 | "What's the deadline, and what's behind it?" | Fixed versus negotiable. A board meeting is movable, a regulator usually isn't. |
 | "Who will own and run this after we leave?" | The team's skills decide which solutions are viable. A Kubernetes design handed to a team that has never run a container is a liability. |
-| "What compliance or contractual constraints apply?" | GDPR, PCI DSS, SOC 2, data residency, customer contracts that name a cloud or region ([Chapter 28](#chapter-28-compliance-data-privacy-cloud-cost-finops)). These are hard walls. |
+| "What compliance or contractual constraints apply?" | GDPR, PCI DSS, SOC 2, data residency, customer contracts that name a cloud or region ([Chapter 31](#chapter-31-compliance-data-privacy-cloud-cost-finops)). These are hard walls. |
 | "What's off the table?" | Vendor mandates, "we are a Microsoft shop," a technology the CTO won't accept. Better to hear it now than in the review. |
 
 ### Current system
@@ -24828,7 +24828,7 @@ Each question comes with what you are listening for. The literal answer matters 
 | "Can you draw the system for me, roughly?" | Which boxes they draw first and largest, and which they forget. What they forget is often where the incidents come from. |
 | "How does a change get from a developer's machine to production?" | Lead time, manual steps, approvals, and who is on the critical path. |
 | "What breaks most often? What woke someone up last?" | The real reliability picture, which is usually different from the architecture diagram. |
-| "Which part does nobody want to touch?" | Your first hotspot candidate. Verify it with data ([Chapter 30](#finding-hotspots-churn-complexity)). |
+| "Which part does nobody want to touch?" | Your first hotspot candidate. Verify it with data ([Chapter 24](#finding-hotspots-churn-complexity)). |
 
 ### Failed past attempts
 
@@ -24860,7 +24860,7 @@ This area is the one most often skipped, and among the most useful. Almost every
 | "What's that number today?" | Whether a baseline exists. If not, measuring it becomes step one of the engagement. |
 | "What would 'good enough' look like, as opposed to perfect?" | The stopping point. Without one, the engagement never ends, or ends with the client feeling short-changed. |
 
-> **Best practice.** Turn every success criterion into *metric, baseline, target, date, measured by*. "Faster reports" becomes "p95 generation time for the month-end [report], from [baseline] to under [target], by [date], measured from the existing [APM tool] traces." If you can't fill in the baseline, you have found the first task. It is also the first evidence you will be able to show later ([Chapter 36](#chapter-36-the-story-bank-evidence-portfolio)).
+> **Best practice.** Turn every success criterion into *metric, baseline, target, date, measured by*. "Faster reports" becomes "p95 generation time for the month-end [report], from [baseline] to under [target], by [date], measured from the existing [APM tool] traces." If you can't fill in the baseline, you have found the first task. It is also the first evidence you will be able to show later ([Chapter 37](#chapter-37-the-story-bank-evidence-portfolio)).
 
 ## Diagnostic Techniques
 
@@ -24886,7 +24886,7 @@ The value is in the last step. Adding the index fixes this report. Only the answ
 **How it fails:**
 
 - **It follows one chain.** Real problems usually have several contributing causes. Ask "and what else?" at each level, and you get a tree rather than a line.
-- **It stops at a person.** "Why? Because [developer] didn't add the index." That is the end of learning and the start of blame. When the chain reaches a person, ask what made their action reasonable given what they knew. That is the blameless post-mortem rule from [Chapter 17](#blameless-post-mortems), applied before the incident instead of after.
+- **It stops at a person.** "Why? Because [developer] didn't add the index." That is the end of learning and the start of blame. When the chain reaches a person, ask what made their action reasonable given what they knew. That is the blameless post-mortem rule from [Chapter 16](#blameless-post-mortems), applied before the incident instead of after.
 - **It becomes an interrogation.** Five literal "why?"s feel hostile, especially across cultures. Vary it: "What led to that?", "What was going on at the time?"
 - **It invents causes.** Each answer is a hypothesis. Check the important ones against data (the query plan, the commit history, the org chart) before you build a recommendation on them.
 
@@ -24896,7 +24896,7 @@ This is the most useful single question in discovery. It **prices the problem**:
 
 Ask it neutrally, as a real question rather than a sales tactic. If the answer is "it limps on and we're fine with that," a trusted advisor accepts it.
 
-> **Gotcha.** "Nothing" is rarely really an option for runtime and dependency upkeep. A system nobody changes still decays ([Chapter 30](#the-eol-treadmill-legacy-is-a-verb)): the runtime reaches end of support, the base image stops getting patches, and the next customer security questionnaire flags it. When a client says "we'll leave it alone," check the end-of-support dates before you agree that doing nothing is free.
+> **Gotcha.** "Nothing" is rarely really an option for runtime and dependency upkeep. A system nobody changes still decays ([Chapter 24](#the-eol-treadmill-legacy-is-a-verb)): the runtime reaches end of support, the base image stops getting patches, and the next customer security questionnaire flags it. When a client says "we'll leave it alone," check the end-of-support dates before you agree that doing nothing is free.
 
 ### Playing back your understanding
 
@@ -24912,14 +24912,14 @@ End with a question that invites correction ("what have I got wrong?"), not agre
 
 A symptom is what someone observes. A cause is what, if changed, would stop the symptom. Clients report symptoms, often in the vocabulary of a guessed cause ("the database is slow").
 
-This is the same discipline as incident response, applied to a business problem. [Chapter 33's incident cheat-card](#the-incident-cheat-card) puts *symptom* and *root cause* in separate columns for a reason: at 3 a.m. the symptom is "p99 climbs and health checks flap," and the cause is a connection pool exhausted by a missing timeout. The method in [Chapter 17.6](#176-methodical-debugging-problem-solving) carries over unchanged: reproduce, read the actual evidence, form one falsifiable hypothesis, test it, and bisect.
+This is the same discipline as incident response, applied to a business problem. [Chapter 35's incident cheat-card](#the-incident-cheat-card) puts *symptom* and *root cause* in separate columns for a reason: at 3 a.m. the symptom is "p99 climbs and health checks flap," and the cause is a connection pool exhausted by a missing timeout. The method in [Chapter 16's methodical debugging](#methodical-debugging-problem-solving) carries over unchanged: reproduce, read the actual evidence, form one falsifiable hypothesis, test it, and bisect.
 
 | The client says (symptom, often with a guessed cause) | Ask for the evidence | Candidate causes to test |
 |---|---|---|
 | "The database is slow" | Which queries, when, and the query plan | Missing index, parameter sniffing, lock contention, an N+1 in one endpoint, an undersized tier |
 | "Releases keep breaking things" | The last five failed releases and what broke | No integration tests on one boundary, config drift between environments, a shared database schema |
 | "The team is too slow" | Where the last three features spent their time | Review queues, environment contention, unclear requirements, one person as a bottleneck |
-| "The cloud bill is out of control" | The cost breakdown by service and tag | One oversized resource, idle non-production environments, egress, log ingestion ([Chapter 28](#chapter-28-compliance-data-privacy-cloud-cost-finops)) |
+| "The cloud bill is out of control" | The cost breakdown by service and tag | One oversized resource, idle non-production environments, egress, log ingestion ([Chapter 31](#chapter-31-compliance-data-privacy-cloud-cost-finops)) |
 | "The system is unstable" | Incident list, timestamps, and what changed before each | A deploy pattern, a batch job, a noisy tenant, a dependency with no timeout |
 
 > **Best practice.** Write symptoms and causes in separate columns in your notes, and don't move anything into the cause column without evidence. The discipline feels slow, and it is what stops you from confidently fixing the wrong thing.
@@ -24928,7 +24928,7 @@ This is the same discipline as incident response, applied to a business problem.
 
 Talking gets you the story. The system tells you whether the story is true. On day one of access, before you form opinions, build a **first-day map**: a quick, broad survey that turns "we have some tech debt" into specific facts.
 
-The aim is breadth: finding where to spend day two. [Chapter 62](#chapter-62-lab-the-net-health-check) turns this into a full lab with a structured health-check report. What follows is the fast version you can do in a first session.
+The aim is breadth: finding where to spend day two. [Chapter 40](#chapter-40-lab-the-net-health-check) turns this into a full lab with a structured health-check report. What follows is the fast version you can do in a first session.
 
 ```
    ┌──────────┐   ┌───────────┐   ┌────────────┐   ┌──────────────┐   ┌────────┐
@@ -24939,7 +24939,7 @@ The aim is breadth: finding where to spend day two. [Chapter 62](#chapter-62-lab
    └──────────┘   └───────────┘   └────────────┘   └──────────────┘   └────────┘
 ```
 
-**The repo.** How many solutions and projects are there, and how do they reference each other? What does `global.json` pin? Are there tests, and do they run? Where is the churn? Churn crossed with complexity gives you hotspots ([Chapter 30](#finding-hotspots-churn-complexity)),, and they usually overlap with "the part nobody wants to touch." When they don't, ask why.
+**The repo.** How many solutions and projects are there, and how do they reference each other? What does `global.json` pin? Are there tests, and do they run? Where is the churn? Churn crossed with complexity gives you hotspots ([Chapter 24](#finding-hotspots-churn-complexity)),, and they usually overlap with "the part nobody wants to touch." When they don't, ask why.
 
 ```bash
 # Target frameworks across the repo: one line per project
@@ -24957,13 +24957,13 @@ dotnet list package --vulnerable --include-transitive
 dotnet list package --outdated
 ```
 
-**The pipelines.** Find the pipeline definitions and read one end to end. How long does a build take, and how long a deploy? Which steps are manual? Where are the approval gates, and who holds them? The gap between "merged" and "in production" is often the real answer to "we want microservices" ([Chapter 12](#chapter-12-devops-cicd)).
+**The pipelines.** Find the pipeline definitions and read one end to end. How long does a build take, and how long a deploy? Which steps are manual? Where are the approval gates, and who holds them? The gap between "merged" and "in production" is often the real answer to "we want microservices" ([Chapter 13](#chapter-13-git-and-cicd)).
 
-**The dashboards.** Ask to see what the team looks at. If nobody looks at anything, that is a finding. What is measured: request rates, error rates, latency percentiles, queue depths? What isn't? Is anything alerting on user-visible symptoms, or only on CPU? ([Chapter 13](#chapter-13-observability).)
+**The dashboards.** Ask to see what the team looks at. If nobody looks at anything, that is a finding. What is measured: request rates, error rates, latency percentiles, queue depths? What isn't? Is anything alerting on user-visible symptoms, or only on CPU? ([Chapter 25](#chapter-25-observability-and-testing-at-scale).)
 
 **The dependencies.** Databases, queues, caches, third-party APIs, the shared SSO, the one SOAP service nobody can find the owner of. For each one, note whether calls have a timeout and whether anyone would notice if it went down.
 
-**The EOL picture.** Runtime versions against their end-of-support dates ([Appendix B](#appendix-b-net-version-comparison-cheat-sheet) has the table), base images, the database engine version, and any .NET Framework projects. An unsupported runtime is the finding most likely to turn "we'll think about it" into "we need to do this now," because it has a date and an auditor attached ([Chapter 30](#the-eol-treadmill-legacy-is-a-verb)).
+**The EOL picture.** Runtime versions against their end-of-support dates ([the appendix](#appendix-net-version-comparison-cheat-sheet) has the table), base images, the database engine version, and any .NET Framework projects. An unsupported runtime is the finding most likely to turn "we'll think about it" into "we need to do this now," because it has a date and an auditor attached ([Chapter 24](#the-eol-treadmill-legacy-is-a-verb)).
 
 Capture it as a one-page map:
 
@@ -25003,7 +25003,7 @@ The last section is the one that matters. The map exists to test what you were t
 
 ## Stakeholder Mapping
 
-Every engagement has more stakeholders than the people who show up to meetings. A stakeholder map makes them visible so you can plan who to talk to, how often, and about what. [Chapter 17](#tailoring-the-message-to-the-audience) covers how to tailor a message to each audience. This section is about knowing who the audiences are.
+Every engagement has more stakeholders than the people who show up to meetings. A stakeholder map makes them visible so you can plan who to talk to, how often, and about what. [Chapter 16](#tailoring-the-message-to-the-audience) covers how to tailor a message to each audience. This section is about knowing who the audiences are.
 
 The standard tool is the **power/interest grid**, usually attributed to Aubrey Mendelow. Place each stakeholder by how much power they have over the outcome and how much they care about it:
 
@@ -25040,7 +25040,7 @@ Alongside the grid, note each person's role in the decision. The labels vary bet
 
 Some problems never get stated because nobody in the room can say them. Most of these are **organisational problems presented as technical ones**, and engineers are well placed to spot them because the technology is where they show up.
 
-Conway's law, from Melvin Conway's 1968 paper "How Do Committees Invent?", says roughly that a system's design ends up mirroring the communication structure of the organisation that builds it. [Chapter 6](#when-to-split-and-conways-law) covers it as an architecture constraint. In discovery you use it the other way round: **read the system's shape to find the organisation's problems.**
+Conway's law, from Melvin Conway's 1968 paper "How Do Committees Invent?", says roughly that a system's design ends up mirroring the communication structure of the organisation that builds it. [Chapter 21](#when-to-split-and-conways-law) covers it as an architecture constraint. In discovery you use it the other way round: **read the system's shape to find the organisation's problems.**
 
 Two chatty services that should be one often sit on the boundary between two teams that don't talk. A "shared" library nobody owns often marks a function that was reorganised away. A module with one active author in a year is a person the organisation depends on.
 
@@ -25063,7 +25063,7 @@ Two chatty services that should be one often sit on the boundary between two tea
 
 ## The One-Page Problem Statement
 
-Discovery ends with a written problem statement that the client agrees with. It is the most leveraged page in the engagement: every estimate, recommendation and success check afterwards points back to it. [Chapter 63](#chapter-63-recommendations-proposals-and-estimates) builds recommendations on top of it, and a recommendation without one has nothing to stand on.
+Discovery ends with a written problem statement that the client agrees with. It is the most leveraged page in the engagement: every estimate, recommendation and success check afterwards points back to it. [Chapter 41](#chapter-41-recommendations-proposals-and-estimates) builds recommendations on top of it, and a recommendation without one has nothing to stand on.
 
 The mechanism: a problem statement turns a conversation, which everyone remembers differently, into a document that can be corrected, signed off and cited. Where a play-back checks your understanding in the moment, the problem statement fixes it in writing.
 
@@ -25108,11 +25108,11 @@ Rules that keep it honest:
 - **Out of scope is as important as scope.** It is what protects you and the client when the conversation later drifts to "while you're in there…"
 - **It is agreed, not just delivered.** Walk through it live, invite corrections, and revise it. "Agreed by [name] on [date]" is a line you will point to in month three.
 
-> **Best practice.** Keep a blank copy of this template, and one filled in for an invented or open-source system, in your own public portfolio repo. It shows a prospective client or employer how you think before they ever meet you ([Chapter 65](#chapter-65-positioning-and-public-proof)). Real client problem statements are confidential and usually covered by an NDA. Never publish one. If you want to use a real engagement as a case study, anonymise it thoroughly and get the client's written permission first.
+> **Best practice.** Keep a blank copy of this template, and one filled in for an invented or open-source system, in your own public portfolio repo. It shows a prospective client or employer how you think before they ever meet you ([Chapter 43](#chapter-43-positioning-and-public-proof)). Real client problem statements are confidential and usually covered by an NDA. Never publish one. If you want to use a real engagement as a case study, anonymise it thoroughly and get the client's written permission first.
 
 ## Pushing Back on the Brief
 
-Sometimes diagnosis shows the brief is wrong: the requested solution won't solve the problem, will make it worse, or solves a problem nobody has. Delivering a brief you know is wrong isn't professionalism; it is complicity, and the bill arrives later. But not every disagreement is worth raising ([Chapter 17](#picking-battles-and-influencing-without-authority) covers picking battles), and with a client your relationship is newer and your authority borrowed.
+Sometimes diagnosis shows the brief is wrong: the requested solution won't solve the problem, will make it worse, or solves a problem nobody has. Delivering a brief you know is wrong isn't professionalism; it is complicity, and the bill arrives later. But not every disagreement is worth raising ([Chapter 36](#picking-battles-and-influencing-without-authority) covers picking battles), and with a client your relationship is newer and your authority borrowed.
 
 | The brief… | Push back? | How hard |
 |---|---|---|
@@ -25301,14 +25301,14 @@ What you don't do is quietly deliver a proposal you believe won't work. The acco
 - **Peter Block, *Flawless Consulting*.** The standard text on the consulting relationship, including how to handle a client's resistance to a diagnosis.
 - **Donald C. Gause and Gerald M. Weinberg, *Are Your Lights On? How to Figure Out What the Problem Really Is*.** A short book on problem definition: the antidote to solving the request instead of the problem.
 - **Gerald M. Weinberg, *The Secrets of Consulting*.** Rules of thumb for giving advice and getting it taken.
-- **David H. Maister, Charles H. Green and Robert M. Galford, *The Trusted Advisor*.** How trust in advisory relationships is built and lost; the frame for Part XIII.
+- **David H. Maister, Charles H. Green and Robert M. Galford, *The Trusted Advisor*.** How trust in advisory relationships is built and lost; the frame for Chapters 38–43.
 - **Rob Fitzpatrick, *The Mom Test*.** Asking about past behaviour, not opinions or hypotheticals.
 - **Taiichi Ohno, *Toyota Production System*.** The origin of the five whys as a working method.
 - **Melvin E. Conway, "How Do Committees Invent?"** (1968). The original paper behind Conway's law.
 - **Matthew Skelton and Manuel Pais, *Team Topologies*.** Using Conway's law deliberately, for when the unstated problem is team structure.
 - **Erin Meyer, *The Culture Map*.** How cultures differ in communicating, criticising and deciding.
 - **Adam Tornhill, *Your Code as a Crime Scene*.** Churn, hotspots and knowledge maps from version control.
-- **Within this book:** [Chapter 17](#chapter-17-soft-skills-engineering-practices) (communication, disagreement, post-mortems), [Chapter 30](#chapter-30-working-with-legacy-brownfield-code) (hotspots and EOL), [Chapter 33](#chapter-33-real-world-scenarios-architectural-decisions) (symptom-to-cause under pressure), and the rest of Part XIII: [Chapter 60](#chapter-60-having-a-point-of-view), [Chapter 62](#chapter-62-lab-the-net-health-check), [Chapter 63](#chapter-63-recommendations-proposals-and-estimates), [Chapter 64](#chapter-64-the-advisory-casebook), [Chapter 65](#chapter-65-positioning-and-public-proof).
+- **Within this book:** [Chapter 16](#chapter-16-working-like-a-middle-developer) (communication, disagreement, post-mortems), [Chapter 24](#chapter-24-working-with-legacy-brownfield-code) (hotspots and EOL), [Chapter 35](#chapter-35-production-incidents) (symptom-to-cause under pressure), and the rest of the advisory chapters: [Chapter 38](#chapter-38-having-a-point-of-view), [Chapter 40](#chapter-40-lab-the-net-health-check), [Chapter 41](#chapter-41-recommendations-proposals-and-estimates), [Chapter 42](#chapter-42-the-advisory-casebook), [Chapter 43](#chapter-43-positioning-and-public-proof).
 
 
 ---
@@ -25317,7 +25317,7 @@ What you don't do is quietly deliver a proposal you believe won't work. The acco
 
 _⏱️ Estimated read time: ~35 min · 6435 words (study pace)_
 
-A health check is the most sellable thing a senior .NET engineer can produce on their own. It is a written, evidence-backed assessment of a codebase that tells a client what is fine, what is risky, and what to do first. It turns the point of view from [Chapter 60](#chapter-60-having-a-point-of-view) and the diagnosis from [Chapter 61](#chapter-61-discovery-and-diagnosis) into a deliverable a CTO can forward to their CFO. And it is the natural first paid engagement that [Chapter 63](#chapter-63-recommendations-proposals-and-estimates) prices and [Chapter 65](#chapter-65-positioning-and-public-proof) tells you to publish.
+A health check is the most sellable thing a senior .NET engineer can produce on their own. It is a written, evidence-backed assessment of a codebase that tells a client what is fine, what is risky, and what to do first. It turns the point of view from [Chapter 38](#chapter-38-having-a-point-of-view) and the diagnosis from [Chapter 39](#chapter-39-discovery-and-diagnosis) into a deliverable a CTO can forward to their CFO. And it is the natural first paid engagement that [Chapter 41](#chapter-41-recommendations-proposals-and-estimates) prices and [Chapter 43](#chapter-43-positioning-and-public-proof) tells you to publish.
 
 In this lab you assess a real codebase: Microsoft's **eShop** reference application, pinned to one commit. A script collects the raw evidence in about two minutes. The rest is the part no script does: deciding which of the fifty things you found matter to *this* client, and writing it so an executive reads one page and acts on it.
 
@@ -25336,13 +25336,13 @@ The kit is at **[labs/62-health-check](https://github.com/malyna2/dotnet-handboo
 
 **Goal.** Produce a client-ready health-check report on `dotnet/eShop` at commit `b4a4087`: a one-page executive summary with five prioritized risks, a risk matrix, finding cards with evidence a stranger can re-check, and a two-week plan. Then present it, out loud, to someone playing the client.
 
-**The senior signal.** Middle engineers find problems. Senior engineers decide which problems matter, for whom, and in what order, and they can defend that ordering with evidence. A report with eighty findings and no ranking shows effort. A report with five ranked risks tied to the client's goal shows judgment, and judgment is what gets you invited back (Chapter 60). The lab trains three things interviewers and clients probe for:
+**The senior signal.** Middle engineers find problems. Senior engineers decide which problems matter, for whom, and in what order, and they can defend that ordering with evidence. A report with eighty findings and no ranking shows effort. A report with five ranked risks tied to the client's goal shows judgment, and judgment is what gets you invited back (Chapter 38). The lab trains three things interviewers and clients probe for:
 
 - **Evidence discipline.** Every claim points to a file, a command output or an interview note. Nothing is "it looked messy."
 - **Business translation.** "Audience validation is disabled" becomes "a token issued for one service is accepted by all of them."
 - **Tact.** You describe code without judging the people who wrote it, and the team who built the system ends up supporting your recommendations.
 
-> **The portfolio rule.** Your report on eShop goes in **your own public portfolio repo**, not in this one. It is one of the best public artifacts you can have ([Chapter 65](#chapter-65-positioning-and-public-proof) calls it a "public assessment"). An assessment of a real employer's or client's code is confidential: it stays private, and in a portfolio it appears only as an anonymized story ([Chapter 36](#chapter-36-the-story-bank-evidence-portfolio)).
+> **The portfolio rule.** Your report on eShop goes in **your own public portfolio repo**, not in this one. It is one of the best public artifacts you can have ([Chapter 43](#chapter-43-positioning-and-public-proof) calls it a "public assessment"). An assessment of a real employer's or client's code is confidential: it stays private, and in a portfolio it appears only as an anonymized story ([Chapter 37](#chapter-37-the-story-bank-evidence-portfolio)).
 
 ## Time budget
 
@@ -25354,7 +25354,7 @@ The kit is at **[labs/62-health-check](https://github.com/malyna2/dotnet-handboo
 | Level 3: present it, and reuse the method | 2–3 h | Recorded readout, a run on a second codebase |
 | **Total** | **~1.5–2 days** | A public report you can link from a CV |
 
-A paid version of this on a client system usually runs about two weeks (Chapter 65). The extra time goes on interviews, access, production telemetry and a readout with the team. The lab skips those because eShop has no production and no team to interview, and the Tasks say where to simulate them.
+A paid version of this on a client system usually runs about two weeks (Chapter 43). The extra time goes on interviews, access, production telemetry and a readout with the team. The lab skips those because eShop has no production and no team to interview, and the Tasks say where to simulate them.
 
 ## Setup
 
@@ -25391,7 +25391,7 @@ For each area: what to look at, where the script puts the evidence, what eShop s
 
 ### Runtime and end of support
 
-**Look at:** target frameworks, the SDK pin, and the support phase and end-of-support date of each channel, from `dotnet/core`'s `releases-index.json` (the same data behind [Appendix B](#appendix-b-net-version-comparison-cheat-sheet)). Then the patch level: is the app on the latest patch, and was that patch a security release? Mechanism: [Chapter 30](#chapter-30-working-with-legacy-brownfield-code) (the EOL treadmill).
+**Look at:** target frameworks, the SDK pin, and the support phase and end-of-support date of each channel, from `dotnet/core`'s `releases-index.json` (the same data behind [the appendix](#appendix-net-version-comparison-cheat-sheet)). Then the patch level: is the app on the latest patch, and was that patch a security release? Mechanism: [Chapter 24](#chapter-24-working-with-legacy-brownfield-code) (the EOL treadmill).
 
 **eShop showed** (`01-inventory-runtime.txt`): 26 project files target `net10.0`, and the MAUI projects multi-target `net10.0-*`. .NET 10 is `active`, LTS, with an end of support of 2028-11-14. For contrast, .NET 8 and .NET 9 both reach end of support on **2026-11-10**, six weeks after this run: a client on either one has a finding with a date attached. The latest .NET 10 runtime is 10.0.12, released 2026-09-08 as a security release fixing 6 CVEs. eShop's ASP.NET Core packages are at 10.0.11 (`02-dependencies-summary.txt`), which was current on the commit date and one security patch behind by the run date.
 
@@ -25399,7 +25399,7 @@ For each area: what to look at, where the script puts the evidence, what eShop s
 
 ### Dependencies
 
-**Look at:** `dotnet list package --vulnerable`, `--deprecated` and `--outdated`, each with `--include-transitive`. Count unique packages, not rows: a package used by ten projects appears in ten rows. Split top-level upgrades by size, because a patch bump and a major bump are different conversations. Mechanism: [Chapter 35](#chapter-35-software-supply-chain-security).
+**Look at:** `dotnet list package --vulnerable`, `--deprecated` and `--outdated`, each with `--include-transitive`. Count unique packages, not rows: a package used by ten projects appears in ten rows. Split top-level upgrades by size, because a patch bump and a major bump are different conversations. Mechanism: [Chapter 27](#chapter-27-security-in-depth-and-the-supply-chain).
 
 **eShop showed** (`02-dependencies-summary.txt`, web solution, 25 projects): 69 unique top-level and 273 unique transitive packages, 286 unique in total. **Zero** vulnerable, **zero** deprecated. 60 top-level packages are behind their latest stable version: 8 major, 25 minor, 24 patch, and 3 where `--outdated` found no stable version at all, because they are prereleases. Seven top-level packages in use are prereleases, among them `Asp.Versioning.*` at `10.0.0-preview.2` and the Foundry hosting and OpenAI client packages at `13.5.3-preview.*`. The major bumps include Duende IdentityServer 7.3.2 → 8.0.8 and MediatR 13 → 14.
 
@@ -25407,7 +25407,7 @@ Read that carefully before writing it up. "60 outdated packages" sounds alarming
 
 ### Supply chain
 
-**Look at:** package sources and `packageSourceMapping`, lock files or central transitive pinning, whether NuGet audit warnings can fail the build, how CI actions are pinned, what writes to the build from the network, and base images. Mechanism: [Chapter 35](#chapter-35-software-supply-chain-security).
+**Look at:** package sources and `packageSourceMapping`, lock files or central transitive pinning, whether NuGet audit warnings can fail the build, how CI actions are pinned, what writes to the build from the network, and base images. Mechanism: [Chapter 27](#chapter-27-security-in-depth-and-the-supply-chain).
 
 **eShop showed** (`03-supply-chain.txt`, `09-build-tests.txt`):
 
@@ -25419,7 +25419,7 @@ Read that carefully before writing it up. "60 outdated packages" sounds alarming
 
 ### Change hotspots
 
-**Look at:** churn × complexity from git history ([Chapter 30](#chapter-30-working-with-legacy-brownfield-code)). The script counts commits per `.cs` file in a window, multiplies by a cheap branch count (`if`, `case`, loops, `catch`, `&&`, `||`, `??`) and lists authors. It excludes migrations and `*.g.cs`/`*.Designer.cs`.
+**Look at:** churn × complexity from git history ([Chapter 24](#chapter-24-working-with-legacy-brownfield-code)). The script counts commits per `.cs` file in a window, multiplies by a cheap branch count (`if`, `case`, loops, `catch`, `&&`, `||`, `??`) and lists authors. It excludes migrations and `*.g.cs`/`*.Designer.cs`.
 
 **eShop showed** (`04-hotspots.tsv`, `04-hotspots-all-history.tsv`, `04-churn-by-folder.txt`): in the 365 days before the commit there were only **16 commits by 8 authors**, and no file changed more than 3 times. That is too little history to rank anything, so the script also ranks the whole history (347 commits since 2023-10-18). There, `src/Catalog.API/Apis/CatalogApi.cs` leads (10 commits × 35 branches, 406 lines, 8 authors), followed by `src/ClientApp/Services/Basket/Protos/Basket.cs`, which is gRPC-generated code checked into the repo that the filter didn't catch. `src/eShop.AppHost/Program.cs` has the highest churn on the list (21 commits, 15 authors) but only 10 branches.
 
@@ -25427,7 +25427,7 @@ Two lessons. First, check the window has enough commits before you trust a ranki
 
 ### Architecture and coupling
 
-**Look at:** the project reference graph, fan-in of shared libraries, cycles, where domain logic lives, and whether services share databases. Mechanism: [Chapter 6](#chapter-6-architecture-application-design).
+**Look at:** the project reference graph, fan-in of shared libraries, cycles, where domain logic lives, and whether services share databases. Mechanism: [Chapter 21](#chapter-21-architecture).
 
 **eShop showed** (`05-architecture.txt`): a clean graph with no cycles. `eShop.ServiceDefaults` has a fan-in of 9 and `EventBusRabbitMQ` 7, which is by design: they are the shared cross-cutting and messaging layers. Only Ordering is split into API, Domain and Infrastructure projects; the other services are single projects. That is a deliberate choice about where to spend DDD ceremony, not a defect. The largest code base by far is the MAUI `ClientApp` (6,003 non-blank lines of 15,314 production lines), and the web solution doesn't build it.
 
@@ -25435,7 +25435,7 @@ The finding here isn't about the graph. It's the question the brief raises: does
 
 ### Tests
 
-**Look at:** do tests build and run from a clean clone, how long, what kinds exist, and do the hotspot files have tests? Mechanism: [Chapter 7](#chapter-7-testing) and [Chapter 25](#chapter-25-advanced-specialized-testing).
+**Look at:** do tests build and run from a clean clone, how long, what kinds exist, and do the hotspot files have tests? Mechanism: [Chapter 8](#chapter-8-testing) and [Chapter 25](#chapter-25-observability-and-testing-at-scale).
 
 **eShop showed** (`06-tests.txt`, `09-build-tests.txt`): 9 test projects, with 87 `[TestMethod]`, 15 `[Fact]` and 18 `[Theory]` attributes, mixing MSTest and xUnit v3. There are 3,065 non-blank test lines against 15,314 production lines. Functional tests use `WebApplicationFactory` and Aspire, and need a container runtime. In this run, `Basket.UnitTests` (8 tests) and `Ordering.UnitTests` (43 tests) built and passed in about half a second each. `Application.UnitTests` and `eShop.AppHost.UnitTests` failed to build because they reference `Identity.API` (the cdnjs problem above), and `ClientApp.UnitTests` needs the `maui-tizen` workload.
 
@@ -25443,7 +25443,7 @@ The script's "projects without a same-named test project" list is a heuristic an
 
 ### Security posture
 
-**Look at:** secrets in source, token validation settings, endpoints without authorization, CORS, raw SQL, rate limiting. Mechanism: [Chapter 14](#chapter-14-security).
+**Look at:** secrets in source, token validation settings, endpoints without authorization, CORS, raw SQL, rate limiting. Mechanism: [Chapter 12](#chapter-12-security-essentials).
 
 **eShop showed** (`07-code-signals.txt`, then reading the files):
 
@@ -25456,29 +25456,29 @@ For a teaching app these are reasonable shortcuts. For the brief they are the to
 
 ### Observability signals
 
-**Look at:** traces, metrics and logs exported, health endpoints, structured logging, custom business telemetry, and what alerts exist. Mechanism: [Chapter 13](#chapter-13-observability).
+**Look at:** traces, metrics and logs exported, health endpoints, structured logging, custom business telemetry, and what alerts exist. Mechanism: [Chapter 9](#chapter-9-exceptions-logging-and-first-diagnosis).
 
 **eShop showed:** OpenTelemetry tracing and metrics, and health checks, wired once in `eShop.ServiceDefaults` and used by every service (health-check calls in 10 files). No interpolated log messages were found, and `[LoggerMessage]` is used in one file. There is no custom `ActivitySource` or `Meter`, so there are no business metrics: orders placed, payments failed, basket-to-order conversion. There are no alert definitions in the repo, which is expected for a sample and is a question for [Retailer]'s team: "Who is paged, and on what?"
 
 ### Performance smells
 
-**Look at:** sync-over-async, `async void`, `HttpClient` lifetime, EF Core query shape, and *any* real measurement. Mechanism: [Chapter 15](#chapter-15-performance-optimization), [Chapter 4](#chapter-4-data-access-databases), [Chapter 8](#chapter-8-asynchronous-concurrent-programming).
+**Look at:** sync-over-async, `async void`, `HttpClient` lifetime, EF Core query shape, and *any* real measurement. Mechanism: [Chapter 17](#chapter-17-runtime-internals-and-performance), [Chapter 7](#chapter-7-data-access), [Chapter 4](#chapter-4-async-essentials).
 
 **eShop showed:** the `.Result` grep found 3 hits in 2 files, all false positives (`context.Result` on a filter context and a custom `Result` property). All 8 `async void` methods are MAUI lifecycle overrides and event handlers in `ClientApp`, where `async void` is the framework's pattern. The two `new HttpClient(` calls are in the MAUI client too. The services use `IHttpClientFactory` through service discovery. `AsNoTracking` never appears, and `.Include(` appears 5 times in 3 files.
 
-The honest verdict is "no evidence of a performance problem, and no measurement either." Grep can't find a slow query. The next step for [Retailer] is a load test of the checkout path and a look at the catalog queries' plans ([Chapter 37](#chapter-37-the-slow-query-lab-reading-execution-plans)), not a finding invented from a grep count.
+The honest verdict is "no evidence of a performance problem, and no measurement either." Grep can't find a slow query. The next step for [Retailer] is a load test of the checkout path and a look at the catalog queries' plans ([Chapter 19](#chapter-19-the-slow-query-lab-reading-execution-plans)), not a finding invented from a grep count.
 
 > **Pitfall.** Reporting grep counts as findings. Before the script excluded test code, the `.Result` count was several times higher, mostly MSTest assertions on `result.Result`, and every one of the three production hits is a false positive. A client engineer who checks one claim and finds it wrong will discount the whole report.
 
 ### Build, CI and containers
 
-**Look at:** what CI runs on every PR, warnings-as-errors, nullable, analyzers, how images are built and deployed, manual steps. Mechanism: [Chapter 12](#chapter-12-devops-cicd), [Chapter 11](#chapter-11-containers-orchestration).
+**Look at:** what CI runs on every PR, warnings-as-errors, nullable, analyzers, how images are built and deployed, manual steps. Mechanism: [Chapter 13](#chapter-13-git-and-cicd), [Chapter 14](#chapter-14-containers-and-linux).
 
 **eShop showed** (`08-build-ci-cost.txt`): the PR workflow builds `eShop.Web.slnf` and runs `dotnet test` on it. There are separate workflows for the MAUI app, Playwright end-to-end tests and markdown lint. `TreatWarningsAsErrors` is on globally, `<Nullable>enable` is set in 12 of 28 project files, and there's no `AnalysisLevel` setting. Deployment is `aspire deploy` to Azure Container Apps from the AppHost model. No IaC files (Bicep, Terraform, Helm) are checked in, because the AppHost *is* the infrastructure definition.
 
 ### Cost drivers
 
-**Look at:** what the app provisions, what scales with traffic, paid per-call APIs, and licences. Mechanism: [Chapter 28](#chapter-28-compliance-data-privacy-cloud-cost-finops).
+**Look at:** what the app provisions, what scales with traffic, paid per-call APIs, and licences. Mechanism: [Chapter 31](#chapter-31-compliance-data-privacy-cloud-cost-finops).
 
 **eShop showed:** the AppHost provisions PostgreSQL, Redis and RabbitMQ as containers, an Azure Container Apps environment, and, when enabled, Microsoft Foundry deployments of `gpt-4.1-mini` and `text-embedding-3-small` (or local Ollama models). When AI is enabled, the catalog's semantic search (`CatalogApi.cs`, `GetItemsBySemanticRelevance`) calls the embedding model **once per search request**. That endpoint needs no authentication, and there's no rate limiting, so an anonymous client can generate paid API calls at will. Duende IdentityServer is commercial software. Check its current licence terms against [Retailer]'s size before go-live, and certainly before the 7 → 8 major upgrade.
 
@@ -25509,7 +25509,7 @@ Each finding gets one card (`templates/finding-card.md`). The order of fields is
 - **Business impact** is the consequence in the client's terms. If you can't write it, the finding is probably noise for this brief.
 - **Likelihood and impact** are scored separately because they're argued separately, and a one-line reason for each score is what makes it defensible.
 - **Confidence** says how sure you are. A finding inferred from a grep count is "low" until you read the code.
-- **Effort** uses T-shirt sizes. A "rough order of magnitude" is honest at this stage; [Chapter 63](#chapter-63-recommendations-proposals-and-estimates) covers turning it into an estimate.
+- **Effort** uses T-shirt sizes. A "rough order of magnitude" is honest at this stage; [Chapter 41](#chapter-41-recommendations-proposals-and-estimates) covers turning it into an estimate.
 
 ## The risk matrix
 
@@ -25545,7 +25545,7 @@ A first pass on eShop gives 30–50 raw cards. An executive reads five. The cut 
 
 ## The report: one page, then detail
 
-The structure is in `templates/report-template.md` and `templates/executive-summary.md`. It follows the pyramid principle from [Chapter 63](#chapter-63-recommendations-proposals-and-estimates): the answer first, then the reasons, then the evidence.
+The structure is in `templates/report-template.md` and `templates/executive-summary.md`. It follows the pyramid principle from [Chapter 41](#chapter-41-recommendations-proposals-and-estimates): the answer first, then the reasons, then the evidence.
 
 - **Page one, the executive summary:** the bottom line in two sentences, three strengths, the top five risks in a table (risk in business terms, score, recommendation, effort), the first two weeks, what you didn't look at, and the one decision you need. If it doesn't fit on one page, cut findings, not font size.
 - **Scope and method:** the question asked, the commit and environment, what you didn't assess, how you collected evidence. This protects you. "We didn't assess production data or load" is what lets a reader trust the rest.
@@ -25560,13 +25560,13 @@ The structure is in `templates/report-template.md` and `templates/executive-summ
 
 The people who built the system will read your report, and usually they're in the room when it's presented. They know things you don't: the deadline that forced the shortcut, the migration that was cancelled, the reason that odd setting exists. If they feel judged, they'll spend the meeting defending the past, and your recommendations will die in the next sprint planning. If they feel represented, they'll implement them for you.
 
-- **Pre-wire the technical lead.** Walk them through the draft before the executive readout. Ask them to correct facts and add context. Nobody should hear a finding about their code for the first time in front of their boss ([Chapter 17](#chapter-17-soft-skills-engineering-practices) covers influence without authority).
+- **Pre-wire the technical lead.** Walk them through the draft before the executive readout. Ask them to correct facts and add context. Nobody should hear a finding about their code for the first time in front of their boss ([Chapter 36](#chapter-36-senior-behaviours-career-and-interviews) covers influence without authority).
 - **Describe the code, not the coders.** "The shared JWT setup disables audience validation," not "the team disabled audience validation." Passive voice is usually weak writing. Here it's the right tool.
 - **Assume a reason.** Chesterton's fence: before you recommend removing something, find out why it's there. eShop's `NoWarn` comment says "temporarily," so ask what it was working around. The answer may change the recommendation.
 - **Give the context that made it reasonable.** "This configuration is the sample's demo setup, which is appropriate for evaluation; for production it needs replacing" credits the original decision and still says what has to change.
 - **Lead with strengths that are specific.** "Central package management with transitive pinning and source mapping is better supply-chain hygiene than most production codebases" is credible. "Great work overall!" is filler, and the team will hear it that way.
 - **Separate the finding from the fix owner.** Recommend *what*. Let the team propose *how* and *when* in the roadmap discussion. Recommendations they helped shape get done.
-- **Never surprise, never gloat.** Present a contradiction between the story and the evidence as a question (Chapter 61): "I expected X and I'm seeing Y. Does that match what you've seen?"
+- **Never surprise, never gloat.** Present a contradiction between the story and the evidence as a question (Chapter 39): "I expected X and I'm seeing Y. Does that match what you've seen?"
 
 ## Tasks
 
@@ -25609,7 +25609,7 @@ Keep your work in your own portfolio repo, in a folder such as `eshop-health-che
 **Acceptance criteria:**
 - [ ] A transcript or recording of both sessions, with at least two changes to the report that came from the tech lead's pushback.
 - [ ] A one-page summary of a second codebase, done in under a working day, with its own evidence folder.
-- [ ] A published report in your portfolio, linked from your portfolio README ([Chapter 36](#chapter-36-the-story-bank-evidence-portfolio)).
+- [ ] A published report in your portfolio, linked from your portfolio README ([Chapter 37](#chapter-37-the-story-bank-evidence-portfolio)).
 
 ## Break it
 
@@ -25647,7 +25647,7 @@ In your **private** story bank: the STAR story below, and anything about a real 
 2. *"How do you know your findings were right?"* Evidence at a commit, false positives you rejected (the `.Result` hits), and a reviewer on the client side re-running the same commands.
 3. *"What if the team disagreed with you?"* The pre-wire, the tech lead's corrections that changed the report, and the difference between a disagreement about facts (fix the report) and one about priorities (the client decides, and the report records the trade-off).
 
-**The client hook.** The same work sells as a **fixed-price health check**: one system, a fixed scope (the eleven areas, [n] interviews, read access to the repo, pipelines and dashboards), about two weeks, a written report and a one-hour readout for [price]. It's small enough for a client to approve without a procurement cycle, and it often leads to the follow-on work, because the roadmap in it is a ready-made statement of work. [Chapter 63](#chapter-63-recommendations-proposals-and-estimates) covers pricing, scope traps and paid discovery. The public eShop report is your sample deliverable: "here is exactly what you'd receive."
+**The client hook.** The same work sells as a **fixed-price health check**: one system, a fixed scope (the eleven areas, [n] interviews, read access to the repo, pipelines and dashboards), about two weeks, a written report and a one-hour readout for [price]. It's small enough for a client to approve without a procurement cycle, and it often leads to the follow-on work, because the roadmap in it is a ready-made statement of work. [Chapter 41](#chapter-41-recommendations-proposals-and-estimates) covers pricing, scope traps and paid discovery. The public eShop report is your sample deliverable: "here is exactly what you'd receive."
 
 ## Hints and answers
 
@@ -25707,7 +25707,7 @@ Good, that's the point. Sort their objections into three piles: *facts* ("that s
 
 ## Further reading for assessors
 
-- **Within this book:** [Chapter 30](#chapter-30-working-with-legacy-brownfield-code) (hotspots, EOL), [Chapter 35](#chapter-35-software-supply-chain-security) (dependencies and supply chain), [Chapter 61](#chapter-61-discovery-and-diagnosis) (the first-day map this lab extends), [Chapter 63](#chapter-63-recommendations-proposals-and-estimates) (executive writing, pricing), [Chapter 65](#chapter-65-positioning-and-public-proof) (publishing the report).
+- **Within this book:** [Chapter 24](#chapter-24-working-with-legacy-brownfield-code) (hotspots, EOL), [Chapter 27](#chapter-27-security-in-depth-and-the-supply-chain) (dependencies and supply chain), [Chapter 39](#chapter-39-discovery-and-diagnosis) (the first-day map this lab extends), [Chapter 41](#chapter-41-recommendations-proposals-and-estimates) (executive writing, pricing), [Chapter 43](#chapter-43-positioning-and-public-proof) (publishing the report).
 - **Adam Tornhill, *Your Code as a Crime Scene*:** churn × complexity and behavioral code analysis.
 - **Barbara Minto, *The Pyramid Principle*:** answer first, then the grouped reasons.
 - **David Maister, Charles Green and Robert Galford, *The Trusted Advisor*:** why a report the team feels represented in gets implemented.
@@ -25718,15 +25718,15 @@ Good, that's the point. Sort their objections into three piles: *facts* ("that s
 
 # Chapter 41: Recommendations, Proposals and Estimates
 
-_⏱️ Estimated read time: ~1 h · 9965 words (study pace)_
+_⏱️ Estimated read time: ~1 h · 9980 words (study pace)_
 
-Clients don't hire a senior contractor for answers they could find themselves. They hire one to turn partial information into a decision they can act on and defend to the people above them. [Chapter 61](#chapter-61-discovery-and-diagnosis) covered finding out what is wrong. This chapter covers what comes after: saying what to do about it, writing it so a busy executive can act, putting a shape and a price on the work, and keeping that shape intact once delivery starts.
+Clients don't hire a senior contractor for answers they could find themselves. They hire one to turn partial information into a decision they can act on and defend to the people above them. [Chapter 39](#chapter-39-discovery-and-diagnosis) covered finding out what is wrong. This chapter covers what comes after: saying what to do about it, writing it so a busy executive can act, putting a shape and a price on the work, and keeping that shape intact once delivery starts.
 
 These are four skills, but they form one pipeline, and a weak link breaks the rest:
 
 ```
  diagnosis ──► options memo ──► decision ──► ADR / decision log
- (Ch 61, 62)   (what to do)     (theirs)     (what was chosen, and why)
+ (Ch 39, 40)   (what to do)     (theirs)     (what was chosen, and why)
                                    │
                                    ▼
                   proposal ──► estimate ──► SOW ──► delivery ──► change requests
@@ -25736,9 +25736,9 @@ These are four skills, but they form one pipeline, and a weak link breaks the re
 
 A good recommendation with a vague SOW turns into a dispute. A careful SOW built on a point estimate nobody believed turns into a death march. A perfect estimate for the wrong option wastes the client's money efficiently.
 
-[Chapter 17](#chapter-17-soft-skills-engineering-practices) covered the basics: bottom line up front, trade-offs for a product manager, ADRs, and estimation within a team (17.4). The audience here is a client who pays by the day, can end the engagement, and may have been burned by the last vendor. The habits are the same, but the stakes and the incentives are different.
+[Chapter 16](#chapter-16-working-like-a-middle-developer) covered the basics: bottom line up front, trade-offs for a product manager, ADRs, and estimation within a team. The audience here is a client who pays by the day, can end the engagement, and may have been burned by the last vendor. The habits are the same, but the stakes and the incentives are different.
 
-## 63.1 Why "It Depends" Is Not Advice
+## Why "It Depends" Is Not Advice
 
 Most architecture questions really do depend on circumstances. The mistake is stopping at "it depends", because that hands the uncertainty back to the person who paid you to deal with it.
 
@@ -25755,9 +25755,9 @@ There are three honest ways to recommend under uncertainty. There is also a dish
 
 > **Pitfall.** A hedge can look like humility ("I'd hate to push you either way"). The client hears that you don't know. They will go to someone who sounds as if they do, and that person may be worse at the job than you.
 
-Recommending doesn't mean claiming more confidence than you have. State your confidence and the reason for it: "Fairly confident. The three riskiest modules have no System.Web dependencies." [Chapter 60](#chapter-60-having-a-point-of-view) covers where a point of view comes from. This chapter covers how to deliver it.
+Recommending doesn't mean claiming more confidence than you have. State your confidence and the reason for it: "Fairly confident. The three riskiest modules have no System.Web dependencies." [Chapter 38](#chapter-38-having-a-point-of-view) covers where a point of view comes from. This chapter covers how to deliver it.
 
-## 63.2 The Options Memo
+## The Options Memo
 
 The options memo is the advisor's core document: two to four pages in a fixed shape. The shape matters because each part answers a question the decision-maker will ask. Any part you leave out comes up in the meeting, where you'll answer it less well.
 
@@ -25816,13 +25816,13 @@ Option B — [name]: [2–3 sentences]
 
 > **Best practice.** Write "What would change this recommendation" *before* "Why". Doing it first makes you find the assumptions your recommendation depends on, and those are exactly what a sharp reader will test. It also shows that you reached the recommendation from evidence and will change it if the evidence changes.
 
-## 63.3 A Worked Example: The .NET Framework 4.8 Monolith
+## A Worked Example: The .NET Framework 4.8 Monolith
 
 All names, figures and dates in this example are **illustrative**. They show the reasoning. They are not benchmarks.
 
 **The situation.** A mid-sized distributor's order platform is a .NET Framework 4.8 monolith: ASP.NET MVC 5 customer portal, a Web Forms back office, WCF services used by the warehouse system, EF6, and SQL Server. It runs on two Windows Server VMs in a co-location facility whose contract renews, for several years, in nine months. It has about 400k lines of C#, few tests, and three in-house developers. The CTO asks for "a plan to get us to the cloud and off old .NET".
 
-**The diagnosis** (discovery, as in [Chapter 61](#chapter-61-discovery-and-diagnosis)):
+**The diagnosis** (discovery, as in [Chapter 39](#chapter-39-discovery-and-diagnosis)):
 
 - .NET Framework 4.8.x is still serviced, but it gets no new features, and its support follows the Windows versions it runs on. Check Microsoft's current lifecycle page before you quote a date. The runtime itself isn't urgent. The ecosystem around it is: libraries are dropping Framework targets, and fewer engineers want to work on Web Forms.
 - The Web Forms back office is the most tangled part. The MVC portal is fairly clean. Two WCF services use `netTcpBinding`.
@@ -25834,9 +25834,9 @@ The last point decides the recommendation. The CTO asked about the cloud and old
 **The options.**
 
 - **Option 0: do nothing.** Renew the contract and keep the VMs. There's no migration spend, but the renewal commits the client for years, which makes "do nothing" the *least* reversible option on the table. Release risk stays as it is, and every change gets a little more expensive each year.
-- **Option A: move to Azure App Service (Windows) as-is.** App Service runs .NET Framework 4.8 apps on Windows plans. The work is mostly environmental: uploads move to Blob Storage, the scheduled task becomes a WebJob or Function, the `netTcpBinding` services switch to HTTP bindings or move to a VM, the database moves to Azure SQL or SQL Managed Instance, and CI/CD with deployment slots is added. Anything that assumes a full Windows server (COM components, MSMQ, Windows services, local file shares) needs a new home, and finding all of those is the main risk. This option exits the co-location contract and fixes weekend deploys. It does nothing about the framework. [Chapter 50](#chapter-50-azure-in-depth-for-net-developers) covers App Service slots, managed identity and configuration.
-- **Option B: strangler fig to .NET 10.** A .NET 10 facade (YARP) sits in front of the monolith, and capabilities move behind it one at a time: portal first, WCF surfaces next, back office last or replaced. The System.Web adapters (`Microsoft.AspNetCore.SystemWebAdapters`) let the old and new apps share session state and authentication while both run. [Chapter 30](#chapter-30-working-with-legacy-brownfield-code) covers the mechanics. Each slice ships on its own, and you can stop at any slice and still have a working system. .NET 10 is an LTS release supported until November 2028.
-- **Option C: rewrite on .NET 10.** This is the cleanest target on paper. In practice it means maintaining two systems during the build, rediscovering edge cases as production incidents, delivering no value until cutover, and then a large cutover that's hard to reverse. Chapter 30 explains why big-bang rewrites fail. Flyvbjerg and Gardner's *How Big Things Get Done* shows the same pattern in large projects across many industries.
+- **Option A: move to Azure App Service (Windows) as-is.** App Service runs .NET Framework 4.8 apps on Windows plans. The work is mostly environmental: uploads move to Blob Storage, the scheduled task becomes a WebJob or Function, the `netTcpBinding` services switch to HTTP bindings or move to a VM, the database moves to Azure SQL or SQL Managed Instance, and CI/CD with deployment slots is added. Anything that assumes a full Windows server (COM components, MSMQ, Windows services, local file shares) needs a new home, and finding all of those is the main risk. This option exits the co-location contract and fixes weekend deploys. It does nothing about the framework. [Chapter 29](#chapter-29-azure-in-depth-for-net-developers) covers App Service slots, managed identity and configuration.
+- **Option B: strangler fig to .NET 10.** A .NET 10 facade (YARP) sits in front of the monolith, and capabilities move behind it one at a time: portal first, WCF surfaces next, back office last or replaced. The System.Web adapters (`Microsoft.AspNetCore.SystemWebAdapters`) let the old and new apps share session state and authentication while both run. [Chapter 24](#chapter-24-working-with-legacy-brownfield-code) covers the mechanics. Each slice ships on its own, and you can stop at any slice and still have a working system. .NET 10 is an LTS release supported until November 2028.
+- **Option C: rewrite on .NET 10.** This is the cleanest target on paper. In practice it means maintaining two systems during the build, rediscovering edge cases as production incidents, delivering no value until cutover, and then a large cutover that's hard to reverse. [Chapter 24](#chapter-24-working-with-legacy-brownfield-code) explains why big-bang rewrites fail. Flyvbjerg and Gardner's *How Big Things Get Done* shows the same pattern in large projects across many industries.
 
 **Comparison.** Effort is in person-months. The figures are illustrative, from before any discovery narrowed them.
 
@@ -25861,7 +25861,7 @@ The last point decides the recommendation. The CTO asked about the cloud and old
 - *The co-location contract can go month-to-month.* The deadline disappears, so go straight to B and skip the intermediate hosting move.
 - *The back office turns out to be thin CRUD.* Replacing it becomes a small, contained rewrite inside B, not a rewrite of the whole system.
 
-**What we need to learn next** (a two-week paid discovery, 63.11):
+**What we need to learn next** (a two-week paid discovery; see *Estimating for Clients*):
 
 | Question | How | Owner | By |
 |---|---|---|---|
@@ -25872,7 +25872,7 @@ The last point decides the recommendation. The CTO asked about the cloud and old
 
 Notice what the memo doesn't do. It doesn't pretend the ranges are precise. It doesn't recommend the most interesting technical work. And it doesn't bury the renewal, which is the fact that makes "do nothing" a one-way door.
 
-## 63.4 Writing for Executives
+## Writing for Executives
 
 The CTO will read the whole memo. Above the CTO is someone (a CFO, a CEO, a board) who will read one page, and maybe only its first paragraph. A large share of your influence depends on that page.
 
@@ -25942,9 +25942,9 @@ The translation rests on **expected cost**: likelihood × impact, stated as a ra
 - **Give ranges, not false precision.** "€40–90k" is honest. "€63,450" suggests precision you don't have, and the first time one such figure turns out wrong, they stop trusting the rest.
 - **Don't inflate the downside.** Scaring executives into approving work works once. After that, they discount everything you say.
 
-> **Gotcha.** For many CFOs the real constraint is *when* the cash goes out, not the total. A plan that costs a bit more but spreads the spend across four quarters, with value from the first, can beat a cheaper plan that needs everything up front. Ask how the client budgets (capex versus opex, annual cycles, approval thresholds) before you design the phases. [Chapter 28](#chapter-28-compliance-data-privacy-cloud-cost-finops) covers the cloud-cost side.
+> **Gotcha.** For many CFOs the real constraint is *when* the cash goes out, not the total. A plan that costs a bit more but spreads the spend across four quarters, with value from the first, can beat a cheaper plan that needs everything up front. Ask how the client budgets (capex versus opex, annual cycles, approval thresholds) before you design the phases. [Chapter 31](#chapter-31-compliance-data-privacy-cloud-cost-finops) covers the cloud-cost side.
 
-## 63.5 Reversibility: Matching Rigor to the Door
+## Reversibility: Matching Rigor to the Door
 
 Not every decision deserves a memo. In his 2015 letter to Amazon shareholders, Jeff Bezos separated **Type 1** decisions, which are one-way doors (irreversible or nearly so) and deserve slow, careful thought, from **Type 2** decisions, which are two-way doors and should be made quickly by small groups. He warned about getting it wrong in both directions. Treating two-way doors like one-way doors makes an organization slow. Treating one-way doors casually is how it gets trapped.
 
@@ -25960,14 +25960,14 @@ Reversibility can be designed, and designing it is often the most useful thing a
 
 - **Slicing.** A rewrite is one one-way door. A strangler is a series of two-way doors, so each commitment stays small even if the total work is similar.
 - **Keeping the fallback running.** During a hosting move, keep the old VMs warm and the DNS switch ready for [N] weeks.
-- **Expand/contract data changes** ([Chapter 30](#chapter-30-working-with-legacy-brownfield-code)). Add the new structure, write to both, and remove the old one only once the new one has been proven.
+- **Expand/contract data changes** ([Chapter 24](#chapter-24-working-with-legacy-brownfield-code)). Add the new structure, write to both, and remove the old one only once the new one has been proven.
 - **Shorter commitments.** Month-to-month at a premium is often worth paying for, because you're buying an option.
 
 > **Pitfall.** "Do nothing" looks like the ultimate two-way door, but it often isn't. Contracts auto-renew, support windows close, key people leave, and data grows until migrating it is no longer simple. Before treating inaction as the safe default, ask which doors will close on their own.
 
 The opposite mistake is just as common: putting a small decision through a heavy process because a memo looks diligent. If the client can undo it next sprint in a day, recommend it in one sentence, log it, and move on.
 
-## 63.6 Presenting a Recommendation and Handling Pushback
+## Presenting a Recommendation and Handling Pushback
 
 Most decisions are made in meetings, and meetings go the way they were prepared.
 
@@ -25992,13 +25992,13 @@ The rule behind the table: **update on evidence, not on pressure.** When pushbac
 
 > **Best practice.** The client is entitled to decide against you, and they often have reasons you can't see. You've done your job if they decide *knowing* the trade-off, whatever they choose.
 
-**If you're overruled,** disagree once, clearly and in writing, then commit (Chapter 17's *disagree and commit*). Put your effort into making the chosen path succeed, including making it more reversible: slice it, keep the old system able to take traffic, and agree on review checkpoints. The one exception is an ethical or legal line, such as unsafe practices or misleading customers or regulators. That belongs with your firm's leadership. It isn't a design disagreement.
+**If you're overruled,** disagree once, clearly and in writing, then commit ([Chapter 16](#chapter-16-working-like-a-middle-developer)'s *disagree and commit*). Put your effort into making the chosen path succeed, including making it more reversible: slice it, keep the old system able to take traffic, and agree on review checkpoints. The one exception is an ethical or legal line, such as unsafe practices or misleading customers or regulators. That belongs with your firm's leadership. It isn't a design disagreement.
 
-## 63.7 After the Decision: Writing It Down
+## After the Decision: Writing It Down
 
 A decision that isn't written down gets made again six months later, by someone who wasn't there and has less information. For a contractor there's a second reason: the engagement ends, and the client's memory of *why* shouldn't leave with you.
 
-Use the ADR format from [Chapter 17](#chapter-17-soft-skills-engineering-practices) (17.5), and add four things for client work:
+Use the ADR format from [Chapter 16](#chapter-16-working-like-a-middle-developer), and add four things for client work:
 
 - **Who decided, and where.** "Approved by [CTO] at the steering meeting, [date]." Not to assign blame: when circumstances change, the first question is who can reopen the decision.
 - **A link to the options memo.** The ADR records the choice, and the memo records the reasoning.
@@ -26009,7 +26009,7 @@ For two-way-door decisions, a one-line **decision log** (date, decision, owner, 
 
 > **Gotcha.** Store decision records where the *client* owns them: their repo or wiki, not your firm's tracker. When the contract ends, neither of you can reach the tracker.
 
-## 63.8 Proposals That Survive Contact
+## Proposals That Survive Contact
 
 A proposal turns an agreed direction into work someone can buy, and it often becomes the basis of the SOW. Write every sentence as if it will be quoted back to you in a dispute. *This section and the next give engineering advice about what proposals and SOWs contain. They are not legal advice. Contract law varies by jurisdiction, and your firm's legal and commercial people own the final wording.*
 
@@ -26055,12 +26055,12 @@ D4 Cutover — accepted when [named business smoke tests] pass and [N] days
 
 **Assumptions** · **Client dependencies** (what / who / by) · **Exclusions**
 **Risks** (risk / likelihood / impact / carried by / containment)
-**Commercial model and change control** (63.9, 63.12)
+**Commercial model and change control** (see *Commercial Models* and *Change Requests*)
 ```
 
 > **Best practice.** End every phase at a gate where the price of the next phase is confirmed. That makes the proposal easier to buy (the first commitment is small), more honest (each phase is priced using what the last one taught), and safer (either side can stop cleanly).
 
-## 63.9 Commercial Models and Who Carries the Risk
+## Commercial Models and Who Carries the Risk
 
 Every commercial model answers one question: **when the work turns out bigger or smaller than expected, who pays?** How both sides behave follows from the answer.
 
@@ -26074,19 +26074,19 @@ Every commercial model answers one question: **when the work turns out bigger or
 
 **Fixing the price doesn't remove the uncertainty. It moves it to the vendor, who charges for carrying it.** A well-run vendor estimates the work and adds a margin that grows with the uncertainty. A client who demands a fixed price before any discovery is buying insurance at its most expensive. The fair thing to say is: "We can fix a price now, but it will carry a large risk margin. Fund two weeks of discovery first and the build price will be lower, because we'll be pricing less uncertainty."
 
-Each model also shapes behaviour. Under fixed price, every ambiguity is money: the vendor wants the narrow reading and the client wants the broad one. That's why fixed price needs the tightest SOW (63.10) and the most formal change control (63.12). Under T&M, the risk runs the other way: nobody on the vendor side owns the total. Good T&M relationships make up for it with forecasts, burn-down reporting, and an advisor who treats the client's budget as finite.
+Each model also shapes behaviour. Under fixed price, every ambiguity is money: the vendor wants the narrow reading and the client wants the broad one. That's why fixed price needs the tightest SOW (*Scope Traps*, below) and the most formal change control (*Change Requests*, below). Under T&M, the risk runs the other way: nobody on the vendor side owns the total. Good T&M relationships make up for it with forecasts, burn-down reporting, and an advisor who treats the client's budget as finite.
 
 **Value-based pricing** (Alan Weiss's *Value-Based Fees*; Blair Enns's *Pricing Creativity*) suits advisory work with a clear, measurable outcome and a buyer who can judge it. It rarely suits outstaffed delivery, where you're capacity inside someone else's plan.
 
 **If you work through an outsourcing or outstaffing firm,** the account manager and the client negotiate the model, and you're usually billed T&M within it. You still have influence:
 
 - **Your estimates become the price.** Under fixed price, your range and assumptions set how much risk your firm takes on. Give them honestly and in writing.
-- **You're often the first to spot out-of-scope work.** How you raise it (63.12) decides whether it becomes a paid change or unpaid work nobody sees.
+- **You're often the first to spot out-of-scope work.** How you raise it (*Change Requests Without the Fight*, below) decides whether it becomes a paid change or unpaid work nobody sees.
 - **Commercial conversations go through your firm.** When a client asks you for a price, a discount, or "a small extra, no need to mention it", the answer is friendly and always the same: "Good idea. Let me bring [account manager] in so we do it properly." Negotiating directly can commit your firm to things it hasn't agreed.
 
 > **Pitfall.** Quietly absorbing out-of-scope work feels generous. It teaches the client that scope is negotiable, costs your firm margin, and leaves no record to justify the next change request. If you want to do the favour, make it visible: "Happy to include this. I'll log it as a goodwill change so we both know it's outside the SOW."
 
-## 63.10 Scope Traps in Statements of Work
+## Scope Traps in Statements of Work
 
 Some SOW phrases look harmless but carry large amounts of unpriced work. (As before: engineering advice about content, not legal advice.)
 
@@ -26106,7 +26106,7 @@ Some SOW phrases look harmless but carry large amounts of unpriced work. (As bef
 
 - **Performance:** what load, on which operations, and what's the current baseline? "No slower than today" is a real requirement.
 - **Availability and recovery:** what does an hour of downtime cost? A day? What are the RPO and RTO?
-- **Security and compliance:** which standards apply? Who pen-tests, and who fixes what they find? Where may personal data live ([Chapter 28](#chapter-28-compliance-data-privacy-cloud-cost-finops))?
+- **Security and compliance:** which standards apply? Who pen-tests, and who fixes what they find? Where may personal data live ([Chapter 31](#chapter-31-compliance-data-privacy-cloud-cost-finops))?
 - **Operability:** who runs the system after handover, and what monitoring and runbooks do they need?
 - **Accessibility, localization, browsers and devices, audit logging and retention.**
 
@@ -26114,9 +26114,9 @@ Each answer goes into the SOW as a measurable criterion or into the exclusions. 
 
 > **Best practice.** Read the SOW once as the client's most demanding stakeholder would read it on the project's worst day. Any sentence that could mean more work than you estimated is a trap. Fix it while it's still about wording, not money.
 
-## 63.11 Estimating for Clients
+## Estimating for Clients
 
-Section 17.4 covered thin slices, spikes, ranges and buffers. With a client, the estimate often becomes a *price*, the listener may not be technical, and your competitors have every reason to be optimistic.
+[Chapter 16](#chapter-16-working-like-a-middle-developer)'s *Estimation & Planning* covered thin slices, spikes, ranges and buffers. With a client, the estimate often becomes a *price*, the listener may not be technical, and your competitors have every reason to be optimistic.
 
 ### Estimate, target, commitment
 
@@ -26155,7 +26155,7 @@ Bottom-up estimates come in low for a structural reason: work you can't see yet 
 
 For a contractor, the reference class is usually your firm's own history: "our last four Framework-to-App-Service moves took [range]". Choose a class that's honestly similar. Get the *distribution* of outcomes, not just the average. Start from that distribution and adjust carefully for real differences, because most people over-adjust ("we're special") and end up back at the inside view. If your bottom-up number is well below the reference class, the likeliest explanation is missing work, not an unusual project.
 
-> **Best practice.** Build your own reference class starting now. For every engagement, record the initial estimate, the final effort, and the main reason for the gap. After a few years, that private log will beat any technique. Keep the client details private (63.13).
+> **Best practice.** Build your own reference class starting now. For every engagement, record the initial estimate, the final effort, and the main reason for the gap. After a few years, that private log will beat any technique. Keep the client details private (*Your Portfolio and the NDA Line*, below).
 
 ### Three-point estimates and PERT
 
@@ -26207,7 +26207,7 @@ The pitch is honest: "You can buy a large, uncertain commitment now, with a risk
 
 The estimate is vague, but nothing else in that answer is. It compares well with a confident single number that falls apart in week three.
 
-## 63.12 Change Requests Without the Fight
+## Change Requests Without the Fight
 
 Scope will change, and it should, because the client learns during delivery. Change control isn't there to prevent change. It's there to make change *visible and priced*, so the client decides it knowingly and doesn't find out through a late date or a surprise invoice.
 
@@ -26254,15 +26254,15 @@ There's no "out of scope" and no "not in the contract" in it. The message is *ye
 
 > **Pitfall.** Unlogged "small" changes. None is big enough to discuss, but together they explain why the project is six weeks late with nothing written down. If a change takes more than an hour, log it, even if you then absorb it.
 
-## 63.13 Your Portfolio and the NDA Line
+## Your Portfolio and the NDA Line
 
-Options memos, one-pagers, proposals and estimates show senior judgment directly, and they're usually covered by confidentiality agreements. The Part XI rule applies:
+Options memos, one-pagers, proposals and estimates show senior judgment directly, and they're usually covered by confidentiality agreements. The labs' portfolio rule applies:
 
-- **Practice work goes in your own public portfolio repo, not this handbook's repo.** Write a memo, an executive one-pager and a phased proposal with a three-point estimate for a *fictional* or *public* scenario: the monolith in 63.3, or an open-source project's modernization.
+- **Practice work goes in your own public portfolio repo, not this handbook's repo.** Write a memo, an executive one-pager and a phased proposal with a three-point estimate for a *fictional* or *public* scenario: the monolith in the worked example above, or an open-source project's modernization.
 - **Real client documents stay private.** That includes their structure, prices and estimates, and any "anonymized" version in which the client can still be identified from its industry, stack and numbers. When in doubt, leave it out.
-- **Stories about real engagements** go in your private story bank ([Chapter 36](#chapter-36-the-story-bank-evidence-portfolio)), with metrics as [placeholders] until they're verified and you're allowed to use them.
+- **Stories about real engagements** go in your private story bank ([Chapter 37](#chapter-37-the-story-bank-evidence-portfolio)), with metrics as [placeholders] until they're verified and you're allowed to use them.
 
-[Chapter 64](#chapter-64-the-advisory-casebook) walks through advisory situations end to end. [Chapter 65](#chapter-65-positioning-and-public-proof) turns artifacts like these into public proof.
+[Chapter 42](#chapter-42-the-advisory-casebook) walks through advisory situations end to end. [Chapter 43](#chapter-43-positioning-and-public-proof) turns artifacts like these into public proof.
 
 ## Exercises
 
@@ -26367,7 +26367,7 @@ Don't give whatever number makes the meeting end smoothly. It will go onto the b
 
 ### What would you do — overruled
 
-You recommended the A-then-B path from 63.3. The CEO chose a full rewrite: "We're not paying twice. Do it properly once." The CTO privately agrees with you but didn't speak up.
+You recommended the A-then-B path from the worked example. The CEO chose a full rewrite: "We're not paying twice. Do it properly once." The CTO privately agrees with you but didn't speak up.
 
 <details>
 <summary>How a senior advisor reasons about it</summary>
@@ -26383,7 +26383,7 @@ Avoid lobbying the CTO to reverse it, and avoid quietly steering the rewrite bac
 
 ### Go check
 
-- Rewrite your last significant technical recommendation as an options memo using the 63.2 template, including "do nothing" and "what would change this". Where was the original weakest? Put a fictionalized version in your portfolio repo.
+- Rewrite your last significant technical recommendation as an options memo using the options-memo template, including "do nothing" and "what would change this". Where was the original weakest? Put a fictionalized version in your portfolio repo.
 - If you're allowed to, read your current engagement's SOW as its most demanding stakeholder would. List every phrase that could cover more work than planned, and check which of them have already caused friction.
 - Compare your last three estimates with the actual outcomes. Were the actuals inside your ranges? Start a private estimation log today: estimate, range, confidence, actual, and the reason for any gap.
 - Write the executive translation of one technical risk in your system: likelihood, impact in money or time, as a range, using the client's own numbers. Show it to someone non-technical and ask what they'd decide.
@@ -26413,11 +26413,11 @@ Avoid lobbying the CTO to reverse it, and avoid quietly steering the rewrite bac
 
 # Chapter 42: The Advisory Casebook
 
-_⏱️ Estimated read time: ~1 h · 11554 words (study pace)_
+_⏱️ Estimated read time: ~1 h · 11556 words (study pace)_
 
-[Chapter 33](#chapter-33-real-world-scenarios-architectural-decisions) and [Chapter 51](#chapter-51-the-azure-casebook-real-incidents-real-fixes) are casebooks about systems: a database that falls over, a lock that expires, a private endpoint without DNS. This chapter is a casebook about the people who pay for those systems. The incidents here don't show up in a dashboard. A client asks for something that won't solve their problem, a CTO contradicts you in front of the team, an account manager has sold a feature that can't exist, or you broke production yourself.
+[Chapter 35](#chapter-35-production-incidents) and [Chapter 30](#chapter-30-the-azure-casebook-real-incidents-real-fixes) are casebooks about systems: a database that falls over, a lock that expires, a private endpoint without DNS. This chapter is a casebook about the people who pay for those systems. The incidents here don't show up in a dashboard. A client asks for something that won't solve their problem, a CTO contradicts you in front of the team, an account manager has sold a feature that can't exist, or you broke production yourself.
 
-The technical answer is usually the easy part. You know that a big-bang rewrite is risky ([Chapter 30](#chapter-30-working-with-legacy-brownfield-code)) and that microservices have a price ([Chapter 6](#chapter-6-architecture-application-design)). What decides whether the client *acts* on that knowledge is how you say it, when, to whom, and whether they trust you enough to hear it. That's the gap between a mid-level engineer, who is right, and an advisor, who is right *and listened to*.
+The technical answer is usually the easy part. You know that a big-bang rewrite is risky ([Chapter 24](#chapter-24-working-with-legacy-brownfield-code)) and that microservices have a price ([Chapter 21](#chapter-21-architecture)). What decides whether the client *acts* on that knowledge is how you say it, when, to whom, and whether they trust you enough to hear it. That's the gap between a mid-level engineer, who is right, and an advisor, who is right *and listened to*.
 
 The reader this chapter has in mind is a middle-to-senior .NET engineer who often works through an outsourcing or outstaffing company. That adds a third party to every conversation: the vendor, with its account manager, its contract and its commercial interests. Several cases are about that triangle, because it's where most contractors get stuck.
 
@@ -26519,7 +26519,7 @@ When a client situation is getting hot, find the row and make its first move. Ev
 
 1. **Separates the goal from the method.** Ask what would be true in a year if the rewrite succeeded. The answers ("we ship weekly without breaking things", "we can change pricing without fear", "we're on a supported runtime") are the real requirements, and each can be met in more than one way.
 2. **Explains the mechanism of rewrite risk, not the slogan.** The old system encodes years of requirements that exist nowhere else: edge cases, customer-specific rules, fixes for incidents nobody remembers. A rewrite has to rediscover all of them, usually in production. Meanwhile the old system still needs maintenance, so the team runs two systems, and the new one has to hit a moving target. Joel Spolsky's "Things You Should Never Do, Part I" tells the Netscape version of this story. Fred Brooks's *second-system effect* explains why the replacement tends to be over-designed.
-3. **Makes the alternative concrete.** An incremental path: characterisation tests around the scary modules, a strangler-fig facade in front of the old app, and new or rewritten slices that move to modern .NET one route at a time ([Chapter 30](#chapter-30-working-with-legacy-brownfield-code)). Each slice delivers value and can be stopped without waste.
+3. **Makes the alternative concrete.** An incremental path: characterisation tests around the scary modules, a strangler-fig facade in front of the old app, and new or rewritten slices that move to modern .NET one route at a time ([Chapter 24](#chapter-24-working-with-legacy-brownfield-code)). Each slice delivers value and can be stopped without waste.
 4. **Doesn't rule out a rewrite of a *part*.** Sometimes a module really should be rebuilt: the pricing engine, say, behind a well-tested contract. Advising against a big-bang rewrite isn't the same as advising against change.
 5. **Handles the self-orientation problem openly.** The incremental plan may be a smaller engagement for your vendor. Say so to your delivery manager before you say anything to the client, and frame it commercially as well: a client who gets value every month renews, while a client stuck two years into a stalled rewrite leaves, and tells people why.
 
@@ -26527,7 +26527,7 @@ When a client situation is getting hot, find the row and make its first move. Ev
 
 > "I understand why a clean start is attractive. This codebase has been painful for a long time. Before we pick *how*, can we agree on *what* has to be true in a year? I've heard three things: releases that don't break, confidence to change pricing, and a supported runtime. I think we can get all three without stopping feature work, by replacing the system piece by piece, starting with the part that hurts most. If after two slices that isn't working, we'll have learned it cheaply, and a bigger rebuild is still an option."
 
-**Technical backing.** [Chapter 30](#chapter-30-working-with-legacy-brownfield-code) (strangler fig versus the big rewrite, characterisation tests, .NET Framework to modern .NET), [Chapter 7](#chapter-7-testing) (the safety net), and [Chapter 61](#chapter-61-discovery-and-diagnosis) for turning "the code is a mess" into a list of measured pains.
+**Technical backing.** [Chapter 24](#chapter-24-working-with-legacy-brownfield-code) (strangler fig versus the big rewrite, characterisation tests, .NET Framework to modern .NET), [Chapter 8](#chapter-8-testing) (the safety net), and [Chapter 39](#chapter-39-discovery-and-diagnosis) for turning "the code is a mess" into a list of measured pains.
 
 **Story angle.** "I talked a client out of a [N]-month rewrite and into an incremental migration that shipped the first modernised slice in [N] weeks." The senior signal isn't that you said no. It's that you *reframed the goal* and gave the client a reversible first step. Keep the client unnamed. In a portfolio, write the anonymised decision record, not the client's code.
 
@@ -26558,7 +26558,7 @@ With one team of six, the organisational problem microservices solve doesn't exi
 
 > "I'm not against splitting the system. I want the split to buy us something. The benefit of microservices is independent deployment for independent teams, and right now there's one team. What I'd suggest is carving the monolith into strict modules this quarter, so each one *could* become a service, and extracting the document renderer now, because it has a genuinely different load. That gives us a first service in production and real data on what running services costs us, before we commit the whole platform."
 
-**Technical backing.** [Chapter 6](#chapter-6-architecture-application-design) (monolith versus microservices versus modular monolith), [Chapter 21](#chapter-21-distributed-systems-theory-reliability-engineering) (why the network changes everything), [Chapter 9](#chapter-9-messaging-distributed-systems) (the messaging you'll need), and [Chapter 60](#chapter-60-having-a-point-of-view) on holding a position without being dogmatic.
+**Technical backing.** [Chapter 21](#chapter-21-architecture) (monolith versus microservices versus modular monolith), [Chapter 20](#chapter-20-distributed-systems) (why the network changes everything), [Chapter 11](#chapter-11-messaging-and-background-work) (the messaging you'll need), and [Chapter 38](#chapter-38-having-a-point-of-view) on holding a position without being dogmatic.
 
 **Story angle.** Interviewers ask "tell me about a time you pushed back on an architecture decision" constantly. The strong version shows you *found the constraint* (one team, one hot path) and gave the decision-maker a win on their terms. The weak version is "I told them microservices were wrong". Keep the story about the reasoning, not about the CTO.
 
@@ -26587,7 +26587,7 @@ With one team of six, the organisational problem microservices solve doesn't exi
 
 Note what the script doesn't do: it doesn't blame the platform, the finance team, or a named colleague. The mistake is "we released a change", in the first person plural.
 
-**Technical backing.** [Chapter 28](#chapter-28-compliance-data-privacy-cloud-cost-finops) (FinOps: rate versus usage, tagging, unit economics), [Chapter 51](#chapter-51-the-azure-casebook-real-incidents-real-fixes) (Case 9, a Cosmos DB bill that doubled after a small feature), and [Chapter 13](#chapter-13-observability) (the cost of telemetry itself).
+**Technical backing.** [Chapter 31](#chapter-31-compliance-data-privacy-cloud-cost-finops) (FinOps: rate versus usage, tagging, unit economics), [Chapter 30](#chapter-30-the-azure-casebook-real-incidents-real-fixes) (Case 9, a Cosmos DB bill that doubled after a small feature), and [Chapter 9](#chapter-9-exceptions-logging-and-first-diagnosis) (the cost of telemetry itself).
 
 **Story angle.** A cost investigation is one of the best portfolio stories available to a mid-level engineer, because it has a clear before and after and it crosses into business language. In interviews, lead with the diagnosis method and the guardrail. Publish the method as a write-up. The client's figures stay private; relative changes ("roughly halved") are enough.
 
@@ -26612,7 +26612,7 @@ Note what the script doesn't do: it doesn't blame the platform, the finance team
 
 > "I'd rather not grade the previous team, because I don't know what they were asked to do or under what constraints. What I can tell you is where the platform stands. There are two things we need to fix this week, because they're security risks: the committed credentials and the login token handling. Then there are several things that make changes slow and risky, and I'd like to put those into a plan. If you need a written technical assessment for your own purposes, we can prepare one that sticks to evidence."
 
-**Technical backing.** [Chapter 14](#chapter-14-security) (secrets, token validation), [Chapter 35](#chapter-35-software-supply-chain-security) (removing secrets from history is not enough: rotate them), [Chapter 30](#chapter-30-working-with-legacy-brownfield-code) (living with a big ball of mud), and the lab in [Chapter 62](#chapter-62-lab-the-net-health-check) for running the assessment itself.
+**Technical backing.** [Chapter 12](#chapter-12-security-essentials) (secrets, token validation), [Chapter 27](#chapter-27-security-in-depth-and-the-supply-chain) (removing secrets from history is not enough: rotate them), [Chapter 24](#chapter-24-working-with-legacy-brownfield-code) (living with a big ball of mud), and the lab in [Chapter 40](#chapter-40-lab-the-net-health-check) for running the assessment itself.
 
 **Story angle.** "I inherited a codebase with [issues] and produced a risk-ranked assessment within [N] days" is a strong story. Tell it with no contempt for the previous team: interviewers are listening for how you'd talk about *their* code. The assessment template is portfolio material. The client's findings aren't.
 
@@ -26632,7 +26632,7 @@ Note what the script doesn't do: it doesn't blame the platform, the finance team
 
 1. **Confirms which constraint is truly fixed.** A regulatory date usually is. "All of it" usually isn't: the regulator requires a specific *capability*, not the product owner's full backlog. Ask for the rule text, and find the minimum that satisfies it.
 2. **Makes scope the variable, visibly.** A ranked list, with a line drawn at your capacity: must-have for compliance, should-have for launch, and after launch. The client does the ranking. You supply the costs and the dependencies.
-3. **Estimates in ranges and says what drives the range.** "Between [N] and [M] weeks; the width comes from the unknown partner API." Then work to shrink the biggest unknown first ([Chapter 63](#chapter-63-recommendations-proposals-and-estimates)).
+3. **Estimates in ranges and says what drives the range.** "Between [N] and [M] weeks; the width comes from the unknown partner API." Then work to shrink the biggest unknown first ([Chapter 41](#chapter-41-recommendations-proposals-and-estimates)).
 4. **Treats adding people as a specific proposal, not a hope.** Say who, when, onboarding to which self-contained piece, and what it costs the existing team this week.
 5. **Writes it down.** A one-page note: date, scope above the line, scope below it, assumptions, and what happens if an assumption breaks. When the partner API arrives late, you point at the assumption instead of re-arguing the whole plan.
 
@@ -26640,7 +26640,7 @@ Note what the script doesn't do: it doesn't blame the platform, the finance team
 
 > "The date is fixed, so let's treat it as fixed. With the team we have, we can deliver everything above this line with the quality a regulated launch needs. The items below it are real, and we'll do them next. If something below the line is actually required by the regulation, let's swap it in, and tell me what comes out. What I'm not willing to do is promise all of it and then cut testing quietly to make it fit, because that's the version that fails in front of the regulator."
 
-**Technical backing.** [Chapter 17](#chapter-17-soft-skills-engineering-practices) (estimation and planning), [Chapter 63](#chapter-63-recommendations-proposals-and-estimates) (ranges, assumptions, the written proposal), and [Chapter 7](#chapter-7-testing) (what you give up when tests go).
+**Technical backing.** [Chapter 16](#chapter-16-working-like-a-middle-developer) (estimation and planning), [Chapter 41](#chapter-41-recommendations-proposals-and-estimates) (ranges, assumptions, the written proposal), and [Chapter 8](#chapter-8-testing) (what you give up when tests go).
 
 **Story angle.** "We hit a fixed regulatory date by renegotiating scope, not quality" is an excellent STAR story, because the *Action* is visibly senior: you made a trade-off explicit and got a decision from the right person. Keep the ranked list format (with placeholders) as a portfolio template.
 
@@ -26668,7 +26668,7 @@ Note what the script doesn't do: it doesn't blame the platform, the finance team
 >
 > In private, afterwards: "I didn't want to argue it out in front of the team. I've put both options in the note, including the risks of mine. It's your call, and I'll implement whichever you choose properly."
 
-**Technical backing.** [Chapter 9](#chapter-9-messaging-distributed-systems) (what a queue actually costs and buys), [Chapter 17](#chapter-17-soft-skills-engineering-practices) (ADRs, judgement and influence), and [Chapter 60](#chapter-60-having-a-point-of-view) (strong opinions, and the evidence that would change them).
+**Technical backing.** [Chapter 11](#chapter-11-messaging-and-background-work) (what a queue actually costs and buys), [Chapter 16](#chapter-16-working-like-a-middle-developer) (ADRs), [Chapter 36](#chapter-36-senior-behaviours-career-and-interviews) (judgement and influence), and [Chapter 38](#chapter-38-having-a-point-of-view) (strong opinions, and the evidence that would change them).
 
 **Story angle.** "Tell me about a time you disagreed with a senior stakeholder" is among the most common behavioural questions. The strongest answers show you protected the other person's standing *and* the quality of the decision, and that you committed properly when overruled. An answer that ends "and in the end they admitted I was right" is weaker than it sounds.
 
@@ -26696,7 +26696,7 @@ Note what the script doesn't do: it doesn't blame the platform, the finance team
 
 > "I agree that speed matters most right now, so let's cut everything we can cut. Most of the test suite can wait until after the demo, and I'll list what we're deferring so it doesn't get lost. There are a few things I won't skip, because they protect your customers' data rather than our code: login on every endpoint, no secrets in the code, and safe database queries. Together that's about [N] hours. If an investor's technical advisor looks at the product, those are the first things they'll check."
 
-**Technical backing.** [Chapter 14](#chapter-14-security) (the OWASP Top 10 and what's cheap to get right), [Chapter 28](#chapter-28-compliance-data-privacy-cloud-cost-finops) (personal data obligations), [Chapter 7](#chapter-7-testing) (which tests pay back fastest), and [Chapter 33](#chapter-33-real-world-scenarios-architectural-decisions) (Scenario 8, the security measures that actually matter before a ship date).
+**Technical backing.** [Chapter 12](#chapter-12-security-essentials) (the OWASP Top 10 and what's cheap to get right), [Chapter 31](#chapter-31-compliance-data-privacy-cloud-cost-finops) (personal data obligations), [Chapter 8](#chapter-8-testing) (which tests pay back fastest), and [Chapter 35](#chapter-35-production-incidents) (Scenario 8, the security measures that actually matter before a ship date).
 
 **Story angle.** "I negotiated a faster path that kept the security floor" shows judgement under commercial pressure, which is exactly what senior interviews probe. Say what you gave up as well as what you kept. The deferral list format is a good portfolio template.
 
@@ -26735,7 +26735,7 @@ The written follow-up can use a fixed template:
 
 > "Between [time] and [time], checkout failed for your customers. The cause was a database change I deployed: it locked the orders table while it ran. It's been rolled back, and checkout has been working normally since [time]. I'll send a full write-up by [time] tomorrow, covering why our process let this through and what we're changing so a schema change can't do this again. I'm sorry for the disruption to your customers."
 
-**Technical backing.** [Chapter 4](#chapter-4-data-access-databases) (migrations, indexes and locking), [Chapter 21](#chapter-21-distributed-systems-theory-reliability-engineering) (blameless post-mortems and SRE practice), [Chapter 12](#chapter-12-devops-cicd) (deployment gates), and [Chapter 33](#chapter-33-real-world-scenarios-architectural-decisions) for the incident-response pattern.
+**Technical backing.** [Chapter 7](#chapter-7-data-access) (migrations, indexes and locking), [Chapter 20](#chapter-20-distributed-systems) (blameless post-mortems and SRE practice), [Chapter 26](#chapter-26-delivery-and-platform) (deployment gates), and [Chapter 35](#chapter-35-production-incidents) for the incident-response pattern.
 
 **Story angle.** "Tell me about a mistake you made" is guaranteed in senior interviews. This is the best possible material, *if* the story ends with a systemic fix rather than "I learned to be careful". Tell it in the first person, keep the client anonymous, and put the post-incident template (not the incident) in your portfolio.
 
@@ -26763,7 +26763,7 @@ The written follow-up can use a fixed template:
 
 > "I think there's a real opportunity here, and I'd rather find the right one than copy theirs. Let's pick one task your users spend real time on, maybe drafting support replies, and run a [N]-week experiment on real examples. At the end you'll know three things: whether it's good enough, what it costs per user, and what we'd need to do about your customers' data. If the answer is yes, we build it properly. If it's no, you've spent a few weeks rather than a quarter."
 
-**Technical backing.** [Chapter 19](#chapter-19-building-ai-powered-systems) (RAG, evaluation, cost mechanics, securing AI features), [Chapter 18](#chapter-18-the-ai-native-developer-thriving-in-the-ai-era) (judgement in the AI era), and [Chapter 28](#chapter-28-compliance-data-privacy-cloud-cost-finops) (data leaving your boundary).
+**Technical backing.** [Chapter 33](#chapter-33-building-ai-powered-systems) (RAG, evaluation, cost mechanics, securing AI features), [Chapter 32](#chapter-32-the-ai-native-developer-thriving-in-the-ai-era) (judgement in the AI era), and [Chapter 31](#chapter-31-compliance-data-privacy-cloud-cost-finops) (data leaving your boundary).
 
 **Story angle.** "I turned a 'we need AI' request into an evaluated experiment with a go/no-go decision" is exactly the kind of story hiring managers are looking for right now, because it shows you can use the technology *and* resist it. A go/no-go based on an eval set is a better story than a feature that shipped because the CEO wanted one. Build a public version of the evaluation harness on open data for your portfolio.
 
@@ -26791,7 +26791,7 @@ The written follow-up can use a fixed template:
 >
 > To the client, together: "We've looked at your ERP's integration options in detail. There are three ways to get the data across, and the difference is how fresh it is and what it needs on your side. Here they are."
 
-**Technical backing.** [Chapter 9](#chapter-9-messaging-distributed-systems) and [Chapter 23](#chapter-23-data-at-scale-multi-tenancy) (sync, change data capture, what "zero data loss" means in practice), [Chapter 21](#chapter-21-distributed-systems-theory-reliability-engineering) (delivery guarantees), and [Chapter 63](#chapter-63-recommendations-proposals-and-estimates) (writing options with costs).
+**Technical backing.** [Chapter 11](#chapter-11-messaging-and-background-work) and [Chapter 18](#chapter-18-data-in-depth) (sync, change data capture, what "zero data loss" means in practice), [Chapter 20](#chapter-20-distributed-systems) (delivery guarantees), and [Chapter 41](#chapter-41-recommendations-proposals-and-estimates) (writing options with costs).
 
 **Story angle.** This is a strong "stakeholder management" story, but it involves a named colleague's mistake, so tell it with care. The AM is a well-meaning person without the technical context, and your role is the one who turned a problem into options and fixed the process. Never share the real email thread.
 
@@ -26808,7 +26808,7 @@ The written follow-up can use a fixed template:
 **What an advisor does.**
 
 1. **Separates the roles.** Say it out loud: one person drives the fix, one person talks to stakeholders. If you're alone, say you'll update them every [30] minutes, and stop being interrupted in between.
-2. **Stabilises before diagnosing.** What changed recently? Deployments, config changes, certificate dates, dependency status pages. A rollback of the most recent change is often the fastest mitigation even before you know why it helps. Check the obvious in order: health endpoints, logs for the first error, dependencies ([Chapter 33](#chapter-33-real-world-scenarios-architectural-decisions) for the generic playbook).
+2. **Stabilises before diagnosing.** What changed recently? Deployments, config changes, certificate dates, dependency status pages. A rollback of the most recent change is often the fastest mitigation even before you know why it helps. Check the obvious in order: health endpoints, logs for the first error, dependencies ([Chapter 35](#chapter-35-production-incidents) for the generic playbook).
 3. **Reports in three buckets.** What we know, what we don't know yet, and what we're doing next. That structure keeps you honest and keeps the client calm, because it shows method.
 4. **Doesn't speculate about cause, and doesn't blame the previous owner.** "The system has little documentation" is a finding for the post-incident review. It doesn't help during the incident.
 5. **Turns the incident into the onboarding you didn't get.** Afterwards: a real runbook, dashboards and alerts for the failure you just found, and a short list of the next most likely failures. That's reliability made visible, and it's a gift to whoever inherits the system after you.
@@ -26817,7 +26817,7 @@ The written follow-up can use a fixed template:
 
 > "Here's where we are. We know the order API is returning errors since about [time], and that it started [before/after] the [deployment/change]. We don't know the cause yet. What we're doing now is [rolling back / checking the payment dependency]. I'll update you at [time] even if nothing has changed. If you need something for your customers, the safest message right now is that orders are delayed and we're working on it, without an estimate."
 
-**Technical backing.** [Chapter 13](#chapter-13-observability) (logs, traces and metrics you'll wish you had), [Chapter 33](#chapter-33-real-world-scenarios-architectural-decisions) (incident response), [Chapter 21](#chapter-21-distributed-systems-theory-reliability-engineering) (SRE practice), and [Chapter 61](#chapter-61-discovery-and-diagnosis) (mapping an unfamiliar system quickly).
+**Technical backing.** [Chapter 9](#chapter-9-exceptions-logging-and-first-diagnosis) (logs, traces and metrics you'll wish you had), [Chapter 35](#chapter-35-production-incidents) (incident response), [Chapter 20](#chapter-20-distributed-systems) (SRE practice), and [Chapter 39](#chapter-39-discovery-and-diagnosis) (mapping an unfamiliar system quickly).
 
 **Story angle.** "In my first week on an engagement I led the response to a production incident on a system I'd never seen" is a memorable opening. The substance is the method (roles, rhythm, the three buckets) and the runbook you left behind. Keep the client and system anonymous. The runbook template, with the specifics stripped out, is portfolio-ready.
 
@@ -26842,15 +26842,15 @@ The written follow-up can use a fixed template:
 
 > "I haven't used it in production, so I don't want to give you a verdict off the top of my head. What I'd want to know before recommending it is what problem we'd use it for that our current setup can't handle, what it takes to operate, and how mature the .NET client is. Give me until [Thursday] and I'll come back with a one-page comparison and a small working spike, so we're deciding on evidence."
 
-**Technical backing.** [Chapter 16](#chapter-16-tooling-productivity) (evaluating tools), [Chapter 35](#chapter-35-software-supply-chain-security) (assessing a dependency's maintenance and provenance), and [Chapter 60](#chapter-60-having-a-point-of-view) (forming a view quickly and stating its confidence).
+**Technical backing.** [Chapter 13](#chapter-13-git-and-cicd) (evaluating tools), [Chapter 27](#chapter-27-security-in-depth-and-the-supply-chain) (assessing a dependency's maintenance and provenance), and [Chapter 38](#chapter-38-having-a-point-of-view) (forming a view quickly and stating its confidence).
 
-**Story angle.** "How do you evaluate a technology you haven't used?" is a common senior interview question, and this is the answer: the criteria, the time-boxed spike, the written comparison. Publishing a few of these one-page evaluations, on technologies you've spiked on your own time, is some of the most transferable portfolio content you can create ([Chapter 65](#chapter-65-positioning-and-public-proof)).
+**Story angle.** "How do you evaluate a technology you haven't used?" is a common senior interview question, and this is the answer: the criteria, the time-boxed spike, the written comparison. Publishing a few of these one-page evaluations, on technologies you've spiked on your own time, is some of the most transferable portfolio content you can create ([Chapter 43](#chapter-43-positioning-and-public-proof)).
 
 ## Quick Advisory Cases
 
 Short situations, one move each. Use them as flashcards.
 
-- **"Just give me a number."** The client wants a single estimate for a vague feature. Give a range, name the largest unknown, and offer to narrow the range after a [N]-day spike. A single number becomes a promise the moment it's said ([Chapter 63](#chapter-63-recommendations-proposals-and-estimates)).
+- **"Just give me a number."** The client wants a single estimate for a vague feature. Give a range, name the largest unknown, and offer to narrow the range after a [N]-day spike. A single number becomes a promise the moment it's said ([Chapter 41](#chapter-41-recommendations-proposals-and-estimates)).
 - **The client's developer keeps pushing straight to main.** It isn't your team to manage. Raise it as a risk with evidence (the last two incidents traced to unreviewed pushes) and propose branch protection as a team rule, not a personal rebuke.
 - **Your vendor wants you to recommend its partner product.** Recommend it only if you would anyway, and disclose the relationship if you do. Undisclosed incentives are the purest form of self-orientation, and clients find out.
 - **The client asks you to stay late for the third week running.** Reliability includes being able to keep the pace you've set. Surface the workload as a capacity issue with a plan, before it shows up as mistakes.
@@ -26959,7 +26959,7 @@ Third, if you're asked directly whether the original decision was wrong, be hone
 
 Separate the legitimate concern from the method. The concern is real: single-point estimates are optimistic, and clients do negotiate. The method, hidden padding, damages credibility when it's discovered (and a technical client will discover it the first time a "two-week" task visibly takes three days), and it teaches the client that your numbers are theatre, which makes the next negotiation worse.
 
-Propose the honest version of the same protection: estimate in ranges, make the uncertainty and its drivers explicit, include contingency as a *named line* with a rationale ("integration risk with the partner API"), and state the assumptions that, if broken, move the estimate ([Chapter 63](#chapter-63-recommendations-proposals-and-estimates)). That gives the delivery manager the buffer they need and gives the client something to discuss other than your credibility.
+Propose the honest version of the same protection: estimate in ranges, make the uncertainty and its drivers explicit, include contingency as a *named line* with a rationale ("integration risk with the partner API"), and state the assumptions that, if broken, move the estimate ([Chapter 41](#chapter-41-recommendations-proposals-and-estimates)). That gives the delivery manager the buffer they need and gives the client something to discuss other than your credibility.
 
 If the delivery manager insists on hidden padding, it's their commercial decision, and they own the number they send. Make sure your own technical estimate, as you gave it, is recorded, and don't personally present a number to the client that you know is misleading.
 </details>
@@ -26973,9 +26973,9 @@ Answer these from your own current engagement, not from memory:
 - **The last hard conversation.** Pick one tense client exchange from the last three months. Rewrite your own message using the structure from the matching case. What would you change?
 - **The incident template.** Does your team have a client-facing incident note template? If not, adapt the one from Case A8, and get your lead's agreement before you need it.
 - **Promises in flight.** List every open commitment you've made to the client ("I'll look into it", "by Friday"). Which ones are late or forgotten? Close them or re-negotiate them today.
-- **Story candidates.** Which of the twelve cases have you lived, even partly? Write each as a STAR skeleton in your private story bank ([Chapter 36](#chapter-36-the-story-bank-evidence-portfolio)), with the client anonymised.
+- **Story candidates.** Which of the twelve cases have you lived, even partly? Write each as a STAR skeleton in your private story bank ([Chapter 37](#chapter-37-the-story-bank-evidence-portfolio)), with the client anonymised.
 
-Keep everything about a real client, vendor or colleague private. What goes into a public portfolio is *method*: templates, anonymised decision records, public-data spikes and evaluations. Real stories go public only when they're anonymised and you have permission ([Chapter 65](#chapter-65-positioning-and-public-proof)).
+Keep everything about a real client, vendor or colleague private. What goes into a public portfolio is *method*: templates, anonymised decision records, public-data spikes and evaluations. Real stories go public only when they're anonymised and you have permission ([Chapter 43](#chapter-43-positioning-and-public-proof)).
 
 ## Sources & Further Reading
 
@@ -26988,7 +26988,7 @@ Keep everything about a real client, vendor or colleague private. What goes into
 - Martin Fowler, "StranglerFigApplication", "MonolithFirst" and "MicroservicePremium" (martinfowler.com). The incremental alternatives in Cases A1 and A2.
 - Betsy Beyer et al. (eds.), *Site Reliability Engineering* (O'Reilly, 2016), chapter "Postmortem Culture: Learning from Failure". Blameless post-incident reviews.
 - Kerry Patterson et al., *Crucial Conversations: Tools for Talking When Stakes Are High* (McGraw-Hill, 2002). Useful for Cases A6 and A8.
-- Within this book: [Chapter 17](#chapter-17-soft-skills-engineering-practices) (communication, ADRs, estimation), [Chapter 33](#chapter-33-real-world-scenarios-architectural-decisions) and [Chapter 51](#chapter-51-the-azure-casebook-real-incidents-real-fixes) (the technical casebooks), and [Chapter 36](#chapter-36-the-story-bank-evidence-portfolio) (turning cases into stories).
+- Within this book: [Chapter 16](#chapter-16-working-like-a-middle-developer) (communication, ADRs, estimation), [Chapter 35](#chapter-35-production-incidents) and [Chapter 30](#chapter-30-the-azure-casebook-real-incidents-real-fixes) (the technical casebooks), and [Chapter 37](#chapter-37-the-story-bank-evidence-portfolio) (turning cases into stories).
 
 
 ---
@@ -27845,7 +27845,7 @@ _⏱️ Estimated read time: ~5 min · 695 words (study pace)_
 
 # Appendix: .NET Version Comparison Cheat-Sheet
 
-_⏱️ Estimated read time: ~5 min · 1492 words (study pace)_
+_⏱️ Estimated read time: ~5 min · 1393 words (study pace)_
 
 This appendix is a fast, interview-oriented reference for the modern .NET release line (.NET 5 and later — the unified, cross-platform successor to both .NET Core and .NET Framework). It is deliberately shallow: enough to answer "what changed between versions" crisply in an interview, not a migration guide. Every date and support designation below was verified against Microsoft's official support policy and release documentation (see **Sources**).
 
@@ -27853,7 +27853,7 @@ This appendix is a fast, interview-oriented reference for the modern .NET releas
 
 ## Release cadence: how the versioning actually works
 
-Since .NET 5, Microsoft ships one new major version every year in **November**, and the support tier alternates by parity. **Even-numbered versions are LTS (Long-Term Support) and get 3 years of support; odd-numbered versions are STS (Standard-Term Support)**, historically 18 months but **extended to 24 months starting with .NET 9** (announced September 2025). "Support" here means free servicing: security patches and bug fixes. The practical meaning for choosing a production version is simple: an LTS release gives you a stable, patched baseline you can sit on for three years without a forced major upgrade, whereas an STS release is a shorter-lived "latest and greatest" that you must upgrade off of sooner. Teams that value stability and a slow upgrade cadence standardize on LTS; teams that want the newest features immediately and are comfortable upgrading annually can ride STS. Note that both tiers receive the *same* quality of fixes while supported — LTS is not "more tested," it simply lives longer.
+One major version ships every November; even-numbered versions are LTS (3 years of support), odd-numbered ones STS (24 months from .NET 9, 18 months before). How the two tracks work and how to choose between them is in [Chapter 3](#chapter-3-how-net-runs-your-code); keeping a fleet of services on supported versions is the EOL treadmill of [Chapter 24](#chapter-24-working-with-legacy-brownfield-code). This appendix is the per-version detail.
 
 ## Main comparison table
 
