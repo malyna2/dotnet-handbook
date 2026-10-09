@@ -17,12 +17,19 @@ LANGS = {"javascript", "js", "typescript", "ts", "tsx", "jsx"}
 # chapter file -> folder (relative to this one) that holds its tested code
 FOLDERS = {
     "106-frontend-essentials.md": "ch06",
+    "234-frontend-in-depth.md": "ch34",
 }
 
 # (chapter file, first line of the block) -> why it is not run
 NOT_RUN = {
     ("106-frontend-essentials.md", "for (const row of rows) {"):
         "layout thrashing: a cost that exists only in a real browser; jsdom has no layout engine",
+    ("234-frontend-in-depth.md", 'import { onCLS, onINP, onLCP, type Metric } from "web-vitals";'):
+        "needs a real browser's performance APIs",
+    ("234-frontend-in-depth.md", 'import { expect, test } from "@playwright/test";'):
+        "needs installed browsers and a deployed app",
+    ("234-frontend-in-depth.md", 'import { HubConnectionBuilder } from "@microsoft/signalr";'):
+        "needs a running SignalR hub",
 }
 
 
