@@ -1,5 +1,7 @@
 # Restructuring plan: one book, two parts
 
+> **Done 2026-10-09.** The book now follows this plan; `chapters/_notes/WHERE.md` lists where every old section went, and `chapters/_aliases.json` redirects old chapter addresses. Chapter 6 (frontend) and parts of Chapter 34 were written new.
+
 Working document for review, not part of the book (the build ignores it). Every `##` section of the current chapters is assigned to exactly one place. A split section sends its basics to Part 1 and its depth to Part 2. Reading times use the build's formula (prose 200 wpm, code 60 wpm); a split counts half on each side, and new writing is not counted yet.
 
 **Shape of every new chapter:** the moved sections, rewritten into one sequence; then the module page's *Prove it* program, three questions and *Check at work* as the chapter's practice; then the chapter's interview questions (from Chapter 34). Part 2 chapters link back to Part 1 instead of repeating it. Old chapter and section addresses redirect to the new places.
