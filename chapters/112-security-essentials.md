@@ -507,22 +507,13 @@ builder.Services.AddControllersWithViews(options =>
 
 > **Best practice:** CSRF specifically targets *cookie-based* auth. Token-based APIs where the client sends `Authorization: Bearer ...` from JavaScript are not vulnerable in the same way, because the browser doesn't attach that header automatically cross-site. Additionally set cookies to `SameSite=Lax` (or `Strict`) as defense in depth.
 
-### CORS Done Right
+### CORS Is Not Access Control
 
-The browser's **Same-Origin Policy** blocks JavaScript on one origin from reading responses from another, and **CORS** (Cross-Origin Resource Sharing) is how a server *opts in* to allowing specific other origins; [Chapter 6: Cookies, Sessions, and the Same-Origin Policy](#cookies-sessions-and-the-same-origin-policy) explains both from the browser's side, preflight included. Here the point is the server's: CORS is a relaxation of security, so configure it as tightly as possible.
+**CORS** (Cross-Origin Resource Sharing) is how a server opts specific other origins out of the browser's Same-Origin Policy; [Chapter 5: HTTP and Web APIs](#chapter-5-http-and-web-apis) covers the mechanism, the preflight and the ASP.NET Core policy. For security, one property matters more than the configuration.
 
-```csharp
-builder.Services.AddCors(options =>
-    options.AddPolicy("spa", policy => policy
-        .WithOrigins("https://app.example.com") // explicit, never "*"
-        .WithMethods("GET", "POST")
-        .WithHeaders("Authorization", "Content-Type")
-        .AllowCredentials()));
-```
+> **Pay attention.** **CORS doesn't stop the request.** CORS is enforced by the *browser*, and it hides *responses*, not requests. A "simple" cross-origin request (a `GET`, or a `POST` with a form or plain-text body) is sent without a preflight, your server executes it, and only then does the browser withhold the response from the calling script. A denied CORS check has already changed your data. And outside a browser there is no check at all: `curl` or a server-side attacker ignores CORS entirely. So CORS is never an authorization mechanism. What stops an unwanted request is the server's own authorization on every endpoint, and, for state-changing endpoints with cookie authentication, the anti-forgery token above.
 
-> **Pitfall:** `AllowAnyOrigin()` combined with `AllowCredentials()` is invalid and dangerous — the spec forbids it precisely because it would let *any* site make credentialed requests to your API, and ASP.NET Core's policy builder throws `InvalidOperationException` for it. The workaround people then reach for, reflecting the request's `Origin` header back, recreates the same hole: never do it, and never wildcard origins on an authenticated API.
-
-CORS is enforced by the *browser*, not the server — it is not an authorization mechanism. It stops a malicious site's JavaScript from reading your API in a victim's browser; it does nothing against `curl` or a server-side attacker. And it hides *responses*, not requests: a "simple" cross-origin request (a `GET`, or a `POST` with a form or plain-text body) is sent without a preflight, your server executes it, and only then does the browser withhold the response. State-changing endpoints that use cookies still need anti-forgery protection.
+The configuration rule that follows: CORS is a relaxation, so keep it tight. Name explicit origins; never combine a wildcard origin with credentials (ASP.NET Core's policy builder refuses `AllowAnyOrigin()` with `AllowCredentials()`), and never "fix" that by reflecting the request's `Origin` header back, which recreates the same hole.
 
 ### Security Headers
 
