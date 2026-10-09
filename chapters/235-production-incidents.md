@@ -1,17 +1,18 @@
 # Chapter 35: Production Incidents
 
-@@TODO: write this chapter's introduction (what it makes the reader able to do, how its sections connect), then remove every @@ line.@@
+Every senior engineer eventually learns that the hard part of the job is not writing code — it is deciding what to do when the code you already shipped meets reality. Reality shows up as a traffic spike you did not plan for, a "successful" request that silently lost data, a p99 latency graph that looks like a seismograph, and a dependency that vanishes at the worst possible moment. This chapter is a war-room playbook: it makes you able to go from a symptom to a working theory, stop the bleeding, and then name the architectural decision the incident is pushing you toward — and to tell that story well in an interview.
 
-@@SRC: introduction of old Chapter 33: Real-World Scenarios & Architectural Decisions@@
+It opens with method. *The Debugging Map* turns a production symptom into the piece of distributed-systems theory that explains it, and *Live-Container Triage* shows how the OS view and the runtime view of one failing container are read against each other. Then comes *the incident cheat-card*, one row per scenario, and twelve scenarios you could plausibly live through on an on-call rotation. Each follows the same shape: the situation, how you notice it, how to stop the bleeding, the root causes, the durable fix and its trade-offs, and how to talk about it.
 
-Every senior engineer eventually learns that the hard part of the job is not writing code — it is deciding what to do when the code you already shipped meets reality. Reality shows up as a traffic spike you did not plan for, a "successful" request that silently lost data, a p99 latency graph that looks like a seismograph, and a dependency that vanishes at the worst possible moment. This chapter is a war-room playbook. Each scenario is a story you could plausibly live through on a production on-call rotation, framed around one question: *how do you react, and what architectural decision does that push you toward?*
+The building blocks come from earlier chapters — cloud and statelessness ([Chapter 28](#chapter-28-cloud-fundamentals-aws-azure)), Kubernetes ([Chapter 26](#chapter-26-delivery-and-platform)), data at scale ([Chapter 18](#chapter-18-data-in-depth)), messaging ([Chapter 11](#chapter-11-messaging-and-background-work)), distributed theory and SRE ([Chapter 20](#chapter-20-distributed-systems)), and the runtime, GC and performance tooling ([Chapter 17](#chapter-17-runtime-internals-and-performance)). They are not re-taught here; they are put to work under fire.
 
-Treat this as a reference you can open under pressure and as an interview crib sheet. The earlier chapters gave you the building blocks — scaling and cloud (Ch. 10), containers and Kubernetes (Ch. 11), data at scale (Ch. 23), messaging and distributed patterns (Ch. 9), distributed theory and SRE (Ch. 21), the runtime and GC (Ch. 2), and performance (Ch. 15). Here we do not re-teach those; we put them to work under fire and reason about the trade-offs. Each of the twelve scenarios below follows the same shape: the situation, how you notice it, how to stop the bleeding, the root causes, the durable fix and its trade-offs, and how to talk about it in an interview.
+## How to Triage: From Symptom to Theory
 
-@@SRC: old Chapter 21: Distributed Systems Theory & Reliability Engineering@@
-## The Debugging Map: Symptom → Theory → Mitigation
+Two habits make the scenarios below fast to work through. The first is recognising which piece of theory a symptom belongs to; the second is reading a sick process from two levels at once.
 
-When production misbehaves, the fastest route to a fix is recognizing which piece of theory you're looking at. This table is the chapter in reverse — start from what you're seeing, name the cause, apply the pattern.
+### The Debugging Map: Symptom → Theory → Mitigation
+
+When production misbehaves, the fastest route to a fix is recognizing which piece of theory you're looking at. This table is [Chapter 20](#chapter-20-distributed-systems) in reverse — start from what you're seeing, name the cause, apply the pattern.
 
 | Symptom in production | Theory that explains it | Mitigation in .NET |
 |---|---|---|
@@ -24,10 +25,9 @@ When production misbehaves, the fastest route to a fix is recognizing which piec
 | Memory balloons while a downstream consumer lags | No backpressure: unbounded buffering hides overload until the heap explodes | Bounded `System.Threading.Channels`; load shedding (fast 429s) |
 | Cluster refuses writes when nodes lose contact | CAP: a partition forces the C-vs-A choice; a quorum can't form | Raft-backed stores (etcd/Consul), odd-sized clusters; decide PA vs PC per domain, deliberately |
 
-@@SRC: old Chapter 31: Linux & the Command Line for .NET Developers@@
-## Live-Container Triage: A Walkthrough
+### Live-Container Triage: A Walkthrough
 
-Here is how the pieces of this chapter combine on a real page: "the orders container keeps dying, and now it's up but slow."
+Here is how the Linux tools from [Chapter 14](#chapter-14-containers-and-linux) and the runtime tools from [Chapter 17](#chapter-17-runtime-internals-and-performance) combine on a real page: "the orders container keeps dying, and now it's up but slow."
 
 Start with the logs. `docker logs --tail 200 orders` shows normal request logs that simply *stop* mid-flight — no exception, none of your graceful-shutdown lines. That silence is a signature: the app didn't crash, it was SIGKILLed — a SIGTERM would have produced those shutdown lines. Confirm on the host: `journalctl --since "1 hour ago" | grep -i oom` turns up the kernel's OOM killer reaping your dotnet process. The container hit its memory limit; the kernel ended the argument (exit code 137 = 128 + 9, i.e. SIGKILL).
 
@@ -35,11 +35,10 @@ The replacement container is up but sluggish, so check the sockets next. `ss -tl
 
 Now the resource view. `top` shows the dotnet process at modest CPU but with resident memory already climbing toward the limit again; `ps aux | grep dotnet | sort -k4 -rn | head` confirms it. So it's a cycle: memory grows, the OOM killer fires, the container restarts, and the connection backlog makes everything slow in between.
 
-This is as far as the OS view goes. It has told you *that* memory grows and *when* the kernel kills you — but not *what* is growing. For that you attach the runtime-level tools from Chapter 15: `dotnet-counters` to watch GC heap size, allocation rate, and thread-pool queue length live, and `dotnet-dump`/`dotnet-gcdump` to see which types are accumulating and what roots them. The comparison is the diagnosis: if the GC heap is flat while the working set climbs, suspect native or buffer memory — or a limit set below the app's honest working set; if Gen 2 and the LOH climb together, you have a managed leak.
+This is as far as the OS view goes. It has told you *that* memory grows and *when* the kernel kills you — but not *what* is growing. For that you attach the runtime-level tools: `dotnet-counters` to watch GC heap size, allocation rate, and thread-pool queue length live, and `dotnet-dump`/`dotnet-gcdump` to see which types are accumulating and what roots them. The comparison is the diagnosis: if the GC heap is flat while the working set climbs, suspect native or buffer memory — or a limit set below the app's honest working set; if Gen 2 and the LOH climb together, you have a managed leak.
 
-That is the method: the OS view (`journalctl`, `ss`, `top`) shows what the machine sees, the runtime view (Chapter 15's `dotnet-*` tools) shows what the CLR sees — and it's the *disagreement* between them that tells you which layer is lying.
+That is the method: the OS view (`journalctl`, `ss`, `top`) shows what the machine sees, the runtime view (the `dotnet-*` tools) shows what the CLR sees — and it's the *disagreement* between them that tells you which layer is lying. [Scenario 7](#scenario-7-the-slow-leak-memory-keeps-growing-until-the-pod-is-oom-killed) works this exact case through to the fix.
 
-@@SRC: old Chapter 33: Real-World Scenarios & Architectural Decisions@@
 ## The incident cheat-card
 
 This is the page to open at 3 a.m. — one row per scenario, each row expanded in full in the scenario it points to.
@@ -61,7 +60,6 @@ This is the page to open at 3 a.m. — one row per scenario, each row expanded i
 
 ---
 
-@@SRC: old Chapter 33: Real-World Scenarios & Architectural Decisions@@
 ## Scenario 1 — Black Friday: traffic is 5× and the shop is falling over
 
 ### The scenario
@@ -100,7 +98,7 @@ The traffic was foreseeable; the fragility was architectural. Common culprits:
 
 ### The fix & architectural options (with trade-offs)
 
-**Make the app tier stateless** so autoscaling actually works. Push session state to a distributed cache (Redis) or a signed token; never rely on a specific instance. This is the precondition for everything else (Ch. 10).
+**Make the app tier stateless** so autoscaling actually works. Push session state to a distributed cache (Redis) or a signed token; never rely on a specific instance. This is the precondition for everything else ([Chapter 28](#chapter-28-cloud-fundamentals-aws-azure); the session store itself is in [Chapter 18](#chapter-18-data-in-depth)).
 
 **Layer your caching.** Think in tiers, cheapest and closest first:
 
@@ -111,7 +109,7 @@ The traffic was foreseeable; the fragility was architectural. Common culprits:
 | Distributed (Redis) | Product data, sessions, rendered fragments | Seconds–minutes | Shared, one place to invalidate; network hop + a new dependency |
 | DB read replicas | Everything read-heavy | Replica lag | Scales reads; eventual consistency |
 
-**Queue-based load leveling for writes.** Checkout should *accept* the order fast, enqueue the heavy work (payment capture, inventory decrement, fulfillment, email), and return "order received." A durable queue absorbs the spike; consumers drain it at a sustainable rate (Ch. 9). The user sees an instant confirmation page; the order finalizes asynchronously.
+**Queue-based load leveling for writes.** Checkout should *accept* the order fast, enqueue the heavy work (payment capture, inventory decrement, fulfillment, email), and return "order received." A durable queue absorbs the spike; consumers drain it at a sustainable rate ([Chapter 11](#chapter-11-messaging-and-background-work)). The user sees an instant confirmation page; the order finalizes asynchronously.
 
 **Graceful degradation and load shedding.** Design tiers of service: core (browse, add to cart, checkout) must never go down; everything else is expendable. A load shedder that drops the bottom 20% of non-critical traffic keeps the top 80% healthy.
 
@@ -155,7 +153,6 @@ For high-value or scarce goods, **reservation** is the senior answer; for commod
 
 ---
 
-@@SRC: old Chapter 33: Real-World Scenarios & Architectural Decisions@@
 ## Scenario 2 — The lost write: the user got 200 but the data never saved
 
 ### The scenario
@@ -188,13 +185,13 @@ The other classic is **"return 200, then do the work."** Handing the caller a su
 
 ### The fix & architectural options (with trade-offs)
 
-**The Transactional Outbox.** The core trick: only write to *one* store transactionally — your database — and record the intent to publish in the *same* transaction, in an `outbox` table. A separate relay reads the outbox and publishes to the broker, marking rows sent. Now the DB write and the "I will publish" record commit atomically; the actual publish becomes a retryable, at-least-once background job. (Ch. 9 covers the table and publisher mechanics; Ch. 22 shows the background relay itself.)
+**The Transactional Outbox.** The core trick: only write to *one* store transactionally — your database — and record the intent to publish in the *same* transaction, in an `outbox` table. A separate relay reads the outbox and publishes to the broker, marking rows sent. Now the DB write and the "I will publish" record commit atomically; the actual publish becomes a retryable, at-least-once background job. ([Chapter 11](#chapter-11-messaging-and-background-work) covers the table, the publisher and the background relay; [Chapter 20](#chapter-20-distributed-systems) the guarantees in depth.)
 
 If the relay crashes after publishing but before marking a row processed, it republishes on restart — hence **at-least-once**, and hence consumers must **deduplicate**. That is the whole game: you trade the impossible "exactly-once delivery" for "at-least-once delivery + idempotent consumers," which together give **effectively-once processing**.
 
-**Idempotency keys and dedup.** Give every message (and every externally-triggered command) a stable ID. Consumers record processed IDs (an `inbox`/processed-messages table, backed by a unique index) and skip duplicates — Ch. 21 covers the implementation. For inbound HTTP writes, accept a client-supplied `Idempotency-Key` header (Stripe's model): the first request does the work and stores the result keyed by that value; retries with the same key return the stored result instead of doing the work twice.
+**Idempotency keys and dedup.** Give every message (and every externally-triggered command) a stable ID. Consumers record processed IDs (an `inbox`/processed-messages table, backed by a unique index) and skip duplicates — [Chapter 20](#chapter-20-distributed-systems) covers the implementation. For inbound HTTP writes, accept a client-supplied `Idempotency-Key` header (Stripe's model): the first request does the work and stores the result keyed by that value; retries with the same key return the stored result instead of doing the work twice.
 
-**Sagas for multi-service consistency.** When a business transaction spans services (reserve inventory → charge card → create shipment), you cannot hold one ACID transaction across all of them. A **saga** is a sequence of local transactions, each with a compensating action to undo it if a later step fails (release the reservation, refund the charge). This is eventual consistency by design — the system is briefly inconsistent and converges (Ch. 9).
+**Sagas for multi-service consistency.** When a business transaction spans services (reserve inventory → charge card → create shipment), you cannot hold one ACID transaction across all of them. A **saga** is a sequence of local transactions, each with a compensating action to undo it if a later step fails (release the reservation, refund the charge). This is eventual consistency by design — the system is briefly inconsistent and converges ([Chapter 20](#chapter-20-distributed-systems)).
 
 | Approach | Consistency | Coupling / complexity | When |
 |---|---|---|---|
@@ -208,12 +205,12 @@ If the relay crashes after publishing but before marking a row processed, it rep
 
 **The exactly-once myth.** There is no exactly-once *delivery* over an unreliable network — it is a theoretical impossibility. What you can build is exactly-once *processing effect*: at-least-once delivery + idempotent handlers. Any vendor claiming "exactly once" is doing dedup under the hood. Design for duplicates and you are safe; assume they can't happen and you will lose or double-apply data.
 
-**Event sourcing angle.** If you store the *events* as the source of truth rather than current state, a "lost write" becomes far less likely and always recoverable — you can rebuild any projection by replaying the log, and you get a full audit trail for free. The cost is a genuinely different programming model (Ch. 9), so reach for it when auditability and reconstructability justify it, not by default.
+**Event sourcing angle.** If you store the *events* as the source of truth rather than current state, a "lost write" becomes far less likely and always recoverable — you can rebuild any projection by replaying the log, and you get a full audit trail for free. The cost is a genuinely different programming model ([Chapter 21](#chapter-21-architecture)), so reach for it when auditability and reconstructability justify it, not by default.
 
 ### How to prevent it
 
 - **Never dual-write.** One transactional store per write; propagate via outbox.
-- **Make `200` mean durably committed.** If you must go async, return `202 Accepted` with a status URL, and back it with a durable queue/outbox — not a fire-and-forget `Task` ([Chapter 22: Async Request-Reply](#async-request-reply-202-a-status-resource-and-retry-after) has the full contract).
+- **Make `200` mean durably committed.** If you must go async, return `202 Accepted` with a status URL, and back it with a durable queue/outbox — not a fire-and-forget `Task` ([Async Request-Reply](#async-request-reply-202-a-status-resource-and-retry-after) in Chapter 11 has the full contract).
 - **Reconciliation jobs as a standing safety net.** A scheduled job that compares counts/checksums across services and alerts (or auto-heals) on drift. Even a perfect design benefits from a smoke detector.
 - **Idempotency everywhere** writes can be retried — from the public API down to internal consumers.
 
@@ -221,7 +218,6 @@ If the relay crashes after publishing but before marking a row processed, it rep
 
 ---
 
-@@SRC: old Chapter 33: Real-World Scenarios & Architectural Decisions@@
 ## Scenario 3 — Stop-the-world: garbage collector pauses are causing latency spikes
 
 ### The scenario
@@ -244,7 +240,7 @@ A trading-adjacent API has a strict p99 SLA of 50 ms. Most of the time it sits a
 
 ### Root causes
 
-- **Allocation pressure.** The app allocates too much, too fast. High allocation rate → frequent Gen 0/1 collections, and promotion of survivors into Gen 2, whose collections are the expensive, potentially stop-the-world ones (Ch. 2).
+- **Allocation pressure.** The app allocates too much, too fast. High allocation rate → frequent Gen 0/1 collections, and promotion of survivors into Gen 2, whose collections are the expensive, potentially stop-the-world ones ([Chapter 17](#chapter-17-runtime-internals-and-performance)).
 - **Large Object Heap (LOH) churn and fragmentation.** Objects ≥ 85,000 bytes (big arrays, large strings, buffers) go on the LOH, which is collected only during Gen 2 and historically not compacted — so it fragments, wasting memory and triggering more full collections.
 - **Wrong GC mode.** Workstation GC in a multi-core server process serializes collection on one thread; Server GC uses a heap and thread per core and is built for throughput.
 - **Concurrent GC disabled**, so Gen 2 collections block all application threads.
@@ -267,7 +263,7 @@ A trading-adjacent API has a strict p99 SLA of 50 ms. Most of the time it sits a
 | Server GC | Heap + GC thread per core, parallel | High-throughput services | Higher memory + CPU baseline |
 | Concurrent/Background GC | Gen 2 runs alongside app threads | Latency-sensitive services | Slightly more CPU/memory |
 
-**Reduce allocations — the real fix.** GC tuning caps the pain; *not allocating* removes it. Concretely (Ch. 15):
+**Reduce allocations — the real fix.** GC tuning caps the pain; *not allocating* removes it. Concretely ([Chapter 17](#chapter-17-runtime-internals-and-performance)):
 
 - **Pool reusable buffers** with `ArrayPool<T>.Shared` instead of `new byte[...]` per request. This is the single biggest win for LOH churn.
 - **Use `Span<T>`/`Memory<T>`** and `stackalloc` to slice and parse without intermediate arrays and substrings.
@@ -319,7 +315,6 @@ GC.Collect(); // deliberate, rare, e.g. after a large batch job — never in the
 
 ---
 
-@@SRC: old Chapter 33: Real-World Scenarios & Architectural Decisions@@
 ## Scenario 4 — The broker is down: a critical dependency has failed
 
 ### The scenario
@@ -350,7 +345,7 @@ Your order service publishes every order to RabbitMQ, where fulfillment, billing
 
 ### The fix & architectural options (with trade-offs)
 
-**Circuit breaker + fallback (Polly).** Wrap the dependency in a circuit breaker so that after a threshold of failures, calls short-circuit for a cool-off period and you serve a fallback instead of hanging — and give every call a timeout so nothing waits indefinitely. Ch. 21 builds the full `Microsoft.Extensions.Resilience` / Polly pipeline (retry + breaker + layered timeouts) and explains why the ordering of strategies matters. The decision that is specific to *this* incident is what the fallback should be — and for publishing, the answer is the outbox buffer below.
+**Circuit breaker + fallback (Polly).** Wrap the dependency in a circuit breaker so that after a threshold of failures, calls short-circuit for a cool-off period and you serve a fallback instead of hanging — and give every call a timeout so nothing waits indefinitely. [Chapter 5](#chapter-5-http-and-web-apis) wires the `Microsoft.Extensions.Resilience` / Polly pipeline and [Chapter 20](#chapter-20-distributed-systems) builds it out (retry + breaker + layered timeouts) and explains why the ordering of strategies matters. The decision that is specific to *this* incident is what the fallback should be — and for publishing, the answer is the outbox buffer below.
 
 **Retry with exponential backoff *and jitter*.** Backoff alone is not enough: if every instance retries on the same schedule, they synchronize into coordinated waves. Jitter randomizes the delay so load spreads out. Also make retries **idempotent** and **bounded** — retrying a non-idempotent write is how you double-charge a customer.
 
@@ -360,7 +355,7 @@ Your order service publishes every order to RabbitMQ, where fulfillment, billing
 
 **Dead-letter queues (DLQ).** For messages that repeatedly fail to process (poison messages, or a downstream that is down), route them to a DLQ after N attempts instead of blocking the main queue or infinitely retrying. Then alert, inspect, fix, and replay. A DLQ keeps one bad message from stalling the whole pipeline.
 
-**Health checks & readiness — get this right.** Distinguish **liveness** (is the process alive? restart if not) from **readiness** (can it serve traffic right now?). A subtle but critical decision: **a non-critical dependency being down should not fail your readiness probe**, or Kubernetes will pull a perfectly serviceable pod out of rotation and make the outage worse. Readiness should reflect *your* ability to serve, degraded or not (Ch. 11, Ch. 21).
+**Health checks & readiness — get this right.** Distinguish **liveness** (is the process alive? restart if not) from **readiness** (can it serve traffic right now?). A subtle but critical decision: **a non-critical dependency being down should not fail your readiness probe**, or Kubernetes will pull a perfectly serviceable pod out of rotation and make the outage worse. Readiness should reflect *your* ability to serve, degraded or not ([Chapter 5](#chapter-5-http-and-web-apis) for health checks, [Chapter 26](#chapter-26-delivery-and-platform) for the probes).
 
 ```csharp
 builder.Services.AddHealthChecks()
@@ -392,7 +387,6 @@ builder.Services.AddHealthChecks()
 
 > **In an interview:** "The failure I'm most afraid of isn't the broker dying — it's that death cascading into a full outage because threads hang on it and starve the pool. So I fail fast with a circuit breaker and timeouts, isolate it behind a bulkhead so it can't consume resources the rest of the service needs, and retry with exponential backoff plus jitter to avoid a retry storm on recovery. The architectural key is the Transactional Outbox: I write orders to my own database and relay to the broker asynchronously, so a broker outage becomes a delay, not data loss. Poison messages go to a dead-letter queue, and readiness probes report degraded rather than dead for optional dependencies so Kubernetes doesn't yank healthy pods."
 
-@@SRC: old Chapter 33: Real-World Scenarios & Architectural Decisions@@
 ## Scenario 5 — Disaster: the database is gone. How backups should really be done
 
 ### The scenario
@@ -485,7 +479,6 @@ Concretely: nightly full at 01:00, differentials every 6 hours, transaction-log 
 
 ---
 
-@@SRC: old Chapter 33: Real-World Scenarios & Architectural Decisions@@
 ## Scenario 6 — Polyglot: the system is modules in different languages that must talk
 
 ### The scenario
@@ -523,11 +516,11 @@ Choose the integration style per boundary. The main options:
 
 **The shared-database anti-pattern** deserves a blunt statement: when two services read and write the same tables, you have not built two services — you have built one service with two deployment units and no encapsulation. A schema change to satisfy one service breaks the other. Ban it at the boundary; if two components need the same data, one owns it and exposes an API.
 
-**Contract-first and schema/versioning across languages.** The strength of gRPC/Protobuf here is that a `.proto` file *is* the contract, checked into a shared repo, generating clients for every language. Protobuf's evolution rules (never reuse field numbers, add new fields as optional, don't change types) let a Python producer and a .NET consumer evolve independently — this is the schema-evolution discipline from **Chapter 24** applied across languages. For JSON boundaries, get the same discipline from **OpenAPI** with generated clients and a schema registry; for Kafka, an **Avro/Protobuf schema registry** enforces compatibility before a bad message ever ships.
+**Contract-first and schema/versioning across languages.** The strength of gRPC/Protobuf here is that a `.proto` file *is* the contract, checked into a shared repo, generating clients for every language. Protobuf's evolution rules (never reuse field numbers, add new fields as optional, don't change types) let a Python producer and a .NET consumer evolve independently — this is the schema-evolution discipline from [Chapter 22](#chapter-22-api-evolution-real-time-and-serialization) applied across languages. For JSON boundaries, get the same discipline from **OpenAPI** with generated clients and a schema registry; for Kafka, an **Avro/Protobuf schema registry** enforces compatibility before a bad message ever ships.
 
 **Service mesh / sidecars and Dapr.** As the number of polyglot services grows, cross-cutting concerns (mTLS, retries, service discovery) multiply across languages. A **service mesh** (Linkerd, Istio) pushes these into a sidecar so each language doesn't reimplement them. **Dapr** goes further: it exposes **building blocks** — service invocation, pub/sub, state management, secrets, bindings — over a local HTTP/gRPC API, so a Python service and a .NET service call the *same* Dapr sidecar API to publish an event or read state. That is genuinely valuable in polyglot shops: the integration primitives stop being language-specific.
 
-**Observability across languages** is non-negotiable and easy to get wrong. Use **OpenTelemetry**: it has SDKs for .NET, Python, Go, Java, and propagates **W3C Trace Context** headers across service boundaries. Done right, a single distributed trace shows the checkout request entering the .NET service, hopping to the Python model, and back — one trace ID spanning three languages. Without it, cross-language debugging is guesswork. (See **Chapter 9** for messaging/gRPC mechanics.)
+**Observability across languages** is non-negotiable and easy to get wrong. Use **OpenTelemetry**: it has SDKs for .NET, Python, Go, Java, and propagates **W3C Trace Context** headers across service boundaries. Done right, a single distributed trace shows the checkout request entering the .NET service, hopping to the Python model, and back — one trace ID spanning three languages. Without it, cross-language debugging is guesswork. ([Chapter 25](#chapter-25-observability-and-testing-at-scale) covers distributed tracing; [Chapter 22](#chapter-22-api-evolution-real-time-and-serialization) covers gRPC.)
 
 ### A concrete example: .NET checkout calling a Python ML model via gRPC
 
@@ -606,7 +599,6 @@ Note the **deadline** and the explicit **fail-open decision** — on a synchrono
 
 ---
 
-@@SRC: old Chapter 33: Real-World Scenarios & Architectural Decisions@@
 ## Scenario 7 — The slow leak: memory keeps growing until the pod is OOM-killed
 
 ### The scenario
@@ -714,12 +706,11 @@ Other fixes by cause:
 
 ---
 
-@@SRC: old Chapter 33: Real-World Scenarios & Architectural Decisions@@
 ## Scenario 8 — Hardened: the security measures that actually matter
 
 ### The scenario
 
-A new service is going to production next week. The security review is a checkbox on someone's ticket, and the team's instinct is to bolt on "security" at the end — an auth middleware here, a firewall rule there. As the senior in the room, you are the person who decides what "secure enough to ship" means. This scenario is not a tutorial (see **Chapter 14** for the deep mechanics); it is the **prioritized list a senior insists on in every project**, and the judgment behind each item.
+A new service is going to production next week. The security review is a checkbox on someone's ticket, and the team's instinct is to bolt on "security" at the end — an auth middleware here, a firewall rule there. As the senior in the room, you are the person who decides what "secure enough to ship" means. This scenario is not a tutorial (see [Chapter 12](#chapter-12-security-essentials) for the mechanics and [Chapter 27](#chapter-27-security-in-depth-and-the-supply-chain) for the depth); it is the **prioritized list a senior insists on in every project**, and the judgment behind each item.
 
 ### The senior's non-negotiables
 
@@ -742,7 +733,7 @@ Frame the whole thing around **defense in depth**: no single control is trusted 
 
 ### The OWASP Top 10 as a working checklist
 
-Do not treat OWASP as a poster. Treat it as a review checklist you *walk* before shipping — **Chapter 14** covers every category with its .NET mitigation, so the review is a walk, not a study session. Most breaches are boring failures of those basics, not exotic zero-days.
+Do not treat OWASP as a poster. Treat it as a review checklist you *walk* before shipping — [Chapter 12](#chapter-12-security-essentials) covers every category with its .NET mitigation, so the review is a walk, not a study session. Most breaches are boring failures of those basics, not exotic zero-days.
 
 > **Broken access control is consistently the #1 real-world vulnerability**, and the bug is almost never "we forgot auth" — it is "we authenticated the user but didn't check that *this* user owns *this* record." The one test always worth running by hand: can Alice fetch `/orders/{Bob's-id}`?
 
@@ -758,26 +749,25 @@ If your service has an **AI feature** — an LLM summarizing user content, an ag
 
 ---
 
-@@SRC: old Chapter 33: Real-World Scenarios & Architectural Decisions@@
 ## Scenario 9 — Custody: the special problems of storing user personal data
 
 ### The scenario
 
 Your product now stores real people's data: names, emails, addresses, maybe health or payment information. A user emails "delete all my data" and cites GDPR. Legal asks "where does EU customer data physically live?" A junior just added `_logger.LogInformation("User {@User} logged in", user)` — dumping the full user object, PII included, into your log aggregator. Suddenly "just store it in a table" is not enough. Storing personal data is a distinct engineering discipline with its own hazards.
 
-> **This is engineering guidance, not legal advice.** GDPR, CCPA, HIPAA and friends are legal frameworks; how they apply to your product is a question for your legal/privacy team. What follows is how a senior *engineer* translates those constraints into system design. (See **Chapter 28** for the PII/FinOps context.)
+> **This is engineering guidance, not legal advice.** GDPR, CCPA, HIPAA and friends are legal frameworks; how they apply to your product is a question for your legal/privacy team. What follows is how a senior *engineer* translates those constraints into system design. (See [Chapter 31](#chapter-31-compliance-data-privacy-cloud-cost-finops) for the PII and compliance context.)
 
 ### The core concepts
 
-**Chapter 28** covers the discipline in depth — classification (PII/PHI/special-category), data minimization, purpose limitation, consent. The triage-relevant core: you cannot protect, audit, or delete data you have not classified, and the strongest control is **not collecting the field at all**. Every PII field you hold is a liability that can be breached, subpoenaed, or mis-logged.
+[Chapter 31](#chapter-31-compliance-data-privacy-cloud-cost-finops) covers the discipline in depth — classification (PII/PHI/special-category), data minimization, purpose limitation, consent. The triage-relevant core: you cannot protect, audit, or delete data you have not classified, and the strongest control is **not collecting the field at all**. Every PII field you hold is a liability that can be breached, subpoenaed, or mis-logged.
 
 ### Protecting the data at rest
 
-Encryption in transit and at rest (TLS, TDE) is table stakes — and whole-database encryption only protects against stolen disks, not a compromised app. For the genuinely sensitive columns, add **field-level encryption** (keys the database itself doesn't hold) or **tokenization** (real values in a separate vault). The cryptographic mechanics — including why passwords are *hashed* while displayable PII is *encrypted* — are **Chapter 14**'s territory; the decision here is which fields get which treatment.
+Encryption in transit and at rest (TLS, TDE) is table stakes — and whole-database encryption only protects against stolen disks, not a compromised app. For the genuinely sensitive columns, add **field-level encryption** (keys the database itself doesn't hold) or **tokenization** (real values in a separate vault). The cryptographic mechanics — including why passwords are *hashed* while displayable PII is *encrypted* — are [Chapter 12](#chapter-12-security-essentials)'s territory; the decision here is which fields get which treatment.
 
 ### The right-to-be-forgotten vs. backups problem
 
-A deletion request seems simple until you remember **backups**: your immutable, 35-day-retention backups contain the user's data, and you (correctly) cannot edit them. The industry's answer is **crypto-shredding** — encrypt each user's PII with a per-user key and destroy the key to "forget" them; the ciphertext left in every table and backup becomes unrecoverable noise (mechanics in **Chapter 28**). Soft delete alone does **not** satisfy erasure — combine it (for referential integrity) with crypto-shred or hard-purge for the actual PII.
+A deletion request seems simple until you remember **backups**: your immutable, 35-day-retention backups contain the user's data, and you (correctly) cannot edit them. The industry's answer is **crypto-shredding** — encrypt each user's PII with a per-user key and destroy the key to "forget" them; the ciphertext left in every table and backup becomes unrecoverable noise (mechanics in [Chapter 31](#chapter-31-compliance-data-privacy-cloud-cost-finops)). Soft delete alone does **not** satisfy erasure — combine it (for referential integrity) with crypto-shred or hard-purge for the actual PII.
 
 | Deletion approach | Satisfies erasure? | Handles backups? | Notes |
 |---|---|---|---|
@@ -788,12 +778,12 @@ A deletion request seems simple until you remember **backups**: your immutable, 
 
 ### Retention, access, and audit
 
-**Chapter 28** covers the mechanics — retention/purge jobs, audit trails, pseudonymization vs. anonymization. What matters in the room: unbounded retention is unbounded liability, and when a breach or insider-access question lands, the audit trail of *who* read *whose* PII, *when*, and *why* is the only thing that answers it.
+[Chapter 31](#chapter-31-compliance-data-privacy-cloud-cost-finops) covers the mechanics — retention/purge jobs, audit trails, pseudonymization vs. anonymization. What matters in the room: unbounded retention is unbounded liability, and when a breach or insider-access question lands, the audit trail of *who* read *whose* PII, *when*, and *why* is the only thing that answers it.
 
 ### Data residency and logging pitfalls
 
 - **Data residency.** Some data must physically stay in a region. That is an architecture constraint — regional deployments, region-pinned storage and backups — not a config flag; retrofitting it is a migration (**Chapters 10 and 27**).
-- **PII in logs and traces — the everyday leak.** The most common accidental exposure is not a hacker; it is exactly the junior's log line above — a whole user object dumped into an aggregator with weak access controls. **Scrub at the boundary** (Chapter 13's what-not-to-log discipline) and treat logs and traces as PII surfaces subject to the same controls as the database.
+- **PII in logs and traces — the everyday leak.** The most common accidental exposure is not a hacker; it is exactly the junior's log line above — a whole user object dumped into an aggregator with weak access controls. **Scrub at the boundary** ([Chapter 9](#chapter-9-exceptions-logging-and-first-diagnosis)'s what-not-to-log discipline) and treat logs and traces as PII surfaces subject to the same controls as the database.
 
 ### Breach response basics
 
@@ -809,7 +799,6 @@ Have a plan *before* the breach: detect, contain, assess scope (which data, whos
 
 > A senior engineer treats personal data as **radioactive material**: valuable, useful, and dangerous to store. You minimize how much you hold, shield it (encryption, tokenization), track everyone who touches it (audit), plan its disposal (retention + crypto-shredding), and never let it leak into the places you weren't watching (logs, traces, backups). The regulations are just the legal encoding of that engineering discipline.
 
-@@SRC: old Chapter 33: Real-World Scenarios & Architectural Decisions@@
 ## Scenario 10 — Poisoned well: a dependency you never chose shipped a backdoor
 
 ### The scenario
@@ -846,7 +835,7 @@ By the time you know, the window has already closed or not — either way, the c
 
 ### The fix & architectural options (with trade-offs)
 
-The full treatment is [Chapter 35](#chapter-35-software-supply-chain-security); the incident-relevant subset, in order of value:
+The full treatment is [Chapter 27](#chapter-27-security-in-depth-and-the-supply-chain); the incident-relevant subset, in order of value:
 
 | Control | What it buys you in *this* incident | Cost |
 |---|---|---|
@@ -865,13 +854,12 @@ The full treatment is [Chapter 35](#chapter-35-software-supply-chain-security); 
 - Add the cooldown window. Fifteen minutes.
 - Reserve your ID prefix on nuget.org and configure `packageSourceMapping` — different attack, same afternoon.
 - Write the response runbook *now*, while nothing is on fire, and make step one "grep the lockfiles."
-- Rehearse it. A game day (Chapter 21) using a real advisory from last year will find that nobody knows which repos exist, which is the finding.
+- Rehearse it. A game day ([Chapter 20](#chapter-20-distributed-systems)) using a real advisory from last year will find that nobody knows which repos exist, which is the finding.
 
 > **In an interview:** "First I'd scope exposure, not impact — grep committed lockfiles across all repos and branches for the affected version, then check SBOMs and restore logs to see whether it ever reached a build. If it executed on a runner, I'd assume every credential that machine could see is compromised and rotate, rather than reasoning about what the payload probably took. Then purge package and layer caches, because yanking doesn't clear them, and pin forward rather than rolling back — attackers backport. The reason I can answer the first question in minutes is that lockfiles are committed and SBOMs are stored per release; without those, the same incident is a week of archaeology. And the control that would most likely have prevented it entirely is a cooldown window on dependency updates, since these releases are usually pulled within hours."
 
 ---
 
-@@SRC: old Chapter 33: Real-World Scenarios & Architectural Decisions@@
 ## Scenario 11 — The agent leaked customer data through a tool call
 
 ### The scenario
@@ -925,13 +913,12 @@ Six weeks ago, someone opened a support ticket whose body contained instructions
 - **Log every tool call with arguments, results and conversation ID**, and treat those logs as sensitive data (they contain everything the model saw).
 - **Per-tool kill switches**, tested.
 - **Budget the loop** — max iterations, max tool calls, wall-clock timeout — so an injected instruction hits a wall.
-- Full treatment in Chapter 19's *Securing AI features and agents*.
+- Full treatment in [Chapter 33](#chapter-33-building-ai-powered-systems)'s *Securing AI features and agents*.
 
 > **In an interview:** "I'd contain it by disabling the outbound tool rather than the assistant, then scope exposure from tool-call logs — which only works if you logged arguments, so that's a design decision made months earlier. The root cause isn't a bug in the prompt; it's that the agent had all three legs of the lethal trifecta: private data, untrusted content from retrieved tickets, and an egress tool with a free-form recipient. Prompt hardening can't fix that, because instructions and data are the same tokens. The durable fix is architectural — authorize the data tool against the end user's identity in code so it can only ever return that caller's orders, and constrain or remove the egress. And I'd treat it as a data breach from minute one, because it is one."
 
 ---
 
-@@SRC: old Chapter 33: Real-World Scenarios & Architectural Decisions@@
 ## Scenario 12 — The invisible customer: an AI crawler tripled the egress bill
 
 ### The scenario
@@ -984,7 +971,7 @@ Traffic is up roughly 4×. Signups are flat.
 - **Put a business metric next to the traffic metric** on the same dashboard. Requests up, signups flat, is the shape of this incident and it is instantly readable.
 - **Make autoscaling scale down** and alert when a floor changes. Ratchets that only go up are a recurring, silent cost.
 - **Normalize cache keys at the edge** and strip unknown query parameters, as a standing rule.
-- **Know your egress paths** (Chapter 28) — the same inventory that serves FinOps answers this in minutes.
+- **Know your egress paths** ([Chapter 31](#chapter-31-compliance-data-privacy-cloud-cost-finops)) — the same inventory that serves FinOps answers this in minutes.
 
 > **In an interview:** "The first thing I'd flag is that this is a cost incident with no availability signal, so the real failure is in the alerting — a monthly budget alarm surfaces it four weeks late, where a spend-velocity alert surfaces it the same day. Technically I'd characterise before blocking: user agent, ASN, asset-to-HTML ratio, URL breadth. Then the cheap high-value moves are edge caching for unauthenticated traffic and fixing any cache key that varies on a client-controlled parameter, which is often the whole problem. Blocking by user agent is the thing everyone reaches for and the least effective, since it's a string the client chooses — and it risks de-indexing you. Longer term it's a policy question, not just an engineering one: which crawlers do we actually want, given some of them send us customers?"
 
@@ -992,7 +979,6 @@ Traffic is up roughly 4×. Signups are flat.
 
 ---
 
-@@SRC: old Chapter 33: Real-World Scenarios & Architectural Decisions@@
 ## Sources & Further Reading
 
 *A note on Scenario 9:* the material on GDPR/CCPA/HIPAA is engineering guidance, **not legal advice** — consult your legal/privacy team for how these frameworks apply to your product.
@@ -1027,7 +1013,7 @@ Traffic is up roughly 4×. Signups are flat.
 - Microsoft Learn — *ASP.NET Core security* (authentication, authorization, data protection, rate limiting, security headers).
 
 **Supply chain, AI agents & abuse (Scenarios 10–12)**
-- Chapter 35 of this book, and its sources — NuGet package source mapping and lockfiles, SLSA, Sigstore, SBOM formats, and the CRA timeline.
+- [Chapter 27](#chapter-27-security-in-depth-and-the-supply-chain) of this book, and its sources — NuGet package source mapping and lockfiles, SLSA, Sigstore, SBOM formats, and the CRA timeline.
 - OWASP — *Top 10 for LLM Applications* (prompt injection, excessive agency, sensitive information disclosure, unbounded consumption).
 - Simon Willison's writing on the **lethal trifecta** (private data + untrusted content + exfiltration) — the clearest statement of why agent exfiltration is a capability problem rather than a prompting one.
 - Cloudflare Radar and similar public traffic reports — the automated-versus-human traffic mix and AI crawler behaviour.

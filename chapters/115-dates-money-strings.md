@@ -2,7 +2,9 @@
 
 Most textbook code lives in a fantasy world. The clock is always noon, everyone speaks American English, prices are round dollar amounts, files fit in memory, and email "just sends." Production is where those assumptions go to die. The incidents that wake engineers at 3 a.m. are rarely caused by clever algorithms gone wrong — they are caused by a timestamp stored in the server's local time, a `double` that lost a penny, a `ToUpper()` that mangled a Turkish username, or a 2 GB upload that pinned a web server's memory.
 
-This chapter is a field guide to those details. None of them are conceptually hard. All of them are easy to get subtly wrong, and the wrongness only surfaces under real-world conditions: a customer in another time zone, a currency you didn't anticipate, a locale you never tested. Getting them right is a large part of what separates a mid-level developer from a senior one.
+This chapter is a field guide to those details. None of them are conceptually hard. All of them are easy to get subtly wrong, and the wrongness only surfaces under real-world conditions: a customer in another time zone, a currency you didn't anticipate, a locale you never tested. Getting them right without being told is a large part of what a middle developer is trusted with.
+
+One mechanism ties the sections together: **a value is correct only together with the context that gives it meaning.** An instant needs UTC or an offset, a wall-clock time needs a zone, an amount needs a currency and a rounding rule, a string comparison needs a declared kind. When that context is left implicit, the machine supplies one — the server's zone, the thread's culture, the binary fraction nearest to your decimal — and every trap below is that substitution. The chapter walks through dates and times, then money and numbers, then culture and strings, and ends with the integrations almost every app needs (files, email, notifications, PDFs) and why their heavy work belongs off the request path. The *Prove it* program at the end makes the money traps visible on your own machine.
 
 ## Date and Time Done Right
 
@@ -366,7 +368,7 @@ Document.Create(doc =>
 
 Notice the through-line: sending email, resizing/processing uploads, generating PDFs, delivering push notifications, and calling flaky third-party APIs are all **slow, failure-prone, and retry-worthy.** Doing them synchronously inside an HTTP request couples the user's response time to a system you don't control and turns a transient provider outage into a user-facing 500.
 
-The senior instinct is to **offload them to background processing** (Chapter 22): accept the request, persist the intent, enqueue a job (via a hosted service, `Channel`, or a durable queue like Azure Service Bus / RabbitMQ backed by a worker), and return immediately. The background worker owns the retries, the idempotency, and the dead-letter handling.
+The senior instinct is to **offload them to background processing** ([Chapter 11](#chapter-11-messaging-and-background-work)): accept the request, persist the intent, enqueue a job (via a hosted service, `Channel`, or a durable queue like Azure Service Bus / RabbitMQ backed by a worker), and return immediately. The background worker owns the retries, the idempotency, and the dead-letter handling.
 
 ```csharp
 // The controller does the minimum and returns fast.
@@ -379,7 +381,7 @@ public async Task<IActionResult> Invoice(int id)
 }
 ```
 
-A bare `Accepted()` says "check back later" without saying where. The `Location` header names the job's status resource, which the client polls until it redirects to the result. [Chapter 22: Async Request-Reply](#async-request-reply-202-a-status-resource-and-retry-after) walks through the whole contract: the status resource, `303 See Other`, failures, and the idempotency key that makes a retried `POST` safe.
+A bare `Accepted()` says "check back later" without saying where. The `Location` header names the job's status resource, which the client polls until it redirects to the result. [Async Request-Reply](#async-request-reply-202-a-status-resource-and-retry-after) in Chapter 11 walks through the whole contract: the status resource, `303 See Other`, failures, and the idempotency key that makes a retried `POST` safe.
 
 This is the pattern behind every resilient real-world app: **the request path stays thin and fast; anything slow, external, or flaky moves to a background worker that can retry safely.** Combine that with the earlier rules — UTC everywhere, `decimal` for money, ordinal comparisons for internal logic, streamed file bodies, verified webhooks — and you have eliminated the large majority of the mundane bugs that actually take production down.
 
@@ -391,8 +393,6 @@ This is the pattern behind every resilient real-world app: **the request path st
 - **Unicode Consortium / ICU** — the Unicode Standard on normalization forms (NFC/NFD) and collation; **CLDR plural rules** for pluralization categories; and Microsoft Learn on .NET's use of ICU for globalization.
 - **ISO 4217** (currency codes) and **ISO 8601** (date/time interchange format).
 - **QuestPDF documentation** (questpdf.com); **MailKit** documentation; and provider docs for **SendGrid**, **Twilio**, and **Azure Blob Storage** on streaming uploads, SAS pre-signed URLs, and webhook signature verification.
-
-@@SRC: practice from old module page Part 1 · Module 13: Dates, Money and Strings@@
 
 ## Prove it
 

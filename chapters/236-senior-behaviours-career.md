@@ -1,23 +1,10 @@
 # Chapter 36: Senior Behaviours, Career and Interviews
 
-@@TODO: write this chapter's introduction (what it makes the reader able to do, how its sections connect), then remove every @@ line.@@
+A senior's output is decisions that other people act on. The cost of a wrong decision grows with how much is built on it and how many people follow it, so every senior behaviour either moves a check earlier or makes a decision cheaper to revisit: the design reviewed before the lines exist, the decision written down so it can be superseded rather than relitigated, the estimate checked against how long similar work really took, the legacy behaviour pinned before it is changed. Influence runs on the same mechanism over a longer time: trust compounds from estimates that were honest, reviews that were fair and commitments that landed or were renegotiated early.
 
-@@SRC: introduction of old Chapter 34: Interview Questions & How to Answer Them@@
+This chapter makes you able to work that way and to show it. It starts with the behaviours that multiply your impact through other people — mentoring, judgment and influence without authority — and how to steer your own growth toward senior and staff. Then it turns those behaviours into interview answers: how to approach any question, and the behavioural questions every senior loop asks. It closes with how to keep learning once the book ends. The practice at the end draws on the tools taught elsewhere: ADRs and the single review comment from [Chapter 16: Working Like a Middle Developer](#chapter-16-working-like-a-middle-developer), characterization tests, seams and hotspots from [Chapter 24](#chapter-24-working-with-legacy-brownfield-code), reference-class and PERT estimates from [Chapter 41](#chapter-41-recommendations-proposals-and-estimates), the reviewer's rubric for generated code from [Chapter 32](#chapter-32-the-ai-native-developer-thriving-in-the-ai-era), and the story bank you build in [Chapter 37](#chapter-37-the-story-bank-evidence-portfolio).
 
-This chapter is a recall-and-rehearse bank. Every topic here is taught in depth earlier in the book; the goal now is to turn that knowledge into crisp spoken answers under pressure. Read a question, cover the answer, and say your version out loud. If it comes out rambling, tighten it. Each section starts with a *Revise* pointer to the chapter(s) that teach the material. **Red flag** lines show the wrong answer interviewers hear from juniors — if your spoken version sounds like one, go back and re-read.
-
-**Interview strategy in five habits:**
-
-1. **Clarify before you answer.** A ten-second "Do you mean X or Y?" beats two minutes solving the wrong problem. Interviewers score you on scoping, not mind-reading.
-2. **Think out loud.** Silence reads as "stuck." Narrate your reasoning even when you're confident — it lets the interviewer follow, hint, and give partial credit.
-3. **Structure the answer.** Lead with the one-sentence conclusion, then support it. "Use `ValueTask` when the result is usually synchronous — here's why…" is stronger than building to a mystery reveal.
-4. **Admit unknowns cleanly.** "I haven't used that, but I'd expect it works like X because…" shows honesty plus reasoning. Bluffing is the fastest way to fail a senior loop.
-5. **For behavioral questions, use STAR** — Situation, Task, Action, Result. Keep Situation short, spend your words on *your* Action, and always land a measurable Result.
-
----
-
-@@SRC: old Chapter 17: Soft Skills & Engineering Practices@@
-## 17.8 Mentoring, Pairing & Growing Others
+## Mentoring, Pairing & Growing Others
 
 The fastest way to increase your leverage is to make the people around you better. This is also the clearest signal of readiness for senior and staff roles.
 
@@ -39,14 +26,13 @@ In pair programming, the **driver** types and focuses on the immediate line of c
 
 Both require **psychological safety** — a team where people can admit "I don't understand this" or "I broke prod" without fear. You build it in small moments: admit your own mistakes openly, respond to "dumb" questions with genuine answers, never punish honesty. A senior who says "I have no idea how this works, let's find out together" gives everyone else permission to be human, and that unlocks the whole team.
 
-@@SRC: old Chapter 17: Soft Skills & Engineering Practices@@
-## 17.10 Judgment & Influence
+## Judgment & Influence
 
 Seniority is largely **judgment** — knowing which of the many technically-correct options is the *right* one here, and getting people to go along with it without a title forcing them to.
 
-### Knowing when NOT to add complexity (YAGNI)
+### Knowing when NOT to add complexity
 
-The most expensive code is the code you didn't need. **YAGNI — You Aren't Gonna Need It** — means: don't build the generic plugin framework for the one case you have today. Mid-level engineers are often seduced by the flexible, abstract, future-proof design. Seniors have been burned by unused abstractions enough to prefer the simplest thing that solves the *actual* problem, and to add complexity only when a *second real* need proves it's warranted. When someone proposes a speculative abstraction, the senior question is: "What concrete requirement, that exists today, needs this?"
+The most expensive code is the code you didn't need. The YAGNI principle itself is in [Chapter 10: Design Basics](#chapter-10-design-basics); what changes at senior level is that you apply it to *other people's* proposals. Mid-level engineers are often seduced by the flexible, abstract, future-proof design; seniors have been burned by unused abstractions often enough to prefer the simplest thing that solves the *actual* problem, and to add complexity only when a *second real* need proves it's warranted. When someone proposes a speculative abstraction, the senior question is: "What concrete requirement, that exists today, needs this?"
 
 ### Picking battles and influencing without authority
 
@@ -69,10 +55,9 @@ Everything above assumes you sit inside the team. As a contractor, consultant or
 - **From neutral to committed.** Listing trade-offs is where the job starts. The client wants a recommendation with the conditions under which it would change.
 - **From tasks to outcomes.** Report in the client's units: money, time and risk, not tickets closed.
 
-Your influence comes from the same sources as inside a team (trust, data and bringing people along early), with one extra hazard: **self-orientation**. The moment advice sounds like it serves your next contract, it stops being advice. Part XIII, starting with [Chapter 60](#chapter-60-having-a-point-of-view), turns this stance into skills you can practise.
+Your influence comes from the same sources as inside a team (trust, data and bringing people along early), with one extra hazard: **self-orientation**. The moment advice sounds like it serves your next contract, it stops being advice. Chapters 38–43, starting with [Chapter 38: Having a Point of View](#chapter-38-having-a-point-of-view), turn this stance into skills you can practise.
 
-@@SRC: old Chapter 17: Soft Skills & Engineering Practices@@
-## 17.12 Career Growth: Toward Senior and Staff
+## Career Growth: Toward Senior and Staff
 
 Finally, steer your own growth deliberately instead of hoping it happens.
 
@@ -89,59 +74,23 @@ Finally, steer your own growth deliberately instead of hoping it happens.
 
 You don't have to pick forever, but knowing which one energizes you tells you which skills to lean into. A Solver invests in debugging and systems depth; a Tech Lead in communication and planning; an Architect in design and cross-team influence.
 
-> **The through-line of this entire chapter: senior engineering is the multiplication of impact through other people and good judgment, not the maximization of your personal code output. Every skill here — clear writing, kind reviews, honest estimates, blameless post-mortems, deliberate mentoring, sound judgment, real ownership — is a lever. Master the levers, and your impact stops being bounded by your own two hands.**
+> **The through-line: senior engineering is the multiplication of impact through other people and good judgment, not the maximization of your personal code output. Every skill here — clear writing, kind reviews, honest estimates, blameless post-mortems, deliberate mentoring, sound judgment, real ownership — is a lever. Master the levers, and your impact stops being bounded by your own two hands.**
 
-You already have the technical foundation. The path from middle to senior runs straight through this chapter. Start with one lever — pick the weakest one — and practice it deliberately this week.
+Start with one lever — pick the weakest one — and practice it deliberately this week.
 
-@@SRC: old Chapter 32: Putting It All Together — A Capstone Learning Path@@
-## How to Keep Learning
+## Interviews: Turning Behaviour into Answers
 
-A book ends; the field does not. The half-life of a specific framework detail is short, but the habit of continuous, deliberate learning is what keeps a career compounding. Build a routine from these sources.
+An interview compresses everything above into an hour, and it scores what it can hear. The technical question banks live with their topics — each chapter ends with its own *Interview Questions* — so this section is about the approach that applies to all of them and the behavioural questions that probe seniority directly.
 
-**Read code, not just articles.** The fastest way to level up is to read software written by people better than you. Clone Microsoft's [eShop](https://github.com/dotnet/eShop) reference application and trace how it wires up services, messaging, and .NET Aspire. When you hit a behavior you cannot explain, step into [dotnet/runtime](https://github.com/dotnet/runtime) itself — the source is public, and reading how `List<T>`, `Task`, or the GC is implemented demystifies things you have used for years.
+### How to Approach Any Interview
 
-**Follow people who teach in public.** A handful of .NET voices consistently explain the *why* behind the code:
-- **Andrew Lock** — deep, careful blog posts on ASP.NET Core internals.
-- **Steve Gordon** — performance, HttpClient, and runtime deep dives.
-- **Nick Chapsas** — pragmatic videos on modern C# and benchmarking.
-- **Milan Jovanović** — architecture, DDD, and modular monoliths.
-- **Jimmy Bogard** — the mind behind MediatR and AutoMapper, and a rich source on DDD and messaging.
-- **David Fowler** — a .NET architect whose threads on distributed systems and async are essential.
+**Five habits that apply to every question:**
 
-**Practice deliberately.** Use [Microsoft Learn](https://learn.microsoft.com) for structured, up-to-date modules when you adopt a new technology. Use [Exercism](https://exercism.org)'s C# track to sharpen fundamentals with mentored feedback. Contribute to open source — even a documentation fix or a small bug on a library you use teaches you how real projects are governed.
-
-The goal is not to consume everything. It is to build a steady, sustainable habit: read a little real code every week, follow a few people whose judgment you trust, and always have one small learning project on the side.
-
-@@SRC: old Chapter 32: Putting It All Together — A Capstone Learning Path@@
-## A Short Shelf of Great Books
-
-Videos and blogs keep you current; books give you depth that lasts. These have earned permanent spots on many senior engineers' shelves. Read them slowly.
-
-- **C# in Depth** — Jon Skeet
-- **Dependency Injection Principles, Practices, and Patterns** — Mark Seemann
-- **Clean Architecture** — Robert C. Martin
-- **Designing Data-Intensive Applications** — Martin Kleppmann
-- **Patterns of Enterprise Application Architecture** — Martin Fowler
-- **Implementing Domain-Driven Design** — Vaughn Vernon
-- **The Pragmatic Programmer** — Andrew Hunt and David Thomas
-
-You do not need to read them all at once, and you should not. Pick the one that matches the phase you are in — Skeet while you deepen the language, Kleppmann when you split ShopCore into services, Vernon when the domain modeling gets hard.
-
-@@SRC: old Chapter 32: Putting It All Together — A Capstone Learning Path@@
-## Depth Versus Breadth, and Why You Will Return
-
-This book gave you breadth: a map of the whole territory a senior .NET engineer is expected to traverse. Breadth is what lets you hold a conversation about anything on the roadmap and know where to dig. But breadth alone is shallow. The engineers people trust are the ones who, on top of that broad map, have gone deep in a few areas — deep enough to debug the hard cases, to make the non-obvious trade-off, to teach it to others.
-
-So the aim is a T-shape: a wide base of competence, with a few tall spikes of genuine mastery. You cannot go deep everywhere, and trying to will only leave you exhausted and mediocre. Choose your spikes deliberately — maybe performance and the runtime, maybe distributed systems and messaging — and let the rest stay at working competence, refreshed as needed.
-
-Come back to this roadmap. In six months, reread the phased table and ask honestly where you now stand. You will find that chapters which once felt abstract have become obvious, and that new chapters have quietly become relevant because your work changed. A roadmap is not a certificate you earn once; it is a compass you consult repeatedly, and each time it points a little further than before.
-
-You have the map, you have the capstone, and you have the habits. The only thing left is to open your editor and start ShopCore. Build the thing. That is how senior engineers are made — not by finishing books, but by shipping systems and reflecting on what they cost. Go build.
-
-@@SRC: old Chapter 34: Interview Questions & How to Answer Them@@
-## How to Approach Any Interview
-
-*Revise: Ch. 17 — Soft Skills & Engineering Practices*
+1. **Clarify before you answer.** A ten-second "Do you mean X or Y?" beats two minutes solving the wrong problem. Interviewers score you on scoping, not mind-reading.
+2. **Think out loud.** Silence reads as "stuck." Narrate your reasoning even when you're confident — it lets the interviewer follow, hint, and give partial credit.
+3. **Structure the answer.** Lead with the one-sentence conclusion, then support it. "Use `ValueTask` when the result is usually synchronous — here's why…" is stronger than building to a mystery reveal.
+4. **Admit unknowns cleanly.** "I haven't used that, but I'd expect it works like X because…" shows honesty plus reasoning. Bluffing is the fastest way to fail a senior loop.
+5. **For behavioral questions, use STAR** — Situation, Task, Action, Result. Keep Situation short, spend your words on *your* Action, and always land a measurable Result.
 
 **How do you handle a question you don't know the answer to?**
 State what you do know, reason from first principles toward a plausible answer, and be explicit about the boundary: "I know GC has generations; I'm less sure of the exact LOH threshold, but I'd reason it's large because compaction is expensive." That earns more than silence or a confident wrong guess.
@@ -152,16 +101,11 @@ Only if you then say *what* it depends on and pick a default. "It depends on rea
 **How do you show seniority beyond just knowing facts?**
 Talk about trade-offs, failure modes, operability, and cost — not just the happy path. Juniors describe how a thing works; seniors describe when *not* to use it and what breaks it at 3 a.m.
 
----
-
-@@SRC: old Chapter 34: Interview Questions & How to Answer Them@@
-## Behavioral / Seniority
-
-*Revise: Ch. 17 — Soft Skills & Engineering Practices*
+### Behavioral / Seniority
 
 Answer these with **STAR** and keep the spotlight on *your* actions and a concrete result. Have three or four real stories prepared that you can flex to different questions.
 
-> **Practice it.** [Chapter 36](#chapter-36-the-story-bank-evidence-portfolio) has a worksheet for each question below, a way to mine your own work for the stories, and a scored mock-interview protocol to rehearse them.
+> **Practice it.** [Chapter 37: The Story Bank & Evidence Portfolio](#chapter-37-the-story-bank-evidence-portfolio) has a worksheet for each question below, a way to mine your own work for the stories, and a scored mock-interview protocol to rehearse them.
 
 **Tell me about a hard bug you solved.**
 Pick a genuinely tricky one — intermittent, distributed, or a heisenbug. Emphasize *method*: how you reproduced it, formed and tested hypotheses, used tooling (logs, profiler, dump), found root cause, and prevented recurrence (a test, a monitor). Result: the metric that improved. The story sells your debugging process, not luck.
@@ -183,33 +127,75 @@ Bring data, not complaints: present the estimate, the trade-offs, and options (c
 
 > **Follow-up:** *Tell me about a time you had to make a decision without complete information.* Show how you bounded the risk: made a reversible choice, shipped small to learn, set a checkpoint to re-evaluate, and communicated the uncertainty rather than pretending certainty.
 
-@@SRC: old Chapter 34: Interview Questions & How to Answer Them@@
+Practice out loud, time yourself, and remember: interviewers hire for *reasoning you can hear*, not just answers you happen to know.
+
+## Keep Learning
+
+[Chapter 16](#chapter-16-working-like-a-middle-developer) set up the habit: a few high-signal sources, release notes, learning by building and teaching. At senior level the question changes from *how to keep up* to *where to go deep*, and the sources get closer to the metal.
+
+### Where to Learn From
+
+A book ends; the field does not. The half-life of a specific framework detail is short, but the habit of continuous, deliberate learning is what keeps a career compounding. Build a routine from these sources.
+
+**Read code, not just articles.** The fastest way to level up is to read software written by people better than you. Clone Microsoft's [eShop](https://github.com/dotnet/eShop) reference application and trace how it wires up services, messaging, and .NET Aspire. When you hit a behavior you cannot explain, step into [dotnet/runtime](https://github.com/dotnet/runtime) itself — the source is public, and reading how `List<T>`, `Task`, or the GC is implemented demystifies things you have used for years.
+
+**Follow people who teach in public.** A handful of .NET voices consistently explain the *why* behind the code:
+- **Andrew Lock** — deep, careful blog posts on ASP.NET Core internals.
+- **Steve Gordon** — performance, HttpClient, and runtime deep dives.
+- **Nick Chapsas** — pragmatic videos on modern C# and benchmarking.
+- **Milan Jovanović** — architecture, DDD, and modular monoliths.
+- **Jimmy Bogard** — the mind behind MediatR and AutoMapper, and a rich source on DDD and messaging.
+- **David Fowler** — a .NET architect whose threads on distributed systems and async are essential.
+
+**Practice deliberately.** Use [Microsoft Learn](https://learn.microsoft.com) for structured, up-to-date modules when you adopt a new technology. Use [Exercism](https://exercism.org)'s C# track to sharpen fundamentals with mentored feedback. Contribute to open source — even a documentation fix or a small bug on a library you use teaches you how real projects are governed.
+
+The goal is not to consume everything. It is to build a steady, sustainable habit: read a little real code every week, follow a few people whose judgment you trust, and always have one small learning project on the side.
+
+### A Short Shelf of Great Books
+
+Videos and blogs keep you current; books give you depth that lasts. These have earned permanent spots on many senior engineers' shelves. Read them slowly.
+
+- **C# in Depth** — Jon Skeet
+- **Dependency Injection Principles, Practices, and Patterns** — Mark Seemann
+- **Clean Architecture** — Robert C. Martin
+- **Designing Data-Intensive Applications** — Martin Kleppmann
+- **Patterns of Enterprise Application Architecture** — Martin Fowler
+- **Implementing Domain-Driven Design** — Vaughn Vernon
+- **The Pragmatic Programmer** — Andrew Hunt and David Thomas
+
+You do not need to read them all at once, and you should not. Pick the one that matches what your work needs now — Skeet while you deepen the language, Kleppmann when you split a system into services, Vernon when the domain modeling gets hard.
+
+### Depth Versus Breadth, and Why You Will Return
+
+This book gave you breadth: a map of the whole territory a senior .NET engineer is expected to traverse. Breadth is what lets you hold a conversation about anything in it and know where to dig. But breadth alone is shallow. The engineers people trust are the ones who, on top of that broad map, have gone deep in a few areas — deep enough to debug the hard cases, to make the non-obvious trade-off, to teach it to others.
+
+So the aim is a T-shape: a wide base of competence, with a few tall spikes of genuine mastery. You cannot go deep everywhere, and trying to will only leave you exhausted and mediocre. Choose your spikes deliberately — maybe performance and the runtime, maybe distributed systems and messaging — and let the rest stay at working competence, refreshed as needed.
+
+Come back to this book. In six months, reread the *Pay attention to* pages at the end of each part and ask honestly where you now stand. You will find that chapters which once felt abstract have become obvious, and that new chapters have quietly become relevant because your work changed. A book like this is not a certificate you earn once; it is a compass you consult repeatedly, and each time it points a little further than before.
+
+You have the map and the habits; [Chapter 44: Capstone](#chapter-44-capstone-one-project-growing-up) gives you the project. The only thing left is to open your editor and start ShopCore. Build the thing. That is how senior engineers are made — not by finishing books, but by shipping systems and reflecting on what they cost. Go build.
+
 ## Sources & Further Reading
 
 - **Microsoft Learn** — the authoritative reference for C#, .NET runtime/GC, ASP.NET Core, and EF Core behavior (learn.microsoft.com). Cross-check any runtime specifics here against the current docs.
-- **.NET diagnostics tooling docs** — `dotnet-counters`, `dotnet-trace`, `dotnet-dump`, `dotnet-gcdump` guides on Microsoft Learn for the performance methodology.
+- **.NET diagnostics tooling docs** — `dotnet-counters`, `dotnet-trace`, `dotnet-dump`, `dotnet-gcdump` guides on Microsoft Learn for the performance methodology in [Chapter 9](#chapter-9-exceptions-logging-and-first-diagnosis).
+- **"Staff Engineer"** by Will Larson — the archetypes in *Career Growth* and the work of staff-level influence.
 - **"Cracking the Coding Interview"** by Gayle Laakmann McDowell — interview strategy, behavioral framing, and algorithmic warm-ups.
-- **"System Design Interview"** (Volumes 1 & 2) by Alex Xu — the structured approach behind the mini system-design section.
+- **"System Design Interview"** (Volumes 1 & 2) by Alex Xu — the structured approach behind [Chapter 23: System Design](#chapter-23-system-design).
 - **"Designing Data-Intensive Applications"** by Martin Kleppmann — deep background for the distributed-systems, consistency, and CAP material.
 - **OWASP Top 10** (owasp.org) — the canonical web security risk list.
 
-Practice out loud, time yourself, and remember: interviewers hire for *reasoning you can hear*, not just answers you happen to know.
-
-@@SRC: practice from old module page Part 2 · Module 7: Senior Behaviours@@
-
 ## Practice
 
-**1. Chapter 36's story-bank lab, Level 1 (≈ 4 h 30 min).** [Chapter 36](#chapter-36-the-story-bank-evidence-portfolio) is a Practice Gym lab with a kit in [`labs/36-evidence-portfolio`](https://github.com/malyna2/dotnet-handbook/tree/main/labs/36-evidence-portfolio): set up the two repos, mine a year of your own work for candidates, and draft five STAR worksheets. Levels 2 and 3 (mock interviews, a published evidence index) follow at the pace of its time budget. Your stories, numbers and worksheets go in your private story bank and **your own public portfolio repo**, never in this one; stories about a real employer stay private.
+**1. The story-bank lab, Level 1 (≈ 4 h 30 min).** [Chapter 37](#chapter-37-the-story-bank-evidence-portfolio) is a lab with a kit in [`labs/36-evidence-portfolio`](https://github.com/malyna2/dotnet-handbook/tree/main/labs/36-evidence-portfolio): set up the two repos, mine a year of your own work for candidates, and draft five STAR worksheets. Levels 2 and 3 (mock interviews, a published evidence index) follow at the pace of its time budget. Your stories, numbers and worksheets go in your private story bank and **your own public portfolio repo**, never in this one; stories about a real employer stay private.
 
-**2. Write an ADR (1 h).** Pick a decision your team made recently without a record — or your answer to an earlier module's *Decide*. Use Chapter 17's template: context, decision, consequences (including the negative ones), alternatives considered, and one line on what would make you supersede it. Then ask someone who wasn't there whether they could reconstruct *why* from the ADR alone.
+**2. Write an ADR (1 h).** Pick a decision your team made recently without a record — or your answer to an earlier chapter's *Decide*. Use the template from [Chapter 16](#chapter-16-working-like-a-middle-developer): context, decision, consequences (including the negative ones), alternatives considered, and one line on what would make you supersede it. Then ask someone who wasn't there whether they could reconstruct *why* from the ADR alone.
 
-**3. Review a real pull request for its design first (1 h).** Before reading any line, write down: the problem it solves, whether that problem needed solving now, what it makes hard to change later, and whether a one-way door is hidden in it (a schema, a public contract, a new dependency). Then review the lines with Chapter 18's [reviewer's rubric](#judging-ai-generated-code-a-reviewers-rubric) — written for generated code, and just as good for human code. Done when every comment names its condition, its cost and its label, and the design questions came first.
+**3. Review a real pull request for its design first (1 h).** Before reading any line, write down: the problem it solves, whether that problem needed solving now, what it makes hard to change later, and whether a one-way door is hidden in it (a schema, a public contract, a new dependency). Then review the lines with Chapter 32's [reviewer's rubric](#judging-ai-generated-code-a-reviewers-rubric) — written for generated code, and just as good for human code. Done when every comment names its condition, its cost and its label, and the design questions came first.
 
-**4. Estimate one piece of work twice (45 min).** For your next multi-week task, make a three-point estimate per task with PERT, then an outside-view estimate from the actual duration of the last few similar pieces of work. Write down where they disagree and why, and the range and commitment level you would give. Keep the actual result next to it when the work is done: that is the start of your own reference class.
+**4. Estimate one piece of work twice (45 min).** For your next multi-week task, make a three-point estimate per task with PERT ([Chapter 41](#chapter-41-recommendations-proposals-and-estimates)), then an outside-view estimate from the actual duration of the last few similar pieces of work. Write down where they disagree and why, and the range and commitment level you would give. Keep the actual result next to it when the work is done: that is the start of your own reference class.
 
-The Practice Gym's planned code-review gym (M5 in [`PRACTICE_ROADMAP.md`](https://github.com/malyna2/dotnet-handbook/blob/main/PRACTICE_ROADMAP.md)) will become this module's lab: ten seeded pull requests, including one clean one, scored for both detection and severity calibration.
-
-Later, if you need it: Chapter 63's [6.3.2 The Options Memo](#632-the-options-memo) and [The Cone of Uncertainty](#the-cone-of-uncertainty); Chapter 30's [Sprout Method and Sprout Class](#sprout-method-and-sprout-class) and [The EOL Treadmill](#the-eol-treadmill-legacy-is-a-verb); Chapter 18's [Measuring Whether Any of This Is Working](#measuring-whether-any-of-this-is-working); and the rest of Chapter 36, from [The Mock Interview Protocol](#the-mock-interview-protocol).
+The Practice Gym's planned code-review gym (M5 in [`PRACTICE_ROADMAP.md`](https://github.com/malyna2/dotnet-handbook/blob/main/PRACTICE_ROADMAP.md)) will become this chapter's lab: ten seeded pull requests, including one clean one, scored for both detection and severity calibration.
 
 ## Three questions
 
@@ -229,7 +215,7 @@ Later, if you need it: Chapter 63's [6.3.2 The Options Memo](#632-the-options-me
 <details>
 <summary>Answer</summary>
 
-- **Skew.** A task can overrun by far more than it can underrun, so each task's expected value (O + 4M + P) / 6 is above its most-likely value, and so is their sum. In Chapter 63's worked example, the sum of most-likely values is 68 person-days and the expected total about 75.
+- **Skew.** A task can overrun by far more than it can underrun, so each task's expected value (O + 4M + P) / 6 is above its most-likely value, and so is their sum. In Chapter 41's worked example, the sum of most-likely values is 68 person-days and the expected total about 75.
 - **The pessimistic sum assumes everything goes wrong at once.** A percentile comes from the spread: with independent tasks, P90 ≈ E + 1.28σ. But tasks that share a cause overrun together, so the real spread is wider than the formula, and missing rows add effort no task carries.
 - **The outside view corrects both.** Check the total against how long similar work actually took.
 - **What to say.** A range and a commitment level with its assumptions — "[low]–[high] days; we'd commit to [P80 value] if [assumption] holds; we'll narrow it after [decision]" — not a single number, which will be remembered as a promise.
@@ -258,7 +244,7 @@ Your team owns a reporting module that is your repository's top hotspot: it chan
 <summary>Answer</summary>
 
 **The cost of each.**
-- **A** costs months of no visible output and the classic rewrite risk: the old module's undocumented behaviour has to be rediscovered, and the business keeps asking for features meanwhile, so the rewrite chases a moving target (Chapter 30, *Why Big-Bang Rewrites Usually Fail*).
+- **A** costs months of no visible output and the classic rewrite risk: the old module's undocumented behaviour has to be rediscovered, and the business keeps asking for features meanwhile, so the rewrite chases a moving target ([Chapter 24](#chapter-24-working-with-legacy-brownfield-code), *Why Big-Bang Rewrites Usually Fail*).
 - **B** costs a routing seam, characterization tests, and a period of running two implementations side by side. Every step ships, and every step can stop.
 - **C** costs nothing now and adds to the hotspot's interest: the next feature is slower again, and a "revisit later" without an owner and a trigger is never revisited.
 
@@ -274,7 +260,7 @@ Your team owns a reporting module that is your repository's top hotspot: it chan
 **Inspect.** List the last three significant technical decisions in your team. For each: is there an ADR or design doc, and could a new joiner learn *why* from it? Then rank your repository's files by churn and compare the top of the list with what the team complains about:
 
 ```bash
-# Files ranked by number of commits touching them (last 12 months), from Chapter 30
+# Files ranked by number of commits touching them (last 12 months), from Chapter 24
 git log --since="12 months ago" --name-only --pretty=format: \
   | grep '\.cs$' | sort | uniq -c | sort -rn | head -30
 ```

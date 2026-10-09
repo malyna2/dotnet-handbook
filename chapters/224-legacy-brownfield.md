@@ -1,5 +1,9 @@
 # Chapter 24: Working with Legacy & Brownfield Code
 
+Most professional work happens on systems that already exist, and the senior skill is changing them safely while understanding only a slice. This chapter makes you able to do that: pin a system's current behaviour before you touch it, find the seams where it can be changed without editing everything at once, decide between incremental strangling and a rewrite, move a .NET Framework system to modern .NET, and keep the platform under it from going out of support again.
+
+The sections build in that order. First the mindset and the techniques for code you don't understand (characterization tests, seams, breaking dependencies, sprouting and wrapping new code beside the old); then modernization at the scale of a whole system (the strangler fig against the big rewrite), the .NET Framework migration in practice, and living with a big ball of mud, where hotspots tell you which debt is worth paying; then the data, downtime and progress-measurement side of a migration; and last the end-of-life treadmill that makes legacy a verb rather than a noun. It builds on the refactoring and tech-debt basics of [Chapter 16](#chapter-16-working-like-a-middle-developer) and the testing basics of [Chapter 8](#chapter-8-testing).
+
 ## The Myth of the Greenfield
 
 Somewhere early in your career you probably imagined that senior engineers spend their days architecting elegant new systems from a blank editor. The reality is almost the exact opposite. The overwhelming majority of professional software work happens on systems that already exist, already have users, already generate revenue, and already carry years of decisions — good and bad — baked into their code. This is *brownfield* development: building on land that has already been developed, where you must account for existing structures rather than pouring a fresh foundation.
@@ -452,7 +456,7 @@ Every one of those has an expiry date set by somebody else. You did not agree to
 - **.NET 8 (LTS) and .NET 9 (STS) both reach end of support on November 10, 2026.** They end on the same day — a quirk of the STS extension to 24 months landing exactly on the LTS date.
 - **.NET 10 (LTS)** is supported through November 2028 and is the target for anything long-lived.
 
-After the end-of-support date there are no security patches. Not "fewer" — none. A service still running on .NET 8 in December 2026 is running unpatched code with a published list of what is wrong with it, and that has consequences well beyond engineering taste: it will fail your SOC 2 audit, it will be flagged by any customer's security questionnaire, and if it is in scope for the EU Cyber Resilience Act (Chapter 35), shipping software you no longer patch becomes a regulatory problem rather than a backlog item.
+After the end-of-support date there are no security patches. Not "fewer" — none. A service still running on .NET 8 in December 2026 is running unpatched code with a published list of what is wrong with it, and that has consequences well beyond engineering taste: it will fail your SOC 2 audit, it will be flagged by any customer's security questionnaire, and if it is in scope for the EU Cyber Resilience Act ([Chapter 27](#chapter-27-security-in-depth-and-the-supply-chain)), shipping software you no longer patch becomes a regulatory problem rather than a backlog item.
 
 > **Gotcha.** The runtime is usually not the binding constraint — the base image is. A container built `FROM` a distro release that goes EOL keeps working perfectly and quietly stops receiving OS-level CVE fixes, which your scanner will notice long before anyone else does. Track base image EOL dates alongside runtime dates; they rarely align.
 
@@ -476,10 +480,10 @@ The organizational failure here is treating platform upgrades as discretionary w
 What works in practice:
 
 - **Reserve capacity permanently.** A standing allocation — a fixed share of each iteration, or one engineer's rotation — for dependency and platform maintenance. Not "when we have time," which never arrives.
-- **Keep a dated inventory.** Every service, its runtime version, base image, and their end-of-support dates, generated from what is actually deployed rather than from a wiki page. This is the service-catalog data from Chapter 12 doing a second job, and it is what turns "are we exposed?" from an investigation into a query.
+- **Keep a dated inventory.** Every service, its runtime version, base image, and their end-of-support dates, generated from what is actually deployed rather than from a wiki page. This is the service-catalog data from [Chapter 26](#chapter-26-delivery-and-platform) doing a second job, and it is what turns "are we exposed?" from an investigation into a query.
 - **Alert before the date, not on it.** Ninety days of warning is a sprint's worth of planning. The day-of alert is an incident.
 - **Upgrade the boring services first.** Practising on the low-risk ones is how you find out what your upgrade actually involves before you attempt it on the service that takes payments.
-- **Make the pipeline do the work.** Automated dependency PRs with a cooldown window (Chapter 35), a build matrix that compiles against the *next* runtime before you commit to it, and CI failing on a target framework approaching EOL. The upgrade you notice in a red build is far cheaper than the one you notice in an audit.
+- **Make the pipeline do the work.** Automated dependency PRs with a cooldown window ([Chapter 27](#chapter-27-security-in-depth-and-the-supply-chain)), a build matrix that compiles against the *next* runtime before you commit to it, and CI failing on a target framework approaching EOL. The upgrade you notice in a red build is far cheaper than the one you notice in an audit.
 
 > **Best practice.** Multi-target during transitions (as described earlier in this chapter) and keep the *next* version green in CI continuously, even before you plan to adopt it. The cost of upgrading is then paid down incrementally, in units small enough that nobody has to approve them — which is the only reliable way this work gets done.
 
@@ -487,7 +491,7 @@ What works in practice:
 
 The deepest version of this point: **the maintenance cadence you can sustain is an architectural constraint**, and it belongs in design discussions alongside latency budgets and consistency requirements.
 
-Forty microservices means forty runtime upgrades, forty base images, forty dependency graphs. That is a real, recurring cost, and it is one of the strongest arguments for the modular monolith (Chapter 6) at team sizes that cannot staff forty upgrade paths. Similarly, every additional language, framework, database engine and cloud service you adopt adds its own independent expiry schedule.
+Forty microservices means forty runtime upgrades, forty base images, forty dependency graphs. That is a real, recurring cost, and it is one of the strongest arguments for the modular monolith ([Chapter 21](#chapter-21-architecture)) at team sizes that cannot staff forty upgrade paths. Similarly, every additional language, framework, database engine and cloud service you adopt adds its own independent expiry schedule.
 
 The question to ask when adopting anything new is not only "does this solve our problem?" but "**who will upgrade this in three years, and will they know why we chose it?**" A team that asks this consistently ends up with fewer, better-understood technologies — and considerably less of the legacy this chapter is about.
 

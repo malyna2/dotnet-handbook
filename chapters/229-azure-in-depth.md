@@ -1,8 +1,10 @@
 # Chapter 29: Azure in Depth for .NET Developers
 
-[Chapter 10](#chapter-10-cloud-aws-azure) gave you the map: what App Service, Functions, Cosmos DB and Service Bus *are*, and how they line up against AWS. A map gets you through a conversation. It does not get you through the first week of owning a production system on Azure, where the questions sound like this: *why does the app get a 403 from Blob Storage when its identity is a Contributor on the subscription? Why did the slot swap cause a minute of 500s? Why does Cosmos DB throttle at 3,000 RU/s when we provisioned 20,000?*
+[Chapter 28](#chapter-28-cloud-fundamentals-aws-azure) gave you the map: what App Service, Functions, Cosmos DB and Service Bus *are*, and how they line up against AWS. A map gets you through a conversation. It does not get you through the first week of owning a production system on Azure, where the questions sound like this: *why does the app get a 403 from Blob Storage when its identity is a Contributor on the subscription? Why did the slot swap cause a minute of 500s? Why does Cosmos DB throttle at 3,000 RU/s when we provisioned 20,000?*
 
-This chapter is the territory. For each service a .NET developer touches every week, it explains the **mechanism** (what actually happens when you call it), shows the **.NET code** you would write, lists the **limits that bite**, and ends with a **decision table**. The level it aims for is a strong middle developer who can build, ship and debug an Azure system without a platform team holding their hand, and who can explain their choices in an interview. [Chapter 51](#chapter-51-the-azure-casebook-real-incidents-real-fixes) then puts all of it to work on real incidents.
+This chapter is the territory. For each service a .NET developer touches every week, it explains the **mechanism** (what actually happens when you call it), shows the **.NET code** you would write, lists the **limits that bite**, and ends with a **decision table**. The level it aims for is a strong middle developer who can build, ship and debug an Azure system without a platform team holding their hand, and who can explain their choices in an interview. [Chapter 30](#chapter-30-the-azure-casebook-real-incidents-real-fixes) then puts all of it to work on real incidents.
+
+One idea runs under every section: in production your code runs inside platform mechanisms it never calls — a front end with a timeout, a NAT with a port budget, a token endpoint, a DNS zone, a scheduler that scales, kills and moves it — and most cloud incidents are one of them doing exactly what its documentation says. The practice at the end of the chapter turns that into hands-on work: the casebook's two verified bugs, two design decisions, and a deployment pipeline whose rollback is a slot swap.
 
 ```
                         how a typical .NET system on Azure is layered
@@ -35,11 +37,11 @@ The landscape changed in 2026, so check the current state yourself before you bo
 |---|---|---|---|
 | **AZ-900** Azure Fundamentals | Active. The skills outline was revised in July 2026. | Cloud concepts (~25–30%); Azure architecture and services (~35–40%); management and governance (~30–35%). | *The Control Plane* and *Cost* sections, plus the first paragraph of every service section. |
 | **AZ-204** Developing Solutions for Azure | **Retired on 31 July 2026.** A certification you already hold stays valid until it expires. | *(was)* compute, storage, security, monitoring, and connecting to Azure and third-party services. | The whole chapter. Its topics are still what the job needs. |
-| **AI-200** Developing AI Cloud Solutions on Azure → *Azure AI Cloud Developer Associate* | The suggested successor to AZ-204. | Containerized solutions (Container Registry, Container Apps, AKS); data management for AI (Cosmos DB for NoSQL, PostgreSQL with pgvector, Azure Managed Redis vector search); event-driven solutions (Service Bus, Event Grid, Event Hubs, Functions); security and monitoring (Key Vault, RBAC, Azure Monitor, KQL). | Everything except the vector-search parts, which [Chapter 19](#chapter-19-building-ai-powered-systems) covers. |
+| **AI-200** Developing AI Cloud Solutions on Azure → *Azure AI Cloud Developer Associate* | The suggested successor to AZ-204. | Containerized solutions (Container Registry, Container Apps, AKS); data management for AI (Cosmos DB for NoSQL, PostgreSQL with pgvector, Azure Managed Redis vector search); event-driven solutions (Service Bus, Event Grid, Event Hubs, Functions); security and monitoring (Key Vault, RBAC, Azure Monitor, KQL). | Everything except the vector-search parts, which [Chapter 33](#chapter-33-building-ai-powered-systems) covers. |
 
 The practical takeaway: **AZ-900 is a reasonable one-weekend goal** once you have read this chapter, and it is useful when your CV has to get past a recruiter's keyword filter. The developer-level exam has moved towards AI workloads, but the platform underneath it is exactly what this chapter teaches: containers, Cosmos DB, messaging, Functions, Key Vault, RBAC and KQL. Learn the platform first. The AI-specific parts are thin layers on top of it.
 
-> **Best practice.** Use the free Microsoft Learn sandbox and the exam's official practice assessment rather than a question dump. Dumps teach you to recognise answers. This chapter's *Self-check* section at the end, and Chapter 51's cases, teach you to derive them, which is also what an interviewer checks.
+> **Best practice.** Use the free Microsoft Learn sandbox and the exam's official practice assessment rather than a question dump. Dumps teach you to recognise answers. This chapter's *Self-check* section at the end, and Chapter 30's cases, teach you to derive them, which is also what an interviewer checks.
 
 ## The Control Plane: How Azure Is Organised
 
@@ -102,7 +104,7 @@ Services come in three flavours with respect to zones. **Zone-redundant** resour
 0.9995 × 0.9999 = 0.9994   → 99.94%  (about 26 minutes of downtime in a 30-day month, against 22 for App Service alone)
 ```
 
-Every component you add *in series* lowers the number. Components *in parallel* (two regions behind Front Door, each one enough on its own) raise it: two independent 99.94% paths give `1 − (0.0006 × 0.0006) ≈ 99.99996%`, on paper. That figure holds only if failover works and the paths really are independent, which is why [Chapter 21](#chapter-21-distributed-systems-theory-reliability-engineering) treats reliability as something you test, not something you calculate. The SLA percentages themselves change, so read them on the current SLA page for each service.
+Every component you add *in series* lowers the number. Components *in parallel* (two regions behind Front Door, each one enough on its own) raise it: two independent 99.94% paths give `1 − (0.0006 × 0.0006) ≈ 99.99996%`, on paper. That figure holds only if failover works and the paths really are independent, which is why [Chapter 20](#chapter-20-distributed-systems) treats reliability as something you test, not something you calculate. The SLA percentages themselves change, so read them on the current SLA page for each service.
 
 ### Pricing models, at the level an exam and a code review need
 
@@ -114,11 +116,11 @@ Every component you add *in series* lowers the number. Components *in parallel* 
 | Spot | Spare capacity at a deep discount that can be evicted at short notice | Interruptible batch work; never for request serving |
 | Azure Hybrid Benefit | Reuse existing Windows Server or SQL Server licences | Lift-and-shift from on-premises |
 
-**Budgets alert; they do not stop spending.** A budget in Cost Management sends email or triggers an action group when actual or forecast spend crosses a threshold. It will not switch anything off unless you wire an automation to it. [Chapter 28](#chapter-28-compliance-data-privacy-cloud-cost-finops) covers FinOps properly. The *Cost* section near the end of this chapter lists the specific decisions developers make that show up on the bill.
+**Budgets alert; they do not stop spending.** A budget in Cost Management sends email or triggers an action group when actual or forecast spend crosses a threshold. It will not switch anything off unless you wire an automation to it. [Chapter 31](#chapter-31-compliance-data-privacy-cloud-cost-finops) covers FinOps properly. The *Cost* section near the end of this chapter lists the specific decisions developers make that show up on the bill.
 
 ## Identity: Entra ID, Managed Identity and RBAC, Mechanically
 
-Chapter 10 showed the headline pattern: managed identity plus `DefaultAzureCredential`, with no secrets in code. This section explains what happens under that one line, because when it fails, it fails with errors that only make sense if you know the mechanism.
+[Chapter 28](#chapter-28-cloud-fundamentals-aws-azure) showed the headline pattern: managed identity plus `DefaultAzureCredential`, with no secrets in code. This section explains what happens under that one line, because when it fails, it fails with errors that only make sense if you know the mechanism.
 
 ### The objects: app registration, service principal, managed identity
 
@@ -222,7 +224,7 @@ Least privilege in practice looks like this for a typical API:
 
 ### Turn off keys once identity works
 
-Most data services accept two kinds of credential: Entra tokens, and a shared secret (storage account keys, Service Bus and Event Hubs SAS keys, Cosmos DB primary keys). A shared secret bypasses RBAC completely: whoever holds the key can do everything, and nothing ties the actions to a person. Once your apps use managed identity, **disable local authentication**: `allowSharedKeyAccess: false` on storage accounts, `disableLocalAuth: true` on Service Bus, Event Hubs and Cosmos DB accounts. An Azure Policy with a `Deny` effect keeps it that way. [Chapter 14](#chapter-14-security) explains why a secret you do not have is the only secret you cannot leak.
+Most data services accept two kinds of credential: Entra tokens, and a shared secret (storage account keys, Service Bus and Event Hubs SAS keys, Cosmos DB primary keys). A shared secret bypasses RBAC completely: whoever holds the key can do everything, and nothing ties the actions to a person. Once your apps use managed identity, **disable local authentication**: `allowSharedKeyAccess: false` on storage accounts, `disableLocalAuth: true` on Service Bus, Event Hubs and Cosmos DB accounts. An Azure Policy with a `Deny` effect keeps it that way. [Chapter 12](#chapter-12-security-essentials) explains why a secret you do not have is the only secret you cannot leak.
 
 ### Protecting your own API
 
@@ -256,7 +258,7 @@ A managed identity can use the client credentials flow against *your* API too: t
 
 ### Workload identity federation: no secret in CI either
 
-The last long-lived secret in most teams is the one their CI uses to deploy. **Workload identity federation** removes it. You add a *federated credential* to an app registration or a user-assigned managed identity that says, in effect, "trust tokens issued by `token.actions.githubusercontent.com` for the repository `org/repo` on the environment `production`". The GitHub Actions job then asks GitHub for an OIDC token, exchanges it with Entra ID, and gets an Azure token. No secret is stored anywhere. The `azure/login` action does this when you give it `client-id`, `tenant-id` and `subscription-id` and grant the workflow `id-token: write`. [Chapter 12](#chapter-12-devops-cicd) covers the pipeline itself, and [Chapter 35](#chapter-35-software-supply-chain-security) explains why a stolen CI credential is one of the most damaging supply-chain attacks there is.
+The last long-lived secret in most teams is the one their CI uses to deploy. **Workload identity federation** removes it. You add a *federated credential* to an app registration or a user-assigned managed identity that says, in effect, "trust tokens issued by `token.actions.githubusercontent.com` for the repository `org/repo` on the environment `production`". The GitHub Actions job then asks GitHub for an OIDC token, exchanges it with Entra ID, and gets an Azure token. No secret is stored anywhere. The `azure/login` action does this when you give it `client-id`, `tenant-id` and `subscription-id` and grant the workflow `id-token: write`. [Chapter 13](#chapter-13-git-and-cicd) covers the pipeline itself, and [Chapter 27](#chapter-27-security-in-depth-and-the-supply-chain) explains why a stolen CI credential is one of the most damaging supply-chain attacks there is.
 
 ## Compute: Choosing It and Running It
 
@@ -300,7 +302,7 @@ What that means in practice:
 
 - **Mark environment-specific settings as *deployment slot settings*** (sticky). Everything else *moves with the code*. A connection string that is not sticky will follow the staging build into production.
 - **Point the warm-up at an endpoint that exercises the app**, such as a health endpoint that opens a database connection and primes caches. The default warm-up request to `/` only proves that the process started.
-- **The old production instances are recycled in the last step.** Long-running work on them is abandoned. The documentation says so explicitly, and it also applies to function apps, so background work must be restartable (see [Chapter 22](#chapter-22-background-processing-scheduling-the-actor-model)).
+- **The old production instances are recycled in the last step.** Long-running work on them is abandoned. The documentation says so explicitly, and it also applies to function apps, so background work must be restartable (see [Chapter 11](#chapter-11-messaging-and-background-work)).
 - **Swap with preview** stops after step 1, so you can test the source slot running with production's settings before you complete the swap.
 
 **Health check.** Configure a health-check path, and App Service will take an instance out of the load balancer after it fails 10 checks in a row (by default), and replace it if it stays unhealthy. To protect the remaining instances, it never removes more than half of the instances at once. Make the endpoint check the dependencies the app cannot work without, and keep it cheap, because every instance is checked at one-minute intervals.
@@ -318,7 +320,7 @@ What that means in practice:
 **Two limits that cause real incidents:**
 
 - **230 seconds.** The Azure front-end load balancer closes an HTTP request that has not produced a response within 230 seconds. Your code keeps running, but the client gets an error. The same limit applies to HTTP-triggered functions, whatever the function's own timeout is. For long work, accept the request, return `202 Accepted` with a status URL, and do the work in the background (a queue plus a worker, or Durable Functions).
-- **SNAT ports.** Outbound connections to public endpoints go through source NAT. Microsoft's troubleshooting guide says each instance gets a *preallocated* 128 ports. An app that opens a new outbound connection per request (`new HttpClient()` per call, a new SQL connection without pooling, a new SDK client per request) exhausts them. The symptoms are intermittent connection timeouts and `SocketException`s that appear only under load, and no CPU or memory alarm fires. The fixes are to reuse connections (`IHttpClientFactory`, singleton SDK clients), to use private endpoints for Azure services (traffic that stays in the VNet does not use SNAT), or to add a NAT gateway (64,512 ports per public IP). [Chapter 51](#chapter-51-the-azure-casebook-real-incidents-real-fixes) walks through this exact incident.
+- **SNAT ports.** Outbound connections to public endpoints go through source NAT. Microsoft's troubleshooting guide says each instance gets a *preallocated* 128 ports. An app that opens a new outbound connection per request (`new HttpClient()` per call, a new SQL connection without pooling, a new SDK client per request) exhausts them. The symptoms are intermittent connection timeouts and `SocketException`s that appear only under load, and no CPU or memory alarm fires. The fixes are to reuse connections (`IHttpClientFactory`, singleton SDK clients), to use private endpoints for Azure services (traffic that stays in the VNet does not use SNAT), or to add a NAT gateway (64,512 ports per public IP). [Chapter 30](#chapter-30-the-azure-casebook-real-incidents-real-fixes) walks through this exact incident.
 
 ### Azure Functions
 
@@ -373,7 +375,7 @@ The `Connection = "ServiceBus"` setting is the *name* of a configuration prefix,
 
 Whatever the plan, an **HTTP-triggered function has 230 seconds** to respond (the same load balancer as App Service). "Unbounded" timeouts still come with grace periods: when an instance is scaled in on Flex Consumption or Premium, a running execution gets 60 minutes to finish, and during platform updates it gets 10.
 
-**Scale multiplies concurrency.** The Service Bus trigger processes up to `maxConcurrentCalls` messages at a time *per instance*. The default is 16, and the documentation notes that it is effectively multiplied by the instance's core count (32 on a two-core instance). Meanwhile the platform adds instances as the queue grows. At 40 two-core instances that is 1,280 concurrent executions, all opening connections to the same database. The trigger scales. Your database does not. When the downstream system has a fixed capacity, cap the product of the two: set `maxConcurrentCalls` in `host.json`, and cap the instance count (Flex Consumption has a maximum-instance setting for this). Then measure. Chapter 51 has the incident where this goes wrong.
+**Scale multiplies concurrency.** The Service Bus trigger processes up to `maxConcurrentCalls` messages at a time *per instance*. The default is 16, and the documentation notes that it is effectively multiplied by the instance's core count (32 on a two-core instance). Meanwhile the platform adds instances as the queue grows. At 40 two-core instances that is 1,280 concurrent executions, all opening connections to the same database. The trigger scales. Your database does not. When the downstream system has a fixed capacity, cap the product of the two: set `maxConcurrentCalls` in `host.json`, and cap the instance count (Flex Consumption has a maximum-instance setting for this). Then measure. Chapter 30 has the incident where this goes wrong.
 
 ```json
 {
@@ -430,7 +432,7 @@ Container Apps runs your containers on a managed Kubernetes cluster that you nev
 - **Jobs** are containers that run to completion: manually, on a cron schedule, or triggered by events (one execution per batch of queue messages).
 - **Ingress** is *external* (public) or *internal* (inside the environment's VNet only). Pull images from Azure Container Registry with a managed identity that has *AcrPull*, not with admin credentials.
 
-It is the natural home for a .NET system of a handful of services, which is exactly what [Chapter 11](#chapter-11-containers-orchestration) builds towards. Move to AKS when you need something Container Apps does not expose: custom operators, service-mesh control, node-level tuning, or a platform team that wants the whole Kubernetes API.
+It is the natural home for a .NET system of a handful of services, which is exactly what [Chapter 14](#chapter-14-containers-and-linux) builds towards. Move to AKS when you need something Container Apps does not expose: custom operators, service-mesh control, node-level tuning, or a platform team that wants the whole Kubernetes API.
 
 ## Storage Accounts and Blob Storage
 
@@ -516,7 +518,7 @@ Two instances of your service that read, modify and write the same blob will los
 - **Optimistic: ETags.** Every write returns a new `ETag`. Pass the ETag you read as `IfMatch` on the write. If someone else wrote in between, the service answers `412 Precondition Failed`, and you re-read and retry. This is cheap, and correct for low contention.
 - **Pessimistic: leases.** Acquire a lease (15–60 seconds, or infinite) and hold it while you work. Writes without the lease ID fail. Leases are also a common building block for leader election ("only the instance holding the lease on `leader.lock` runs the scheduler").
 
-Chapter 51's first *Find the bug* exercise is the missing ETag, verified against Azurite.
+Chapter 30's first *Find the bug* exercise is the missing ETag, verified against Azurite.
 
 ### Queue Storage or Service Bus?
 
@@ -615,7 +617,7 @@ Cosmos DB offers five, from strongest to weakest: **strong**, **bounded stalenes
 ### Indexing, change feed, TTL
 
 - **Indexing policy.** By default every property of every item is indexed. This makes any query possible, and it makes every write pay for indexing properties nobody queries. For write-heavy containers with large documents, exclude paths (`"excludedPaths": [{ "path": "/payload/*" }]`). Add **composite indexes** for `ORDER BY` on two or more properties, or the query fails.
-- **Change feed.** A persistent, ordered-per-partition-key record of changes that you consume with the *change feed processor*. The processor keeps its position in a *lease container* and spreads partitions across your instances. It is the natural way to build projections, search indexing and outbox relays ([Chapter 9](#chapter-9-messaging-distributed-systems)). The default *latest version* mode does **not** record deletes, so a consumer never learns an item is gone. Either soft-delete (set a flag, then let TTL remove the item later) or use *all versions and deletes* mode.
+- **Change feed.** A persistent, ordered-per-partition-key record of changes that you consume with the *change feed processor*. The processor keeps its position in a *lease container* and spreads partitions across your instances. It is the natural way to build projections, search indexing and outbox relays ([Chapter 11](#chapter-11-messaging-and-background-work)). The default *latest version* mode does **not** record deletes, so a consumer never learns an item is gone. Either soft-delete (set a flag, then let TTL remove the item later) or use *all versions and deletes* mode.
 - **TTL.** Set a default time-to-live on the container, and override it per item with a `ttl` property. Expired items are removed in the background using spare RUs, with no delete job to write.
 
 ### SDK rules that prevent most incidents
@@ -652,7 +654,7 @@ builder.Services.AddDbContext<ShopDbContext>(options =>
             errorNumbersToAdd: null)));
 ```
 
-> **Gotcha.** With a retrying execution strategy, a transaction you start yourself (`BeginTransaction`) throws, because EF Core cannot replay half a transaction. Get the strategy with `CreateExecutionStrategy()` and run the whole unit of work inside its `ExecuteAsync`, so that a retry repeats *all* of it, including the reads (Chapter 51, Case 14, shows the code). [Chapter 4](#chapter-4-data-access-databases) covers EF Core's transactions in depth.
+> **Gotcha.** With a retrying execution strategy, a transaction you start yourself (`BeginTransaction`) throws, because EF Core cannot replay half a transaction. Get the strategy with `CreateExecutionStrategy()` and run the whole unit of work inside its `ExecuteAsync`, so that a retry repeats *all* of it, including the reads (Chapter 30, Case 14, shows the code). [Chapter 7](#chapter-7-data-access) covers EF Core's transactions in depth.
 
 ### Connect with an identity, not a password
 
@@ -682,11 +684,11 @@ Then turn on *Microsoft Entra-only authentication* on the server, and SQL logins
 - **Active geo-replication** keeps readable secondaries in other regions.
 - **Failover groups** add two *listener* endpoints that move with the primary: `<group>.database.windows.net` for read-write and `<group>.secondary.database.windows.net` for read-only. **Always connect through the listener**, so that a regional failover needs no configuration change. Geo-replication is asynchronous, so a forced failover can lose recent transactions, and your RPO has to account for that.
 
-The database tuning skills from [Chapter 37](#chapter-37-the-slow-query-lab-reading-execution-plans) (its SQL Server track) transfer directly. Azure SQL has Query Store on by default, and it adds *automatic tuning*, which can create indexes, drop indexes and force last-known-good plans for you. Review what it does. Do not let it replace understanding.
+The database tuning skills from [Chapter 19](#chapter-19-the-slow-query-lab-reading-execution-plans) (its SQL Server track) transfer directly. Azure SQL has Query Store on by default, and it adds *automatic tuning*, which can create indexes, drop indexes and force last-known-good plans for you. Review what it does. Do not let it replace understanding.
 
 ## Messaging: Service Bus, Event Hubs and Event Grid
 
-[Chapter 9](#chapter-9-messaging-distributed-systems) teaches the patterns: outbox, idempotent consumer, saga. This section is about the three Azure brokers, which are three different tools rather than three brands of the same one:
+[Chapter 11](#chapter-11-messaging-and-background-work) teaches the patterns: outbox, idempotent consumer, saga. This section is about the three Azure brokers, which are three different tools rather than three brands of the same one:
 
 | | **Service Bus** | **Event Hubs** | **Event Grid** |
 |---|---|---|---|
@@ -716,8 +718,8 @@ The database tuning skills from [Chapter 37](#chapter-37-the-slow-query-lab-read
 
 The facts that matter, and that interviewers ask about:
 
-- **The lock duration defaults to 1 minute, with a maximum of 5.** Work that takes longer must *renew* the lock. `ServiceBusProcessor` does this automatically for up to `MaxAutoLockRenewalDuration` (5 minutes by default). If the lock expires, `CompleteMessageAsync` throws `MessageLockLost`, and the message is delivered again, *after your side effects have already happened*. Chapter 51's second *Find the bug* exercise shows this, verified against the Service Bus emulator.
-- **Delivery is at-least-once, always.** Locks expire, processes crash between the side effect and `Complete`, networks drop the settlement. Every consumer must be **idempotent**: claim the message ID under a unique key in the same transaction as the effect ([Chapter 9: Idempotent Consumers](#idempotent-consumers)), never check first and record afterwards.
+- **The lock duration defaults to 1 minute, with a maximum of 5.** Work that takes longer must *renew* the lock. `ServiceBusProcessor` does this automatically for up to `MaxAutoLockRenewalDuration` (5 minutes by default). If the lock expires, `CompleteMessageAsync` throws `MessageLockLost`, and the message is delivered again, *after your side effects have already happened*. Chapter 30's second *Find the bug* exercise shows this, verified against the Service Bus emulator.
+- **Delivery is at-least-once, always.** Locks expire, processes crash between the side effect and `Complete`, networks drop the settlement. Every consumer must be **idempotent**: claim the message ID under a unique key in the same transaction as the effect ([Chapter 11: Idempotent Consumers](#idempotent-consumers)), never check first and record afterwards.
 - **The dead-letter queue does not drain itself.** Messages stay there until someone reads them. Put an alert on the dead-letter message count (the `DeadletteredMessages` metric), and have a tool to inspect, fix and resubmit messages. A DLQ nobody watches is a silent data-loss mechanism.
 - **Sessions give ordered processing per key.** Set `SessionId = customerId`, and the queue delivers each session's messages in order to one receiver at a time, while different sessions are processed in parallel. Session state (up to one message's size) lets the receiver keep a small state machine per session.
 - **Duplicate detection** discards a message whose `MessageId` was already seen within a time window (20 seconds to 7 days; the service documents 10 minutes as the default, but the .NET `CreateQueueOptions` sets 1 minute unless you set `DuplicateDetectionHistoryTimeWindow`). It protects against a *sender* that retries after a timeout. A redelivery is the same message delivered again, which it never sees, so it does not replace idempotent consumers.
@@ -907,7 +909,7 @@ The first command to run when "the private endpoint doesn't work" is a DNS looku
 
 ## Observability: Application Insights and KQL
 
-[Chapter 13](#chapter-13-observability) explains the three pillars and OpenTelemetry. On Azure, they land in **Azure Monitor**: *metrics* (numeric time series, cheap, retained for 93 days, the basis for fast alerts) and *logs* (records in a **Log Analytics workspace**, queried with **KQL**). **Application Insights** is the application-performance view over a workspace: requests, dependencies, exceptions and traces, correlated by operation ID into an end-to-end transaction.
+[Chapter 9](#chapter-9-exceptions-logging-and-first-diagnosis) explains the three pillars and OpenTelemetry. On Azure, they land in **Azure Monitor**: *metrics* (numeric time series, cheap, retained for 93 days, the basis for fast alerts) and *logs* (records in a **Log Analytics workspace**, queried with **KQL**). **Application Insights** is the application-performance view over a workspace: requests, dependencies, exceptions and traces, correlated by operation ID into an end-to-end transaction.
 
 For .NET, the recommended way in is the **Azure Monitor OpenTelemetry Distro**:
 
@@ -958,7 +960,7 @@ union requests, dependencies, exceptions, traces
 
 ## Infrastructure as Code, the Azure Way
 
-Chapter 10 compares Bicep, Terraform and Pulumi. Whichever you choose, the Azure-specific skill is to **deploy the identity and its role assignments together with the resource**, so that access is reviewed in the same pull request as the thing it grants access to:
+[Chapter 28](#chapter-28-cloud-fundamentals-aws-azure) compares Bicep, Terraform and Pulumi. Whichever you choose, the Azure-specific skill is to **deploy the identity and its role assignments together with the resource**, so that access is reviewed in the same pull request as the thing it grants access to:
 
 ```bicep
 param location string = resourceGroup().location
@@ -1002,7 +1004,7 @@ Run `az deployment group what-if` in the pull request, so reviewers see what *wi
 
 ## Cost: The Developer's Share of the Bill
 
-FinOps belongs to everyone ([Chapter 28](#chapter-28-compliance-data-privacy-cloud-cost-finops)), but some costs are set by code, and only the developer can see them:
+FinOps belongs to everyone ([Chapter 31](#chapter-31-compliance-data-privacy-cloud-cost-finops)), but some costs are set by code, and only the developer can see them:
 
 | Decision in code or config | Cost mechanism |
 |---|---|
@@ -1148,21 +1150,19 @@ Identity is the foundation. Managed identities replace secrets. `DefaultAzureCre
 
 For compute, App Service is the default for web workloads: learn the slot swap sequence, the 230-second limit and SNAT ports. Functions are for events: use the isolated worker model on Flex Consumption, remember that scale multiplies concurrency, and keep Durable orchestrators deterministic. Container Apps covers containerised systems without a cluster to run. For data, Blob Storage wants the right redundancy, tiers, user delegation SAS and ETags. Cosmos DB is a partitioning decision with a price on every operation. Azure SQL is SQL Server that fails over, so retry. Service Bus, Event Hubs and Event Grid are three different tools: commands, streams and notifications. All of them deliver at least once.
 
-Around everything sit Key Vault and App Configuration (load once, reload deliberately), private endpoints (whose failures are almost always DNS), Application Insights (sampling and KQL), infrastructure as code that grants access in the same pull request as the resource, and the costs only a developer can see. [Chapter 51](#chapter-51-the-azure-casebook-real-incidents-real-fixes) takes all of this into production and breaks it.
-
-@@SRC: practice from old module page Part 2 · Module 6: Production and the Cloud@@
+Around everything sit Key Vault and App Configuration (load once, reload deliberately), private endpoints (whose failures are almost always DNS), Application Insights (sampling and KQL), infrastructure as code that grants access in the same pull request as the resource, and the costs only a developer can see. [Chapter 30](#chapter-30-the-azure-casebook-real-incidents-real-fixes) takes all of this into production and breaks it.
 
 ## Practice
 
-**1. Chapter 51's two *Find the bug* samples (1 h).** In the *Exercises* of [Chapter 51](#chapter-51-the-azure-casebook-real-incidents-real-fixes), review both samples as pull requests before you open the answers: the lost update on a shared blob, and the batch that outlives its locks. Then run the tests that show each defect on the buggy code and its absence on the fix, against Azurite and the Service Bus emulator ([`verify/exercises/Ch51`](https://github.com/malyna2/dotnet-handbook/tree/main/verify/exercises/Ch51); needs the .NET 10 SDK and Docker, and both emulators have EULAs):
+**1. Chapter 30's two *Find the bug* samples (1 h).** In the *Exercises* of [Chapter 30](#chapter-30-the-azure-casebook-real-incidents-real-fixes), review both samples as pull requests before you open the answers: the lost update on a shared blob, and the batch that outlives its locks. Then run the tests that show each defect on the buggy code and its absence on the fix, against Azurite and the Service Bus emulator ([`verify/exercises/Ch51`](https://github.com/malyna2/dotnet-handbook/tree/main/verify/exercises/Ch51); needs the .NET 10 SDK and Docker, and both emulators have EULAs):
 
 ```bash
 ACCEPT_EULA=Y verify/exercises/Ch51/verify.sh
 ```
 
-**2. Chapter 51's two *What would you do* (45 min).** Answer the second — the document-processing service — as a one-page decision before you read the chapter's: the compute, the path around the 230-second limit, scaling and its cap, identity, and what would change your mind. The first — "just give the app Owner" — practises the answer you give under deadline pressure.
+**2. Chapter 30's two *What would you do* (45 min).** Answer the second — the document-processing service — as a one-page decision before you read the chapter's: the compute, the path around the 230-second limit, scaling and its cap, identity, and what would change your mind. The first — "just give the app Owner" — practises the answer you give under deadline pressure.
 
-**3. A deployment pipeline that makes rollback cheap (2 h 30).** Chapter 12 has no exercise section; this one is built on it. Start from its [A Complete GitHub Actions Workflow for .NET](#a-complete-github-actions-workflow-for-net) (or the Azure Pipelines one) and extend it for one service:
+**3. A deployment pipeline that makes rollback cheap (2 h 30).** It builds on [A Complete GitHub Actions Workflow for .NET](#a-complete-github-actions-workflow-for-net) in Chapter 13 (or [Azure Pipelines in Practice](#azure-pipelines-in-practice) in Chapter 26), and on the deployment strategies and feature flags of [Chapter 26](#chapter-26-delivery-and-platform). Start from one of those pipelines and extend it for one service:
 
 - build and test once, publish one immutable artifact, and promote that same artifact through the environments;
 - sign in to Azure with workload identity federation, so the pipeline stores no secret;
@@ -1170,11 +1170,9 @@ ACCEPT_EULA=Y verify/exercises/Ch51/verify.sh
 - run migrations as a gated step, expand-then-contract, so the previous build still runs against the new schema;
 - put one change behind a feature flag and release it without a deployment.
 
-Done when you can show a rollback in minutes and no stored secret. Chapter 32's capstone takes the same route in its steps 4 and 8 ([The Capstone](#the-capstone-one-project-growing-up)).
+Done when you can show a rollback in minutes and no stored secret. The capstone in [Chapter 44](#chapter-44-capstone-one-project-growing-up) takes the same route in its Steps 4 and 8.
 
 The pipeline, your decision memo and your notes belong in **your own public portfolio repo**, not in this one; anything about a real employer's system stays private.
-
-Later, if you need it: Chapter 31's [Processes, Signals, Graceful Shutdown](#processes-signals-graceful-shutdown), [Permissions](#permissions-why-your-container-app-cant-write-that-file) and [Live Container Triage](#live-container-triage-a-walkthrough); Chapter 35, starting with [The Build Is Part of the Attack Surface](#the-build-is-part-of-the-attack-surface); Chapter 50's [Configuration and Secrets](#configuration-and-secrets-key-vault-and-app-configuration) with Chapter 51's [Case 13](#case-13-secret-rotation-took-production-down); Chapter 11's [Containerizing a .NET Application](#containerizing-a-net-application); then the rest of Chapter 51's cases.
 
 ## Three questions
 
@@ -1204,9 +1202,9 @@ Later, if you need it: Chapter 31's [Processes, Signals, Graceful Shutdown](#pro
 <details>
 <summary>Answer</summary>
 
-- **A schema change the old build can't run against:** a dropped or renamed column, a new `NOT NULL` column. Expand then contract: add it nullable, backfill, switch the code, and remove the old shape in a later release (Chapter 4).
-- **A contract change others already depend on:** a renamed response field or message property. Rolling back the producer doesn't recall the messages already in queues, and consumers may have deployed against the new shape. Make changes additive (expand–contract on the API, Chapter 3) and readers tolerant.
-- **Settings and data that moved:** a setting that wasn't a slot setting followed the build into production (Chapter 51, Case 4), or a data migration rewrote rows. Mark environment settings sticky; make data migrations idempotent, and decide in advance whether they are reversible or fix-forward only.
+- **A schema change the old build can't run against:** a dropped or renamed column, a new `NOT NULL` column. Expand then contract: add it nullable, backfill, switch the code, and remove the old shape in a later release ([Chapter 18](#chapter-18-data-in-depth)).
+- **A contract change others already depend on:** a renamed response field or message property. Rolling back the producer doesn't recall the messages already in queues, and consumers may have deployed against the new shape. Make changes additive (expand–contract on the API, [Chapter 22](#chapter-22-api-evolution-real-time-and-serialization)) and readers tolerant.
+- **Settings and data that moved:** a setting that wasn't a slot setting followed the build into production (Chapter 30, Case 4), or a data migration rewrote rows. Mark environment settings sticky; make data migrations idempotent, and decide in advance whether they are reversible or fix-forward only.
 
 What keeps rollback cheap: one immutable artifact, release separated from deploy by a flag (so many rollbacks are a flag flip), a schema that stays compatible with the previous build for one release, and a rollback you have actually rehearsed.
 </details>
@@ -1223,7 +1221,7 @@ Orders (App Service) calls Pricing (Container Apps); both are your team's and si
 <summary>Answer</summary>
 
 **The cost of each.**
-- **A** is the cheapest change and keeps the castle-and-moat: anything inside the VNet that holds the key *is* Orders, a leaked key works until the next rotation, and every rotation is a chance to take production down (Chapter 51, Case 13). It answers the review with a schedule, not an architecture.
+- **A** is the cheapest change and keeps the castle-and-moat: anything inside the VNet that holds the key *is* Orders, a leaked key works until the next rotation, and every rotation is a chance to take production down (Chapter 30, Case 13). It answers the review with a schedule, not an architecture.
 - **B** costs an app registration for Pricing with an app role, a role assignment to Orders' identity (an admin with the right to grant it), token validation in Pricing, and the propagation delay on the first deployment (a user-assigned identity created before the deployment avoids it). It removes the secret, issues short-lived tokens per caller, and lets Pricing authorize each caller separately.
 - **C** costs a cluster and a mesh to operate — full Kubernetes responsibility — to solve an authentication problem for two services. mTLS authenticates the service, not the user, so you would still need token-based authorization for user context.
 
@@ -1236,6 +1234,6 @@ Orders (App Service) calls Pricing (Container Apps); both are your team's and si
 
 ## Check at work
 
-**Inspect.** Walk Chapter 51's triage card over one service of your own. Which identity does each environment's app run as — decode a token's `oid`, or list the identity's role assignments — and is any key or secret-bearing connection string still in its settings? From inside the app, does each private endpoint's name resolve to a private IP? Which settings are slot settings? For each queue consumer, write per-instance concurrency × maximum instances, and compare it with the downstream database's limit.
+**Inspect.** Walk Chapter 30's triage card over one service of your own. Which identity does each environment's app run as — decode a token's `oid`, or list the identity's role assignments — and is any key or secret-bearing connection string still in its settings? From inside the app, does each private endpoint's name resolve to a private IP? Which settings are slot settings? For each queue consumer, write per-instance concurrency × maximum instances, and compare it with the downstream database's limit.
 
 **Measure.** The time from "roll back" to the previous version serving users, from your last real rollback. If there was none, schedule a rehearsal: a rollback you have never run is a hope. On App Service, also open *Diagnose and solve problems → SNAT Port Exhaustion* for your busiest app.

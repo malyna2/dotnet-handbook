@@ -568,5 +568,5 @@ Structure carries more of the weight than vocabulary. Open with a one-line headl
 ## Further reading
 
 - **Julia Evans, "Get your work recognized: write a brag document"** (jvns.ca, 2019) — the original brag-document argument and template.
-- **Chapter 17: Soft Skills & Engineering Practices** — [career growth toward senior and staff](#1712-career-growth-toward-senior-and-staff), [written communication](#written-communication-as-async-leverage) and [blameless post-mortems](#blameless-post-mortems), the skills the stories in this chapter show off.
+- **Chapter 17: Soft Skills & Engineering Practices** — [career growth toward senior and staff](#career-growth-toward-senior-and-staff), [written communication](#written-communication-as-async-leverage) and [blameless post-mortems](#blameless-post-mortems), the skills the stories in this chapter show off.
 - **Chapter 34: Interview Questions & How to Answer Them** — the [behavioral question bank](#behavioral-seniority) the worksheets are built around.
