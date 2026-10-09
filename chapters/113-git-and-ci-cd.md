@@ -1,16 +1,11 @@
 # Chapter 13: Git and CI/CD
 
-@@TODO: write this chapter's introduction (what it makes the reader able to do, how its sections connect), then remove every @@ line.@@
+The people who write software and the people who run it share one piece of machinery: version control that lets many people change the same codebase safely, and pipelines that build and test every change the same way on every machine. This chapter makes you able to keep a branch current, clean and reviewable without losing anyone's work, get back commits that look lost, and set up the SDK, its tools, the analyzers and the formatter so that your laptop and the CI build apply the same rules, then read and write a GitHub Actions pipeline for a .NET service.
 
-@@SRC: introduction of old Chapter 12: DevOps & CI/CD@@
+Each half rests on one mechanism. **A commit is an immutable snapshot whose ID is a hash of its content, parent IDs included; a branch is only a movable name for one commit.** Merge versus rebase, the reflog, what `.gitignore` can't undo and why long branches hurt all follow from that sentence. And **the `dotnet` CLI is a driver**: the same commands, tools and compiler-hosted analyzers run on every machine, so a pipeline is your local build, written down and run on every push.
 
-DevOps is not a job title, a tool, or a team you can buy. It is a way of working in which the people who write software and the people who run it in production share responsibility for the whole lifecycle. The practical machinery that makes this possible is automation: version control that lets many people change the same codebase safely, pipelines that build and test every change, and deployment mechanisms that push validated code to users without drama. This chapter takes you from the internals of Git all the way to canary deployments, with .NET as the running example throughout. By the end you should be able to design a pipeline, reason about a branching strategy, and explain to a junior why rebasing a shared branch is a bad idea.
+The chapter goes from Git's model to the pipeline: Git first, then what CI and CD mean, the `dotnet` CLI and MSBuild that every pipeline calls, a complete GitHub Actions workflow, versioning, secrets and the analysis gates, and finally the everyday tools around them. Azure Pipelines, NuGet publishing, deployment strategies, feature flags and platform engineering build on this in [Chapter 26: Delivery and Platform](#chapter-26-delivery-and-platform).
 
-@@SRC: introduction of old Chapter 16: Tooling & Productivity@@
-
-The tools below are the ones a modern .NET team actually reaches for. Know what each one solves, so you pick deliberately rather than by habit.
-
-@@SRC: old Chapter 12: DevOps & CI/CD@@
 ## Git, Properly Understood
 
 Git's command surface is large; the model underneath is small, and once you have it, every command becomes predictable.
@@ -75,7 +70,7 @@ appsettings.Development.local.json
 
 **GitFlow** uses long-lived branches with defined roles: `main` holds released code, `develop` is the integration branch, and short-lived `feature/*`, `release/*`, and `hotfix/*` branches feed into them. It suits discrete versioned releases, such as an application customers install. Its weakness is deferred integration: `develop` and feature branches drift apart, and big-bang merges produce painful conflicts, which is exactly what continuous integration exists to avoid.
 
-**Trunk-based development** keeps everyone committing to a single branch (`main`) many times a day, using very short-lived branches (hours, not weeks) that merge back quickly. Incomplete work is hidden behind feature flags rather than long-lived branches. Continuous-deployment teams use it because small, frequent merges are cheap and low-risk.
+**Trunk-based development** keeps everyone committing to a single branch (`main`) many times a day, using very short-lived branches (hours, not weeks) that merge back quickly. Incomplete work is hidden behind feature flags ([Chapter 26: Feature Flags](#feature-flags)) rather than long-lived branches. Continuous-deployment teams use it because small, frequent merges are cheap and low-risk.
 
 > **Best practice:** For a service you deploy continuously, prefer trunk-based development with short-lived branches and feature flags. Reserve GitFlow-style release branches for software with genuine parallel-version maintenance needs. The longer a branch lives, the more expensive its eventual merge.
 
@@ -186,7 +181,10 @@ git switch -c recovery 9a8b7c6
 
 Reflog entries are local and expire (by default after 90 days, or 30 for commits no longer reachable from a branch), which is plenty for any "I destroyed my work" moment. The limit is the word *committed*: `git reset --hard` over uncommitted changes discards them for good, because they never became objects. Commit (or stash) before an experiment, and every Git command becomes reversible.
 
-@@SRC: old Chapter 12: DevOps & CI/CD@@
+### Git GUIs
+
+The command line is essential, but a good GUI makes history, staging, and conflict resolution far clearer. **Fork** and **GitKraken** give visual branch graphs and painless interactive rebases; **lazygit** is a fast terminal UI for those who live in the shell. Use whichever helps you *understand* history, not avoid learning git.
+
 ## What CI/CD Actually Means
 
 The acronym conflates three distinct practices. Precision here separates people who understand the pipeline from those who parrot the buzzword.
@@ -199,7 +197,74 @@ The acronym conflates three distinct practices. Precision here separates people 
 
 > **The distinction that matters in interviews and in practice:** Continuous *Delivery* keeps a human gate before production; continuous *Deployment* does not. Both require the same rigorous automated pipeline underneath.
 
-@@SRC: old Chapter 12: DevOps & CI/CD@@
+## Build Automation with the dotnet CLI
+
+Every pipeline in this chapter leans on the `dotnet` CLI, which is the same tool you use locally. Learn it first: consistency between local and CI builds eliminates a whole class of "works on my machine" problems.
+
+```bash
+dotnet restore                       # download NuGet dependencies
+dotnet build -c Release --no-restore # compile; skip a redundant restore
+dotnet test  -c Release --no-build   # run tests against the built output
+dotnet publish -c Release -o ./out   # produce a self-contained, deployable app
+dotnet pack  -c Release -o ./nupkgs  # produce a NuGet package (.nupkg)
+```
+
+The `--no-restore` and `--no-build` flags matter in CI: each stage is explicit, so you avoid the CLI silently re-running earlier steps and wasting time. `dotnet publish` gathers the app, its dependencies, and runtime config into an output folder ready to copy to a server or into a container. `dotnet pack` is for producing libraries you distribute via NuGet.
+
+### MSBuild, Directory.Build.props, and Central Package Management
+
+Under the CLI sits **MSBuild**, the engine that reads your `.csproj` files (which are MSBuild XML) and executes the build. You rarely invoke it directly, but understanding that `dotnet build` *is* MSBuild explains where build configuration lives.
+
+Setting the same properties in every `.csproj` is tedious and error-prone. **`Directory.Build.props`** solves this: place one at your repository root and MSBuild automatically imports it into every project beneath it.
+
+```xml
+<Project>
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+  </PropertyGroup>
+</Project>
+```
+
+Now every project inherits nullable reference types, the latest language version, and—importantly for CI hygiene—warnings treated as errors, so a sloppy warning fails the build rather than rotting silently.
+
+**Central Package Management (CPM)** does the same for NuGet versions. Instead of pinning versions in every project, you declare them once in `Directory.Packages.props`:
+
+```xml
+<Project>
+  <PropertyGroup>
+    <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageVersion Include="Serilog.AspNetCore" Version="8.0.1" />
+    <PackageVersion Include="FluentValidation" Version="11.9.0" />
+  </ItemGroup>
+</Project>
+```
+
+Individual projects then reference packages *without* a version:
+
+```xml
+<PackageReference Include="Serilog.AspNetCore" />
+```
+
+> **Best practice:** Adopt `Directory.Build.props` and Central Package Management early. They prevent version drift, where different projects in the same solution pull incompatible versions of the same library—one of the more maddening debugging experiences in a large .NET codebase.
+
+### .NET Tools: Global, Local and One-Shot
+
+The `dotnet` CLI is a driver. Built-in commands ship with the SDK: `build`, `test`, `publish`, `format`, `user-secrets`, `watch`. Everything else is a **.NET tool**, a NuGet package that contains a console app, and you choose where it lives:
+
+- **Global** (`dotnet tool install -g dotnet-ef`): installed once per user in `~/.dotnet/tools` (`%USERPROFILE%\.dotnet\tools` on Windows), which is on `PATH`. Convenient, but every machine has whatever version someone installed.
+- **Local**: `dotnet new tool-manifest` creates `.config/dotnet-tools.json`; `dotnet tool install dotnet-ef` (no `-g`) pins a version in it; a fresh clone or a CI agent runs `dotnet tool restore`. Commit the manifest: the CLI runs whatever it lists.
+- **One-shot** (.NET 10 SDK): `dnx dotnet-counters monitor -p 1234` (or `dotnet tool exec`) runs a tool without installing it, and honours a nearby manifest's version.
+
+A tool whose command starts with `dotnet-` can also be called as `dotnet <rest>`, which is why `dotnet ef` looks built in and isn't.
+
+> **Pay attention.** **Where `dotnet-counters`, `dotnet-trace` and `dotnet-dump` come from, and why they can't see your container.** They are .NET tools from NuGet, not part of the SDK or the runtime. Each one talks to a running process through the runtime's *diagnostic port*: a named pipe `dotnet-diagnostic-{pid}` on Windows, and a Unix domain socket `dotnet-diagnostic-{pid}-…-socket` in `$TMPDIR` (or `/tmp`) on Linux and macOS. A tool on the host can't find a process in a container, because that socket lives in the container's `/tmp` and the PID belongs to the container's namespace. Run the tool inside the container (the docs publish single-file builds for images without an SDK), or share `/tmp` with a sidecar. `DOTNET_EnableDiagnostics=0` closes the port, and with it every one of these tools.
+
 ## CI/CD Platforms
 
 Several platforms implement these ideas. They differ in hosting model and syntax, but the concepts transfer.
@@ -214,7 +279,6 @@ Several platforms implement these ideas. They differ in hosting model and syntax
 
 The concepts—triggers, jobs, steps, artifacts, caching, secrets, environments—exist in all four. Learn them once and you can read any of these platforms' configuration.
 
-@@SRC: old Chapter 12: DevOps & CI/CD@@
 ## A Complete GitHub Actions Workflow for .NET
 
 Let's build a real pipeline that restores, builds, tests, publishes, containerizes, and deploys a .NET application. We'll then dissect it.
@@ -340,64 +404,6 @@ Now the anatomy.
 
 **Permissions.** The `permissions` block follows least privilege—the containerize job gets `packages: write` because it pushes an image, and nothing more.
 
-@@SRC: old Chapter 12: DevOps & CI/CD@@
-## Build Automation with the dotnet CLI
-
-The pipeline above leans on the `dotnet` CLI, which is the same tool you use locally. Consistency between local and CI builds eliminates a whole class of "works on my machine" problems.
-
-```bash
-dotnet restore                       # download NuGet dependencies
-dotnet build -c Release --no-restore # compile; skip a redundant restore
-dotnet test  -c Release --no-build   # run tests against the built output
-dotnet publish -c Release -o ./out   # produce a self-contained, deployable app
-dotnet pack  -c Release -o ./nupkgs  # produce a NuGet package (.nupkg)
-```
-
-The `--no-restore` and `--no-build` flags matter in CI: each stage is explicit, so you avoid the CLI silently re-running earlier steps and wasting time. `dotnet publish` gathers the app, its dependencies, and runtime config into an output folder ready to copy to a server or into a container. `dotnet pack` is for producing libraries you distribute via NuGet.
-
-### MSBuild, Directory.Build.props, and Central Package Management
-
-Under the CLI sits **MSBuild**, the engine that reads your `.csproj` files (which are MSBuild XML) and executes the build. You rarely invoke it directly, but understanding that `dotnet build` *is* MSBuild explains where build configuration lives.
-
-Setting the same properties in every `.csproj` is tedious and error-prone. **`Directory.Build.props`** solves this: place one at your repository root and MSBuild automatically imports it into every project beneath it.
-
-```xml
-<Project>
-  <PropertyGroup>
-    <TargetFramework>net10.0</TargetFramework>
-    <LangVersion>latest</LangVersion>
-    <Nullable>enable</Nullable>
-    <ImplicitUsings>enable</ImplicitUsings>
-    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
-  </PropertyGroup>
-</Project>
-```
-
-Now every project inherits nullable reference types, the latest language version, and—importantly for CI hygiene—warnings treated as errors, so a sloppy warning fails the build rather than rotting silently.
-
-**Central Package Management (CPM)** does the same for NuGet versions. Instead of pinning versions in every project, you declare them once in `Directory.Packages.props`:
-
-```xml
-<Project>
-  <PropertyGroup>
-    <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
-  </PropertyGroup>
-  <ItemGroup>
-    <PackageVersion Include="Serilog.AspNetCore" Version="8.0.1" />
-    <PackageVersion Include="FluentValidation" Version="11.9.0" />
-  </ItemGroup>
-</Project>
-```
-
-Individual projects then reference packages *without* a version:
-
-```xml
-<PackageReference Include="Serilog.AspNetCore" />
-```
-
-> **Best practice:** Adopt `Directory.Build.props` and Central Package Management early. They prevent version drift, where different projects in the same solution pull incompatible versions of the same library—one of the more maddening debugging experiences in a large .NET codebase.
-
-@@SRC: old Chapter 12: DevOps & CI/CD@@
 ## Semantic Versioning and GitVersion
 
 A version number is a contract. **Semantic Versioning (SemVer)** formalizes it as `MAJOR.MINOR.PATCH`:
@@ -417,23 +423,40 @@ dotnet-gitversion /showvariable SemVer   # e.g. 2.4.0-feature-orders.5
 
 In CI you capture that value and feed it into `dotnet pack -p:Version=$VERSION`, so your artifacts are versioned deterministically from source control rather than from someone remembering to bump a number.
 
-@@SRC: old Chapter 12: DevOps & CI/CD@@
 ## Secrets in Pipelines
 
 The cardinal rule: **secrets never enter source control.** Not in `appsettings.json`, not in a committed `.env`, not "temporarily" in a config file. Once a secret is in Git history it is compromised, because history is distributed to everyone who clones.
 
 Where secrets *do* live:
 
-- **Locally**, use .NET User Secrets (`dotnet user-secrets set`) which stores values outside the repo tree, or environment variables.
-- **In CI**, use the platform's encrypted secret store—GitHub Actions secrets, Azure DevOps variable groups (ideally backed by Azure Key Vault), GitLab CI/CD variables. These are injected as environment variables at runtime and masked in logs.
-- **In production**, use a managed secret store—Azure Key Vault, AWS Secrets Manager, HashiCorp Vault—accessed via a managed identity so no credential is stored anywhere at all.
+- **Locally and in production**, user-secrets and a managed vault reached with a managed identity, as [Chapter 12: Secrets Management](#secrets-management) explains.
+- **In CI**, the platform's encrypted secret store—GitHub Actions secrets, Azure DevOps variable groups (ideally backed by Azure Key Vault), GitLab CI/CD variables. These are injected as environment variables at runtime and masked in logs, as the `secrets.PRODUCTION_DEPLOY_TOKEN` in the workflow above shows.
 
 > **Best practice:** Add automated secret scanning (GitHub secret scanning, Gitleaks, or `git-secrets` as a pre-commit hook) to your pipeline so an accidental commit of an API key is caught before it merges. And when a leak does happen, *rotate the secret immediately*—removing it from history is not enough, because clones and forks may retain it.
 
-@@SRC: old Chapter 12: DevOps & CI/CD@@
 ## Static Analysis Gates in CI
 
-A pipeline that only runs tests checks correctness but not health. Static analysis gates enforce quality objectively, so standards do not erode under deadline pressure.
+A pipeline that only runs tests checks correctness but not health. Static analysis gates enforce quality objectively, so standards do not erode under deadline pressure. They come in three layers: analyzers inside the compiler, a formatter, and a server-side quality gate.
+
+### Analyzers and `.editorconfig`
+
+Inside the IDE and the compiler, the rules come from:
+
+- **Roslyn analyzers** run inside the compiler. They ship with the SDK (the `CAxxxx` rules), come from NuGet packages, and can be authored in-house. They surface issues as build warnings, so they integrate with CI for free.
+- **`.editorconfig`** is the single source of truth for style. It travels with the repo, is understood by VS, Rider, and `dotnet format`, and lets you set naming conventions, `var` usage, and analyzer severities per folder.
+- **ReSharper** (VS plugin) adds deeper inspections, bulk refactorings, and code cleanup profiles beyond what ships in the box.
+- **StyleCop.Analyzers** enforces consistent layout and documentation conventions.
+- **SonarLint / SonarQube** catches bugs, security hotspots, and code smells, and its server component tracks quality trends and "new code" gates across the team.
+
+> **Tip:** Commit an `.editorconfig` early and raise a few key analyzer rules to `error` (e.g. `dotnet_diagnostic.CA2007.severity` in library code). Warnings get ignored; build-breaking errors get fixed.
+
+> **Pay attention.** **What the build actually enforces.** Analyzers run inside the compiler, so a diagnostic is a build warning everywhere the build runs, IDE and CI alike. But by default (`AnalysisMode` `Default`) only a small set of `CA` rules is on as warnings; `<AnalysisMode>Recommended</AnalysisMode>` or `All` turns on more. Style rules (`IDExxxx`) don't run in `dotnet build` at all until `<EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>`. And `AnalysisLevel` defaults to `latest`: a new SDK can switch on new warnings, which `TreatWarningsAsErrors` turns into a build that broke with no code change. Pin `AnalysisLevel` (for example `10.0`) and raise it deliberately.
+
+### Formatting in CI
+
+Style debates waste review time. `dotnet format` reads your `.editorconfig` and rewrites code to match. Run `dotnet format --verify-no-changes` as a CI step: the build fails if someone forgot to format. That turns formatting into a machine's job, not a reviewer's.
+
+### SonarQube and Coverage Gates
 
 **SonarQube** (or SonarCloud) performs deep static analysis—bugs, code smells, security hotspots, duplication, and complexity—and enforces a **quality gate**: a set of pass/fail conditions such as "no new critical issues" and "coverage on new code ≥ 80%". A failing gate fails the pipeline, blocking the merge. Because it evaluates *new* code specifically, you can improve a legacy codebase incrementally without being buried by its existing debt.
 
@@ -460,17 +483,13 @@ A typical quality-gate stage in the pipeline runs the Sonar scanner around the b
 
 > **Best practice:** Set quality gates on *new* code rather than demanding a huge legacy codebase suddenly hit 90% coverage. A ratcheting gate—"don't make it worse"—is achievable and steadily improves the codebase, whereas an unrealistic absolute gate just gets disabled the first time it blocks a hotfix.
 
-> **Capstone tie-in:** This chapter is exercised by ShopCore Steps 4 (CI/CD with GitHub Actions) and 8 (Deploy with Infrastructure as Code) — you'd build a workflow that tests every PR and publishes tagged images, then promote those images into a Terraform-provisioned environment. See Chapter 32.
+> **Capstone tie-in:** This chapter is exercised by ShopCore Steps 4 (CI/CD with GitHub Actions) and 8 (Deploy with Infrastructure as Code) — you'd build a workflow that tests every PR and publishes tagged images, then promote those images into a Terraform-provisioned environment. See [Chapter 44](#chapter-44-capstone-one-project-growing-up).
 
-@@SRC: old Chapter 12: DevOps & CI/CD@@
-## Bringing It Together
+## The Everyday Toolbox
 
-A senior-level command of DevOps is really a chain of small, well-understood decisions. You keep branches short-lived and integrate constantly, because you understand that a branch is just a pointer and that deferred integration is where pain accumulates. You curate history with interactive rebase before review and treat shared history as immutable, trusting the reflog to catch your mistakes. You express your build as `dotnet` commands that run identically on your laptop and in CI, centralize configuration with `Directory.Build.props` and Central Package Management, and version artifacts deterministically with SemVer and GitVersion. Your pipeline restores with caching, tests across a matrix, gates on coverage and static analysis, and promotes a single immutable artifact through environments. You deploy with a strategy that makes rollback trivial, hide incomplete work behind feature flags, and keep every secret out of source control and inside a managed store.
+The tools below are the ones a modern .NET team reaches for around the build. Know what each one solves, so you pick deliberately rather than by habit.
 
-None of these practices is exotic. Their power is cumulative: together they turn shipping software from a nerve-wracking event into a routine, boring, reversible non-event—which, in production, is exactly what you want.
-
-@@SRC: old Chapter 16: Tooling & Productivity@@
-## IDEs: Visual Studio, Rider, and VS Code
+### IDEs: Visual Studio, Rider, and VS Code
 
 **Visual Studio** (Windows) is the heavyweight. Its debugger is best-in-class, especially for tricky scenarios: mixed-mode debugging, memory dumps, IntelliTrace, and the diagnostic tooling for CPU and allocation profiling. If you work on WPF/WinForms, complex MSBuild setups, or need the deepest debugging experience, it is hard to beat. The cost is that it is heavy and Windows-only.
 
@@ -480,28 +499,7 @@ None of these practices is exotic. Their power is cumulative: together they turn
 
 > **Tip:** Match the tool to the task, not to tribal loyalty. Many seniors keep VS Code open for quick edits and scripts, and reach for Rider or Visual Studio when they need heavy refactoring or serious debugging.
 
-@@SRC: old Chapter 16: Tooling & Productivity@@
-## Refactoring & Linting
-
-Code-quality tooling comes in layers:
-
-- **Roslyn analyzers** run inside the compiler. They ship with the SDK (the `CAxxxx` rules), come from NuGet packages, and can be authored in-house. They surface issues as build warnings, so they integrate with CI for free.
-- **`.editorconfig`** is the single source of truth for style. It travels with the repo, is understood by VS, Rider, and `dotnet format`, and lets you set naming conventions, `var` usage, and analyzer severities per folder.
-- **ReSharper** (VS plugin) adds deeper inspections, bulk refactorings, and code cleanup profiles beyond what ships in the box.
-- **StyleCop.Analyzers** enforces consistent layout and documentation conventions.
-- **SonarLint / SonarQube** catches bugs, security hotspots, and code smells, and its server component tracks quality trends and "new code" gates across the team.
-
-> **Tip:** Commit an `.editorconfig` early and raise a few key analyzer rules to `error` (e.g. `dotnet_diagnostic.CA2007.severity` in library code). Warnings get ignored; build-breaking errors get fixed.
-
-> **Pay attention.** **What the build actually enforces.** Analyzers run inside the compiler, so a diagnostic is a build warning everywhere the build runs, IDE and CI alike. But by default (`AnalysisMode` `Default`) only a small set of `CA` rules is on as warnings; `<AnalysisMode>Recommended</AnalysisMode>` or `All` turns on more. Style rules (`IDExxxx`) don't run in `dotnet build` at all until `<EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>`. And `AnalysisLevel` defaults to `latest`: a new SDK can switch on new warnings, which `TreatWarningsAsErrors` turns into a build that broke with no code change. Pin `AnalysisLevel` (for example `10.0`) and raise it deliberately.
-
-@@SRC: old Chapter 16: Tooling & Productivity@@
-## Formatting in CI
-
-Style debates waste review time. `dotnet format` reads your `.editorconfig` and rewrites code to match. Run `dotnet format --verify-no-changes` as a CI step: the build fails if someone forgot to format. That turns formatting into a machine's job, not a reviewer's.
-
-@@SRC: old Chapter 16: Tooling & Productivity@@
-## API Testing
+### API Testing
 
 Options for poking at HTTP endpoints:
 
@@ -512,39 +510,21 @@ Options for poking at HTTP endpoints:
 
 > **Tip:** For anything the team relies on, checked-in `.http` or Bruno files beat a private Postman workspace nobody else can see.
 
-@@SRC: old Chapter 16: Tooling & Productivity@@
-## The dotnet CLI and Global Tools
-
-The `dotnet` CLI is the backbone of automation and CI, and it is a driver. Built-in commands ship with the SDK: `build`, `test`, `publish`, `format`, `user-secrets`, `watch`. Everything else is a **.NET tool**, a NuGet package that contains a console app, and you choose where it lives:
-
-- **Global** (`dotnet tool install -g dotnet-ef`): installed once per user in `~/.dotnet/tools` (`%USERPROFILE%\.dotnet\tools` on Windows), which is on `PATH`. Convenient, but every machine has whatever version someone installed.
-- **Local**: `dotnet new tool-manifest` creates `.config/dotnet-tools.json`; `dotnet tool install dotnet-ef` (no `-g`) pins a version in it; a fresh clone or a CI agent runs `dotnet tool restore`. Commit the manifest: the CLI runs whatever it lists.
-- **One-shot** (.NET 10 SDK): `dnx dotnet-counters monitor -p 1234` (or `dotnet tool exec`) runs a tool without installing it, and honours a nearby manifest's version.
-
-A tool whose command starts with `dotnet-` can also be called as `dotnet <rest>`, which is why `dotnet ef` looks built in and isn't.
-
-> **Pay attention.** **Where `dotnet-counters`, `dotnet-trace` and `dotnet-dump` come from, and why they can't see your container.** They are .NET tools from NuGet, not part of the SDK or the runtime. Each one talks to a running process through the runtime's *diagnostic port*: a named pipe `dotnet-diagnostic-{pid}` on Windows, and a Unix domain socket `dotnet-diagnostic-{pid}-…-socket` in `$TMPDIR` (or `/tmp`) on Linux and macOS. A tool on the host can't find a process in a container, because that socket lives in the container's `/tmp` and the PID belongs to the container's namespace. Run the tool inside the container (the docs publish single-file builds for images without an SDK), or share `/tmp` with a sidecar. `DOTNET_EnableDiagnostics=0` closes the port, and with it every one of these tools.
-
-@@SRC: old Chapter 16: Tooling & Productivity@@
-## Git GUIs
-
-The command line is essential, but a good GUI makes history, staging, and conflict resolution far clearer. **Fork** and **GitKraken** give visual branch graphs and painless interactive rebases; **lazygit** is a fast terminal UI for those who live in the shell. Use whichever helps you *understand* history, not avoid learning git.
-
-@@SRC: old Chapter 16: Tooling & Productivity@@
-## Diagramming
+### Diagramming
 
 Diagrams-as-code beat drag-and-drop tools because they diff and version. **Mermaid** renders directly in GitHub/GitLab markdown, so sequence and flow diagrams live next to the code. **PlantUML** is more powerful for detailed UML. The **C4 model** (Context, Container, Component, Code) gives you a shared vocabulary for architecture at different zoom levels; tooling like Structurizr or C4-PlantUML renders it.
 
 > **Tip:** A Mermaid sequence diagram in your README saves ten minutes of whiteboard explanation for every new joiner.
 
-@@SRC: old Chapter 16: Tooling & Productivity@@
-## Local Dev Tooling
+### Local Dev Tooling
 
-Reliable local environments prevent "works on my machine." **Testcontainers** spins up real dependencies (Postgres, Redis, Kafka) in Docker for integration tests, then tears them down; no more shared, drifting test databases. **Azurite** emulates Azure Storage (Blob, Queue, Table) locally, and **LocalStack** emulates a broad range of AWS services. These let you develop and test cloud integrations offline and in CI.
+Reliable local environments prevent "works on my machine." **Testcontainers** spins up real dependencies (Postgres, Redis, Kafka) in Docker for integration tests, then tears them down; no more shared, drifting test databases ([Chapter 8: Testcontainers for .NET](#testcontainers-for-net) shows how). **Azurite** emulates Azure Storage (Blob, Queue, Table) locally, and **LocalStack** emulates a broad range of AWS services. These let you develop and test cloud integrations offline and in CI.
 
-> **Tip:** Testcontainers-based integration tests are one of the highest-leverage upgrades a team can make; they give near-production confidence without a shared environment.
+## Bringing It Together
 
-@@SRC: practice from old module page Part 1 · Module 11: Git and Everyday Tooling@@
+Command of Git and CI is a chain of small, well-understood decisions. You keep branches short-lived and integrate constantly, because a branch is just a pointer and deferred integration is where pain accumulates. You curate history with interactive rebase before review and treat shared history as immutable, trusting the reflog to catch your mistakes. You express your build as `dotnet` commands that run identically on your laptop and in CI, pin the tools in a manifest, centralize configuration with `Directory.Build.props` and Central Package Management, and version artifacts deterministically with SemVer and GitVersion. Your pipeline restores with caching, tests across a matrix, gates on analyzers, formatting, coverage and static analysis, keeps every secret in the platform's store, and produces one immutable artifact.
+
+None of these practices is exotic. Their power is cumulative: together they turn shipping software from a nerve-wracking event into a routine, boring, reversible non-event. How that artifact reaches production safely (deployment strategies, feature flags, Azure Pipelines and measuring delivery) is [Chapter 26: Delivery and Platform](#chapter-26-delivery-and-platform).
 
 ## Check at work
 

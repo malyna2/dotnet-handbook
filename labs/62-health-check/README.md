@@ -1,6 +1,6 @@
-# Lab kit — Chapter 62: The .NET Health Check
+# Lab kit — Chapter 40: The .NET Health Check
 
-A script that collects the raw evidence for a .NET health check, templates for turning it into a client-ready report, and the reference run behind every number in Chapter 62. The target is Microsoft's [eShop](https://github.com/dotnet/eShop) reference app, pinned to commit `b4a40872005d4bb29e5b1fa1ff7e244143d39215` (`main`, 2026-08-28).
+A script that collects the raw evidence for a .NET health check, templates for turning it into a client-ready report, and the reference run behind every number in Chapter 40. The target is Microsoft's [eShop](https://github.com/dotnet/eShop) reference app, pinned to commit `b4a40872005d4bb29e5b1fa1ff7e244143d39215` (`main`, 2026-08-28).
 
 > **The portfolio rule.** Nothing you write for this lab goes into *this* repository. Your eShop report, finding cards and evidence folder go in **your own public portfolio repo**. An assessment of a real employer's or client's code is confidential: keep it private, and use it in your portfolio only as an anonymized story.
 
@@ -16,7 +16,7 @@ A script that collects the raw evidence for a .NET health check, templates for t
 scripts/health-check.sh --build     # clone eShop into .work/, check out the pinned commit, run every check
 ls .work/out/                       # one evidence file per area, plus SUMMARY.md
 
-cp templates/*.md ~/my-portfolio/eshop-health-check/   # then fill them in (Chapter 62, Tasks)
+cp templates/*.md ~/my-portfolio/eshop-health-check/   # then fill them in (Chapter 40, Tasks)
 ```
 
 Other targets:
@@ -63,7 +63,7 @@ Every line of output is a lead. Open the file before it becomes a finding.
 ## For maintainers
 
 - `verify.sh` runs the script with `--no-dotnet` and checks that every expected file is written, that the pinned commit is checked out, and that the commit-only files (`03`–`08`, and `01` above the live support table) match `reference-runs/` byte for byte. `verify.sh --full` also runs the dotnet sections with `--build` and reports drift in `02` and `09` without failing, because those depend on NuGet's current state and the network.
-- To re-capture after changing the script: `git -C .work/eShop clean -xdf && scripts/health-check.sh --build && cp -r .work/out/. reference-runs/`, then delete `reference-runs/02-packages-all.json` and `02-packages-outdated.json` (about 590 KB together; the summary keeps the numbers). Re-check every number quoted in Chapter 62.
+- To re-capture after changing the script: `git -C .work/eShop clean -xdf && scripts/health-check.sh --build && cp -r .work/out/. reference-runs/`, then delete `reference-runs/02-packages-all.json` and `02-packages-outdated.json` (about 590 KB together; the summary keeps the numbers). Re-check every number quoted in Chapter 40.
 
 ## Last verified
 

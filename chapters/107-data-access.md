@@ -1,15 +1,154 @@
 # Chapter 7: Data Access
 
-@@TODO: write this chapter's introduction (what it makes the reader able to do, how its sections connect), then remove every @@ line.@@
+Almost every non-trivial application is, underneath its features, a machine for moving data in and out of a database safely and quickly. Flawless business logic doesn't survive a data layer that fires a thousand queries where one would do, scans an index it was meant to seek, or loses one user's update under another's. This chapter makes you able to write and review data access that sends the SQL you expect: you will read a query's actual plan and say why each index operator seeks or scans, write EF Core queries whose round trips you can count before running them, and protect a row against lost updates.
 
-@@SRC: introduction of old Chapter 4: Data Access & Databases@@
+The order runs from the database up. The schema and SQL come first (normalization, joins, indexes, execution plans, transactions), because EF Core generates SQL and you can only judge its output once you can read it. Then EF Core itself: change tracking, loading related data and the N+1 problem, projections, bulk writes and cascades, and the lifetime of a `DbContext`. Concurrency builds on both: a concurrency token is a column in the `UPDATE`'s `WHERE`. Raw SQL and Dapper cover the queries an ORM shouldn't write, caching the queries you shouldn't run at all, and migrations how the schema changes in a pipeline. Part 2 goes further in [Chapter 18: Data in Depth](#chapter-18-data-in-depth): compiled queries, bulk inserts, PostgreSQL's planner, Redis, NoSQL and scaling.
 
-Almost every non-trivial application is, underneath all its features, a machine for moving data in and out of a database safely and quickly. You can write flawless business logic and beautiful APIs, but if your data access layer holds locks too long, fires a thousand queries where one would do, or corrupts a balance under concurrent writes, the whole system fails in ways that are hard to reproduce and harder to fix. This chapter takes you from the mechanics of Entity Framework Core down to the SQL and storage engine underneath it, then back up through caching, NoSQL, and deployment. The goal is that you stop treating the database as a black box and start reasoning about what it actually does.
+## Database Design and Normalization
 
-@@SRC: old Chapter 4: Data Access & Databases@@
+Good schema design prevents whole classes of bugs. **Normalization** is the discipline of structuring tables so each fact is stored exactly once.
+
+- **First Normal Form (1NF):** every column holds a single atomic value — no comma-separated lists, no repeating groups. One phone number per column, or a related table for many.
+- **Second Normal Form (2NF):** 1NF plus every non-key column depends on the *whole* primary key (relevant to composite keys). No column should depend on just part of the key.
+- **Third Normal Form (3NF):** 2NF plus no non-key column depends on another non-key column (no *transitive* dependencies). If you store `CustomerId` and also `CustomerCity`, the city depends on the customer, not the order — move it out.
+
+The intuition: **one fact, one place.** When a customer changes their city, you want to update one row, not hunt down every order that duplicated it. Duplication is how databases drift into inconsistency.
+
+**Foreign keys and constraints** are the database enforcing your rules so bad data cannot exist regardless of application bugs:
+
+```sql
+CREATE TABLE Orders (
+    Id INT PRIMARY KEY,
+    CustomerId INT NOT NULL,
+    Total DECIMAL(10,2) NOT NULL CHECK (Total >= 0),
+    Status VARCHAR(20) NOT NULL DEFAULT 'Open',
+    CONSTRAINT FK_Orders_Customers
+        FOREIGN KEY (CustomerId) REFERENCES Customers(Id)
+);
+```
+
+The foreign key guarantees no order references a non-existent customer. The `CHECK` guarantees no negative totals. These are your last line of defence and they never have bugs the way application code does.
+
+### When to Denormalize
+
+Normalization optimizes for correct writes; it can make reads slower by requiring many joins. **Denormalization** deliberately duplicates data to speed reads — for example, storing a precomputed `OrderCount` on `Customer` instead of counting orders every time.
+
+> **Best practice:** Normalize first, denormalize only when a measured read problem demands it — and then own the cost of keeping the duplicated data in sync (via triggers, application code, or scheduled jobs). Denormalization is a performance loan you repay with complexity.
+
+## SQL Fundamentals
+
+Every ORM call ends as SQL, so the SQL comes first: what a join returns, how an index finds rows, how the plan shows which way it found them, and what a transaction guarantees. A senior developer reads the generated SQL and the execution plan, not just the C#.
+
+### Joins
+
+A join combines rows from two tables based on a related column.
+
+- **INNER JOIN** returns only rows with a match in both tables.
+- **LEFT (OUTER) JOIN** returns all rows from the left table, with NULLs where the right has no match.
+- **RIGHT JOIN** is the mirror; **FULL OUTER JOIN** returns unmatched rows from both sides.
+
+```sql
+SELECT o.Id, c.Name
+FROM Orders o
+INNER JOIN Customers c ON c.Id = o.CustomerId
+WHERE o.Status = 'Open';
+```
+
+`o.Customer.Name` in an EF Core projection ([Projections](#projections-select-only-what-you-need), below) becomes exactly this INNER JOIN, or a LEFT JOIN if the relationship is optional.
+
+### Indexes: Clustered, Non-Clustered, Covering
+
+An index is a copy of some of a table's columns, kept sorted by its key in a B-tree, so the engine can find rows without reading every page. Without one, a `WHERE` on a million-row table reads all million rows: a **table scan**.
+
+A **clustered index** *is* the table: its leaf pages hold the rows themselves, in key order. A table has only one, usually the primary key (SQL Server makes the primary key clustered unless a clustered index already exists), and a lookup by the clustered key is the cheapest read there is.
+
+A **non-clustered index** is a separate B-tree whose leaf rows hold the indexed columns plus the row's locator: the clustered key, or a row ID on a table without a clustered index. Every column the query needs beyond those costs a **key lookup**: one more descent, through the clustered index, per matching row.
+
+A **covering index** removes that step by *including* the extra columns in its leaf rows:
+
+```sql
+-- Query: SELECT Email, Name FROM Customers WHERE City = 'Berlin'
+CREATE NONCLUSTERED INDEX IX_Customers_City
+    ON Customers (City)
+    INCLUDE (Email, Name);   -- now the index alone answers the query
+```
+
+The query is *covered*: everything it needs lives in the index, so no key lookups occur. Because the clustered key sits in every non-clustered index, `SELECT Id FROM Customers WHERE Email = @e` is covered by an index on `Email` alone, and a wide clustered key widens every other index.
+
+> **Pay attention.** **Why a composite index serves only its leftmost prefix.** An index on `(City, CreatedAt)` is sorted by `City`, and by `CreatedAt` only within each city, like a phone book sorted by surname and then first name. A seek needs one contiguous range of that order:
+>
+> - `City = @c` is one contiguous block: a seek.
+> - `City = @c AND CreatedAt >= @d` is one range inside that block: a seek on both columns, and the rows come out in date order, so `ORDER BY CreatedAt` needs no sort.
+> - `CreatedAt >= @d` alone has no range: its rows sit in every city's block, so the engine scans the whole index and filters.
+> - In `(CreatedAt, City)`, the range on the *first* column makes the second one useless for seeking: inside a date range the cities are in no order. SQL Server seeks to the start of the range and checks `City` row by row, as a residual `WHERE:` in the seek operator, reading every row of the period to keep one city's.
+>
+> So: equality columns first, then the one range or sort column, and check that every column you meant to seek on appears in the plan's seek predicate. On SQL Server 2022 CU27 (200,000 rows, 4 vCPU, warm cache), `CreatedAt >= @p` scanned `(City, CreatedAt)` for 712 logical reads, while `City = @p AND CreatedAt >= …` sought it for 3 ([`seek-vs-scan.txt`](https://github.com/malyna2/dotnet-handbook/blob/main/verify/path/reference-runs/seek-vs-scan.txt)). Rung 6 of [Chapter 19: The Slow-Query Lab](#chapter-19-the-slow-query-lab-reading-execution-plans) measures the wrong order on PostgreSQL.
+
+> **Pitfall:** Indexes speed up reads but slow down writes, because every `INSERT`/`UPDATE`/`DELETE` must maintain them. Do not index every column. Index the columns you filter, join, and sort on, and measure.
+
+### Execution Plans
+
+The execution plan is the engine's strategy for a query: which indexes it reads, in what order it joins, whether it seeks or scans. An **index seek** jumps to one contiguous range of an index; an **index scan** reads all of it (a clustered index scan is a table scan). A scan of a large table under a selective filter usually means a missing index or a predicate the index can't use.
+
+Read the *actual* plan. In SSMS, *Include Actual Execution Plan* (Ctrl+M); in a script, `SET STATISTICS XML ON` or `SET STATISTICS PROFILE ON`. `SET SHOWPLAN_ALL ON` and the estimated plan don't run the query, so they have no actual row counts. Add `SET STATISTICS IO ON` for each table's **logical reads**: the 8 KB pages the query touched in memory. They measure the work, so unlike milliseconds they come out the same on a laptop and on a server. Then look for scans under a selective filter, key lookups multiplied by many rows, estimates far from actual row counts, and warnings.
+
+A predicate can seek only if it is **sargable**: it compares the stored column itself with a value. Wrap the column in a function (`LOWER(Email)`, `YEAR(CreatedAt) = 2026`), compute with it, or start a `LIKE` with `%`, and the engine must evaluate the expression for every row: a scan. Rewrite the predicate around the bare column (`CreatedAt >= '2026-01-01' AND CreatedAt < '2027-01-01'`), or index the expression (a computed column in SQL Server, an expression index in PostgreSQL).
+
+> **Pay attention.** **A .NET `string` against a `varchar` column can turn a seek into a scan.** SqlClient and Dapper send a C# `string` as `nvarchar`, and so does EF Core for a property mapped as Unicode, the default. `nvarchar` has the higher data-type precedence, so SQL Server converts the *column*, `CONVERT_IMPLICIT(nvarchar(100),[Email],0)`, not the parameter. Whether that still seeks depends on the column's collation:
+>
+> - **Under a SQL collation**, `varchar` is compared with the collation's own sort rules and `nvarchar` with Unicode rules, and the two orders differ: `'a-c' < 'ab'`, but `N'a-c' > N'ab'`. The index's `varchar` order can't answer the converted comparison, so the plan scans the index, and the XML plan carries `<PlanAffectingConvert ConvertIssue="Seek Plan" …>`. `SQL_Latin1_General_CP1_CI_AS` is one: the setup default for US English installations and the default collation of a new Azure SQL database.
+> - **Under a Windows collation** (`Latin1_General_CI_AS`) both types follow the same rules, so the optimizer computes a seek range from the parameter (`GetRangeThroughConvert` in the plan) and still seeks. That is why the same code is fast on one database and slow on another.
+>
+> On SQL Server 2022 CU27 (16.0.4295.3, 200,000 rows, 4 vCPU, warm cache), the `nvarchar` parameter cost an Index Scan and 888 logical reads, the `varchar` one an Index Seek and 3; under a Windows collation the `nvarchar` parameter also read 3 ([`seek-vs-scan.txt`](https://github.com/malyna2/dotnet-handbook/blob/main/verify/path/reference-runs/seek-vs-scan.txt), [`collation.txt`](https://github.com/malyna2/dotnet-handbook/blob/main/verify/path/reference-runs/collation.txt)). The fix is a parameter of the column's type: in EF Core, `.IsUnicode(false).HasMaxLength(100)` on the property (`ToQueryString()` then shows `DECLARE @email varchar(100)` instead of `nvarchar(4000)`); in Dapper, `new DbString { Value = email, IsAnsi = true, Length = 100 }`; in ADO.NET, `SqlDbType.VarChar`. Or make the column `nvarchar`, so both sides agree.
+
+Reading plans is a skill worth acquiring properly rather than by pattern-matching, and it is easiest to learn on PostgreSQL, whose `EXPLAIN` output is plain text and tells you both what it *expected* and what actually *happened*. [Chapter 18: Data in Depth](#chapter-18-data-in-depth) reads it line by line, and [Chapter 19](#chapter-19-the-slow-query-lab-reading-execution-plans) is the hands-on lab.
+
+### Transactions and ACID
+
+A transaction groups statements so they succeed or fail as a unit. ACID names its four guarantees:
+
+- **Atomicity** — all statements commit or none do. A half-transferred payment cannot exist.
+- **Consistency** — the database moves from one valid state to another, respecting constraints.
+- **Isolation** — concurrent transactions do not corrupt each other (tunable, see below).
+- **Durability** — once committed, the change survives a crash.
+
+```sql
+BEGIN TRANSACTION;
+    UPDATE Accounts SET Balance = Balance - 100 WHERE Id = 1;
+    UPDATE Accounts SET Balance = Balance + 100 WHERE Id = 2;
+COMMIT;   -- both or neither; ROLLBACK undoes everything
+```
+
+EF Core wraps the statements of one `SaveChanges` call in one transaction, so a unit of work is all-or-nothing by default. Two `SaveChanges` calls are two transactions: if the second fails, the first stays committed.
+
+### Isolation Levels
+
+Isolation is a dial trading correctness against concurrency. Loosening it lets more transactions run at once but admits anomalies:
+
+- **Dirty read** — you read another transaction's uncommitted change that may be rolled back.
+- **Non-repeatable read** — you read a row twice and get different values because another transaction updated it in between.
+- **Phantom read** — you run the same range query twice and new rows appear because another transaction inserted them.
+
+The four standard levels, from loosest to strictest:
+
+| Level | Dirty | Non-repeatable | Phantom |
+|---|---|---|---|
+| Read Uncommitted | possible | possible | possible |
+| Read Committed (default) | prevented | possible | possible |
+| Repeatable Read | prevented | prevented | possible |
+| Serializable | prevented | prevented | prevented |
+
+Serializable is safest but takes the most locks and most reduces concurrency. Most systems run Read Committed and tighten specific transactions when correctness demands it. (SQL Server also offers `SNAPSHOT` isolation, which uses row versioning to give consistent reads without blocking writers.)
+
+### Deadlocks
+
+A deadlock occurs when transaction A holds a lock B needs, while B holds a lock A needs — a circular wait, each waiting forever. The database detects the cycle and kills one transaction (the "victim"), which errors out. The classic cause is two code paths that lock the same rows **in different orders**.
+
+> **Best practice:** Always access tables and rows in a **consistent order** across your application, keep transactions short, and be ready to catch a deadlock error (SQL Server error 1205) and retry the operation.
+
 ## Entity Framework Core: The Object-Relational Mapper
 
-An ORM's job is to bridge two worlds that think differently. Your C# code thinks in objects, references, and collections. A relational database thinks in tables, rows, and foreign keys. EF Core translates between them. The danger is that the translation is *so* smooth you forget it is happening — and every performance problem in EF comes from forgetting that a property access or a `foreach` might quietly become a database round trip.
+With the SQL in view, the ORM on top of it. An ORM's job is to bridge two worlds that think differently. Your C# code thinks in objects, references, and collections. A relational database thinks in tables, rows, and foreign keys. EF Core translates between them. The danger is that the translation is *so* smooth you forget it is happening — and every performance problem in EF comes from forgetting that a property access or a `foreach` might quietly become a database round trip.
 
 ### DbContext and Change Tracking
 
@@ -46,6 +185,28 @@ ctx.SaveChanges();                     // now EF emits: UPDATE Customers SET Ema
 Notice you never told EF to save the customer. It knew, because it had been tracking. This is powerful but has a cost: keeping snapshots of every loaded entity uses memory and CPU. Every entity flows through five states — `Added`, `Unchanged`, `Modified`, `Deleted`, `Detached` — which you can inspect via `ctx.Entry(customer).State`.
 
 > **Best practice:** Keep a `DbContext` short-lived. It is a unit of work for *one* operation (typically one web request), not a long-lived cache. A context that lives for hours accumulates tracked entities and becomes a memory leak and a correctness hazard.
+
+### DbContext Lifetime and Connection Pooling
+
+Opening a physical database connection is expensive — a TCP handshake and authentication. **Connection pooling**, on by default in ADO.NET, keeps a pool of open connections and hands them out on demand, so "opening" a connection usually just borrows an idle one. This is why you should open connections late and close them early: you are borrowing from a shared, finite pool.
+
+`DbContext` is **not thread-safe** and must be **scoped** — one instance per request. `AddDbContext` registers it with scoped lifetime, which is exactly right:
+
+```csharp
+builder.Services.AddDbContext<ShopContext>(o =>
+    o.UseSqlServer(connectionString));   // scoped: one per HTTP request
+```
+
+> **Critical pitfall:** Never inject a `DbContext` into a **singleton** service. A singleton outlives the request scope, so it would share one context across all concurrent requests — a thread-safety disaster and a source of bizarre, intermittent bugs. It is the captive dependency of [Chapter 3](#captive-dependencies-the-classic-di-bug). If a singleton needs data, inject `IDbContextFactory<T>` and create a context per operation.
+
+For very high throughput, `AddDbContextPool` reuses context *instances* (not just connections), resetting their state between requests to avoid re-running the setup cost:
+
+```csharp
+builder.Services.AddDbContextPool<ShopContext>(o =>
+    o.UseSqlServer(connectionString), poolSize: 128);
+```
+
+The catch: pooled contexts are reused, so never stash per-request state in a field on your `DbContext` — it will leak into the next request that borrows that instance. What the connection pool does when requests outnumber its connections is in [Chapter 18](#connection-management-under-load).
 
 ### AsNoTracking: Read-Only Speed
 
@@ -248,122 +409,77 @@ await ctx.Customers.Where(c => c.LastSeen < cutoff).ExecuteDeleteAsync(ct);
 
 Soft delete deserves a warning of its own: a global query filter that hides `IsDeleted` rows does **not** cascade. Soft-deleting a parent leaves its children visible and referencing a parent the rest of the application cannot see. If you soft-delete an aggregate root, soft-delete the aggregate — in one `ExecuteUpdate` per child table, or in a domain method that owns the whole operation.
 
-> **Best practice:** Let cascade delete operate *inside* an aggregate and never across aggregate boundaries (see Chapter 6). Deleting an order should delete its lines; it should never silently delete the customer's invoices. Configure the boundary explicitly with `Restrict` rather than relying on a convention, so that an accidental cascade becomes a loud error instead of missing data discovered a month later.
+> **Best practice:** Let cascade delete operate *inside* an aggregate and never across aggregate boundaries (aggregates are defined in [Chapter 21: Architecture](#chapter-21-architecture)). Deleting an order should delete its lines; it should never silently delete the customer's invoices. Configure the boundary explicitly with `Restrict` rather than relying on a convention, so that an accidental cascade becomes a loud error instead of missing data discovered a month later.
 
-@@SRC: old Chapter 4: Data Access & Databases@@
-## SQL Fundamentals
+## Concurrency: Optimistic vs Pessimistic
 
-EF is a convenience over SQL, and to use it well you must understand the SQL it hides. A senior developer reads the generated SQL and the execution plan, not just the C#.
+Isolation levels decide what concurrent transactions see; they don't stop the most common web bug. When two users edit the same record at once, one can silently overwrite the other's changes — the **lost update** problem — because each user's read and write happen in different requests, so no single transaction spans them. Two philosophies address it.
 
-### Joins
+**Pessimistic locking** assumes conflicts are likely: lock the row when you read it so nobody else can touch it until you are done (`SELECT ... FOR UPDATE`). Safe, but locks hurt concurrency and risk deadlocks. Suitable for short, high-contention operations like decrementing inventory.
 
-A join combines rows from two tables based on a related column.
+**Optimistic concurrency** assumes conflicts are rare: let everyone read freely, but detect a conflict at save time. EF Core supports this with a **row version** (concurrency token). Each `UPDATE` includes the version in its `WHERE` clause; if another transaction already changed the row, the version no longer matches, zero rows are affected, and EF throws `DbUpdateConcurrencyException`.
 
-- **INNER JOIN** returns only rows with a match in both tables.
-- **LEFT (OUTER) JOIN** returns all rows from the left table, with NULLs where the right has no match.
-- **RIGHT JOIN** is the mirror; **FULL OUTER JOIN** returns unmatched rows from both sides.
+```csharp
+public class Product
+{
+    public int Id { get; set; }
+    public int Stock { get; set; }
 
-```sql
-SELECT o.Id, c.Name
-FROM Orders o
-INNER JOIN Customers c ON c.Id = o.CustomerId
-WHERE o.Status = 'Open';
+    [Timestamp]                       // maps to SQL Server rowversion
+    public byte[] RowVersion { get; set; } = default!;
+}
+
+try
+{
+    var product = ctx.Products.Single(p => p.Id == id);
+    product.Stock -= 1;
+    ctx.SaveChanges();
+    // EF emits: UPDATE Products SET Stock=@s WHERE Id=@id AND RowVersion=@original
+}
+catch (DbUpdateConcurrencyException)
+{
+    // Someone else updated it first. Reload, re-apply, and retry — or tell the user.
+}
 ```
 
-`o.Customer.Name` in an EF projection becomes exactly this INNER JOIN (or a LEFT JOIN if the relationship is optional).
+> **Best practice:** Prefer optimistic concurrency for typical web apps — it scales because it holds no locks. Reserve pessimistic locking for genuinely high-contention hotspots.
 
-### Indexes: Clustered, Non-Clustered, Covering
+> **Pay attention.** **The window a concurrency token covers.** EF Core puts the token's *original* value, the one this context read, into the `WHERE`. The sample above therefore guards only the milliseconds between its own `Single` and `SaveChanges`. A web edit has a far longer window. The user's form was built from version 1; someone else saved version 2; the save handler loads the product again, gets version 2, copies the form onto it, and its `UPDATE … WHERE RowVersion = <version 2>` matches one row. Nothing throws, and the other user's change is gone. The fix is to make the original value the one the user saw: send the row version with the form (or as an `ETag`) and set it before saving.
 
-An index is a copy of some of a table's columns, kept sorted by its key in a B-tree, so the engine can find rows without reading every page. Without one, a `WHERE` on a million-row table reads all million rows: a **table scan**.
-
-A **clustered index** *is* the table: its leaf pages hold the rows themselves, in key order. A table has only one, usually the primary key (SQL Server makes the primary key clustered unless a clustered index already exists), and a lookup by the clustered key is the cheapest read there is.
-
-A **non-clustered index** is a separate B-tree whose leaf rows hold the indexed columns plus the row's locator: the clustered key, or a row ID on a table without a clustered index. Every column the query needs beyond those costs a **key lookup**: one more descent, through the clustered index, per matching row.
-
-A **covering index** removes that step by *including* the extra columns in its leaf rows:
-
-```sql
--- Query: SELECT Email, Name FROM Customers WHERE City = 'Berlin'
-CREATE NONCLUSTERED INDEX IX_Customers_City
-    ON Customers (City)
-    INCLUDE (Email, Name);   -- now the index alone answers the query
+```csharp
+var product = await ctx.Products.SingleAsync(p => p.Id == id, ct);
+ctx.Entry(product).Property(p => p.RowVersion).OriginalValue = form.RowVersion; // the version the user edited
+product.Stock = form.Stock;
+try
+{
+    await ctx.SaveChangesAsync(ct);
+}
+catch (DbUpdateConcurrencyException)
+{
+    return Results.Conflict();   // or 412 Precondition Failed when the version came as If-Match
+}
 ```
 
-The query is *covered*: everything it needs lives in the index, so no key lookups occur. Because the clustered key sits in every non-clustered index, `SELECT Id FROM Customers WHERE Email = @e` is covered by an index on `Email` alone, and a wide clustered key widens every other index.
+## Stored Procedures, Views, and Raw SQL
 
-> **Pay attention.** **Why a composite index serves only its leftmost prefix.** An index on `(City, CreatedAt)` is sorted by `City`, and by `CreatedAt` only within each city, like a phone book sorted by surname and then first name. A seek needs one contiguous range of that order:
->
-> - `City = @c` is one contiguous block: a seek.
-> - `City = @c AND CreatedAt >= @d` is one range inside that block: a seek on both columns, and the rows come out in date order, so `ORDER BY CreatedAt` needs no sort.
-> - `CreatedAt >= @d` alone has no range: its rows sit in every city's block, so the engine scans the whole index and filters.
-> - In `(CreatedAt, City)`, the range on the *first* column makes the second one useless for seeking: inside a date range the cities are in no order. SQL Server seeks to the start of the range and checks `City` row by row, as a residual `WHERE:` in the seek operator, reading every row of the period to keep one city's.
->
-> So: equality columns first, then the one range or sort column, and check that every column you meant to seek on appears in the plan's seek predicate. On SQL Server 2022 CU27 (200,000 rows, 4 vCPU, warm cache), `CreatedAt >= @p` scanned `(City, CreatedAt)` for 712 logical reads, while `City = @p AND CreatedAt >= …` sought it for 3 ([`seek-vs-scan.txt`](https://github.com/malyna2/dotnet-handbook/blob/main/verify/path/reference-runs/seek-vs-scan.txt)). Rung 6 of [Chapter 37](#chapter-37-the-slow-query-lab-reading-execution-plans) measures the wrong order on PostgreSQL.
+A **view** is a saved query you can select from like a table — useful for encapsulating a complex join or presenting a simplified shape. A **stored procedure** is precompiled SQL logic living in the database, callable by name.
 
-> **Pitfall:** Indexes speed up reads but slow down writes, because every `INSERT`/`UPDATE`/`DELETE` must maintain them. Do not index every column. Index the columns you filter, join, and sort on, and measure.
+Raw SQL — via stored procs, `FromSqlRaw`, or Dapper — is justified when: the query is too complex or too performance-critical for LINQ to express well; you need database-specific features EF does not surface; or you are doing bulk set-based operations (updating a million rows in one statement rather than loading and tracking them).
 
-### Execution Plans
+> **Note:** For the *bulk write* case you usually no longer need raw SQL: `ExecuteUpdate`/`ExecuteDelete` ([Set-Based Updates and Deletes](#set-based-updates-and-deletes-executeupdate-and-executedelete)) issue one set-based statement without loading or tracking. Reserve raw SQL for genuinely complex queries or provider-specific features.
 
-The execution plan is the engine's strategy for a query: which indexes it reads, in what order it joins, whether it seeks or scans. An **index seek** jumps to one contiguous range of an index; an **index scan** reads all of it (a clustered index scan is a table scan). A scan of a large table under a selective filter usually means a missing index or a predicate the index can't use.
-
-Read the *actual* plan. In SSMS, *Include Actual Execution Plan* (Ctrl+M); in a script, `SET STATISTICS XML ON` or `SET STATISTICS PROFILE ON`. `SET SHOWPLAN_ALL ON` and the estimated plan don't run the query, so they have no actual row counts. Add `SET STATISTICS IO ON` for each table's **logical reads**: the 8 KB pages the query touched in memory. They measure the work, so unlike milliseconds they come out the same on a laptop and on a server. Then look for scans under a selective filter, key lookups multiplied by many rows, estimates far from actual row counts, and warnings.
-
-A predicate can seek only if it is **sargable**: it compares the stored column itself with a value. Wrap the column in a function (`LOWER(Email)`, `YEAR(CreatedAt) = 2026`), compute with it, or start a `LIKE` with `%`, and the engine must evaluate the expression for every row: a scan. Rewrite the predicate around the bare column (`CreatedAt >= '2026-01-01' AND CreatedAt < '2027-01-01'`), or index the expression (a computed column in SQL Server, an expression index in PostgreSQL).
-
-> **Pay attention.** **A .NET `string` against a `varchar` column can turn a seek into a scan.** SqlClient and Dapper send a C# `string` as `nvarchar`, and so does EF Core for a property mapped as Unicode, the default. `nvarchar` has the higher data-type precedence, so SQL Server converts the *column*, `CONVERT_IMPLICIT(nvarchar(100),[Email],0)`, not the parameter. Whether that still seeks depends on the column's collation:
->
-> - **Under a SQL collation**, `varchar` is compared with the collation's own sort rules and `nvarchar` with Unicode rules, and the two orders differ: `'a-c' < 'ab'`, but `N'a-c' > N'ab'`. The index's `varchar` order can't answer the converted comparison, so the plan scans the index, and the XML plan carries `<PlanAffectingConvert ConvertIssue="Seek Plan" …>`. `SQL_Latin1_General_CP1_CI_AS` is one: the setup default for US English installations and the default collation of a new Azure SQL database.
-> - **Under a Windows collation** (`Latin1_General_CI_AS`) both types follow the same rules, so the optimizer computes a seek range from the parameter (`GetRangeThroughConvert` in the plan) and still seeks. That is why the same code is fast on one database and slow on another.
->
-> On SQL Server 2022 CU27 (16.0.4295.3, 200,000 rows, 4 vCPU, warm cache), the `nvarchar` parameter cost an Index Scan and 888 logical reads, the `varchar` one an Index Seek and 3; under a Windows collation the `nvarchar` parameter also read 3 ([`seek-vs-scan.txt`](https://github.com/malyna2/dotnet-handbook/blob/main/verify/path/reference-runs/seek-vs-scan.txt), [`collation.txt`](https://github.com/malyna2/dotnet-handbook/blob/main/verify/path/reference-runs/collation.txt)). The fix is a parameter of the column's type: in EF Core, `.IsUnicode(false).HasMaxLength(100)` on the property (`ToQueryString()` then shows `DECLARE @email varchar(100)` instead of `nvarchar(4000)`); in Dapper, `new DbString { Value = email, IsAnsi = true, Length = 100 }`; in ADO.NET, `SqlDbType.VarChar`. Or make the column `nvarchar`, so both sides agree.
-
-Reading plans is a skill worth acquiring properly rather than by pattern-matching, and it is easiest to learn on PostgreSQL, whose `EXPLAIN` output is plain text and tells you both what it *expected* and what actually *happened*. The next section does that in depth.
-
-### Transactions and ACID
-
-A transaction groups statements so they succeed or fail as a unit. ACID names its four guarantees:
-
-- **Atomicity** — all statements commit or none do. A half-transferred payment cannot exist.
-- **Consistency** — the database moves from one valid state to another, respecting constraints.
-- **Isolation** — concurrent transactions do not corrupt each other (tunable, see below).
-- **Durability** — once committed, the change survives a crash.
-
-```sql
-BEGIN TRANSACTION;
-    UPDATE Accounts SET Balance = Balance - 100 WHERE Id = 1;
-    UPDATE Accounts SET Balance = Balance + 100 WHERE Id = 2;
-COMMIT;   -- both or neither; ROLLBACK undoes everything
+```csharp
+// EF calling raw SQL while staying in the entity model
+var open = ctx.Orders
+    .FromSqlInterpolated($"SELECT * FROM Orders WHERE Status = {status}")
+    .ToList();   // interpolated form is parameterized — not string concatenation
 ```
 
-### Isolation Levels
+> **Pitfall:** Never build SQL by concatenating user input — that is the door to SQL injection ([Chapter 12](#a03-injection)). Always use parameters. Note the trade-off with stored procedures: logic in the database is invisible to your application's source control and CI unless you deliberately manage it as versioned migration scripts.
 
-Isolation is a dial trading correctness against concurrency. Loosening it lets more transactions run at once but admits anomalies:
-
-- **Dirty read** — you read another transaction's uncommitted change that may be rolled back.
-- **Non-repeatable read** — you read a row twice and get different values because another transaction updated it in between.
-- **Phantom read** — you run the same range query twice and new rows appear because another transaction inserted them.
-
-The four standard levels, from loosest to strictest:
-
-| Level | Dirty | Non-repeatable | Phantom |
-|---|---|---|---|
-| Read Uncommitted | possible | possible | possible |
-| Read Committed (default) | prevented | possible | possible |
-| Repeatable Read | prevented | prevented | possible |
-| Serializable | prevented | prevented | prevented |
-
-Serializable is safest but takes the most locks and most reduces concurrency. Most systems run Read Committed and tighten specific transactions when correctness demands it. (SQL Server also offers `SNAPSHOT` isolation, which uses row versioning to give consistent reads without blocking writers.)
-
-### Deadlocks
-
-A deadlock occurs when transaction A holds a lock B needs, while B holds a lock A needs — a circular wait, each waiting forever. The database detects the cycle and kills one transaction (the "victim"), which errors out. The classic cause is two code paths that lock the same rows **in different orders**.
-
-> **Best practice:** Always access tables and rows in a **consistent order** across your application, keep transactions short, and be ready to catch a deadlock error (SQL Server error 1205) and retry the operation.
-
-@@SRC: old Chapter 4: Data Access & Databases@@
 ## Dapper: When the ORM Is Too Much
 
-EF is productive but adds overhead: expression translation, change tracking, materialization. Sometimes you want raw SQL with a thin, fast mapping to objects. **Dapper** is a micro-ORM — really a set of extension methods on `IDbConnection` — that executes your SQL and maps the result to C# types, nothing more.
+When the SQL is yours anyway, the next question is whether EF Core needs to be in the path at all. EF is productive but adds overhead: expression translation, change tracking, materialization. Sometimes you want raw SQL with a thin, fast mapping to objects. **Dapper** is a micro-ORM — really a set of extension methods on `IDbConnection` — that executes your SQL and maps the result to C# types, nothing more.
 
 ```csharp
 using var conn = new SqlConnection(connectionString);
@@ -455,39 +571,6 @@ Also remember that Dapper writes are invisible to the change tracker, exactly li
 
 > **Best practice:** Do not let "Dapper is faster" become an architecture. The performance gap only matters once materialization is a measurable share of your request time, and by then you will know which three queries need it. Introducing Dapper for a specific read path is a good decision; rewriting a domain model around it usually is not.
 
-@@SRC: old Chapter 4: Data Access & Databases@@
-## Database Design and Normalization
-
-Good schema design prevents whole classes of bugs. **Normalization** is the discipline of structuring tables so each fact is stored exactly once.
-
-- **First Normal Form (1NF):** every column holds a single atomic value — no comma-separated lists, no repeating groups. One phone number per column, or a related table for many.
-- **Second Normal Form (2NF):** 1NF plus every non-key column depends on the *whole* primary key (relevant to composite keys). No column should depend on just part of the key.
-- **Third Normal Form (3NF):** 2NF plus no non-key column depends on another non-key column (no *transitive* dependencies). If you store `CustomerId` and also `CustomerCity`, the city depends on the customer, not the order — move it out.
-
-The intuition: **one fact, one place.** When a customer changes their city, you want to update one row, not hunt down every order that duplicated it. Duplication is how databases drift into inconsistency.
-
-**Foreign keys and constraints** are the database enforcing your rules so bad data cannot exist regardless of application bugs:
-
-```sql
-CREATE TABLE Orders (
-    Id INT PRIMARY KEY,
-    CustomerId INT NOT NULL,
-    Total DECIMAL(10,2) NOT NULL CHECK (Total >= 0),
-    Status VARCHAR(20) NOT NULL DEFAULT 'Open',
-    CONSTRAINT FK_Orders_Customers
-        FOREIGN KEY (CustomerId) REFERENCES Customers(Id)
-);
-```
-
-The foreign key guarantees no order references a non-existent customer. The `CHECK` guarantees no negative totals. These are your last line of defence and they never have bugs the way application code does.
-
-### When to Denormalize
-
-Normalization optimizes for correct writes; it can make reads slower by requiring many joins. **Denormalization** deliberately duplicates data to speed reads — for example, storing a precomputed `OrderCount` on `Customer` instead of counting orders every time.
-
-> **Best practice:** Normalize first, denormalize only when a measured read problem demands it — and then own the cost of keeping the duplicated data in sync (via triggers, application code, or scheduled jobs). Denormalization is a performance loan you repay with complexity.
-
-@@SRC: old Chapter 4: Data Access & Databases@@
 ## Caching
 
 The fastest query is the one you never run. Caching stores expensive results so repeat requests are served from fast storage.
@@ -527,98 +610,8 @@ A **cache stampede** (or "dog-pile") happens when a popular key expires and hund
 
 .NET 9's **HybridCache** (`Microsoft.Extensions.Caching.Hybrid`) packages these ideas for you: it unifies an in-process L1 with a distributed L2 behind a single `GetOrCreateAsync` API, and it ships cache-stampede protection out of the box — concurrent misses for the same key collapse into one rebuild. If you find yourself hand-rolling a two-level cache plus a rebuild lock, reach for it instead.
 
-@@SRC: old Chapter 4: Data Access & Databases@@
-## Concurrency: Optimistic vs Pessimistic
+Redis itself (key design, data types, eviction) and distributed caching across instances are in [Chapter 18: Data in Depth](#chapter-18-data-in-depth).
 
-When two users edit the same record at once, one can silently overwrite the other's changes — the **lost update** problem. Two philosophies address it.
-
-**Pessimistic locking** assumes conflicts are likely: lock the row when you read it so nobody else can touch it until you are done (`SELECT ... FOR UPDATE`). Safe, but locks hurt concurrency and risk deadlocks. Suitable for short, high-contention operations like decrementing inventory.
-
-**Optimistic concurrency** assumes conflicts are rare: let everyone read freely, but detect a conflict at save time. EF Core supports this with a **row version** (concurrency token). Each `UPDATE` includes the version in its `WHERE` clause; if another transaction already changed the row, the version no longer matches, zero rows are affected, and EF throws `DbUpdateConcurrencyException`.
-
-```csharp
-public class Product
-{
-    public int Id { get; set; }
-    public int Stock { get; set; }
-
-    [Timestamp]                       // maps to SQL Server rowversion
-    public byte[] RowVersion { get; set; } = default!;
-}
-
-try
-{
-    var product = ctx.Products.Single(p => p.Id == id);
-    product.Stock -= 1;
-    ctx.SaveChanges();
-    // EF emits: UPDATE Products SET Stock=@s WHERE Id=@id AND RowVersion=@original
-}
-catch (DbUpdateConcurrencyException)
-{
-    // Someone else updated it first. Reload, re-apply, and retry — or tell the user.
-}
-```
-
-> **Best practice:** Prefer optimistic concurrency for typical web apps — it scales because it holds no locks. Reserve pessimistic locking for genuinely high-contention hotspots.
-
-> **Pay attention.** **The window a concurrency token covers.** EF Core puts the token's *original* value, the one this context read, into the `WHERE`. The sample above therefore guards only the milliseconds between its own `Single` and `SaveChanges`. A web edit has a far longer window. The user's form was built from version 1; someone else saved version 2; the save handler loads the product again, gets version 2, copies the form onto it, and its `UPDATE … WHERE RowVersion = <version 2>` matches one row. Nothing throws, and the other user's change is gone. The fix is to make the original value the one the user saw: send the row version with the form (or as an `ETag`) and set it before saving.
-
-```csharp
-var product = await ctx.Products.SingleAsync(p => p.Id == id, ct);
-ctx.Entry(product).Property(p => p.RowVersion).OriginalValue = form.RowVersion; // the version the user edited
-product.Stock = form.Stock;
-try
-{
-    await ctx.SaveChangesAsync(ct);
-}
-catch (DbUpdateConcurrencyException)
-{
-    return Results.Conflict();   // or 412 Precondition Failed when the version came as If-Match
-}
-```
-
-@@SRC: old Chapter 4: Data Access & Databases@@
-## Stored Procedures, Views, and Raw SQL
-
-A **view** is a saved query you can select from like a table — useful for encapsulating a complex join or presenting a simplified shape. A **stored procedure** is precompiled SQL logic living in the database, callable by name.
-
-Raw SQL — via stored procs, `FromSqlRaw`, or Dapper — is justified when: the query is too complex or too performance-critical for LINQ to express well; you need database-specific features EF does not surface; or you are doing bulk set-based operations (updating a million rows in one statement rather than loading and tracking them).
-
-> **Note:** For the *bulk write* case specifically, you usually no longer need raw SQL — EF Core 7+ `ExecuteUpdate`/`ExecuteDelete` (covered above) issue a single set-based `UPDATE`/`DELETE` without loading or tracking, e.g. `ctx.Orders.Where(o => o.Status == OrderStatus.Abandoned).ExecuteDeleteAsync();`. Reserve raw SQL for genuinely complex queries or provider-specific features.
-
-```csharp
-// EF calling raw SQL while staying in the entity model
-var open = ctx.Orders
-    .FromSqlInterpolated($"SELECT * FROM Orders WHERE Status = {status}")
-    .ToList();   // interpolated form is parameterized — not string concatenation
-```
-
-> **Pitfall:** Never build SQL by concatenating user input — that is the door to SQL injection. Always use parameters. Note the trade-off with stored procedures: logic in the database is invisible to your application's source control and CI unless you deliberately manage it as versioned migration scripts.
-
-@@SRC: old Chapter 4: Data Access & Databases@@
-## DbContext Lifetime and Connection Pooling
-
-Opening a physical database connection is expensive — a TCP handshake and authentication. **Connection pooling**, on by default in ADO.NET, keeps a pool of open connections and hands them out on demand, so "opening" a connection usually just borrows an idle one. This is why you should open connections late and close them early: you are borrowing from a shared, finite pool.
-
-`DbContext` is **not thread-safe** and must be **scoped** — one instance per request. `AddDbContext` registers it with scoped lifetime, which is exactly right:
-
-```csharp
-builder.Services.AddDbContext<ShopContext>(o =>
-    o.UseSqlServer(connectionString));   // scoped: one per HTTP request
-```
-
-> **Critical pitfall:** Never inject a `DbContext` into a **singleton** service. A singleton outlives the request scope, so it would share one context across all concurrent requests — a thread-safety disaster and a source of bizarre, intermittent bugs. If a singleton needs data, inject `IDbContextFactory<T>` and create a context per operation.
-
-For very high throughput, `AddDbContextPool` reuses context *instances* (not just connections), resetting their state between requests to avoid re-running the setup cost:
-
-```csharp
-builder.Services.AddDbContextPool<ShopContext>(o =>
-    o.UseSqlServer(connectionString), poolSize: 128);
-```
-
-The catch: pooled contexts are reused, so never stash per-request state in a field on your `DbContext` — it will leak into the next request that borrows that instance.
-
-@@SRC: old Chapter 4: Data Access & Databases@@
 ## Migrations in CI/CD
 
 Your schema evolves alongside your code, and those changes must be applied to every environment reliably and repeatably. EF **migrations** capture each schema change as a versioned C# file generated from your model diff:
@@ -636,16 +629,226 @@ The strategic question is *when* migrations run in your pipeline. Options:
 - **A dedicated deployment step** — generate an idempotent SQL script (`dotnet ef migrations script --idempotent`) and run it as an explicit, gated CI/CD stage before the new app version goes live. This is the safest, most auditable approach for production.
 - **Standalone migration tools — DbUp or Flyway** — apply plain, hand-written, ordered SQL scripts. Teams that want full control over the exact SQL (and want DBAs to review it) often prefer these over EF's generated migrations. **DbUp** is a .NET library; **Flyway** is a language-agnostic tool. Both track applied scripts in a metadata table, just like EF.
 
-> **Best practice:** Make schema changes **backward compatible** so the old and new app versions can run against the new schema at once during a rolling deploy. Add a nullable column now; make it required in a *later* migration after all code writes to it. This "expand then contract" approach lets you deploy schema and code independently with zero downtime.
+> **Best practice:** Make schema changes **backward compatible** so the old and new app versions can run against the new schema at once during a rolling deploy. Add a nullable column now; make it required in a *later* migration after all code writes to it. This "expand then contract" approach lets you deploy schema and code independently with zero downtime; [Chapter 18](#migrations-at-scale-zero-downtime) does it on tables too big to lock.
 
-> **Capstone tie-in:** This chapter is exercised by ShopCore Steps 1 (The Honest Monolith) and 7 (Split Into Microservices) — you'd model products, carts, and orders with EF Core and PostgreSQL, creating the schema from migrations, and later add a transactional outbox table. See Chapter 32.
-
-@@SRC: old Chapter 4: Data Access & Databases@@
 ## Summary
 
-The through-line of this chapter is that the database is not a black box. EF Core is a productivity multiplier, but only if you know what SQL it generates — when it tracks, when it round-trips, when `Include` explodes into a cartesian product. Underneath, indexes, execution plans, transactions, and isolation levels determine whether your system is fast and correct or slow and subtly broken. Around it, caching removes load, NoSQL stores handle shapes relational tables handle poorly, concurrency tokens protect you from lost updates, and disciplined migrations let your schema evolve safely. A senior developer moves fluidly between these layers, always asking the same question: *what is actually happening at the database, and is it the least work required to be correct?*
+The database is not a black box. Normalization keeps each fact in one place, and constraints keep bad data out whatever the application does. An index is a sorted copy of some columns, so a query seeks only when its predicate pins a leftmost prefix with values the index stores; the actual plan and its logical reads show whether it did. A transaction makes a group of statements all-or-nothing, and its isolation level decides what concurrent transactions see.
 
-@@SRC: old Chapter 4: Data Access & Databases@@
+EF Core is a productivity multiplier only if you know the SQL it sends: tracking only where you save, related rows in one round trip through `Include` or a projection, one short-lived `DbContext` per request, set-based statements for bulk writes, and a concurrency token whose original value is the one the user saw. Raw SQL and Dapper take the queries LINQ expresses badly, caching removes load you understand, and expand-then-contract migrations let the schema change under a running system. The question to keep asking is *what is actually happening at the database, and is it the least work required to be correct?*
+
+> **Capstone tie-in:** This chapter is exercised by ShopCore Steps 1 (The Honest Monolith) and 7 (Split Into Microservices) — you'd model products, carts, and orders with EF Core and PostgreSQL, creating the schema from migrations, and later add a transactional outbox table. See [Chapter 44](#chapter-44-capstone-one-project-growing-up).
+
+## Prove it
+
+Two programs: the first shows which predicates can seek an index, the second counts the SQL statements EF Core sends for four ways of loading the same rows.
+
+### Seek or scan
+
+Five queries against one 200,000-row table, each printed with its index operator and its logical reads. Before you run it, predict SEEK or SCAN for each of the five.
+
+It needs SQL Server: start it from `verify/path` with `ACCEPT_EULA=Y docker compose up -d mssql` (the image has a EULA; in PowerShell set `$env:ACCEPT_EULA="Y"` first), and stop it with `docker compose down`.
+
+`verify/path/SeekVsScan/Program.cs` · run it from `verify/path` with `dotnet run --project SeekVsScan`:
+
+```csharp
+using System.Data;
+using Microsoft.Data.SqlClient;
+
+// Prove it: which predicates can SEEK an index and which must SCAN it. Needs a SQL Server:
+// `docker compose up -d` in this folder. Prints each query's index operator and logical reads.
+using var db = new SqlConnection("Server=localhost,14330;Database=tempdb;User Id=sa;Password=Emulator-Only-Passw0rd!;TrustServerCertificate=true");
+db.Open();
+new SqlCommand("""
+    DROP TABLE IF EXISTS dbo.Customers;
+    CREATE TABLE dbo.Customers (Id int IDENTITY PRIMARY KEY, Email varchar(100) NOT NULL, City varchar(50) NOT NULL, CreatedAt datetime2 NOT NULL);
+    INSERT dbo.Customers (Email, City, CreatedAt) SELECT CONCAT('user', value, '@example.com'), CONCAT('City', value % 200), DATEADD(minute, -value, '2026-01-01') FROM GENERATE_SERIES(1, 200000);
+    CREATE INDEX IX_Email ON dbo.Customers (Email); CREATE INDEX IX_City_CreatedAt ON dbo.Customers (City, CreatedAt);
+    SET STATISTICS PROFILE ON; SET STATISTICS IO ON;
+    """, db).ExecuteNonQuery();
+string reads = "?";
+db.InfoMessage += (_, e) => { if (e.Message.Contains("logical reads")) reads = e.Message.Split("logical reads ")[1].Split(',')[0]; };
+Plan("Email = @p", SqlDbType.NVarChar, "user42@example.com");     // a C# string is sent as nvarchar
+Plan("Email = @p", SqlDbType.VarChar, "user42@example.com");
+Plan("LOWER(Email) = @p", SqlDbType.VarChar, "user42@example.com");
+Plan("City = @p AND CreatedAt >= '2025-12-31'", SqlDbType.VarChar, "City7");
+Plan("CreatedAt >= @p", SqlDbType.DateTime2, new DateTime(2025, 12, 31));
+void Plan(string where, SqlDbType type, object value)
+{
+    using var command = new SqlCommand($"SELECT Id FROM dbo.Customers WHERE {where}", db);
+    command.Parameters.Add(new SqlParameter("@p", type) { Value = value });
+    var ops = new List<string>();
+    using (var reader = command.ExecuteReader())
+        do while (reader.Read()) if (reader.FieldCount > 2 && reader.GetString(2).Contains("Index")) ops.Add(reader.GetString(2).Trim()); while (reader.NextResult());
+    Console.WriteLine($"WHERE {where} (@p {type}): {reads} logical reads\n    {string.Join(" ", ops).Replace("[tempdb].[dbo].[Customers].", "")}");
+}
+```
+
+```text
+WHERE Email = @p (@p NVarChar): 888 logical reads
+    |--Index Scan(OBJECT:([IX_Email]),  WHERE:(CONVERT_IMPLICIT(nvarchar(100),[Email],0)=[@p]))
+WHERE Email = @p (@p VarChar): 3 logical reads
+    |--Index Seek(OBJECT:([IX_Email]), SEEK:([Email]=[@p]) ORDERED FORWARD)
+WHERE LOWER(Email) = @p (@p VarChar): 888 logical reads
+    |--Index Scan(OBJECT:([IX_Email]),  WHERE:(lower([Email])=[@p]))
+WHERE City = @p AND CreatedAt >= '2025-12-31' (@p VarChar): 3 logical reads
+    |--Index Seek(OBJECT:([IX_City_CreatedAt]), SEEK:([City]=[@p] AND [CreatedAt] >= '2025-12-31 00:00:00.0000000') ORDERED FORWARD)
+WHERE CreatedAt >= @p (@p DateTime2): 712 logical reads
+    |--Index Scan(OBJECT:([IX_City_CreatedAt]),  WHERE:([CreatedAt]>=[@p]))
+```
+
+The run: SQL Server 2022 CU27 (16.0.4295.3) with the `SQL_Latin1_General_CP1_CI_AS` collation, in Docker on a 4 vCPU Xeon with 16 GB RAM. What to notice — three scans, each for a different reason:
+
+- **The conversion lands on the column.** `nvarchar` outranks `varchar` in data-type precedence, so SQL Server converts the *column*: `CONVERT_IMPLICIT(…,[Email],0)`. Under a SQL collation `varchar` and `nvarchar` sort differently, so the index's order can't answer the question: 888 reads instead of 3. Under a Windows collation the same parameter still seeks, through a computed range: the companion run [`collation.txt`](https://github.com/malyna2/dotnet-handbook/blob/main/verify/path/reference-runs/collation.txt) shows 3 reads and `GetRangeThroughConvert`. That is why this bug appears on one database and not on another.
+- **A function on the column.** `lower([Email])` is a value the index doesn't store: 888 reads.
+- **The index is used, but scanned.** `CreatedAt` alone isn't a leftmost prefix of `(City, CreatedAt)`, so SQL Server reads the whole index: 712 reads. With `City` pinned first, both columns appear in `SEEK:`: 3 reads.
+- **Every query is covered.** Each selects only `Id`, the clustered key, which every non-clustered index row carries. Select `City` from `IX_Email` and each matching row would add a key lookup.
+
+**The fix in .NET:** send the parameter as `varchar`. In EF Core, map the property `.IsUnicode(false).HasMaxLength(100)`: `ToQueryString()` then shows `DECLARE @email varchar(100)`, where the default mapping shows `nvarchar(4000)`. In Dapper, `new DbString { Value = email, IsAnsi = true, Length = 100 }`; in raw ADO.NET, `SqlDbType.VarChar`.
+
+**Then the lab** ([kit](https://github.com/malyna2/dotnet-handbook/tree/main/labs/37-execution-plans), PostgreSQL in Docker, about 3 hours): read the *Goal* and *Setup* sections of [Chapter 19](#chapter-19-the-slow-query-lab-reading-execution-plans), do Level 1 (rungs 1–4: N+1, a cartesian explosion from two `Include`s, a function on a column, a conversion on a column) and rung 6 (column order). Open its *Hints and answers* for a rung only after your fix passes. Your results belong in your own public portfolio repo, not in this one.
+
+Also do *What would you do* (the 40-second report) in the Exercises below.
+
+### Counting statements
+
+The same 50 orders and 100 order lines, loaded four ways, with every SQL command EF Core sends counted. Predict the four counts before you run it; the last one is the surprise.
+
+`verify/path/NPlusOne/Program.cs` · run it from `verify/path` with `dotnet run --project NPlusOne` (the .NET 10 SDK is all it needs):
+
+```csharp
+using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Diagnostics;
+
+// Prove it: loading related rows one parent at a time sends 1 + N SQL statements; Include or a projection sends 1.
+int statements = 0;
+var options = new DbContextOptionsBuilder<Shop>().UseSqlite("Data Source=shop;Mode=Memory;Cache=Shared")
+    .LogTo(_ => statements++, [RelationalEventId.CommandExecuted]).Options;       // counts every SQL command sent
+using var seed = new Shop(options);
+seed.Database.OpenConnection();                    // an in-memory database lives while a connection to it is open
+seed.Database.EnsureCreated();
+seed.Orders.AddRange(Enumerable.Range(1, 50).Select(i => new Order { Lines = [new() { Sku = $"A-{i}" }, new() { Sku = $"B-{i}" }] }));
+seed.SaveChanges();
+Count("Load() each order's lines in a loop", db =>
+{
+    var orders = db.Orders.ToList();
+    foreach (var order in orders) db.Entry(order).Collection(o => o.Lines).Load();   // what lazy loading runs per order
+    return orders.Sum(o => o.Lines.Count);
+});
+Count("Include(o => o.Lines)", db => db.Orders.Include(o => o.Lines).ToList().Sum(o => o.Lines.Count));
+Count("Select(o => new { o.Id, Skus = ... })", db => db.Orders.Select(o => new { o.Id, Skus = o.Lines.Select(l => l.Sku).ToList() }).ToList().Sum(o => o.Skus.Count));
+Count("neither, and no lazy loading", db => db.Orders.ToList().Sum(o => o.Lines.Count));
+void Count(string label, Func<Shop, int> load)
+{
+    using var db = new Shop(options);              // a fresh context, as each request gets from DI
+    statements = 0;
+    Console.WriteLine($"{label,-38} {load(db),3} order lines, {statements,2} SQL statement(s)");
+}
+class Shop(DbContextOptions<Shop> options) : DbContext(options) { public DbSet<Order> Orders => Set<Order>(); }
+class Order { public int Id { get; set; } public List<OrderLine> Lines { get; set; } = []; }
+class OrderLine { public int Id { get; set; } public int OrderId { get; set; } public string Sku { get; set; } = ""; }
+```
+
+```text
+Load() each order's lines in a loop    100 order lines, 51 SQL statement(s)
+Include(o => o.Lines)                  100 order lines,  1 SQL statement(s)
+Select(o => new { o.Id, Skus = ... })  100 order lines,  1 SQL statement(s)
+neither, and no lazy loading             0 order lines,  1 SQL statement(s)
+```
+
+What to notice:
+
+- **1 + N is a count, not a slow query.** 51 statements: one for the orders, then one per order. Lazy loading produces exactly this, because a lazy navigation's getter runs the same `Load` on first access; there is just no call to see in the loop. Against SQLite in memory each statement costs microseconds. Against a database server each one is a network round trip and a connection borrowed from the pool, and their number grows with the rows on the page.
+- **`Include` and the projection send one statement each.** Both become one `LEFT JOIN`. The projection reads only the columns in its `Select` and tracks nothing; `Include` materialises and tracks all 150 entities.
+- **Loading neither is not slow; it is wrong.** With lazy loading off, `o.Lines` stays the empty list the entity was created with: 0 lines, and no exception. Switching lazy loading off without adding `Include` or a projection turns an N+1 into missing data. A collection the entity doesn't initialise stays `null` instead, and the loop throws.
+- **The fresh context per measurement matters.** The seed context still tracks every order and line, so a query through it would return the instances it already holds, lines attached, without loading anything. A test that seeds and queries through one context can pass against code that returns nothing in production.
+
+Then do *Find the bug* in the Exercises below: count the queries the endpoint sends before you open the answer.
+
+## Three questions
+
+### Seeks, scans and covering
+
+**1.** An index on `(City, CreatedAt)`. Why does `WHERE CreatedAt >= @d` scan while `WHERE City = @c AND CreatedAt >= @d` seeks? And why would `(CreatedAt, City)` be worse for the second query?
+
+<details>
+<summary>Answer</summary>
+
+- **Why one seeks and the other scans.** The index is sorted by `City`, then by `CreatedAt` within each city. One city is a contiguous block with its dates in order, so the engine seeks to `(City, start date)` and reads forward. A date range alone is spread across every city's block: there is no single range to seek, so it scans (712 reads against 3 in the experiment).
+- **Why `(CreatedAt, City)` is worse.** The date range on the leading column *is* contiguous, but it holds every city's rows for that period, and inside that range the cities are not in order. `City` can only be checked row by row, so the engine reads the whole period to keep one city's rows. Rung 6 of [Chapter 19](#chapter-19-the-slow-query-lab-reading-execution-plans) measures exactly this.
+- **The rule:** equality columns first, then the range or sort column. PostgreSQL 18's skip scan softens it only when the leading column has few distinct values.
+</details>
+
+**2.** The same query seeks when you run it in SSMS with a literal, and scans when the application sends it. The column is `varchar`. Why, and what are the fixes in EF Core and Dapper?
+
+<details>
+<summary>Answer</summary>
+
+- **The application sends `nvarchar`.** SqlClient and Dapper send a C# `string` as `nvarchar` unless told otherwise; so does EF Core for a property not mapped as non-Unicode.
+- **The conversion lands on the column.** `nvarchar` has the higher data-type precedence, so SQL Server converts the `varchar` column, not the parameter.
+- **The collation decides whether that scans.** Under a SQL collation, such as `SQL_Latin1_General_CP1_CI_AS`, `varchar` and `nvarchar` sort differently, so the index's order can't answer the converted comparison: a scan, 888 reads against 3. Under a Windows collation the optimizer can still compute a seek range, which is why it "works on the other database". The SSMS literal `'user42@example.com'` is `varchar`, so it seeks everywhere.
+- **Fixes:** send `varchar`. EF Core: `.IsUnicode(false).HasMaxLength(100)` on the property. Dapper: `DbString { IsAnsi = true, Length = 100 }`. ADO.NET: `SqlDbType.VarChar`. Or make the column `nvarchar`.
+</details>
+
+**3.** An index on `Email`, and `Id` is the clustered primary key. `SELECT Id FROM Customers WHERE Email = @e` is one Index Seek. Add `City` to the `SELECT` and the plan grows a Key Lookup. Why, what happens when 10,000 rows match, and what is the fix?
+
+<details>
+<summary>Answer</summary>
+
+- **`Id` comes free.** A non-clustered index row holds its key and the clustered key, the row's locator. `Id` is in the index, so the seek answers the query alone.
+- **`City` needs the row.** For each matching index row, SQL Server follows the clustered key into the clustered index, a *key lookup*: one more descent of the clustered index, a few pages, per matching row. For 10,000 rows that is 10,000 descents, and past some number of rows the optimizer scans the whole table instead.
+- **Fix:** `CREATE INDEX … ON Customers (Email) INCLUDE (City)`. The index now covers the query, and the lookups disappear. `INCLUDE` columns live only in the index's leaf rows: they cost space and write time, not key order.
+</details>
+
+### What EF Core sends
+
+**4.** An endpoint sends 1 + N queries, and every one of their plans is an index seek under a millisecond. Why is the endpoint slow, why can't any single plan show the problem, and how do you find it?
+
+<details>
+<summary>Answer</summary>
+
+- **The cost is the count.** Each statement pays a network round trip, a connection borrowed from the pool and a round of materialisation. N statements pay it N times, and N grows with the data, not with the code.
+- **No plan contains it.** Each statement really is cheap, so each plan looks perfect. The problem is the number of statements one request sends, and no plan holds that number.
+- **Count statements per request.** In development, EF Core's command log (`LogTo`, or the `Microsoft.EntityFrameworkCore.Database.Command` category at `Information`). In production, the database spans of one request's trace ([Chapter 9](#observability-wiring)), or call counts on the server: `pg_stat_statements` ([Chapter 19, Level 3](#level-3-beyond-the-harness)) or Query Store. The signature is a statement whose call count is a multiple of another's.
+- **Fix:** `Include`, a projection or a split query, and lazy loading off so the pattern can't come back unnoticed.
+</details>
+
+**5.** A query starts with `.Include(o => o.Customer)`, has `.AsNoTracking()` in the middle and ends with `.Select(o => new OrderRow(o.Id, o.Customer.Name))`. Which of the three calls changes the SQL or the work, and why?
+
+<details>
+<summary>Answer</summary>
+
+- **The `Select` decides everything.** The navigation `o.Customer.Name` inside it generates the join, and only the two selected columns are read.
+- **`Include` does nothing.** It is an instruction for materialising `Order` entities, and this query materialises `OrderRow`s. EF Core drops it without a warning; the SQL is identical without it.
+- **`AsNoTracking` does nothing either.** Tracking applies to entity instances, and a result without entities is never tracked.
+
+Delete both. Both start to matter only if the result contains the entity again, for example `.Select(o => new { Order = o, o.Customer.Name })`.
+</details>
+
+**6.** `Product` has a `[Timestamp]` row version. A user opens the edit form, someone else saves the same product, and five minutes later the first user saves and silently overwrites that change. No `DbUpdateConcurrencyException`. Why, and what is the fix?
+
+<details>
+<summary>Answer</summary>
+
+- **The token guards the window between one context's read and its write.** EF Core puts the token's *original* value, the one this context read, into the `UPDATE`'s `WHERE`.
+- **The save handler read the current version.** The user's form came from version 1. The other save made it version 2. The handler loads the product (version 2), copies the form onto it and sends `UPDATE … WHERE RowVersion = <version 2>`: one row matches, nothing throws, and the other user's change is gone.
+- **Fix: make the original value the one the user saw.** Send the row version with the form (or as an `ETag`), and before `SaveChanges` set `db.Entry(product).Property(p => p.RowVersion).OriginalValue = form.RowVersion`. Now zero rows match, `SaveChanges` throws, and the handler returns `409 Conflict` (`412 Precondition Failed` for an `If-Match` header) so the user reloads.
+</details>
+
+## Check at work
+
+### Your slowest query
+
+**Inspect.** Take your service's most expensive query from Query Store (or your APM's slowest dependency) and open its *actual* plan. Name every index operator a seek or a scan. For each scan, decide which of the experiment's three causes it is, or whether the scan is simply right because the query needs most of the table. For every `varchar` column your code filters on, check the type the parameter arrives with (`ToQueryString()` shows EF Core's `DECLARE`).
+
+**Measure.** The query's logical reads before and after your fix (`SET STATISTICS IO ON`), and its executions per hour from Query Store. Reads saved times executions is the load you removed.
+
+### Your busiest endpoint
+
+**Inspect.** Turn on EF Core's command log in development, call your busiest endpoint once with realistic data, and count the `Executed DbCommand` lines. Good: a small number that stays the same when the data grows. Bad: a number that grows with the rows on the page. Then search the code for `.Include(` in queries that end in `.Select(`, for `UseLazyLoadingProxies`, and for a `DbContext` held by anything registered as a singleton, hosted services included.
+
+**Measure.** In your APM or OpenTelemetry traces, the number of database spans per request for that endpoint over a day. Look at the maximum, not the average: N+1 shows on the requests with the most rows.
+
 ## Exercises
 
 ### Find the bug
@@ -729,10 +932,7 @@ In your own service:
 - Take your slowest known query and look at its actual execution plan — not the estimated one. Is there a scan where you expected a seek? Which index did the optimizer pick, and why not the one you assumed?
 - Check the isolation level your transactions actually run at. Most people say "read committed" and are right; some are running under snapshot or serializable without knowing, and it explains their deadlocks.
 
-@@SRC: old Chapter 34: Interview Questions & How to Answer Them@@
 ## Interview Questions
-
-*Revise: Ch. 4 — Data Access & Databases*
 
 **What is change tracking?**
 EF Core's `DbContext` snapshots loaded entities and tracks their state (Added/Modified/Deleted/Unchanged). On `SaveChanges` it generates the SQL for exactly the changes. It's convenient but costs memory and CPU proportional to tracked entities — a reason to disable it for read-only queries.
@@ -773,211 +973,3 @@ When you need tight control over SQL and maximum read performance — hot query 
 
 **What is normalization and when do you denormalize?**
 Normalization organizes data to eliminate redundancy (each fact stored once) — reduces update anomalies. You denormalize deliberately for read performance: duplicate or pre-join data to avoid expensive joins on hot read paths, accepting the cost of keeping copies in sync. Normalize by default, denormalize with evidence.
-
----
-
-@@SRC: practice from old module page Part 1 · Module 2: EF Core Essentials@@
-
-## Prove it
-
-The same 50 orders and 100 order lines, loaded four ways, with every SQL command EF Core sends counted. Predict the four counts before you run it; the last one is the surprise.
-
-`verify/path/NPlusOne/Program.cs` · run it from `verify/path` with `dotnet run --project NPlusOne` (the .NET 10 SDK is all it needs):
-
-```csharp
-using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.Diagnostics;
-
-// Prove it: loading related rows one parent at a time sends 1 + N SQL statements; Include or a projection sends 1.
-int statements = 0;
-var options = new DbContextOptionsBuilder<Shop>().UseSqlite("Data Source=shop;Mode=Memory;Cache=Shared")
-    .LogTo(_ => statements++, [RelationalEventId.CommandExecuted]).Options;       // counts every SQL command sent
-using var seed = new Shop(options);
-seed.Database.OpenConnection();                    // an in-memory database lives while a connection to it is open
-seed.Database.EnsureCreated();
-seed.Orders.AddRange(Enumerable.Range(1, 50).Select(i => new Order { Lines = [new() { Sku = $"A-{i}" }, new() { Sku = $"B-{i}" }] }));
-seed.SaveChanges();
-Count("Load() each order's lines in a loop", db =>
-{
-    var orders = db.Orders.ToList();
-    foreach (var order in orders) db.Entry(order).Collection(o => o.Lines).Load();   // what lazy loading runs per order
-    return orders.Sum(o => o.Lines.Count);
-});
-Count("Include(o => o.Lines)", db => db.Orders.Include(o => o.Lines).ToList().Sum(o => o.Lines.Count));
-Count("Select(o => new { o.Id, Skus = ... })", db => db.Orders.Select(o => new { o.Id, Skus = o.Lines.Select(l => l.Sku).ToList() }).ToList().Sum(o => o.Skus.Count));
-Count("neither, and no lazy loading", db => db.Orders.ToList().Sum(o => o.Lines.Count));
-void Count(string label, Func<Shop, int> load)
-{
-    using var db = new Shop(options);              // a fresh context, as each request gets from DI
-    statements = 0;
-    Console.WriteLine($"{label,-38} {load(db),3} order lines, {statements,2} SQL statement(s)");
-}
-class Shop(DbContextOptions<Shop> options) : DbContext(options) { public DbSet<Order> Orders => Set<Order>(); }
-class Order { public int Id { get; set; } public List<OrderLine> Lines { get; set; } = []; }
-class OrderLine { public int Id { get; set; } public int OrderId { get; set; } public string Sku { get; set; } = ""; }
-```
-
-```text
-Load() each order's lines in a loop    100 order lines, 51 SQL statement(s)
-Include(o => o.Lines)                  100 order lines,  1 SQL statement(s)
-Select(o => new { o.Id, Skus = ... })  100 order lines,  1 SQL statement(s)
-neither, and no lazy loading             0 order lines,  1 SQL statement(s)
-```
-
-What to notice:
-
-- **1 + N is a count, not a slow query.** 51 statements: one for the orders, then one per order. Lazy loading produces exactly this, because a lazy navigation's getter runs the same `Load` on first access; there is just no call to see in the loop. Against SQLite in memory each statement costs microseconds. Against a database server each one is a network round trip and a connection borrowed from the pool, and their number grows with the rows on the page.
-- **`Include` and the projection send one statement each.** Both become one `LEFT JOIN`. The projection reads only the columns in its `Select` and tracks nothing; `Include` materialises and tracks all 150 entities.
-- **Loading neither is not slow; it is wrong.** With lazy loading off, `o.Lines` stays the empty list the entity was created with: 0 lines, and no exception. Switching lazy loading off without adding `Include` or a projection turns an N+1 into missing data. A collection the entity doesn't initialise stays `null` instead, and the loop throws.
-- **The fresh context per measurement matters.** The seed context still tracks every order and line, so a query through it would return the instances it already holds, lines attached, without loading anything. A test that seeds and queries through one context can pass against code that returns nothing in production.
-
-Then do Chapter 4's *Find the bug*, in the Exercises at the end of [Chapter 4](#chapter-4-data-access-databases): count the queries the endpoint sends before you open the answer.
-
-## Three questions
-
-**1.** An endpoint sends 1 + N queries, and every one of their plans is an index seek under a millisecond. Why is the endpoint slow, why can't any single plan show the problem, and how do you find it?
-
-<details>
-<summary>Answer</summary>
-
-- **The cost is the count.** Each statement pays a network round trip, a connection borrowed from the pool and a round of materialisation. N statements pay it N times, and N grows with the data, not with the code.
-- **No plan contains it.** Each statement really is cheap, so each plan looks perfect. The problem is the number of statements one request sends, and no plan holds that number.
-- **Count statements per request.** In development, EF Core's command log (`LogTo`, or the `Microsoft.EntityFrameworkCore.Database.Command` category at `Information`). In production, the database spans of one request's trace (Chapter 13), or call counts on the server: `pg_stat_statements` (Chapter 37, Level 3) or Query Store. The signature is a statement whose call count is a multiple of another's.
-- **Fix:** `Include`, a projection or a split query, and lazy loading off so the pattern can't come back unnoticed.
-</details>
-
-**2.** A query starts with `.Include(o => o.Customer)`, has `.AsNoTracking()` in the middle and ends with `.Select(o => new OrderRow(o.Id, o.Customer.Name))`. Which of the three calls changes the SQL or the work, and why?
-
-<details>
-<summary>Answer</summary>
-
-- **The `Select` decides everything.** The navigation `o.Customer.Name` inside it generates the join, and only the two selected columns are read.
-- **`Include` does nothing.** It is an instruction for materialising `Order` entities, and this query materialises `OrderRow`s. EF Core drops it without a warning; the SQL is identical without it.
-- **`AsNoTracking` does nothing either.** Tracking applies to entity instances, and a result without entities is never tracked.
-
-Delete both. Both start to matter only if the result contains the entity again, for example `.Select(o => new { Order = o, o.Customer.Name })`.
-</details>
-
-**3.** `Product` has a `[Timestamp]` row version. A user opens the edit form, someone else saves the same product, and five minutes later the first user saves and silently overwrites that change. No `DbUpdateConcurrencyException`. Why, and what is the fix?
-
-<details>
-<summary>Answer</summary>
-
-- **The token guards the window between one context's read and its write.** EF Core puts the token's *original* value, the one this context read, into the `UPDATE`'s `WHERE`.
-- **The save handler read the current version.** The user's form came from version 1. The other save made it version 2. The handler loads the product (version 2), copies the form onto it and sends `UPDATE … WHERE RowVersion = <version 2>`: one row matches, nothing throws, and the other user's change is gone.
-- **Fix: make the original value the one the user saw.** Send the row version with the form (or as an `ETag`), and before `SaveChanges` set `db.Entry(product).Property(p => p.RowVersion).OriginalValue = form.RowVersion`. Now zero rows match, `SaveChanges` throws, and the handler returns `409 Conflict` (`412 Precondition Failed` for an `If-Match` header) so the user reloads.
-</details>
-
-## Check at work
-
-**Inspect.** Turn on EF Core's command log in development, call your busiest endpoint once with realistic data, and count the `Executed DbCommand` lines. Good: a small number that stays the same when the data grows. Bad: a number that grows with the rows on the page. Then search the code for `.Include(` in queries that end in `.Select(`, for `UseLazyLoadingProxies`, and for a `DbContext` held by anything registered as a singleton, hosted services included.
-
-**Measure.** In your APM or OpenTelemetry traces, the number of database spans per request for that endpoint over a day. Look at the maximum, not the average: N+1 shows on the requests with the most rows.
-
-@@SRC: practice from old module page Part 1 · Module 3: SQL and Indexes@@
-
-## Prove it
-
-Five queries against one 200,000-row table, each printed with its index operator and its logical reads. Before you run it, predict SEEK or SCAN for each of the five.
-
-It needs SQL Server: start it from `verify/path` with `ACCEPT_EULA=Y docker compose up -d mssql` (the image has a EULA; in PowerShell set `$env:ACCEPT_EULA="Y"` first), and stop it with `docker compose down`.
-
-`verify/path/SeekVsScan/Program.cs` · run it from `verify/path` with `dotnet run --project SeekVsScan`:
-
-```csharp
-using System.Data;
-using Microsoft.Data.SqlClient;
-
-// Prove it: which predicates can SEEK an index and which must SCAN it. Needs a SQL Server:
-// `docker compose up -d` in this folder. Prints each query's index operator and logical reads.
-using var db = new SqlConnection("Server=localhost,14330;Database=tempdb;User Id=sa;Password=Emulator-Only-Passw0rd!;TrustServerCertificate=true");
-db.Open();
-new SqlCommand("""
-    DROP TABLE IF EXISTS dbo.Customers;
-    CREATE TABLE dbo.Customers (Id int IDENTITY PRIMARY KEY, Email varchar(100) NOT NULL, City varchar(50) NOT NULL, CreatedAt datetime2 NOT NULL);
-    INSERT dbo.Customers (Email, City, CreatedAt) SELECT CONCAT('user', value, '@example.com'), CONCAT('City', value % 200), DATEADD(minute, -value, '2026-01-01') FROM GENERATE_SERIES(1, 200000);
-    CREATE INDEX IX_Email ON dbo.Customers (Email); CREATE INDEX IX_City_CreatedAt ON dbo.Customers (City, CreatedAt);
-    SET STATISTICS PROFILE ON; SET STATISTICS IO ON;
-    """, db).ExecuteNonQuery();
-string reads = "?";
-db.InfoMessage += (_, e) => { if (e.Message.Contains("logical reads")) reads = e.Message.Split("logical reads ")[1].Split(',')[0]; };
-Plan("Email = @p", SqlDbType.NVarChar, "user42@example.com");     // a C# string is sent as nvarchar
-Plan("Email = @p", SqlDbType.VarChar, "user42@example.com");
-Plan("LOWER(Email) = @p", SqlDbType.VarChar, "user42@example.com");
-Plan("City = @p AND CreatedAt >= '2025-12-31'", SqlDbType.VarChar, "City7");
-Plan("CreatedAt >= @p", SqlDbType.DateTime2, new DateTime(2025, 12, 31));
-void Plan(string where, SqlDbType type, object value)
-{
-    using var command = new SqlCommand($"SELECT Id FROM dbo.Customers WHERE {where}", db);
-    command.Parameters.Add(new SqlParameter("@p", type) { Value = value });
-    var ops = new List<string>();
-    using (var reader = command.ExecuteReader())
-        do while (reader.Read()) if (reader.FieldCount > 2 && reader.GetString(2).Contains("Index")) ops.Add(reader.GetString(2).Trim()); while (reader.NextResult());
-    Console.WriteLine($"WHERE {where} (@p {type}): {reads} logical reads\n    {string.Join(" ", ops).Replace("[tempdb].[dbo].[Customers].", "")}");
-}
-```
-
-```text
-WHERE Email = @p (@p NVarChar): 888 logical reads
-    |--Index Scan(OBJECT:([IX_Email]),  WHERE:(CONVERT_IMPLICIT(nvarchar(100),[Email],0)=[@p]))
-WHERE Email = @p (@p VarChar): 3 logical reads
-    |--Index Seek(OBJECT:([IX_Email]), SEEK:([Email]=[@p]) ORDERED FORWARD)
-WHERE LOWER(Email) = @p (@p VarChar): 888 logical reads
-    |--Index Scan(OBJECT:([IX_Email]),  WHERE:(lower([Email])=[@p]))
-WHERE City = @p AND CreatedAt >= '2025-12-31' (@p VarChar): 3 logical reads
-    |--Index Seek(OBJECT:([IX_City_CreatedAt]), SEEK:([City]=[@p] AND [CreatedAt] >= '2025-12-31 00:00:00.0000000') ORDERED FORWARD)
-WHERE CreatedAt >= @p (@p DateTime2): 712 logical reads
-    |--Index Scan(OBJECT:([IX_City_CreatedAt]),  WHERE:([CreatedAt]>=[@p]))
-```
-
-The run: SQL Server 2022 CU27 (16.0.4295.3) with the `SQL_Latin1_General_CP1_CI_AS` collation, in Docker on a 4 vCPU Xeon with 16 GB RAM. What to notice — three scans, each for a different reason:
-
-- **The conversion lands on the column.** `nvarchar` outranks `varchar` in data-type precedence, so SQL Server converts the *column*: `CONVERT_IMPLICIT(…,[Email],0)`. Under a SQL collation `varchar` and `nvarchar` sort differently, so the index's order can't answer the question: 888 reads instead of 3. Under a Windows collation the same parameter still seeks, through a computed range: the companion run [`collation.txt`](https://github.com/malyna2/dotnet-handbook/blob/main/verify/path/reference-runs/collation.txt) shows 3 reads and `GetRangeThroughConvert`. That is why this bug appears on one database and not on another.
-- **A function on the column.** `lower([Email])` is a value the index doesn't store: 888 reads.
-- **The index is used, but scanned.** `CreatedAt` alone isn't a leftmost prefix of `(City, CreatedAt)`, so SQL Server reads the whole index: 712 reads. With `City` pinned first, both columns appear in `SEEK:`: 3 reads.
-- **Every query is covered.** Each selects only `Id`, the clustered key, which every non-clustered index row carries. Select `City` from `IX_Email` and each matching row would add a key lookup.
-
-**The fix in .NET:** send the parameter as `varchar`. In EF Core, map the property `.IsUnicode(false).HasMaxLength(100)`: `ToQueryString()` then shows `DECLARE @email varchar(100)`, where the default mapping shows `nvarchar(4000)`. In Dapper, `new DbString { Value = email, IsAnsi = true, Length = 100 }`; in raw ADO.NET, `SqlDbType.VarChar`.
-
-**Then the lab** ([kit](https://github.com/malyna2/dotnet-handbook/tree/main/labs/37-execution-plans), PostgreSQL in Docker, about 3 hours): read the *Goal* and *Setup* sections of [Chapter 37](#chapter-37-the-slow-query-lab-reading-execution-plans), do Level 1 (rungs 1–4: N+1, a cartesian explosion from two `Include`s, a function on a column, a conversion on a column) and rung 6 (column order). Open its *Hints and answers* for a rung only after your fix passes. Your results belong in your own public portfolio repo, not in this one.
-
-Also do Chapter 4's *What would you do* (the 40-second report), in the Exercises at the end of [Chapter 4](#chapter-4-data-access-databases).
-
-## Three questions
-
-**1.** An index on `(City, CreatedAt)`. Why does `WHERE CreatedAt >= @d` scan while `WHERE City = @c AND CreatedAt >= @d` seeks? And why would `(CreatedAt, City)` be worse for the second query?
-
-<details>
-<summary>Answer</summary>
-
-- **Why one seeks and the other scans.** The index is sorted by `City`, then by `CreatedAt` within each city. One city is a contiguous block with its dates in order, so the engine seeks to `(City, start date)` and reads forward. A date range alone is spread across every city's block: there is no single range to seek, so it scans (712 reads against 3 in the experiment).
-- **Why `(CreatedAt, City)` is worse.** The date range on the leading column *is* contiguous, but it holds every city's rows for that period, and inside that range the cities are not in order. `City` can only be checked row by row, so the engine reads the whole period to keep one city's rows. Chapter 37's rung 6 measures exactly this.
-- **The rule:** equality columns first, then the range or sort column. PostgreSQL 18's skip scan softens it only when the leading column has few distinct values.
-</details>
-
-**2.** The same query seeks when you run it in SSMS with a literal, and scans when the application sends it. The column is `varchar`. Why, and what are the fixes in EF Core and Dapper?
-
-<details>
-<summary>Answer</summary>
-
-- **The application sends `nvarchar`.** SqlClient and Dapper send a C# `string` as `nvarchar` unless told otherwise; so does EF Core for a property not mapped as non-Unicode.
-- **The conversion lands on the column.** `nvarchar` has the higher data-type precedence, so SQL Server converts the `varchar` column, not the parameter.
-- **The collation decides whether that scans.** Under a SQL collation, such as `SQL_Latin1_General_CP1_CI_AS`, `varchar` and `nvarchar` sort differently, so the index's order can't answer the converted comparison: a scan, 888 reads against 3. Under a Windows collation the optimizer can still compute a seek range, which is why it "works on the other database". The SSMS literal `'user42@example.com'` is `varchar`, so it seeks everywhere.
-- **Fixes:** send `varchar`. EF Core: `.IsUnicode(false).HasMaxLength(100)` on the property. Dapper: `DbString { IsAnsi = true, Length = 100 }`. ADO.NET: `SqlDbType.VarChar`. Or make the column `nvarchar`.
-</details>
-
-**3.** An index on `Email`, and `Id` is the clustered primary key. `SELECT Id FROM Customers WHERE Email = @e` is one Index Seek. Add `City` to the `SELECT` and the plan grows a Key Lookup. Why, what happens when 10,000 rows match, and what is the fix?
-
-<details>
-<summary>Answer</summary>
-
-- **`Id` comes free.** A non-clustered index row holds its key and the clustered key, the row's locator. `Id` is in the index, so the seek answers the query alone.
-- **`City` needs the row.** For each matching index row, SQL Server follows the clustered key into the clustered index, a *key lookup*: one more descent of the clustered index, a few pages, per matching row. For 10,000 rows that is 10,000 descents, and past some number of rows the optimizer scans the whole table instead.
-- **Fix:** `CREATE INDEX … ON Customers (Email) INCLUDE (City)`. The index now covers the query, and the lookups disappear. `INCLUDE` columns live only in the index's leaf rows: they cost space and write time, not key order.
-</details>
-
-## Check at work
-
-**Inspect.** Take your service's most expensive query from Query Store (or your APM's slowest dependency) and open its *actual* plan. Name every index operator a seek or a scan. For each scan, decide which of the experiment's three causes it is, or whether the scan is simply right because the query needs most of the table. For every `varchar` column your code filters on, check the type the parameter arrives with (`ToQueryString()` shows EF Core's `DECLARE`).
-
-**Measure.** The query's logical reads before and after your fix (`SET STATISTICS IO ON`), and its executions per hour from Query Store. Reads saved times executions is the load you removed.

@@ -1,17 +1,12 @@
 # Chapter 16: Working Like a Middle Developer
 
-@@TODO: write this chapter's introduction (what it makes the reader able to do, how its sections connect), then remove every @@ line.@@
+The previous fifteen chapters are about code. This one is about the work around it, which decides how much of that code ends up useful: a message that gets read and acted on, a pull request reviewed so the author leaves smarter rather than smaller, an estimate for work you have never done, a bug found by method rather than luck, a change made safely in code you don't fully understand, and an outcome owned from the ticket to the alert. The chapter makes you able to take a vague ticket, a request for an estimate or a pull request, and send back something a teammate can act on without a meeting.
 
-@@SRC: introduction of old Chapter 17: Soft Skills & Engineering Practices@@
+One habit ties it together: **turn every guess into a claim someone else can check, with the condition or assumption it rests on, in writing, before anyone builds on it.** People act on a claim they can verify in a minute and ignore or argue with one they can't; and a misunderstanding costs more with every step built on it, from one reply before the code exists to an incident after release. A problem statement makes your reading of a ticket checkable, a range names the assumption that drives an estimate, a review comment states the condition, mechanism, cost and fix, and a request for help shows what you already ruled out.
 
-You already know how to write good C#. You can wire up dependency injection, reason about `async`/`await`, tune an EF Core query, and design a clean bounded context. That is the price of admission to being a *middle* engineer. It is not what makes you a senior one.
+The sections follow a piece of work through a team: from throughput to leverage, communication, code review, estimation, technical writing, debugging, safe change and tech debt, agile ceremonies, and ownership. Then the practice: four written tasks, three questions, a check at work and two judgment exercises. Mentoring, influence and the path to senior continue in [Chapter 36: Senior Behaviours, Career and Interviews](#chapter-36-senior-behaviours-career-and-interviews).
 
-The uncomfortable truth is that the gap between a mid-level developer and a senior or staff engineer is only partly technical. The rest — often the larger part — is made of skills that never show up in a LeetCode problem: writing a message that gets read and acted on, estimating work you have never done, reviewing a colleague's PR so that they leave the interaction smarter and not smaller, deciding *not* to build the clever thing, and owning an outcome from a Jira ticket all the way to a 2 a.m. alert.
-
-This chapter is the practical field guide to those skills. No platitudes — templates, scripts, checklists, and worked examples you can use on Monday.
-
-@@SRC: old Chapter 17: Soft Skills & Engineering Practices@@
-## 17.1 From Solving Tickets to Creating Leverage
+## From Solving Tickets to Creating Leverage
 
 A middle engineer is measured by **throughput**: how many tickets they close, how fast, how correctly. That is real and valuable. But it scales linearly — you can only type so fast, and there are only so many hours in a week.
 
@@ -31,8 +26,7 @@ Concretely, the behaviors change like this:
 
 None of this needs a title or permission; the title tends to follow the behavior.
 
-@@SRC: old Chapter 17: Soft Skills & Engineering Practices@@
-## 17.2 Communication: The Real Superpower
+## Communication: The Real Superpower
 
 Most engineering failures I have watched up close were not failures of code. They were failures of communication — a misread requirement, an assumption nobody voiced, a decision made in a hallway that three teams never heard about.
 
@@ -93,12 +87,12 @@ A meeting checklist:
 
 A question unblocks you when the person answering doesn't have to ask you three questions back first. Send the state of your thinking, not only the gap in it.
 
-**In writing**, when you are stuck past your timebox ([17.6](#176-methodical-debugging-problem-solving)) or a ticket is vague:
+**In writing**, when you are stuck past your timebox ([Methodical Debugging](#methodical-debugging-problem-solving)) or a ticket is vague:
 
 - **The goal, not only your attempted fix.** "How do I make the CI step wait 30 seconds?" gets you a sleep; "the integration tests start before the database is ready" gets you a health check. Asking about your attempted solution instead of the problem is the *XY problem*: helpers solve the wrong thing well.
 - **What you tried, and what each attempt ruled out.** The helper skips your first half hour and often spots the wrong assumption at a glance.
 - **The exact error, pasted, and one specific ask:** a yes or no, a name, a pointer.
-- **For a vague ticket,** a short problem statement (symptom and evidence, target, constraints, out of scope; [Chapter 61](#the-one-page-problem-statement) has the full template) with your questions at the end, before any code.
+- **For a vague ticket,** a short problem statement (symptom and evidence, target, constraints, out of scope; [Chapter 39](#the-one-page-problem-statement) has the full template) with your questions at the end, before any code.
 
 **In meetings:**
 
@@ -117,8 +111,7 @@ That framing invites information rather than triggering defense. And when the de
 
 **Managing up** means making your manager's job easier: no surprises, bring problems *with* a proposed solution, and tell them what you need rather than expecting them to guess. "I'm blocked on the security review and it'll slip the release two days unless we escalate — can you ping their lead?" is worth more than silent heroics followed by a missed date.
 
-@@SRC: old Chapter 17: Soft Skills & Engineering Practices@@
-## 17.3 Code Review Mastery
+## Code Review Mastery
 
 Code review is where craft, teaching, and team culture intersect every single day. Done well it spreads knowledge and raises the floor. Done badly it becomes a gauntlet of ego and bikeshedding.
 
@@ -134,7 +127,7 @@ A diff that compiles and passes its tests can still be wrong under a condition i
 | What if it **fails halfway**? | A crash between two writes, an exception mid-loop | Save, then publish, with no outbox; `async void`; `catch { }` |
 | What if it meets **100× the data**? | Production volume instead of seed data | N+1; an unbounded `ToListAsync()`; a filter applied after materialising |
 
-Each "yes, that breaks" is the condition of a comment; the mechanism, the cost and the fix follow from it (next section). Two moves cover what the questions miss: compare the change with the file that already does the closest thing, since divergence from it is where new defects hide, and use [Chapter 18's rubric](#judging-ai-generated-code-a-reviewers-rubric) for the full order of reading a diff. If all five questions come back clean, approve and say which risks you checked ("retries and concurrency look safe: the claim is atomic"). The author learns what was verified, and the next reviewer knows what wasn't.
+Each "yes, that breaks" is the condition of a comment; the mechanism, the cost and the fix follow from it (next section). Two moves cover what the questions miss: compare the change with the file that already does the closest thing, since divergence from it is where new defects hide, and use [Chapter 32's rubric](#judging-ai-generated-code-a-reviewers-rubric) for the full order of reading a diff. If all five questions come back clean, approve and say which risks you checked ("retries and concurrency look safe: the claim is atomic"). The author learns what was verified, and the next reviewer knows what wasn't.
 
 ### Giving feedback: kind, specific, actionable
 
@@ -146,7 +139,7 @@ A comment gets acted on when the author can check it without asking you anything
 
 > *Good:* "blocking: if `SendAsync` throws, this `async void` method has no `Task` to carry the exception, so the `try/catch` around the call never sees it. ASP.NET Core has no `SynchronizationContext`, so the runtime rethrows it on a thread-pool thread, nothing catches it there, and the process terminates with every in-flight request. Can we make it `async Task` and await it, as `NotificationService` does?"
 
-The good version gives the condition (`SendAsync` throws), the mechanism (no `Task`, so the exception is rethrown on the captured `SynchronizationContext` or, when there is none, on a thread-pool thread; [Chapter 8](#the-compiler-generated-state-machine) traces the path), the cost (an unhandled exception ends the process) and a fix with a local example to copy. The author can verify it in a minute, which makes acting on it cheaper than arguing with it.
+The good version gives the condition (`SendAsync` throws), the mechanism (no `Task`, so the exception is rethrown on the captured `SynchronizationContext` or, when there is none, on a thread-pool thread; [Chapter 4](#the-compiler-generated-state-machine) traces the path), the cost (an unhandled exception ends the process) and a fix with a local example to copy. The author can verify it in a minute, which makes acting on it cheaper than arguing with it.
 
 ### Conventional comments: label your intent
 
@@ -195,8 +188,7 @@ Your code is not you. A comment on your PR is a gift of someone's attention. Pra
 
 > **Review is teaching in both directions. Every PR is a chance to make the other person — author or reviewer — a slightly better engineer. Optimize for that, not for winning.**
 
-@@SRC: old Chapter 17: Soft Skills & Engineering Practices@@
-## 17.4 Estimation & Planning
+## Estimation & Planning
 
 Estimates are hard because you are predicting the unknown — and software work is disproportionately made of unknowns. The **planning fallacy** (we systematically underestimate our own tasks even when we know similar tasks ran long) is not a personal flaw you can will away; it is a cognitive bias to design around.
 
@@ -212,8 +204,7 @@ Techniques that actually help:
 
 Avoid the **sunk-cost trap**: "we've already spent three weeks on this approach" is not a reason to spend a fourth. Past effort is gone regardless; decide based on the cost and value *from here*. A senior says out loud, "I know we've invested a lot, but continuing is the more expensive path now."
 
-@@SRC: old Chapter 17: Soft Skills & Engineering Practices@@
-## 17.5 Technical Writing & Documentation
+## Technical Writing & Documentation
 
 Code says *what* the system does. Documentation captures *why* — the context that is otherwise lost the moment it leaves your head.
 
@@ -283,8 +274,7 @@ if (retryCount >= 3) return Result.Fail("retry cap reached");
 
 Good code is self-documenting about *what*. Comments earn their keep by capturing the *why* — the constraint, the gotcha, the link to the decision — that the code itself cannot express.
 
-@@SRC: old Chapter 17: Soft Skills & Engineering Practices@@
-## 17.6 Methodical Debugging & Problem Solving
+## Methodical Debugging & Problem Solving
 
 Junior engineers debug by changing things and hoping. Seniors debug like scientists: with hypotheses and evidence.
 
@@ -306,8 +296,7 @@ When something breaks in production, the goal is to fix the *system*, not to fin
 
 A lightweight structure: **what happened** (timeline), **impact** (who/how much), **root cause** (the *why*, dug several levels deep — the deploy wasn't the root cause, the *lack of a canary* was), and **action items** (concrete, owned, dated). Focus every action on making the failure impossible or detectable, not on "be more careful."
 
-@@SRC: old Chapter 17: Soft Skills & Engineering Practices@@
-## 17.7 Safe Change, Refactoring & Tech Debt
+## Safe Change, Refactoring & Tech Debt
 
 Changing code you don't fully understand is where careers are made or dented. The senior approach is disciplined.
 
@@ -323,8 +312,7 @@ Tech debt is invisible to non-engineers until it manifests as slow delivery or a
 
 Note the framing: not "the code is ugly" (aesthetic, ignorable) but "this costs us velocity and risks revenue, here's the payoff of fixing it" (a business trade-off they can prioritize). Track debt as visible tickets, not private grumbling. Deliberate, communicated debt ("we'll ship the quick version now and fix it in Q1, tracked as TECH-88") is a legitimate tool. *Undocumented* debt is the dangerous kind.
 
-@@SRC: old Chapter 17: Soft Skills & Engineering Practices@@
-## 17.9 Agile in Practice (Not Cargo-Cult)
+## Agile in Practice (Not Cargo-Cult)
 
 Most teams "do Agile." Fewer do it well. The difference is whether the ceremonies serve the work or the work serves the ceremonies.
 
@@ -338,8 +326,7 @@ Ceremonies done well vs cargo-cult:
 
 **WIP limits** are the most underused idea in the whole toolkit: starting five things finishes zero. Limiting how much is in flight *forces* the team to finish and ship before starting more, which counterintuitively increases throughput. Prefer finishing to starting.
 
-@@SRC: old Chapter 17: Soft Skills & Engineering Practices@@
-## 17.11 Ownership & Professionalism
+## Ownership & Professionalism
 
 The single word that most separates senior from mid-level is **ownership**.
 
@@ -361,67 +348,13 @@ Seniority is a marathon; you can't sprint for years. Sustainable practices are p
 - Sustainable pace beats hero crunches. The all-nighter that ships Friday costs you the whole next week in bugs and fatigue. Consistency wins.
 - Notice the burnout signs — cynicism, exhaustion, dread — early, and act (rest, rescope, talk to your manager) before they become a crisis. You can't create leverage while running on empty.
 
-### Continuous learning
-
-The .NET ecosystem moves; the fundamentals move slowly but the tools shift yearly. Build a lightweight habit rather than sporadic cramming: follow a few high-signal sources, read the release notes for each major .NET version, keep a running list of things to learn, and — most effective — learn by *building* small things and by *teaching* what you just learned. Teaching forces the gaps into the open.
-
-@@SRC: old Chapter 17: Soft Skills & Engineering Practices@@
-## Exercises
-
-The drills in the technical chapters have answers you can check against a compiler. These do not, which is the point — the skills in this chapter are judgment, and judgment is practised by reasoning through situations before you are in them.
-
-### What would you do — the estimate
-
-Your product manager asks how long a feature will take. You genuinely do not know: it depends on whether a third-party API supports bulk operations, which the documentation does not say. They need a number for a roadmap slide by end of day. Saying "I don't know" has not gone well before.
-
-<details>
-<summary>How a senior engineer reasons about it</summary>
-
-The trap is treating this as a choice between a number you don't believe and a refusal. It is neither.
-
-What the PM actually needs is not a number — it is the ability to plan. Those are different, and the second is something you can give honestly:
-
-- **Name the uncertainty and its size.** "If the API supports bulk operations, about a week. If it doesn't, we need a queue and retry handling, which is closer to three. I can find out which by tomorrow afternoon."
-- **Offer to buy the information.** A half-day spike converts an unbounded range into a real estimate. Almost every PM will take that trade, because a roadmap built on a fabricated number is their problem, not yours, and they know it.
-- **If the slide truly cannot wait**, give the range with the assumption attached in writing — "3 weeks, assuming no bulk API; I'll confirm Thursday" — and follow up when you know. The written assumption is what protects both of you later.
-
-What not to do: give the optimistic number because it is the one that ends the conversation. That is the estimate that becomes a commitment in someone else's spreadsheet, and the cost is paid in six weeks by you.
-
-The underlying principle: your job in estimation is to transfer your uncertainty accurately, not to eliminate it for the listener's comfort.
-</details>
-
-### What would you do — the review
-
-You are reviewing a PR from an engineer who joined three weeks ago. The feature works and the tests pass. The code also uses a pattern your team abandoned two years ago for good reasons, has three functions that each do two things, and names a variable `data`. It is Friday afternoon and they are clearly proud of it.
-
-<details>
-<summary>How a senior engineer reasons about it</summary>
-
-Two separate questions are hiding here, and conflating them is what makes code review go badly.
-
-**What must change before merge?** Only what is genuinely load-bearing: the abandoned pattern, if it will cause real problems or spread. Naming and function decomposition are worth mentioning but are not merge blockers on a working feature from someone still learning the codebase.
-
-**What are you actually teaching?** A new joiner is calibrating on this review — not just on what you said, but on how much of it there is. Twenty comments reads as "you did badly," regardless of what each one says. Three comments with reasoning attached reads as "here is how we think here."
-
-So: pick the one structural thing, explain *why* the team moved away from that pattern (the reason, not the rule — they cannot infer institutional history), and offer to pair on it rather than leaving them to guess at what you want. Mark the nits explicitly as nits, or leave them for a follow-up. Say what was good, specifically, because you have information they don't: which parts were hard.
-
-And the meta-point about Friday afternoon: if the change is not urgent, a review that lands as a conversation on Monday is often better than one that lands as a wall of text at 5pm. Delivery timing is part of the message.
-</details>
-
-### Go check
-
-- Find a decision your team made in the last six months that is not written down anywhere. Write the ADR for it — context, decision, consequences, alternatives — and share it. Notice how much you had to reconstruct, and how much of the reasoning nobody remembers.
-- Read the last three PRs you reviewed. Count how many of your comments explained *why* versus stated *what*. Count how many were nits with no label.
-- Look at your last estimate that was wrong. Was it wrong because the work was harder than you thought, or because you estimated a different scope than the one you were handed? These have different fixes.
-- Ask one person you work with what they wish you did differently. Then say nothing except "thank you" and think about it for a week.
-
-@@SRC: practice from old module page Part 1 · Module 5: Working Like a Middle Developer@@
+Ownership extends to your own skills: the tools shift yearly, so keep a lightweight learning habit rather than sporadic cramming. [Chapter 36: How to Keep Learning](#how-to-keep-learning) turns that into a practice.
 
 ## Prove it
 
-This module's hands-on is written. Do each task before you open its answer; the answer is one good version, not the only one.
+This chapter's hands-on is written. Do each task before you open its answer; the answer is one good version, not the only one.
 
-**1. Review before you run.** Part 1, Module 4 prints the `CheckThenAct` experiment, [`verify/path/CheckThenAct/Program.cs`](https://github.com/malyna2/dotnet-handbook/blob/main/verify/path/CheckThenAct/Program.cs). Treat its first handler, `CheckThenAct`, as a pull request and write one labelled review comment. Then run it from `verify/path` with `dotnet run --project CheckThenAct` and check your prediction against the output.
+**1. Review before you run.** [Chapter 11](#chapter-11-messaging-and-background-work)'s *Prove it* prints the `CheckThenAct` experiment, [`verify/path/CheckThenAct/Program.cs`](https://github.com/malyna2/dotnet-handbook/blob/main/verify/path/CheckThenAct/Program.cs). Treat its first handler, `CheckThenAct`, as a pull request and write one labelled review comment. Then run it from `verify/path` with `dotnet run --project CheckThenAct` and check your prediction against the output.
 
 <details>
 <summary>A comment that lands</summary>
@@ -470,7 +403,7 @@ b) blocking: .Result holds this request's thread-pool thread until the query
 c) nit: "data" doesn't say what it holds; pendingInvoices would.
 ```
 
-- **(a) and (b) were right but unactionable.** The author learned *what* you disliked, not *why*, so arguing or ignoring was cheaper than checking. The mechanism is what lets them verify you in a minute: [Chapter 20: Keep-Alive, Connection Pooling, and Socket Exhaustion](#keep-alive-connection-pooling-and-socket-exhaustion) for (a), [Chapter 8: The Sync-Over-Async Deadlock](#the-sync-over-async-deadlock) for (b). A local example to copy (`PaymentsClient`) makes the fix cheaper than a reply.
+- **(a) and (b) were right but unactionable.** The author learned *what* you disliked, not *why*, so arguing or ignoring was cheaper than checking. The mechanism is what lets them verify you in a minute: [Chapter 5: Keep-Alive, Connection Pooling, and Socket Exhaustion](#keep-alive-connection-pooling-and-socket-exhaustion) for (a), [Chapter 4: The Sync-Over-Async Deadlock](#the-sync-over-async-deadlock) for (b). A local example to copy (`PaymentsClient`) makes the fix cheaper than a reply.
 - **(c) was the opposite failure:** a style point labelled `blocking:`. Each over-labelled nit teaches the author that your `blocking:` is negotiable, and the next real one gets argued too.
 </details>
 
@@ -535,7 +468,7 @@ days and the history follow.
 
 - **`blocking:`, because it turns every failure into a success.** With `AutoCompleteMessages` at its default, `true`, a handler that returns normally completes the message. A transient timeout becomes a lost payment: no retry, no dead-letter entry, no alert. It stops poison messages by deleting good ones too.
 - **The fix to ask for.** Catch only the permanent failures (deserialisation, validation, "the order no longer exists") and dead-letter them with a reason a human can act on. Let transient exceptions propagate, so the message is retried up to `MaxDeliveryCount`. Alert on the dead-letter count.
-- **The question that finds it:** what if it fails halfway? [Chapter 50: Service Bus](#service-bus) has the settings; [Chapter 51, Case 6](#case-6-40000-messages-in-the-dead-letter-queue-and-nobody-knew) is what this looks like in production.
+- **The question that finds it:** what if it fails halfway? [Chapter 29: Service Bus](#service-bus) has the settings; [Chapter 30, Case 6](#case-6-40000-messages-in-the-dead-letter-queue-and-nobody-knew) is what this looks like in production.
 </details>
 
 **2.** Your estimate said "three to five days, assuming the vendor API supports bulk updates." On day two you learn it doesn't. Why is "I'll work late and still make it" the wrong answer, and what do you send?
@@ -566,3 +499,53 @@ days and the history follow.
 **Do.** In the next two pull requests you review, ask the five questions of every changed line and leave at least one comment in the full form, with a label. Afterwards ask each author: "Was that comment clear enough to act on without asking me anything?"
 
 **Measure.** Take your last five estimates and their actual durations from the tracker. If most ran long by a similar ratio, that ratio is your outside view: apply it before you say the next number, and name the assumption behind the top of the range.
+
+
+## Exercises
+
+The drills in the technical chapters have answers you can check against a compiler. These do not, which is the point — the skills in this chapter are judgment, and judgment is practised by reasoning through situations before you are in them.
+
+### What would you do — the estimate
+
+Your product manager asks how long a feature will take. You genuinely do not know: it depends on whether a third-party API supports bulk operations, which the documentation does not say. They need a number for a roadmap slide by end of day. Saying "I don't know" has not gone well before.
+
+<details>
+<summary>How a senior engineer reasons about it</summary>
+
+The trap is treating this as a choice between a number you don't believe and a refusal. It is neither.
+
+What the PM actually needs is not a number — it is the ability to plan. Those are different, and the second is something you can give honestly:
+
+- **Name the uncertainty and its size.** "If the API supports bulk operations, about a week. If it doesn't, we need a queue and retry handling, which is closer to three. I can find out which by tomorrow afternoon."
+- **Offer to buy the information.** A half-day spike converts an unbounded range into a real estimate. Almost every PM will take that trade, because a roadmap built on a fabricated number is their problem, not yours, and they know it.
+- **If the slide truly cannot wait**, give the range with the assumption attached in writing — "3 weeks, assuming no bulk API; I'll confirm Thursday" — and follow up when you know. The written assumption is what protects both of you later.
+
+What not to do: give the optimistic number because it is the one that ends the conversation. That is the estimate that becomes a commitment in someone else's spreadsheet, and the cost is paid in six weeks by you.
+
+The underlying principle: your job in estimation is to transfer your uncertainty accurately, not to eliminate it for the listener's comfort.
+</details>
+
+### What would you do — the review
+
+You are reviewing a PR from an engineer who joined three weeks ago. The feature works and the tests pass. The code also uses a pattern your team abandoned two years ago for good reasons, has three functions that each do two things, and names a variable `data`. It is Friday afternoon and they are clearly proud of it.
+
+<details>
+<summary>How a senior engineer reasons about it</summary>
+
+Two separate questions are hiding here, and conflating them is what makes code review go badly.
+
+**What must change before merge?** Only what is genuinely load-bearing: the abandoned pattern, if it will cause real problems or spread. Naming and function decomposition are worth mentioning but are not merge blockers on a working feature from someone still learning the codebase.
+
+**What are you actually teaching?** A new joiner is calibrating on this review — not just on what you said, but on how much of it there is. Twenty comments reads as "you did badly," regardless of what each one says. Three comments with reasoning attached reads as "here is how we think here."
+
+So: pick the one structural thing, explain *why* the team moved away from that pattern (the reason, not the rule — they cannot infer institutional history), and offer to pair on it rather than leaving them to guess at what you want. Mark the nits explicitly as nits, or leave them for a follow-up. Say what was good, specifically, because you have information they don't: which parts were hard.
+
+And the meta-point about Friday afternoon: if the change is not urgent, a review that lands as a conversation on Monday is often better than one that lands as a wall of text at 5pm. Delivery timing is part of the message.
+</details>
+
+### Go check
+
+- Find a decision your team made in the last six months that is not written down anywhere. Write the ADR for it — context, decision, consequences, alternatives — and share it. Notice how much you had to reconstruct, and how much of the reasoning nobody remembers.
+- Read the last three PRs you reviewed. Count how many of your comments explained *why* versus stated *what*. Count how many were nits with no label.
+- Look at your last estimate that was wrong. Was it wrong because the work was harder than you thought, or because you estimated a different scope than the one you were handed? These have different fixes.
+- Ask one person you work with what they wish you did differently. Then say nothing except "thank you" and think about it for a week.

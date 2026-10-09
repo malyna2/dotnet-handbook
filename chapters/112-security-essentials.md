@@ -1,47 +1,44 @@
 # Chapter 12: Security Essentials
 
-@@TODO: write this chapter's introduction (what it makes the reader able to do, how its sections connect), then remove every @@ line.@@
+Security is not a feature you bolt on at the end of a sprint. It is a property of a system that emerges from thousands of small decisions: how you parse input, where you store a connection string, which overload of a crypto API you call, and whether you trusted a value that came from the network. This chapter makes you able to write and review an endpoint so that it checks who the caller is and what this caller may do to *this* record, treats every input as data, keeps secrets out of the repository, and doesn't carry one of the handful of configuration lines that quietly switch a defence off.
 
-@@SRC: introduction of old Chapter 14: Security@@
+One rule runs under every section: **the server trusts only what it verifies itself, on every request.** The caller's identity comes from a credential it validates, access is decided per resource, and input is only ever data, never code. Each trap in the chapter is a place where something unverified gets trusted.
 
-Security is not a feature you bolt on at the end of a sprint. It is a property of a system that emerges from thousands of small decisions: how you parse input, where you store a connection string, which overload of a crypto API you call, and whether you trusted a value that came from the network. A senior .NET developer is expected to make those decisions correctly by reflex, and to recognize when a colleague has not.
+The sections build from the mindset to the machinery. First the four decision rules, then authentication and authorization as ASP.NET Core wires them, then the OWASP Top 10 as the map of what goes wrong, each with its .NET mitigation. Then the parts you will configure yourself: OAuth 2.0, OpenID Connect and JWT validation, identity providers, secrets, the cryptography you use (hashing, encryption, Data Protection), TLS from the handshake to HSTS, the browser-facing defences, and dependency scanning. Workload identity, zero trust, the depth of cryptography and the software supply chain continue in [Chapter 27: Security in Depth and the Supply Chain](#chapter-27-security-in-depth-and-the-supply-chain).
 
-This chapter builds that reflex. We start with the mindset, walk the OWASP Top 10 with concrete .NET mitigations, then go deep on the machinery you will actually touch: authentication and authorization, OAuth 2.0 and JWTs, identity providers, secrets, TLS, cryptography, and the web-facing defenses (input validation, output encoding, CSRF, CORS, security headers). We finish with keeping your dependencies clean.
+## The Security Mindset
 
-@@SRC: old Chapter 3: ASP.NET Core & Web APIs@@
-## Authentication & Authorization
+Four principles, used as decision procedures when the "how" is unclear:
 
-These two words get conflated constantly. **Authentication** answers "who are you?" and produces a `ClaimsPrincipal`. **Authorization** answers "are you allowed to do this?" using that principal. They are separate middleware, separate concerns, and separate mental steps.
+**Defense in depth.** Assume every single control will eventually fail, and layer independent controls so that one failure is not a breach. A parameterized query stops SQL injection — but you still validate input, run the database account with least privilege, and log anomalies.
+
+**Least privilege.** Every component — a user, a service account, a process, a token — gets exactly the permissions it needs to do its job and nothing more. The web app's database login should not be `db_owner`. The background worker that reads a queue should not have write access to the whole storage account. A JWT scoped to `orders:read` should not be able to delete anything. Least privilege bounds the blast radius of a compromise.
+
+**Secure by default.** The default configuration must be the safe configuration. A new controller action should require authorization unless you deliberately open it. HTTPS should be mandatory out of the box. If a developer forgets to configure something, the system should fail closed (deny) rather than fail open (allow). ASP.NET Core largely embraces this — for example, the framework's HTTPS redirection and HSTS templates ship enabled — but you are responsible for keeping it that way.
+
+**Never trust input.** Every byte that crosses a trust boundary — HTTP request bodies, query strings, headers, cookies, file uploads, messages from a queue, responses from a third-party API, even data read back from your own database — is potentially hostile. Trust is earned by validation, not granted by origin.
+
+> **Best practice:** Treat "the client already validated this" as a comment, never a guarantee. Client-side validation is a UX nicety. Server-side validation is the security control. An attacker uses `curl`, not your form.
+
+## Authentication vs. Authorization
+
+The mindset becomes concrete at the first question every request raises: who is calling, and may they do this?
+
+- **Authentication (AuthN)** answers *"Who are you?"* — it establishes and verifies identity. Logging in with a password, presenting a certificate, or validating a JWT are authentication. In ASP.NET Core it produces a `ClaimsPrincipal`.
+- **Authorization (AuthZ)** answers *"What are you allowed to do?"* — it decides whether an already-identified principal may perform an action. Checking a role, a scope, or resource ownership is authorization.
 
 A `ClaimsPrincipal` carries one or more `ClaimsIdentity` objects, each a bag of **claims** — simple key/value statements like `sub=42`, `role=admin`, `email=x@y.com`. Claims are the currency of authorization; you make decisions based on what claims a user carries, not by re-querying a database on every request.
 
-### JWT Bearer
-
-For APIs, the dominant scheme is **JWT bearer tokens**. The client sends `Authorization: Bearer <token>`; the token is a signed (and base64url-encoded) set of claims the server validates without a lookup.
+Authentication always comes first; you cannot authorize an unknown principal. In ASP.NET Core the two are distinct middleware, and *order matters*:
 
 ```csharp
-builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
-    .AddJwtBearer(options =>
-    {
-        options.TokenValidationParameters = new TokenValidationParameters
-        {
-            ValidateIssuer = true,
-            ValidateAudience = true,
-            ValidateLifetime = true,
-            ValidateIssuerSigningKey = true,
-            ValidIssuer = builder.Configuration["Jwt:Issuer"],
-            ValidAudience = builder.Configuration["Jwt:Audience"],
-            IssuerSigningKey = new SymmetricSecurityKey(
-                Encoding.UTF8.GetBytes(builder.Configuration["Jwt:Key"]!))
-        };
-    });
+app.UseAuthentication(); // figures out WHO — populates HttpContext.User
+app.UseAuthorization();  // figures out WHAT — enforces [Authorize] policies
 ```
 
-> **Pitfall.** A JWT is *signed*, not *encrypted*. Anyone can decode and read its claims. Never put secrets in a token, and always validate the signature (`ValidateIssuerSigningKey`) — otherwise an attacker can forge claims.
+A `401 Unauthorized` means "I don't know who you are" (authentication failed). A `403 Forbidden` means "I know who you are, but you can't do this" (authorization failed). Despite its name, `401` is about authentication.
 
-### Cookies and OAuth2/OIDC
-
-For server-rendered apps, **cookie authentication** stores an encrypted session identifier in a cookie. For delegated identity — "log in with Google/Microsoft/your corporate IdP" — you use **OAuth2** (authorization framework) and its identity layer **OpenID Connect (OIDC)**. In the typical Authorization Code flow the user authenticates at the identity provider, which redirects back with a short-lived code your app exchanges for tokens. In practice you configure `.AddOpenIdConnect(...)` and let the middleware handle the redirect dance. The key insight for a senior: your API should *trust tokens from a known issuer*, not manage passwords itself.
+**Which authentication scheme.** For APIs, the dominant scheme is **JWT bearer tokens**: the client sends `Authorization: Bearer <token>`, and the server validates a signed set of claims without a lookup (configured in *Validating JWTs Correctly* below). For server-rendered apps, **cookie authentication** stores an encrypted session identifier in a cookie. For delegated identity — "log in with Google/Microsoft/your corporate IdP" — you configure `.AddOpenIdConnect(...)` and let the middleware handle the redirect dance of the flows described under *OAuth 2.0, OpenID Connect, and JWTs*. The design rule: your API should *trust tokens from a known issuer*, not manage passwords itself.
 
 ### Policy-based and role-based authorization
 
@@ -63,29 +60,15 @@ builder.Services.AddAuthorization(options =>
 products.MapDelete("/{id:int}", ...).RequireAuthorization("CanDeleteProducts");
 ```
 
-For complex rules, implement `IAuthorizationRequirement` plus an `AuthorizationHandler<T>` — this lets you inject services and evaluate against resources (e.g. "can edit *this specific* document because you own it"). That resource-based check is done imperatively via `IAuthorizationService.AuthorizeAsync(user, resource, policy)`.
+For complex rules, implement `IAuthorizationRequirement` plus an `AuthorizationHandler<T>` — this lets you inject services and evaluate against resources (e.g. "can edit *this specific* document because you own it"). That resource-based check is done imperatively via `IAuthorizationService.AuthorizeAsync(user, resource, policy)`, after the resource is loaded. Why it has to be imperative is the first entry in the OWASP list below.
 
-@@SRC: old Chapter 14: Security@@
-## The Security Mindset
+> **Best practice:** Make authenticated access the default: set `options.FallbackPolicy` to a policy that requires an authenticated user, so every endpoint without its own policy demands a login and opening one takes an explicit `[AllowAnonymous]`. That is *secure by default* in one line.
 
-Four principles, used as decision procedures when the "how" is unclear:
-
-**Defense in depth.** Assume every single control will eventually fail, and layer independent controls so that one failure is not a breach. A parameterized query stops SQL injection — but you still validate input, run the database account with least privilege, and log anomalies.
-
-**Least privilege.** Every component — a user, a service account, a process, a token — gets exactly the permissions it needs to do its job and nothing more. The web app's database login should not be `db_owner`. The background worker that reads a queue should not have write access to the whole storage account. A JWT scoped to `orders:read` should not be able to delete anything. Least privilege bounds the blast radius of a compromise.
-
-**Secure by default.** The default configuration must be the safe configuration. A new controller action should require authorization unless you deliberately open it. HTTPS should be mandatory out of the box. If a developer forgets to configure something, the system should fail closed (deny) rather than fail open (allow). ASP.NET Core largely embraces this — for example, the framework's HTTPS redirection and HSTS templates ship enabled — but you are responsible for keeping it that way.
-
-**Never trust input.** Every byte that crosses a trust boundary — HTTP request bodies, query strings, headers, cookies, file uploads, messages from a queue, responses from a third-party API, even data read back from your own database — is potentially hostile. Trust is earned by validation, not granted by origin.
-
-> **Best practice:** Treat "the client already validated this" as a comment, never a guarantee. Client-side validation is a UX nicety. Server-side validation is the security control. An attacker uses `curl`, not your form.
-
-@@SRC: old Chapter 14: Security@@
 ## The OWASP Top 10, with .NET Mitigations
 
 The OWASP Top 10 is the industry's consensus list of the most critical web application risks. Below is each category with the mitigation you apply in .NET. Learn the *category*, not just the trick — the categories are stable even as frameworks change.
 
-> **Note:** This walk-through follows the **2021 edition** (A01–A10 below). OWASP published a revised Top 10 in 2025 — notably elevating software supply chain failures to its own category, which [Chapter 35](#chapter-35-software-supply-chain-security) covers in full — but the list is deliberately stable between editions, and every .NET mitigation here carries over unchanged.
+> **Note:** This walk-through follows the **2021 edition** (A01–A10 below). OWASP published a revised Top 10 in 2025 — notably elevating software supply chain failures to its own category, which [Chapter 27](#chapter-27-security-in-depth-and-the-supply-chain) covers in full — but the list is deliberately stable between editions, and every .NET mitigation here carries over unchanged.
 
 ### A01: Broken Access Control
 
@@ -185,7 +168,7 @@ app.UseHttpsRedirection();
 
 ### A06: Vulnerable and Outdated Components
 
-You inherit every vulnerability in every NuGet package and transitive dependency. A CVE in a JSON parser or logging library is your CVE. The mitigation is active dependency management and scanning — covered in the final section.
+You inherit every vulnerability in every NuGet package and transitive dependency. A CVE in a JSON parser or logging library is your CVE. The mitigation is active dependency management and scanning — covered in *Dependency Scanning* below.
 
 ### A07: Identification and Authentication Failures
 
@@ -215,22 +198,6 @@ _logger.LogWarning("Failed login for user {UserId} from {IP}",
 
 Your server fetches a URL supplied by the user, and an attacker points it at internal resources — `http://169.254.169.254/` (cloud metadata endpoints), internal admin panels, or `localhost`. Mitigate by validating and allow-listing destinations, resolving and checking the target IP is not private/loopback/link-local, and disabling redirects on outbound requests that use user-controlled URLs.
 
-@@SRC: old Chapter 14: Security@@
-## Authentication vs. Authorization
-
-- **Authentication (AuthN)** answers *"Who are you?"* — it establishes and verifies identity. Logging in with a password, presenting a certificate, or validating a JWT are authentication.
-- **Authorization (AuthZ)** answers *"What are you allowed to do?"* — it decides whether an already-identified principal may perform an action. Checking a role, a scope, or resource ownership is authorization.
-
-Authentication always comes first; you cannot authorize an unknown principal. In ASP.NET Core the two are distinct middleware, and *order matters*:
-
-```csharp
-app.UseAuthentication(); // figures out WHO — populates HttpContext.User
-app.UseAuthorization();  // figures out WHAT — enforces [Authorize] policies
-```
-
-A `401 Unauthorized` means "I don't know who you are" (authentication failed). A `403 Forbidden` means "I know who you are, but you can't do this" (authorization failed). Despite its name, `401` is about authentication.
-
-@@SRC: old Chapter 14: Security@@
 ## OAuth 2.0, OpenID Connect, and JWTs
 
 Modern applications rarely handle passwords directly. Instead they delegate to an identity provider using **OAuth 2.0** (an authorization framework) and **OpenID Connect** (an authentication layer on top of OAuth). Understanding the roles and flows is essential.
@@ -321,7 +288,6 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
 
 > **Best practice:** Keep `ClockSkew` small (seconds, not the 5-minute default) and keep access-token lifetimes short (minutes). Use refresh tokens for longevity. A stolen short-lived token expires before it's very useful.
 
-@@SRC: old Chapter 14: Security@@
 ## Identity Providers
 
 You almost never want to build authentication from scratch. Choose an identity provider (IdP) and let it handle the hard, high-stakes parts. The main options in the .NET world:
@@ -334,17 +300,12 @@ You almost never want to build authentication from scratch. Choose an identity p
 
 The decision axis: **buy vs. host, and standalone app vs. multi-app SSO.** If you just need login for one app and own the users, ASP.NET Core Identity is the least machinery. If you need single sign-on across many apps or federated enterprise login, use a real IdP (Entra ID, Auth0, Keycloak, or Duende).
 
-### Password Hashing in ASP.NET Core Identity
-
-Identity's `PasswordHasher<T>` uses PBKDF2 with HMAC-SHA512, a 128-bit per-user salt and 100,000 iterations by default (the format is versioned inside the stored hash). OWASP's Password Storage Cheat Sheet currently asks for 220,000 iterations with HMAC-SHA512, so raise `PasswordHasherOptions.IterationCount`: verification returns `SuccessRehashNeeded` for any hash with fewer iterations or an older algorithm, and Identity's sign-in rehashes it, so existing users upgrade on their next login.
-
 ### Passkeys (WebAuthn / FIDO2)
 
 Passkeys are public-key credentials standardized by WebAuthn/FIDO2, and they remove the weakest link in password authentication: the shared secret. The browser or OS holds a private key; the server stores only the corresponding public key, so a database breach yields nothing reusable — there is no password to crack, and nothing to stuff into other sites. Authentication is a signed challenge, and the signature is bound to the site's *origin*, which is what makes passkeys phishing-resistant: a credential registered for `example.com` simply will not sign a challenge from a look-alike domain, no matter how convincing the page. ASP.NET Core Identity gained first-class passkey support in .NET 10, so this is now a framework feature rather than a third-party integration.
 
 > **Best practice:** For new systems, treat passkeys as the *primary* factor and passwords as the fallback, not the other way around. Every login that happens via passkey is one that cannot be phished, stuffed, or brute-forced.
 
-@@SRC: old Chapter 14: Security@@
 ## Secrets Management
 
 A secret is any value that grants access: connection strings, API keys, client secrets, signing keys, encryption keys. The cardinal rule: **secrets never live in source code or in `appsettings.json` committed to git.** Once a secret is in git history, treat it as compromised and rotate it — deleting the line does not remove it from history.
@@ -358,7 +319,7 @@ dotnet user-secrets set "ConnectionStrings:Db" "Server=...;Password=..."
 
 These are picked up automatically by the configuration system in Development, so `builder.Configuration["ConnectionStrings:Db"]` just works — with nothing to accidentally commit.
 
-**In production**, use a managed secret store: **Azure Key Vault**, **AWS Secrets Manager**, **HashiCorp Vault**, or Kubernetes secrets. These provide access control, audit logging, and rotation. The application authenticates to the vault using a *managed identity* (no secret needed to fetch secrets — the platform vouches for the workload). `DefaultAzureCredential` is the development convenience; production should name its credential, as [Chapter 50](#defaultazurecredential-what-the-chain-really-is) explains:
+**In production**, use a managed secret store: **Azure Key Vault**, **AWS Secrets Manager**, **HashiCorp Vault**, or Kubernetes secrets. These provide access control, audit logging, and rotation. The application authenticates to the vault using a *managed identity* (no secret needed to fetch secrets — the platform vouches for the workload). `DefaultAzureCredential` is the development convenience; production should name its credential, as [Chapter 29](#defaultazurecredential-what-the-chain-really-is) explains:
 
 ```csharp
 // Azure Key Vault via managed identity — no secret in code at all
@@ -369,31 +330,6 @@ builder.Configuration.AddAzureKeyVault(
 
 > **Best practice — rotation.** Secrets should be rotated regularly and immediately upon suspected compromise. Design for rotation from day one: fetch secrets at runtime (or cache briefly) rather than baking them into a build, and support two valid keys during a rollover window so nothing breaks mid-rotation.
 
-@@SRC: old Chapter 14: Security@@
-## HTTPS, TLS, HSTS, and Certificates
-
-**TLS** (Transport Layer Security, the protocol behind HTTPS) provides three guarantees for data in transit: *confidentiality* (eavesdroppers see ciphertext), *integrity* (tampering is detected), and *authentication* (the certificate proves you're talking to the real server).
-
-A **certificate** binds a public key to a domain name and is signed by a Certificate Authority (CA) the client trusts. TLS uses asymmetric crypto for the handshake (to authenticate the server and agree on keys) then switches to fast symmetric encryption for the session.
-
-In ASP.NET Core, redirect HTTP to HTTPS and enable **HSTS**:
-
-```csharp
-app.UseHttpsRedirection();
-app.UseHsts(); // production only
-```
-
-**HSTS** (HTTP Strict Transport Security) sends a response header telling the browser: "for the next *N* seconds, only ever contact this domain over HTTPS, and refuse to proceed if the certificate is invalid." This defeats SSL-stripping attacks where an attacker downgrades the first request to HTTP. ASP.NET Core's `UseHsts` sends a 30-day `max-age` by default and skips `localhost`.
-
-> **Gotcha.** HSTS and redirection are browser mechanisms. An API client follows a redirect *after* its first request has already crossed the network in clear text, `Authorization` header included, and it ignores HSTS. For APIs, don't listen on HTTP at all, or reject plain HTTP with `400` rather than redirecting.
-
-> **Pitfall:** HSTS is sticky and cached by the browser. Don't enable it (especially with `includeSubDomains` and `preload`) until you're certain *every* subdomain can serve valid HTTPS — otherwise you can lock users out of an HTTP-only subdomain. This is why the default template excludes HSTS in Development.
-
-Use modern TLS (1.2 minimum, prefer 1.3), automate certificate issuance and renewal (Let's Encrypt / ACME, or your cloud's managed certificates), and never disable certificate validation in HTTP clients to "make it work":
-
-> **Pitfall:** Setting `ServerCertificateCustomValidationCallback` to always return `true` disables TLS authentication entirely, silently exposing you to man-in-the-middle attacks. If you see this in a code review, block the PR.
-
-@@SRC: old Chapter 14: Security@@
 ## Cryptography for Developers
 
 You will rarely implement a cipher, but you must choose and use cryptographic primitives correctly. Two foundational distinctions:
@@ -452,9 +388,11 @@ public static class Passwords
 
 Two subtleties: storing the parameters *with* the hash (so you can raise the iteration count later and re-hash on next login), and using `FixedTimeEquals` rather than `==` to avoid leaking information through comparison timing. In practice, prefer `PasswordHasher<T>` from ASP.NET Core Identity, or a vetted library like `BCrypt.Net`, over hand-rolling even this.
 
+Identity's `PasswordHasher<T>` uses PBKDF2 with HMAC-SHA512, a 128-bit per-user salt and 100,000 iterations by default (the format is versioned inside the stored hash). OWASP's Password Storage Cheat Sheet currently asks for 220,000 iterations with HMAC-SHA512, so raise `PasswordHasherOptions.IterationCount`: verification returns `SuccessRehashNeeded` for any hash with fewer iterations or an older algorithm, and Identity's sign-in rehashes it, so existing users upgrade on their next login.
+
 ### Encryption at Rest and in Transit
 
-*In transit* is TLS, covered above. *At rest* means encrypting stored data — database Transparent Data Encryption, encrypted disks, or field-level encryption for especially sensitive columns. The hard part of encryption at rest is **key management**: the encryption key must live somewhere safer than the data it protects, which is what Key Vault / KMS and hardware security modules are for.
+*In transit* is TLS, covered in the next section. *At rest* means encrypting stored data — database Transparent Data Encryption, encrypted disks, or field-level encryption for especially sensitive columns. The hard part of encryption at rest is **key management**: the encryption key must live somewhere safer than the data it protects, which is what Key Vault / KMS and hardware security modules are for.
 
 ### ASP.NET Core Data Protection (`IDataProtector`)
 
@@ -481,7 +419,46 @@ public class TokenService
 
 > **Pitfall:** By default, data protection keys are stored on the local filesystem. In a load-balanced or containerized deployment, each instance generates its *own* keys, so a cookie encrypted by one server can't be decrypted by another — users get random logouts and errors. Configure a *shared* key ring (Azure Blob Storage, Redis, a shared volume) and protect it at rest. Do this before you scale out.
 
-@@SRC: old Chapter 14: Security@@
+## HTTPS, TLS, HSTS, and Certificates
+
+**HTTPS is just HTTP inside a TLS tunnel.** **TLS (Transport Layer Security)**, the successor to SSL, provides three guarantees for data in transit: *confidentiality* (eavesdroppers see ciphertext), *integrity* (tampering is detected), and *authentication* (the certificate proves you're talking to the real server).
+
+A **certificate** binds a public key to a domain name and is signed by a Certificate Authority (CA) the client trusts. The handshake puts the two kinds of encryption from the previous section to work: asymmetric crypto to authenticate the server and agree on keys, then fast symmetric encryption for the session.
+
+### The TLS Handshake, Step by Step
+
+Here is a **TLS 1.3** handshake, the modern default, which is faster than its predecessors (one round-trip):
+
+1. **ClientHello** — The client sends supported TLS versions, a list of cipher suites, a random nonce, and — a TLS 1.3 optimization — its **key share** (an ephemeral public key guess) up front.
+2. **ServerHello** — The server picks a cipher suite, sends its own key share and random nonce. At this point both sides can derive the shared symmetric key via **Diffie-Hellman** — crucially, without ever sending the secret over the wire.
+3. **Certificate** — The server sends its **X.509 certificate**, which binds its domain name to a public key and is signed by a **Certificate Authority (CA)** the client trusts. The client verifies the signature chain up to a trusted root in its store, checks the domain matches, and checks expiry/revocation.
+4. **Finished** — Both sides confirm they derived the same keys. From here, all application data is encrypted with fast **symmetric** encryption (e.g., AES-GCM).
+
+The elegant trick: **asymmetric** cryptography (slow) is used only to authenticate and to agree on a shared secret; then **symmetric** cryptography (fast) does the bulk encryption. You get the security of public-key crypto with the speed of symmetric ciphers.
+
+**TLS 1.3** also supports **0-RTT resumption**, where a returning client can send data in its very first packet — great for latency, but 0-RTT data is vulnerable to replay, so never use it for non-idempotent requests.
+
+Step 3 is the only thing that tells the client it isn't talking to an attacker in the middle. That is why disabling certificate validation is never a fix:
+
+> **Pitfall:** Setting `ServerCertificateCustomValidationCallback` to always return `true` disables TLS authentication entirely, silently exposing you to man-in-the-middle attacks. If you see this in a code review, block the PR. If you have a self-signed cert in dev, trust it properly in the machine store instead.
+
+### HTTPS Redirection and HSTS in ASP.NET Core
+
+In ASP.NET Core, redirect HTTP to HTTPS and enable **HSTS**:
+
+```csharp
+app.UseHttpsRedirection();
+app.UseHsts(); // production only
+```
+
+**HSTS** (HTTP Strict Transport Security) sends a response header telling the browser: "for the next *N* seconds, only ever contact this domain over HTTPS, and refuse to proceed if the certificate is invalid." This defeats SSL-stripping attacks where an attacker downgrades the first request to HTTP. ASP.NET Core's `UseHsts` sends a 30-day `max-age` by default and skips `localhost`.
+
+> **Gotcha.** HSTS and redirection are browser mechanisms. An API client follows a redirect *after* its first request has already crossed the network in clear text, `Authorization` header included, and it ignores HSTS. For APIs, don't listen on HTTP at all, or reject plain HTTP with `400` rather than redirecting.
+
+> **Pitfall:** HSTS is sticky and cached by the browser. Don't enable it (especially with `includeSubDomains` and `preload`) until you're certain *every* subdomain can serve valid HTTPS — otherwise you can lock users out of an HTTP-only subdomain. This is why the default template excludes HSTS in Development.
+
+Use modern TLS (1.2 minimum, prefer 1.3), and automate certificate issuance and renewal (Let's Encrypt / ACME, or your cloud's managed certificates).
+
 ## Web-Facing Defenses
 
 Beyond the fundamentals, the browser threat model demands specific defenses.
@@ -507,7 +484,7 @@ public record CreateUser
 }
 ```
 
-With `[ApiController]`, model validation runs automatically and returns a `400` with details before your action executes.
+With `[ApiController]`, model validation runs automatically and returns a `400` with details before your action executes; [Chapter 5: Model Binding & Validation](#model-binding-validation) covers the pipeline and FluentValidation.
 
 ### Cross-Site Scripting (XSS)
 
@@ -530,22 +507,13 @@ builder.Services.AddControllersWithViews(options =>
 
 > **Best practice:** CSRF specifically targets *cookie-based* auth. Token-based APIs where the client sends `Authorization: Bearer ...` from JavaScript are not vulnerable in the same way, because the browser doesn't attach that header automatically cross-site. Additionally set cookies to `SameSite=Lax` (or `Strict`) as defense in depth.
 
-### CORS Done Right
+### CORS Is Not Access Control
 
-The browser's **Same-Origin Policy** blocks JavaScript on one origin from reading responses from another. **CORS** (Cross-Origin Resource Sharing) is how a server *opts in* to allowing specific other origins. It is a relaxation of security, so configure it as tightly as possible.
+**CORS** (Cross-Origin Resource Sharing) is how a server opts specific other origins out of the browser's Same-Origin Policy; [Chapter 5: HTTP and Web APIs](#chapter-5-http-and-web-apis) covers the mechanism, the preflight and the ASP.NET Core policy. For security, one property matters more than the configuration.
 
-```csharp
-builder.Services.AddCors(options =>
-    options.AddPolicy("spa", policy => policy
-        .WithOrigins("https://app.example.com") // explicit, never "*"
-        .WithMethods("GET", "POST")
-        .WithHeaders("Authorization", "Content-Type")
-        .AllowCredentials()));
-```
+> **Pay attention.** **CORS doesn't stop the request.** CORS is enforced by the *browser*, and it hides *responses*, not requests. A "simple" cross-origin request (a `GET`, or a `POST` with a form or plain-text body) is sent without a preflight, your server executes it, and only then does the browser withhold the response from the calling script. A denied CORS check has already changed your data. And outside a browser there is no check at all: `curl` or a server-side attacker ignores CORS entirely. So CORS is never an authorization mechanism. What stops an unwanted request is the server's own authorization on every endpoint, and, for state-changing endpoints with cookie authentication, the anti-forgery token above.
 
-> **Pitfall:** `AllowAnyOrigin()` combined with `AllowCredentials()` is invalid and dangerous — the spec forbids it precisely because it would let *any* site make credentialed requests to your API, and ASP.NET Core's policy builder throws `InvalidOperationException` for it. The workaround people then reach for, reflecting the request's `Origin` header back, recreates the same hole: never do it, and never wildcard origins on an authenticated API.
-
-CORS is enforced by the *browser*, not the server — it is not an authorization mechanism. It stops a malicious site's JavaScript from reading your API in a victim's browser; it does nothing against `curl` or a server-side attacker. And it hides *responses*, not requests: a "simple" cross-origin request (a `GET`, or a `POST` with a form or plain-text body) is sent without a preflight, your server executes it, and only then does the browser withhold the response. State-changing endpoints that use cookies still need anti-forgery protection.
+The configuration rule that follows: CORS is a relaxation, so keep it tight. Name explicit origins; never combine a wildcard origin with credentials (ASP.NET Core's policy builder refuses `AllowAnyOrigin()` with `AllowCredentials()`), and never "fix" that by reflecting the request's `Origin` header back, which recreates the same hole.
 
 ### Security Headers
 
@@ -570,7 +538,6 @@ app.Use(async (context, next) =>
 });
 ```
 
-@@SRC: old Chapter 14: Security@@
 ## Dependency Scanning
 
 Your code is a small fraction of what you ship; the rest is dependencies. Managing their vulnerabilities is a first-class security task, not an afterthought.
@@ -588,37 +555,17 @@ Wire this into CI so a build *fails* when a vulnerable package appears, rather t
 
 > **Best practice:** Also enable NuGet package **source mapping** and consider **signed packages** to defend against dependency-confusion and typosquatting attacks, where an attacker publishes a malicious package with a name similar to (or matching an internal) package you depend on.
 
-Scanning tells you about *known* vulnerabilities in packages you already trust. It says nothing about a package that was deliberately backdoored last night, about your build system being modified after the source was clean, or about proving to a customer what went into the binary you shipped them. That wider problem — the packages you consume, the build that assembles them, and the artifacts you publish — is the subject of [Chapter 35: Software Supply Chain Security](#chapter-35-software-supply-chain-security).
+Scanning tells you about *known* vulnerabilities in packages you already trust. It says nothing about a package that was deliberately backdoored last night, about your build system being modified after the source was clean, or about proving to a customer what went into the binary you shipped them. That wider problem — the packages you consume, the build that assembles them, and the artifacts you publish — is the subject of [Chapter 27: Security in Depth and the Supply Chain](#chapter-27-security-in-depth-and-the-supply-chain).
 
-> **Capstone tie-in:** This chapter is exercised by ShopCore Step 5 (Caching, Auth, and Observability) — you'd add JWT authentication and role-based authorization so only authenticated users check out and only admins mutate the catalog. See Chapter 32.
+> **Capstone tie-in:** This chapter is exercised by ShopCore Step 5 (Caching, Auth, and Observability) — you'd add JWT authentication and role-based authorization so only authenticated users check out and only admins mutate the catalog. See [Chapter 44](#chapter-44-capstone-one-project-growing-up).
 
-@@SRC: old Chapter 14: Security@@
 ## Summary
 
-Security is a discipline of layered, deliberate decisions. Adopt the mindset — defense in depth, least privilege, secure by default, never trust input — and it informs every line you write. Know the OWASP Top 10 as *categories* of failure and the .NET mitigation for each. Distinguish authentication (who you are) from authorization (what you may do), and implement both with the framework's tools rather than reinventing them. Delegate identity to OAuth 2.0 / OIDC with the Authorization Code + PKCE flow, validate JWTs on issuer, audience, expiry, and signature — every time. Keep secrets out of source and in a managed vault — then go further and delete them, replacing static credentials with platform-attested workload identity and short-lived tokens; enforce TLS with HSTS, hash passwords with a slow salted algorithm, reach for `IDataProtector` instead of raw crypto, keep your algorithm choices agile — you will have to change them, and the certificate-lifetime clock is already running — and defend the browser boundary with validation, encoding, anti-forgery tokens, tight CORS, and a strong CSP. Finally, scan your dependencies continuously — because the vulnerability you didn't write is still yours to fix.
+Security is a discipline of layered, deliberate decisions. Adopt the mindset — defense in depth, least privilege, secure by default, never trust input — and it informs every line you write. Distinguish authentication (who you are) from authorization (what you may do), and check access per resource, where the record is. Know the OWASP Top 10 as *categories* of failure and the .NET mitigation for each. Delegate identity to OAuth 2.0 / OIDC with the Authorization Code + PKCE flow, and validate JWTs on signature, algorithm, issuer, audience and lifetime — every time, without switching a check off to make a `401` go away. Keep secrets out of source and in a managed vault reached with a managed identity; hash passwords with a slow salted algorithm you didn't write; reach for `IDataProtector` instead of raw crypto; enforce TLS and never disable certificate validation; and defend the browser boundary with validation, encoding, anti-forgery tokens, tight CORS, and a strong CSP. Finally, scan your dependencies continuously — because the vulnerability you didn't write is still yours to fix.
 
-@@SRC: old Chapter 20: Networking & Web Fundamentals@@
-## HTTPS and the TLS Handshake, Step by Step
+[Chapter 27: Security in Depth and the Supply Chain](#chapter-27-security-in-depth-and-the-supply-chain) takes the next step: replacing stored secrets with workload identity and short-lived tokens, zero trust between services, algorithm agility, and the software supply chain.
 
-**HTTPS is just HTTP inside a TLS tunnel.** **TLS (Transport Layer Security)**, the successor to SSL, provides three guarantees: **confidentiality** (encryption), **integrity** (tamper detection), and **authentication** (you are really talking to `example.com`, verified by a certificate).
-
-Here is a **TLS 1.3** handshake, the modern default, which is faster than its predecessors (one round-trip):
-
-1. **ClientHello** — The client sends supported TLS versions, a list of cipher suites, a random nonce, and — a TLS 1.3 optimization — its **key share** (an ephemeral public key guess) up front.
-2. **ServerHello** — The server picks a cipher suite, sends its own key share and random nonce. At this point both sides can derive the shared symmetric key via **Diffie-Hellman** — crucially, without ever sending the secret over the wire.
-3. **Certificate** — The server sends its **X.509 certificate**, which binds its domain name to a public key and is signed by a **Certificate Authority (CA)** the client trusts. The client verifies the signature chain up to a trusted root in its store, checks the domain matches, and checks expiry/revocation.
-4. **Finished** — Both sides confirm they derived the same keys. From here, all application data is encrypted with fast **symmetric** encryption (e.g., AES-GCM).
-
-The elegant trick: **asymmetric** cryptography (slow) is used only to authenticate and to agree on a shared secret; then **symmetric** cryptography (fast) does the bulk encryption. You get the security of public-key crypto with the speed of symmetric ciphers.
-
-> **Best practice:** Never disable certificate validation to "make it work" (`ServerCertificateCustomValidationCallback` returning `true`). That silently defeats the entire authentication guarantee and invites man-in-the-middle attacks. If you have a self-signed cert in dev, trust it properly in the machine store instead.
-
-**TLS 1.3** also supports **0-RTT resumption**, where a returning client can send data in its very first packet — great for latency, but 0-RTT data is vulnerable to replay, so never use it for non-idempotent requests.
-
-@@SRC: old Chapter 34: Interview Questions & How to Answer Them@@
 ## Interview Questions
-
-*Revise: Ch. 14 — Security*
 
 **AuthN vs AuthZ?**
 **Authentication** verifies *who you are* (login, token validation). **Authorization** verifies *what you're allowed to do* (roles, policies, resource ownership). AuthN comes first; a valid identity still needs an authorization check per action. Conflating them ("logged in = allowed") is a classic vulnerability.
@@ -643,10 +590,6 @@ Verify the signature against the trusted key, then validate the claims: issuer, 
 
 **Where do secrets go — not appsettings, then where?**
 Out of source control and out of plain config: use a secrets manager / vault (Azure Key Vault, AWS Secrets Manager, HashiCorp Vault), environment variables injected at deploy, or user-secrets in local dev. Rotate them, scope access least-privilege, and never log them. A leaked connection string in Git is a breach.
-
----
-
-@@SRC: practice from old module page Part 1 · Module 12: Security Essentials@@
 
 ## Check at work
 

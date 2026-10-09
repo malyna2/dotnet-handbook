@@ -1,12 +1,11 @@
 # Chapter 4: Async Essentials
 
-@@TODO: write this chapter's introduction (what it makes the reader able to do, how its sections connect), then remove every @@ line.@@
+This chapter is about what `async` and `await` do to three things: the thread, the exception and the work that is waiting. Every async outage in production is one of those three going wrong. By the end you should be able to write and review async request code that loses no exceptions and holds no thread it doesn't need: say where an exception from `async void` or `Task.WhenAll` goes, why `.Result` slows down every endpoint even when nothing deadlocks, what a `CancellationToken` actually stops, and how to share state between threads without a race.
 
-@@SRC: introduction of old Chapter 8: Asynchronous & Concurrent Programming@@
+One mechanism ties it together: **`await` hands the thread back and parks the rest of the method on the task, and the task is the only thing that carries the result or the exception back.** The sections build that model in order. First why async exists and the thread pool it runs on, then what a `Task` is and what `await` does with it, down to the state machine the compiler generates. Then where the rest of the method runs when the task completes, and what happens when you block a thread to wait for it: the classic deadlock and its quieter, more common cousin, thread-pool starvation. Then how to stop work you no longer need (cancellation) and how to run several operations at once (`WhenAll`, `WhenAny`, throttling, async streams). Concurrent work means shared data, so the chapter ends with thread safety.
 
-This chapter is about what `async` and `await` do to three things: the thread, the exception and the work that is waiting. Every async outage in production is one of those three going wrong.
+`ValueTask`, the TPL's parallel loops, Channels and the thread pool's injection rules build on this model and come in [Chapter 17: Runtime Internals and Performance](#chapter-17-runtime-internals-and-performance). [Chapter 5: HTTP and Web APIs](#chapter-5-http-and-web-apis) applies it to a web request.
 
-@@SRC: old Chapter 8: Asynchronous & Concurrent Programming@@
 ## Why Async Exists: I/O-Bound vs CPU-Bound Work
 
 **CPU-bound work** keeps a core busy: hashing a password, resizing an image, summing a billion numbers. Doing more of it at once needs more cores.
@@ -30,12 +29,10 @@ Deliberate growth is right for CPU work, where more threads than cores only add 
 
 > **Best practice.** Don't create raw `Thread` objects for ordinary work. Use the pool (`Task.Run` for CPU-bound work) or, better, true async I/O, which holds no thread while it waits.
 
-@@SRC: old Chapter 8: Asynchronous & Concurrent Programming@@
 ## Tasks: The Promise of a Future Result
 
 A `Task` is a promise of a future result or failure; `Task<TResult>` carries a value. A task ends `RanToCompletion`, `Faulted` (holding the exception) or `Canceled`, and *continuations* attached to it run when it does. `async`/`await` is largely syntax over that machinery.
 
-@@SRC: old Chapter 8: Asynchronous & Concurrent Programming@@
 ## async/await, Deeply
 
 ```csharp
@@ -130,7 +127,6 @@ Anything with this shape is awaitable — a `GetAwaiter()` whose result has `IsC
 >
 > Return `Task`. `async void` is legal only for event handlers, whose signature the framework fixes, and their body should catch everything itself.
 
-@@SRC: old Chapter 8: Asynchronous & Concurrent Programming@@
 ## SynchronizationContext and ConfigureAwait
 
 Some continuations *must* run on a specific thread: in a desktop UI, only the UI thread may touch controls. `SynchronizationContext` answers "where should this continuation run?". An `await` captures the current one (or, if there is none, the current `TaskScheduler`) and posts the continuation back to it.
@@ -166,7 +162,6 @@ public async Task<byte[]> DownloadAndHashAsync(string url)
 >
 > `SuppressThrowing` works only on a plain `Task`. On a `Task<T>` it throws `ArgumentOutOfRangeException`, so cast to `Task` first. None of this exists on `ValueTask`.
 
-@@SRC: old Chapter 8: Asynchronous & Concurrent Programming@@
 ## The Sync-Over-Async Deadlock
 
 The single most infamous async bug is **sync-over-async**: blocking a thread to wait for an async operation.
@@ -203,7 +198,6 @@ Two things break the cycle, but only one is a real fix:
 
 > **Best practice.** Never block on async code with `.Result`, `.Wait()` or `.GetAwaiter().GetResult()` in application code. At a hard sync boundary — a constructor, an interface you can't change — isolate the block and know what it costs.
 
-@@SRC: old Chapter 8: Asynchronous & Concurrent Programming@@
 ## CancellationToken: Cooperative Cancellation
 
 You can't safely kill a running operation, so cancellation is **cooperative**: a `CancellationToken` flows into an operation, which *chooses* to observe it and stop. Whoever can cancel holds the `CancellationTokenSource`; consumers receive its `Token`.
@@ -232,7 +226,7 @@ catch (OperationCanceledException)
 }
 ```
 
-- **Propagate the token** (conventionally the last parameter) to every async call. A token you receive and never forward is a bug.
+- **Propagate the token** (conventionally the last parameter) to every async call you make.
 - **Honor it.** In tight loops, call `token.ThrowIfCancellationRequested()`; framework APIs (HttpClient, EF Core, streams) check the token you pass them.
 - **Timeouts** are a `CancellationTokenSource` constructed with a delay, or `CancelAfter`.
 - **Linked tokens** combine sources — "cancel if the request aborts *or* our 10-second budget expires":
@@ -246,9 +240,16 @@ await DoWorkAsync(linkedCts.Token); // cancels when EITHER source fires
 
 Cancellation surfaces as `OperationCanceledException` (or its subtype `TaskCanceledException`): expected control flow, not an error, so don't log it as a failure.
 
+> **Pay attention.** **A token stops only the calls it reaches.**
+>
+> Cancellation is cooperative: `Cancel()` sets a flag and runs the callbacks registered on the token, nothing more. Code stops only where it checks the flag, or where an API you passed the token to registered a callback: SqlClient registers one that cancels the running command on the server, and `HttpClient` aborts the request. One method in the chain that takes no token, or doesn't forward it, leaves everything below it running to completion.
+>
+> Fix: accept a `CancellationToken` in every async method on a request path and forward it. Analyzer CA2016 flags a call that could take the token in scope but doesn't; in .NET 10 it is only a suggestion by default, so raise it to a warning in `.editorconfig`.
+
+In a web API the framework hands every endpoint a token that trips when the client disconnects; [CancellationToken Propagation](#cancellationtoken-propagation) in Chapter 5 shows what passing it down buys, and where you must not.
+
 > **Pitfall.** Dispose your `CancellationTokenSource` (a `using` does it). A `CancellationTokenSource(TimeSpan)` schedules a timer, and an undisposed one keeps that timer registered until it fires.
 
-@@SRC: old Chapter 8: Asynchronous & Concurrent Programming@@
 ## Composing Concurrent Work: WhenAll and WhenAny
 
 Async shines when independent I/O runs *concurrently* rather than back to back:
@@ -294,7 +295,7 @@ catch (Exception)
 
 > **Pay attention.** **Which exception `await` throws, and why only one.**
 >
-> - **Only one, on purpose.** `await` calls `GetResult()`, which rethrows the *first* exception the task stores, through `ExceptionDispatchInfo`, so it keeps its original stack trace ([The Mechanics That Bite](#the-mechanics-that-bite) in Chapter 5 shows that tool). Async code should read like synchronous code, where a call throws one exception.
+> - **Only one, on purpose.** `await` calls `GetResult()`, which rethrows the *first* exception the task stores, through `ExceptionDispatchInfo`, so it keeps its original stack trace ([The Mechanics That Bite](#the-mechanics-that-bite) in Chapter 9 shows that tool). Async code should read like synchronous code, where a call throws one exception.
 > - **The blocking calls throw the wrapper.** `.Wait()` and `.Result` throw the `AggregateException` itself.
 > - **"First" depends on the overload.** Since .NET 8, `WhenAll` over plain `Task`s lists failures in the order the tasks *fail*; the .NET 7 source walked them in argument order. Over `Task<T>` it is still argument order.
 >
@@ -326,7 +327,6 @@ public async Task<IReadOnlyList<Result>> FetchAllAsync(IEnumerable<string> urls)
 
 > **Pitfall.** Release the semaphore in a `finally`. If an exception skips the `Release`, that slot is gone for good, and the pool of permits slowly drains to a deadlock. Inside async code, use `WaitAsync`, never the blocking `Wait`.
 
-@@SRC: old Chapter 8: Asynchronous & Concurrent Programming@@
 ## IAsyncEnumerable and Async Streams
 
 `Task<List<T>>` delivers everything once everything is done; `IAsyncEnumerable<T>` delivers items one at a time as they arrive — an async stream, produced with `async` and `yield return`:
@@ -358,10 +358,9 @@ await foreach (var trade in source.ReadTradesAsync().WithCancellation(cancellati
 
 Async streams fit paging through large data sets and processing rows without loading everything into memory; each iteration can suspend and free the thread like any `await`.
 
-@@SRC: old Chapter 8: Asynchronous & Concurrent Programming@@
 ## Thread Safety: Sharing State Correctly
 
-Concurrency and parallelism both let two threads touch the same data at once.
+Everything above runs work concurrently: tasks started before they are awaited, continuations resuming on whichever pool thread is free. Add the parallel loops of [Chapter 17](#chapter-17-runtime-internals-and-performance) and two threads can touch the same data at the same moment.
 
 ### Race Conditions
 
@@ -415,7 +414,7 @@ Don't wrap a `Dictionary` in your own locks when `System.Collections.Concurrent`
 
 - `ConcurrentDictionary<K,V>`, with atomic `GetOrAdd` and `AddOrUpdate`;
 - `ConcurrentQueue<T>`, `ConcurrentStack<T>`, `ConcurrentBag<T>`;
-- `BlockingCollection<T>` for producer/consumer (Channels are usually better for async).
+- `BlockingCollection<T>` for producer/consumer (in async code, Channels, in [Chapter 17](#chapter-17-runtime-internals-and-performance), are usually better).
 
 ```csharp
 var cache = new ConcurrentDictionary<int, User>();
@@ -441,115 +440,9 @@ A **memory barrier** prevents reordering across it and forces visibility; `Volat
 
 > **Best practice.** Prefer high-level synchronization (`lock`, `Interlocked`, concurrent collections, immutable data) over manual memory barriers. Reach for `volatile` only when you understand the memory model, and document *why*.
 
-@@SRC: old Chapter 8: Asynchronous & Concurrent Programming@@
-## Exercises
-
-### Find the bug
-
-This handler compiles, passes its unit test, and takes the service down under load.
-
-```csharp
-[HttpGet("/reports/{id:int}")]
-public IActionResult GetReport(int id)
-{
-    var report = _reportService.BuildReportAsync(id).Result;
-
-    var recipients = _db.Subscribers
-        .Where(s => s.ReportId == id)
-        .ToList();
-
-    Parallel.ForEach(recipients, r =>
-    {
-        _mailer.SendAsync(r.Email, report).Wait();
-    });
-
-    return Ok(report);
-}
-```
-
-Name every defect you can see, then say which one causes the outage.
-
-<details>
-<summary>Answer</summary>
-
-Four separate problems, in increasing order of severity:
-
-1. **`.Result` and `.Wait()` are sync-over-async.** Each blocks a pool thread for the whole I/O wait.
-2. **`Parallel.ForEach` over async work multiplies the blocking.** It is for CPU work: each iteration here blocks a pool thread in `.Wait()` for a whole email send, and `Parallel.ForEach` borrows more pool threads for more iterations, so one request blocks several threads. `Parallel.ForEachAsync` with a `MaxDegreeOfParallelism` is the tool for async fan-out.
-3. **No `CancellationToken` anywhere.** If the client disconnects, every email still goes out.
-4. **The outage is thread-pool starvation.** Each in-flight request holds one thread in `.Result` and several in `.Wait()`; the continuations that would release them queue behind new requests, and the pool adds threads only gradually ([The Sync-Over-Async Deadlock](#the-sync-over-async-deadlock)). Latency climbs on *every* endpoint while the CPU stays low — which is why it is so often misdiagnosed as a database problem.
-
-The fix: `async Task<IActionResult>`, `await` throughout, `Parallel.ForEachAsync` with a `MaxDegreeOfParallelism`, and a `CancellationToken` threaded from the action signature down.
-
-Verified in the repository (`verify/exercises/Ch08`): on 4 vCPU, 20 concurrent requests (200 ms of report I/O, then four 200 ms emails each) took **6 s** with this code against **0.8 s** with the fix; an unrelated request waited **1.8 s** for a thread, and the pool grew to **49 threads** against 5. A second pair of tests shows the fix stopping when the request is aborted, while the original has no token to stop it.
-</details>
-
-### What would you do
-
-A colleague's PR adds `ConfigureAwait(false)` to every `await` in a new ASP.NET Core service, citing a blog post about deadlocks. It is 300 lines of diff across 40 files. What do you say in review?
-
-<details>
-<summary>How a senior engineer reasons about it</summary>
-
-The technically correct observation: ASP.NET Core has no `SynchronizationContext`, so `ConfigureAwait(false)` changes nothing here. The deadlock it prevents is a WinForms, WPF or legacy ASP.NET problem. In a *library* such apps might consume it is good practice; in an ASP.NET Core service it is noise that makes future diffs harder to read.
-
-But the comment that lands well doesn't stop there. Your colleague applied something diligently and is right about the phenomenon, wrong about whether this codebase has it. So explain the mechanism (what a `SynchronizationContext` is, and that ASP.NET Core doesn't install one), agree where the advice *does* apply, and let them decide whether to drop the change or keep it for a library project in the solution.
-
-There is also proportion. If the team has an analyzer rule about it, this is a rule discussion, not a PR discussion. And if the diff is otherwise good, "unnecessary but harmless, let's not block on it" is legitimate: cargo-culted `ConfigureAwait(false)` costs readability, not correctness. Chapter 17 covers picking which hills to defend in review.
-</details>
-
-### Go check
-
-Open the service you work on and answer these from the code, not from memory:
-
-- Find every `.Result`, `.Wait()` and `.GetAwaiter().GetResult()`. For each, decide: startup code (usually fine), or a request path (usually a latent outage)?
-- Find the longest `await` chain from an HTTP endpoint down to the outermost I/O call. Does a `CancellationToken` reach the bottom? If it stops halfway, everything below it is work you can't cancel.
-- Look at one hot path and ask whether `ValueTask` would help, that is, whether it usually completes synchronously. If it always awaits real I/O, `Task` is right.
-
-@@SRC: old Chapter 34: Interview Questions & How to Answer Them@@
-## Interview Questions
-
-*Revise: Ch. 8 — Asynchronous & Concurrent Programming*
-
-**Async vs multithreading — what's the difference?**
-Multithreading uses multiple threads to do work in parallel (CPU-bound). Async is about *not blocking* a thread while waiting for something else (I/O-bound) — one thread can serve many in-flight operations. Async ≠ parallel: `await` on a single call is still sequential; you get concurrency by starting multiple tasks before awaiting.
-
-**Red flag:** "Async makes the code faster because it runs in parallel" — a single awaited call is just as slow; async buys scalability, not speed.
-
-**`Task` vs `ValueTask` — when `ValueTask`?**
-`Task` is a heap-allocated reference type; every async call allocates one. `ValueTask` avoids that allocation when the result is *often already available* synchronously (cache hits, buffered reads). Use it in hot, high-frequency APIs where most calls complete synchronously. Don't await a `ValueTask` twice or store it — it's single-consumption.
-
-**What does `ConfigureAwait(false)` do and where?**
-It tells the continuation not to resume on the captured synchronization context, resuming on a thread-pool thread instead. Use it in library code to avoid deadlocks and unnecessary context hops. In ASP.NET Core there's no sync context, so it matters less there, but it's still good hygiene for reusable libraries.
-
-**Why does `.Result` deadlock?**
-On a platform with a single-threaded sync context (classic UI, legacy ASP.NET), blocking on `.Result`/`.Wait()` holds that thread while the awaited continuation is queued to run *on the same thread* — mutual wait, deadlock. The fix is to be async all the way down and never block on async code. ASP.NET Core has no synchronization context, so continuations run on any pool thread and this deadlock can't happen there; sync-over-async still blocks one pool thread per waiting request, which starves the thread pool under load.
-
-**Red flag:** "Wrap it in `Task.Run(...).Result` to make it safe" — that just burns an extra thread; the fix is async all the way down.
-
-**What is a `CancellationToken` for?**
-Cooperative cancellation. You pass a token through async calls; a caller can request cancellation (timeout, user abort, request aborted), and well-behaved methods check `IsCancellationRequested` / pass the token onward, throwing `OperationCanceledException`. Always thread the token through to DB and HTTP calls so work actually stops.
-
-**Red flag:** "Cancelling the token stops the operation immediately" — cancellation is cooperative; nothing stops unless the code observes the token.
-
-**How do you make a class thread-safe?**
-Options in rough order of preference: make it immutable (no shared mutable state, nothing to protect); confine mutation to one thread; use concurrent collections (`ConcurrentDictionary`); or guard shared state with a `lock`. Keep locked regions tiny, never `await` inside a `lock`, and always lock on a private dedicated object.
-
-**`lock` vs `Interlocked`?**
-`lock` (Monitor) gives mutual exclusion over a block of code — use it for multi-step invariants. `Interlocked` performs a single atomic operation (increment, compare-exchange) without a lock, which is far cheaper for a lone counter or flag. Reach for `Interlocked` when you're protecting one variable, `lock` when you're protecting an invariant across several.
-
-**What is `IAsyncEnumerable<T>` for?**
-Asynchronous streaming — `await foreach` over items produced with latency (paged API results, a query streamed row-by-row) without buffering the whole set in memory. It combines deferred, pull-based enumeration with async I/O, so you can start processing the first items before the last arrive.
-
-> **Follow-up:** *You have 100 independent HTTP calls to make — how?* Start them all (`Select(x => CallAsync(x))`) and `await Task.WhenAll`, ideally with a `SemaphoreSlim` to cap concurrency so you don't exhaust sockets or hammer the downstream.
-
----
-
-@@SRC: practice from old module page Part 1 · Module 1: Async Essentials@@
-
 ## Prove it
 
-Four programs, one per trap. Predict each output before you run it: the gap between the prediction and the output is what this module is for.
+Three programs, one per trap. Predict each output before you run it: the gap between the prediction and the output is what this chapter is for.
 
 **1. An `async void` exception kills the process.**
 
@@ -695,56 +588,9 @@ The run was on 4 vCPUs, so 200 requests; your machine's core count sets the numb
 - **Same work, ten times slower.** Awaiting, 200 one-second requests finish in 1.1 s on 3 pool threads: nobody holds a thread while waiting. Blocking, the same work takes 11.6 s, and the pool has to grow to 68 threads.
 - **The unrelated request is the outage.** It waited 10.5 s for a thread, queued behind the blocked work. In production every endpoint slows down, including the ones that never block.
 - **The CPU had nothing to do.** The blocking run used 0.46 s of CPU in 11.7 s of wall time on 4 cores: the threads were waiting, not working. Low CPU, high latency everywhere and a climbing thread count is how starvation looks from the outside, and why it is so often blamed on the database.
-- **It ends only because the pool keeps adding threads, slowly.** How fast it adds them, and why raising the minimum only moves the cliff, is Part 2 material.
+- **It ends only because the pool keeps adding threads, slowly.** How fast it adds them, and why raising the minimum only moves the cliff, is in [Chapter 17](#chapter-17-runtime-internals-and-performance), which reruns this program with the counters open.
 
-**4. A new `HttpClient` per request leaves a socket behind every time.**
-
-`verify/path/HttpClientPerRequest/Program.cs` · run it from `verify/path` with `dotnet run --project HttpClientPerRequest`:
-
-```csharp
-using System.Net.NetworkInformation;
-
-// Prove it: a new HttpClient per request opens (and closes) one TCP connection per request, and
-// every closed connection then sits in TIME_WAIT. A shared client reuses its pooled connections.
-int port = Random.Shared.Next(20_000, 30_000);     // a fresh port, so earlier runs don't count
-var builder = WebApplication.CreateSlimBuilder();
-builder.Logging.ClearProviders();
-builder.WebHost.UseUrls($"http://127.0.0.1:{port}");
-var server = builder.Build();
-server.MapGet("/", () => "ok");
-await server.StartAsync();
-
-var shared = new HttpClient();
-await Measure("one shared HttpClient", () => shared.GetStringAsync($"http://127.0.0.1:{port}/"));
-await Measure("new HttpClient per request", async () =>
-{
-    using var perRequest = new HttpClient();
-    return await perRequest.GetStringAsync($"http://127.0.0.1:{port}/");
-});
-
-async Task Measure(string label, Func<Task<string>> call)
-{
-    int before = SocketsInTimeWait();
-    for (int i = 0; i < 500; i++) await call();
-    Console.WriteLine($"{label,-27} 500 requests, new sockets in TIME_WAIT: {SocketsInTimeWait() - before}");
-}
-
-int SocketsInTimeWait() => IPGlobalProperties.GetIPGlobalProperties().GetActiveTcpConnections()
-    .Count(c => c.State == TcpState.TimeWait && c.RemoteEndPoint.Port == port);
-```
-
-```text
-one shared HttpClient       500 requests, new sockets in TIME_WAIT: 0
-new HttpClient per request  500 requests, new sockets in TIME_WAIT: 500
-```
-
-What to notice:
-
-- **One shared client: zero new sockets.** It reused one pooled connection for all 500 requests.
-- **A client per request: 500 sockets in `TIME_WAIT`.** Each client opened a connection and closed it on `Dispose`. The side that closes keeps the socket, and its local port, in `TIME_WAIT`: 60 s on Linux.
-- **At production rates the ports run out.** Ports come back only as fast as `TIME_WAIT` expires, which caps new connections per second to one destination; on App Service the cap is far lower, 128 SNAT ports per instance and destination, each reclaimed four minutes after its connection closes. A test suite never reaches either rate; a traffic peak does.
-
-Then do the chapter exercise: [Chapter 8](#chapter-8-asynchronous-concurrent-programming), *Exercises*, *Find the bug*, a report endpoint with `.Result`, `.Wait()` and `Parallel.ForEach`. Name every defect, and the one that causes the outage, before you open the answer.
+Then do *Find the bug* under *Exercises* below: a report endpoint with `.Result`, `.Wait()` and `Parallel.ForEach`. Name every defect, and the one that causes the outage, before you open the answer.
 
 ## Three questions
 
@@ -772,19 +618,108 @@ Fix: return `Task`. Hand real fire-and-forget work to a queue or a `BackgroundSe
 To log both, keep the `WhenAll` task in a variable and, in the `catch`, log `task.Exception?.InnerExceptions`. `Exception` is `null` when the task was cancelled rather than faulted.
 </details>
 
-**3.** `.Result` in a request handler and `new HttpClient()` per request both pass every test and fail only under load. Which finite resource does each exhaust, and why only at high concurrency?
+**3.** `.Result` in a request handler passes every test and fails only under load. Which finite resource does it exhaust, and why only at high concurrency?
 
 <details>
 <summary>Answer</summary>
 
-- **`.Result` exhausts pool threads.** It holds a pool thread for the whole I/O wait. At low concurrency there are spare threads. At high concurrency every thread is held, and the continuations and timer callbacks that would release them wait in the queue behind new requests. The pool adds threads only gradually, so latency spreads to every endpoint while the CPU stays low.
-- **`new HttpClient()` per request exhausts local ports.** Each client brings its own handler and connection pool, so each request opens a TCP connection. Disposing the client closes it, and the socket then holds a local port in `TIME_WAIT` (60 s on Linux). Once connections open faster than ports come back (on App Service: 128 SNAT ports per instance and destination, each reclaimed four minutes after close), new connections wait and time out.
+Pool threads. `.Result` holds a pool thread for the whole I/O wait. At low concurrency there are spare threads. At high concurrency every thread is held, and the continuations and timer callbacks that would release them wait in the queue behind new requests. The pool adds threads only gradually, so latency spreads to every endpoint while the CPU stays low.
 
-A test makes a handful of requests, one after another, so neither resource runs out.
+A test makes a handful of requests, one after another, so the pool never runs dry. A new `HttpClient` per request fails the same way with a different resource, local ports: [Keep-Alive, Connection Pooling, and Socket Exhaustion](#keep-alive-connection-pooling-and-socket-exhaustion) in Chapter 5.
 </details>
 
 ## Check at work
 
-**Inspect.** Search your service for `async void`, `.Result`, `.Wait()`, `.GetAwaiter().GetResult()` and `new HttpClient(`. Sort every hit into one of three bins: an event handler, start-up code, or a request or message path, which is a latent outage. Then follow one endpoint's `await` chain from the action down to its database or HTTP call: a `CancellationToken` that stops halfway leaves everything below it uncancellable.
+**Inspect.** Search your service for `async void`, `.Result`, `.Wait()` and `.GetAwaiter().GetResult()`. Sort every hit into one of three bins: an event handler, start-up code, or a request or message path, which is a latent outage. Then follow one endpoint's `await` chain from the action down to its database or HTTP call: a `CancellationToken` that stops halfway leaves everything below it uncancellable.
 
-**Measure.** Check that something charts the service's thread-pool queue length and thread count: `dotnet.thread_pool.queue.length` and `dotnet.thread_pool.thread.count` in an APM on .NET 9+ (check it plots the value, not a rate), `ThreadPool Queue Length` and `ThreadPool Thread Count` in `dotnet-counters` (on .NET 9 and 10 with `--counters 'EventCounters\System.Runtime'`; [Chapter 34](#diagnosing-a-performance-problem-a-worked-methodology) explains why). Without them, starvation looks exactly like a slow database. Read both at your traffic peak: a queue that grows while the thread count climbs is the starvation fingerprint.
+**Measure.** Check that something charts the service's thread-pool queue length and thread count: `dotnet.thread_pool.queue.length` and `dotnet.thread_pool.thread.count` in an APM on .NET 9+ (check it plots the value, not a rate), `ThreadPool Queue Length` and `ThreadPool Thread Count` in `dotnet-counters` (on .NET 9 and 10 with `--counters 'EventCounters\System.Runtime'`; [Diagnosing a Performance Problem](#diagnosing-a-performance-problem-a-worked-methodology) in Chapter 9 explains why). Without them, starvation looks exactly like a slow database. Read both at your traffic peak: a queue that grows while the thread count climbs is the starvation fingerprint.
+
+## Exercises
+
+### Find the bug
+
+This handler compiles, passes its unit test, and takes the service down under load.
+
+```csharp
+[HttpGet("/reports/{id:int}")]
+public IActionResult GetReport(int id)
+{
+    var report = _reportService.BuildReportAsync(id).Result;
+
+    var recipients = _db.Subscribers
+        .Where(s => s.ReportId == id)
+        .ToList();
+
+    Parallel.ForEach(recipients, r =>
+    {
+        _mailer.SendAsync(r.Email, report).Wait();
+    });
+
+    return Ok(report);
+}
+```
+
+Name every defect you can see, then say which one causes the outage.
+
+<details>
+<summary>Answer</summary>
+
+Four separate problems, in increasing order of severity:
+
+1. **`.Result` and `.Wait()` are sync-over-async.** Each blocks a pool thread for the whole I/O wait.
+2. **`Parallel.ForEach` over async work multiplies the blocking.** It is for CPU work: each iteration here blocks a pool thread in `.Wait()` for a whole email send, and `Parallel.ForEach` borrows more pool threads for more iterations, so one request blocks several threads. `Parallel.ForEachAsync` with a `MaxDegreeOfParallelism` is the tool for async fan-out.
+3. **No `CancellationToken` anywhere.** If the client disconnects, every email still goes out.
+4. **The outage is thread-pool starvation.** Each in-flight request holds one thread in `.Result` and several in `.Wait()`; the continuations that would release them queue behind new requests, and the pool adds threads only gradually ([The Sync-Over-Async Deadlock](#the-sync-over-async-deadlock)). Latency climbs on *every* endpoint while the CPU stays low — which is why it is so often misdiagnosed as a database problem.
+
+The fix: `async Task<IActionResult>`, `await` throughout, `Parallel.ForEachAsync` with a `MaxDegreeOfParallelism`, and a `CancellationToken` threaded from the action signature down.
+
+Verified in the repository (`verify/exercises/Ch08`): on 4 vCPU, 20 concurrent requests (200 ms of report I/O, then four 200 ms emails each) took **6 s** with this code against **0.8 s** with the fix; an unrelated request waited **1.8 s** for a thread, and the pool grew to **49 threads** against 5. A second pair of tests shows the fix stopping when the request is aborted, while the original has no token to stop it.
+</details>
+
+### What would you do
+
+A colleague's PR adds `ConfigureAwait(false)` to every `await` in a new ASP.NET Core service, citing a blog post about deadlocks. It is 300 lines of diff across 40 files. What do you say in review?
+
+<details>
+<summary>How a senior engineer reasons about it</summary>
+
+The technically correct observation: ASP.NET Core has no `SynchronizationContext`, so `ConfigureAwait(false)` changes nothing here. The deadlock it prevents is a WinForms, WPF or legacy ASP.NET problem. In a *library* such apps might consume it is good practice; in an ASP.NET Core service it is noise that makes future diffs harder to read.
+
+But the comment that lands well doesn't stop there. Your colleague applied something diligently and is right about the phenomenon, wrong about whether this codebase has it. So explain the mechanism (what a `SynchronizationContext` is, and that ASP.NET Core doesn't install one), agree where the advice *does* apply, and let them decide whether to drop the change or keep it for a library project in the solution.
+
+There is also proportion. If the team has an analyzer rule about it, this is a rule discussion, not a PR discussion. And if the diff is otherwise good, "unnecessary but harmless, let's not block on it" is legitimate: cargo-culted `ConfigureAwait(false)` costs readability, not correctness. [Chapter 16: Working Like a Middle Developer](#chapter-16-working-like-a-middle-developer) covers telling a blocking review comment from a nit.
+</details>
+
+## Interview Questions
+
+**Async vs multithreading — what's the difference?**
+Multithreading uses multiple threads to do work in parallel (CPU-bound). Async is about *not blocking* a thread while waiting for something else (I/O-bound) — one thread can serve many in-flight operations. Async ≠ parallel: `await` on a single call is still sequential; you get concurrency by starting multiple tasks before awaiting.
+
+**Red flag:** "Async makes the code faster because it runs in parallel" — a single awaited call is just as slow; async buys scalability, not speed.
+
+**`Task` vs `ValueTask` — when `ValueTask`?**
+`Task` is a heap-allocated reference type; every async call allocates one. `ValueTask` avoids that allocation when the result is *often already available* synchronously (cache hits, buffered reads). Use it in hot, high-frequency APIs where most calls complete synchronously. Don't await a `ValueTask` twice or store it — it's single-consumption. [Task vs ValueTask](#task-vs-valuetask) in Chapter 17 has the rules.
+
+**What does `ConfigureAwait(false)` do and where?**
+It tells the continuation not to resume on the captured synchronization context, resuming on a thread-pool thread instead. Use it in library code to avoid deadlocks and unnecessary context hops. In ASP.NET Core there's no sync context, so it matters less there, but it's still good hygiene for reusable libraries.
+
+**Why does `.Result` deadlock?**
+On a platform with a single-threaded sync context (classic UI, legacy ASP.NET), blocking on `.Result`/`.Wait()` holds that thread while the awaited continuation is queued to run *on the same thread* — mutual wait, deadlock. The fix is to be async all the way down and never block on async code. ASP.NET Core has no synchronization context, so continuations run on any pool thread and this deadlock can't happen there; sync-over-async still blocks one pool thread per waiting request, which starves the thread pool under load.
+
+**Red flag:** "Wrap it in `Task.Run(...).Result` to make it safe" — that just burns an extra thread; the fix is async all the way down.
+
+**What is a `CancellationToken` for?**
+Cooperative cancellation. You pass a token through async calls; a caller can request cancellation (timeout, user abort, request aborted), and well-behaved methods check `IsCancellationRequested` / pass the token onward, throwing `OperationCanceledException`. Always thread the token through to DB and HTTP calls so work actually stops.
+
+**Red flag:** "Cancelling the token stops the operation immediately" — cancellation is cooperative; nothing stops unless the code observes the token.
+
+**How do you make a class thread-safe?**
+Options in rough order of preference: make it immutable (no shared mutable state, nothing to protect); confine mutation to one thread; use concurrent collections (`ConcurrentDictionary`); or guard shared state with a `lock`. Keep locked regions tiny, never `await` inside a `lock`, and always lock on a private dedicated object.
+
+**`lock` vs `Interlocked`?**
+`lock` (Monitor) gives mutual exclusion over a block of code — use it for multi-step invariants. `Interlocked` performs a single atomic operation (increment, compare-exchange) without a lock, which is far cheaper for a lone counter or flag. Reach for `Interlocked` when you're protecting one variable, `lock` when you're protecting an invariant across several.
+
+**What is `IAsyncEnumerable<T>` for?**
+Asynchronous streaming — `await foreach` over items produced with latency (paged API results, a query streamed row-by-row) without buffering the whole set in memory. It combines deferred, pull-based enumeration with async I/O, so you can start processing the first items before the last arrive.
+
+> **Follow-up:** *You have 100 independent HTTP calls to make — how?* Start them all (`Select(x => CallAsync(x))`) and `await Task.WhenAll`, ideally with a `SemaphoreSlim` to cap concurrency so you don't exhaust sockets or hammer the downstream.

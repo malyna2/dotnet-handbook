@@ -1,14 +1,11 @@
 # Chapter 3: How .NET Runs Your Code
 
-@@TODO: write this chapter's introduction (what it makes the reader able to do, how its sections connect), then remove every @@ line.@@
+This chapter explains the machinery around your code that every .NET service shares: where the runtime puts what you allocate and how the garbage collector gets it back, how settings reach your classes, how the dependency-injection container builds and disposes your objects, and how the Generic Host starts and stops the application. With it you can explain why memory climbs and comes back, why a misspelt setting fails silently, and why a `Scoped` service inside a singleton serves stale data to every request.
 
-@@SRC: introduction of old Chapter 2: .NET Runtime & Internals@@
+The sections go from the bottom up. **Memory and garbage collection** come first, because allocation cost, disposal and object lifetimes all rest on them. **Configuration** and **dependency injection** are the two systems that wire an application together; the options pattern joins them, and service lifetimes decide which objects live how long. The **Generic Host** owns both, plus the lifecycle of background work. The chapter ends with the **release cadence**, which decides which runtime version you should be on.
 
-A senior .NET developer is expected to reason about what happens *beneath* the C# they write. When a request slows down under load, when memory climbs and never comes back, when a `Scoped` service throws in a singleton, or when a container image is 200 MB larger than it should be — the answers all live in the runtime. This chapter is a deep tour of that machinery: how memory is managed, how your IL becomes machine code, how the modern hosting stack (configuration, dependency injection, logging, background work) is wired together, and how to serialize data efficiently. By the end you should be able to hold a mental model of the CLR precise enough to debug production problems and make informed architectural decisions.
+[Chapter 1](#chapter-1-c-essentials) covers value and reference types and boxing at the language level, and this chapter builds on it. The depth (the Large Object Heap, Server and Workstation GC, background GC, the JIT and Native AOT) is in [Chapter 17: Runtime Internals and Performance](#chapter-17-runtime-internals-and-performance); logging is in [Chapter 9](#chapter-9-exceptions-logging-and-first-diagnosis), and JSON serialization in [Chapter 5](#serialization-systemtextjson-vs-newtonsoftjson).
 
-We start at the foundation — memory — because almost every performance and correctness question in .NET eventually touches it.
-
-@@SRC: old Chapter 2: .NET Runtime & Internals@@
 ## The Memory Model: Stack vs Managed Heap
 
 The .NET runtime gives every managed program two fundamentally different regions of memory to work with: the **stack** and the **managed heap**. Understanding which values live where is the single most useful mental model for reasoning about allocation, garbage collection, and performance.
@@ -17,10 +14,7 @@ The **stack** is a thread-local, last-in-first-out region. Each thread gets its 
 
 The **managed heap** is a process-wide region shared by all threads, and it's where reference-type objects live. When you write `new Customer()`, the runtime carves space out of the heap and hands you back a *reference* (essentially a pointer) to it. That reference might sit on the stack (as a local variable) or inside another heap object (as a field), but the `Customer` instance itself is always on the heap.
 
-The critical distinction is **value types vs reference types**:
-
-- **Value types** (`struct`, `int`, `bool`, `DateTime`, `Guid`, enums, tuples) contain their data directly. Where the *value* lives depends on context: a local `int` lives on the stack; an `int` field inside a class lives on the heap *inside that object*; an `int` in an array lives in the array's heap buffer. So "value types live on the stack" is a common oversimplification — value types live wherever their container lives.
-- **Reference types** (`class`, `interface`, arrays, delegates, `string`) always have their instance data on the heap; only the reference is passed around.
+Which of the two holds a given piece of data depends on where the variable is declared, not only on its type: a local `int` is in the stack frame, an `int` field of a class is inside the object on the heap, and a reference variable on the stack points to an object on the heap. [Chapter 1](#stack-vs-heap-where-the-bytes-actually-live) gives the rules.
 
 ```csharp
 public void Example()
@@ -39,19 +33,10 @@ public class Customer { public int Id; public string Name = ""; }
 
 When `Example` returns, the stack frame — `localValue`, `p`, the references `c` and `numbers` — vanishes for free. But the `Customer` and the `int[]` remain on the heap until the garbage collector proves nobody can reach them anymore. That "proving unreachability and reclaiming" is the job of the GC.
 
-> **Why this matters:** every heap allocation has a cost — not just the allocation itself, but the eventual GC work to reclaim it. High-performance .NET code minimizes heap allocations by favoring `structs` for small, short-lived data, using `Span<T>` for slicing without copying, and avoiding hidden allocations (boxing, closures, LINQ in hot paths).
+> **Why this matters:** every heap allocation has a cost — not just the allocation itself, but the eventual GC work to reclaim it. High-performance .NET code minimizes heap allocations by favoring `structs` for small, short-lived data, using `Span<T>` for slicing without copying, and avoiding hidden allocations (boxing, closures, LINQ in hot paths); [Chapter 17](#chapter-17-runtime-internals-and-performance) shows how to measure them.
 
-**Boxing** is the bridge between the two worlds and a classic performance trap. When you assign a value type to a variable of type `object` (or an interface it implements), the runtime *boxes* it: allocates a heap object, copies the value into it, and returns a reference. Unboxing copies it back out.
+**Boxing** is where the two meet: a value type assigned to `object` or an interface is copied into a new heap object, an allocation the code doesn't show ([Chapter 1](#boxing-and-unboxing-the-hidden-tax)).
 
-```csharp
-int x = 5;
-object boxed = x;        // boxing: heap allocation happens here
-int y = (int)boxed;      // unboxing: value copied back to the stack
-```
-
-A single box is cheap; a million boxes in a loop is a GC storm. Generics were introduced in part to eliminate boxing — `List<int>` stores ints inline, whereas the old `ArrayList` boxed every element.
-
-@@SRC: old Chapter 2: .NET Runtime & Internals@@
 ## Garbage Collection
 
 The .NET garbage collector is a **tracing, generational, compacting** collector. Let's unpack each of those words, because each represents a deliberate design decision that shapes how your programs behave.
@@ -68,7 +53,7 @@ The GC exploits this by dividing the heap into three **generations**:
 
 - **Gen 0** — the nursery. All new small objects are allocated here. Gen 0 is small (tuned to fit in CPU cache), so collecting it is fast.
 - **Gen 1** — a buffer between short-lived and long-lived. Objects that survive a Gen 0 collection are *promoted* to Gen 1.
-- **Gen 2** — long-lived objects. Survivors of Gen 1 are promoted here. Gen 2 also holds the Large Object Heap.
+- **Gen 2** — long-lived objects. Survivors of Gen 1 are promoted here. Objects of 85,000 bytes or more skip the nursery and go to the Large Object Heap, which is collected with Gen 2 ([Chapter 17](#chapter-17-runtime-internals-and-performance) explains why that matters).
 
 ```
    new small objects
@@ -111,7 +96,7 @@ A **finalizer** (`~ClassName()`) is a method the GC calls before reclaiming an o
 
 So a finalizable object survives at least one extra generation and requires two collection cycles to die. Overusing finalizers is a real performance problem.
 
-**`IDisposable`** provides *deterministic* cleanup: you (or a `using` block) call `Dispose()` at a precise, known point rather than waiting for the GC. This is the preferred mechanism.
+**`IDisposable`** provides *deterministic* cleanup: you (or a `using` block) call `Dispose()` at a precise, known point rather than waiting for the GC. This is the preferred mechanism, and [Chapter 1](#idisposable-iasyncdisposable-and-the-dispose-pattern) covers using it.
 
 The canonical pattern combines both — `Dispose()` for deterministic cleanup, a finalizer as a backstop if the caller forgets, and `GC.SuppressFinalize` to skip the expensive finalizer when `Dispose` already did the work:
 
@@ -160,10 +145,11 @@ public sealed class NativeBufferOwner : IDisposable
 
 Legitimate uses are rare: benchmarking (to establish a clean baseline), a one-time cleanup after loading a huge dataset that you know created long-lived garbage, or immediately before taking a memory snapshot for diagnostics. If you find yourself reaching for `GC.Collect()` to "fix" a memory problem, the real fix is almost always to allocate less or to dispose properly.
 
-@@SRC: old Chapter 2: .NET Runtime & Internals@@
+That is the GC a middle developer needs: generations, what triggers a collection, and why finalizers are a backstop. Which GC flavour a server runs, how the Large Object Heap fragments and how to read GC counters under load are in [Chapter 17](#chapter-17-runtime-internals-and-performance).
+
 ## The Configuration System
 
-`IConfiguration` is a set of **key-value pairs** assembled from several **providers**; a later provider overrides an earlier one. `WebApplication.CreateBuilder` layers them in this order:
+Every service needs settings that change between environments without a rebuild: connection strings, endpoints, feature switches. `IConfiguration` is a set of **key-value pairs** assembled from several **providers**; a later provider overrides an earlier one. `WebApplication.CreateBuilder` layers them in this order:
 
 1. `appsettings.json` (base settings)
 2. `appsettings.{Environment}.json` (e.g., `appsettings.Production.json`)
@@ -225,10 +211,9 @@ public class Mailer(IOptions<EmailOptions> options)
 }
 ```
 
-@@SRC: old Chapter 2: .NET Runtime & Internals@@
 ## Dependency Injection
 
-A class *declares* its dependencies (usually as constructor parameters) and the built-in container (`Microsoft.Extensions.DependencyInjection`) supplies them. You register services on an `IServiceCollection`; the container builds an `IServiceProvider` that *resolves* them recursively: to build `OrderService` it builds the `IRepository` it needs, then the `DbContext` the repository needs, and so on down the graph.
+The options pattern above already relied on it: `AddOptions<T>()` registers a service, and `Mailer` received `IOptions<EmailOptions>` without creating it. A class *declares* its dependencies (usually as constructor parameters) and the built-in container (`Microsoft.Extensions.DependencyInjection`) supplies them. You register services on an `IServiceCollection`; the container builds an `IServiceProvider` that *resolves* them recursively: to build `OrderService` it builds the `IRepository` it needs, then the `DbContext` the repository needs, and so on down the graph.
 
 ### Service lifetimes
 
@@ -270,14 +255,13 @@ public class BackgroundProcessor(IServiceScopeFactory scopeFactory)
 
 The container also **disposes** what it creates: an `IDisposable` service is disposed when its scope ends (per request for scoped, at shutdown for singletons). A service you `new` up yourself gets none of that.
 
-@@SRC: old Chapter 2: .NET Runtime & Internals@@
 ## The Generic Host and Background Services
 
 The **Generic Host** (`IHost`) is the composition root of a modern .NET application. It bundles together DI, configuration, logging, and lifetime management into one object that you build, run, and gracefully shut down. `WebApplication` (ASP.NET Core) and the console `Host` both build on it.
 
 The host manages a set of **`IHostedService`** instances — components with a `StartAsync`/`StopAsync` lifecycle tied to the application's. When the host starts, it starts all hosted services; when it receives a shutdown signal (Ctrl+C, SIGTERM from Kubernetes), it stops them gracefully, giving in-flight work a chance to finish.
 
-For long-running background work, you inherit from **`BackgroundService`**, a base class that implements `IHostedService` and exposes a single `ExecuteAsync` method:
+For long-running background work, you inherit from **`BackgroundService`**, a base class that implements `IHostedService` and exposes a single `ExecuteAsync` method. The example shows the part that follows from this chapter, the scope per unit of work; [Chapter 11](#chapter-11-messaging-and-background-work) covers writing workers in full:
 
 ```csharp
 public sealed class QueueProcessor(
@@ -311,7 +295,6 @@ public sealed class QueueProcessor(
 
 > **Pitfall:** the `stoppingToken` is your shutdown signal — honor it, or your app won't shut down cleanly and orchestrators will `SIGKILL` it after a grace period. Also note the **scope-per-iteration** pattern: a `BackgroundService` is effectively a singleton, so it must *not* capture scoped services directly — it creates a scope for each unit of work, exactly as the captive-dependency rule demands.
 
-@@SRC: old Chapter 2: .NET Runtime & Internals@@
 ## .NET Release Cadence: LTS vs STS
 
 Microsoft ships a **new major .NET version every November**, on a predictable cadence, alternating between two support tracks:
@@ -321,7 +304,7 @@ Microsoft ships a **new major .NET version every November**, on a predictable ca
 
 Both tracks follow the same engineering and release process; the difference is purely the **support window**. The last six months of each window are *maintenance*: security fixes only. Patches ship monthly, on Patch Tuesday.
 
-As of October 2026 (`releases-index.json` in the `dotnet/core` repository):
+Versions and their dates, as of October 2026 (`releases-index.json` in the `dotnet/core` repository; [the appendix](#appendix-net-version-comparison-cheat-sheet) has what each version added):
 
 - **.NET 8** (LTS, Nov 2023) and **.NET 9** (STS, Nov 2024) — both in maintenance; support for both ends on **November 10, 2026**. The longer STS window is why they end together.
 - **.NET 10** (LTS, Nov 2025) — the active long-term-support release, supported until **November 14, 2028**; the target for anything new.
@@ -329,16 +312,11 @@ As of October 2026 (`releases-index.json` in the `dotnet/core` repository):
 
 > **Best practice for teams:** standardize on **LTS releases** for products with long maintenance horizons — you get three years before a forced upgrade and a smaller upgrade treadmill. Choose **STS** only when you specifically need a feature that shipped there. Whatever you pick, plan upgrades *before* the support window closes: running on an out-of-support runtime means no security patches, which is an audit and compliance problem.
 
-@@SRC: old Chapter 2: .NET Runtime & Internals@@
 ## Summary
 
-The runtime is the substrate on which all your .NET code executes, and senior-level judgment comes from understanding it:
-
-- **Memory** splits into the fast, automatic **stack** and the GC-managed **heap**; knowing where data lives explains allocation costs and boxing traps.
-- The **GC** is generational, compacting, and self-tuning; Gen 0 is cheap, Gen 2 and the LOH are expensive, Server GC scales with cores, and Background GC keeps pauses low. Prefer `IDisposable` for deterministic cleanup and avoid finalizers and `GC.Collect()`.
-- **JIT + Tiered Compilation + PGO** deliver fast startup and peak throughput; **ReadyToRun**, **Native AOT**, and **trimming** trade flexibility for startup speed and size, pushing the ecosystem toward **source generators**.
-- The **hosting stack** — layered **configuration** with the options pattern, the **DI container** with its three lifetimes and the captive-dependency rule, the **Generic Host** with `BackgroundService`, and **structured logging** — is the shared skeleton of every modern .NET app.
-- **System.Text.Json** is the fast, AOT-friendly default for serialization, with source generation for trim-safe, reflection-free performance.
-- The **November release cadence** with **LTS (even) / STS (odd)** tracks lets you plan upgrades deliberately.
-
-Internalize these and you can reason from symptoms (a latency spike, a memory leak, a cold-start regression) back to root causes in the runtime — which is exactly what separates a mid-level developer from a senior one.
+- **Memory** splits into the per-thread **stack**, reclaimed for free when a method returns, and the shared **managed heap**, reclaimed by the GC; every heap allocation is future GC work.
+- The **GC** is tracing, generational and compacting: Gen 0 collections are cheap and frequent, Gen 2 collections are expensive and should stay rare. Finalizers keep an object alive for an extra collection, so prefer `IDisposable`, and leave `GC.Collect()` alone.
+- **Configuration** layers providers, a later one overriding an earlier one; the **options pattern** binds a section to a class, and only validation (with `ValidateOnStart`) turns a missing key into an error.
+- The **DI container** builds the object graph with three lifetimes; a service may depend only on equal or longer lifetimes, and `ValidateScopes` catches the captive dependency only in Development.
+- The **Generic Host** composes configuration, DI and logging, starts and stops hosted services, and hands `BackgroundService` a stopping token to honor.
+- The **November release cadence** with **LTS (even) / STS (odd)** tracks lets you plan upgrades before support ends.

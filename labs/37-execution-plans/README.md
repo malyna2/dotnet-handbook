@@ -1,4 +1,4 @@
-# Lab kit — Chapter 37: Reading Execution Plans
+# Lab kit — Chapter 19: Reading Execution Plans
 
 Nine slow queries in a .NET 10 / EF Core service over PostgreSQL 18, seeded with 5 million orders and 18 million order lines. You read each plan, fix the mechanism, and prove the fix with numbers. An optional SQL Server 2025 track covers the four places where SQL Server behaves differently.
 
@@ -64,7 +64,7 @@ For each rung the CLI drops all `lab_*` objects, applies the rung's `Fixes`, run
 
 ## Break it
 
-Scripts that break something on purpose, show the plan before and after, and put the database back as seeded (Chapter 37 has the questions):
+Scripts that break something on purpose, show the plan before and after, and put the database back as seeded (Chapter 19 has the questions):
 
 ```bash
 docker compose exec -T postgres psql -U lab -d shop -f /lab/break-it-stale-statistics.sql   # a bulk load the planner hasn't heard about
@@ -87,12 +87,12 @@ docker compose --profile sqlserver up -d
 
 - **`toomanyrequests` / 429 when pulling `postgres:18.6`.** Docker Hub rate-limits anonymous pulls. Log in (`docker login`), or pull the same image from Google's mirror and tag it: `docker pull mirror.gcr.io/library/postgres:18.6 && docker tag mirror.gcr.io/library/postgres:18.6 postgres:18.6`. (The digests are identical.)
 - **Port 5433 is in use.** Change the left side of `"5433:5432"` in `docker-compose.yml` and pass `--connection "Host=localhost;Port=<yours>;Username=lab;Password=lab;Database=shop"` to the CLI.
-- **Timings differ from Chapter 37.** They will — your CPU, disk and cache differ. Plan shapes and buffer counts should match closely; ratios should hold.
+- **Timings differ from Chapter 19.** They will — your CPU, disk and cache differ. Plan shapes and buffer counts should match closely; ratios should hold.
 
 ## For maintainers
 
 - `verify.sh` proves the lab is honest: every starter rung fails its acceptance test with an `ACCEPTANCE:` message (right rows, too much work) and every solution rung passes. CI runs it (`.github/workflows/labs.yml`).
-- `reference-runs/capture.sh` regenerates the raw output behind every number in Chapter 37. Run it on a freshly seeded database: buffer counts depend on the physical layout, and the break-it scripts restore that layout (`VACUUM`, `REINDEX`) only because an earlier version of them didn't, and the numbers drifted.
+- `reference-runs/capture.sh` regenerates the raw output behind every number in Chapter 19. Run it on a freshly seeded database: buffer counts depend on the physical layout, and the break-it scripts restore that layout (`VACUUM`, `REINDEX`) only because an earlier version of them didn't, and the numbers drifted.
 - `solution/` is the reference solution. The CLI and the tests use it with `--property:Rungs=solution`.
 
 ## Last verified
