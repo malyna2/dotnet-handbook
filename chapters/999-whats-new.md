@@ -2,6 +2,16 @@
 
 This page is the handbook's changelog. When a new release lands, a popup announces it on your next visit. Under each release, **Site & functionality** items are plain notes, while **Content updates** link to every chapter that changed — a link is ticked off (✓, stored locally in your browser) once you visit it, so you can work through an update at your own pace and see what's still unread.
 
+## Release — October 10, 2026
+
+**🔧 Site & functionality**
+
+- The handbook is now available in Ukrainian: the EN / УКР switch in the top bar changes the whole site, including chapters, navigation, search and these release notes.
+- The first visit opens in your browser's language; your choice is remembered, and chapter links, reading progress and ✓ marks are shared by both languages.
+- The Ukrainian edition loads only when you choose it, so the English site downloads no extra data.
+- In the Ukrainian edition, software-engineering terms stay in English, with the Ukrainian word in parentheses the first time a chapter uses them.
+- Easy Translate (tap or select text to translate it through an online service) has been removed; the full Ukrainian edition replaces it.
+
 ## Release — October 9, 2026
 
 **🔧 Site & functionality**
