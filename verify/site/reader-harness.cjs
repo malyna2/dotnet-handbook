@@ -5,7 +5,8 @@ const vm = require('node:vm');
 const source = fs.readFileSync(path.join(__dirname, '../../site/app.js'), 'utf8');
 // Exercise the actual reader, renderer, event handlers and storage with a
 // minimal DOM boundary and a small bilingual book; no dependencies are needed.
-function boot({ en, uk, storage = {}, blockedStorage = false, hash = '#/chapter-1-example' } = {}) {
+function boot({ en, uk, storage = {}, blockedStorage = false, hash = '#/chapter-1-example',
+               browserLanguage = 'en-US', ukUnavailable = false } = {}) {
   class Element {
     constructor() {
       this.innerHTML = ''; this.textContent = ''; this.children = []; this.listeners = {};
@@ -25,10 +26,17 @@ function boot({ en, uk, storage = {}, blockedStorage = false, hash = '#/chapter-
   const document = {
     documentElement: Object.assign(new Element(), { scrollHeight: 1000, clientHeight: 500, scrollTop: 0 }),
     getElementById(id) { return elements[id] ||= new Element(); },
-    createElement() { return new Element(); }, addEventListener() {}
+    createElement() { return new Element(); }, addEventListener() {},
+    // index.html ships only content.js; app.js adds a <script> for another edition on demand.
+    head: { appendChild(script) {
+      loaded.push(script.src);
+      if (ukUnavailable || script.src !== 'content.uk.js') return script.onerror();
+      window.BOOK_UK = structuredClone(uk); script.onload();
+    } }
   };
+  const loaded = [];
   const window = {
-    BOOK: structuredClone(en), BOOK_UK: structuredClone(uk), ALIASES: { legacy: 'chapter-1-example' },
+    BOOK: structuredClone(en), ALIASES: { legacy: 'chapter-1-example' },
     listeners: {}, pageYOffset: 0,
     addEventListener(name, fn) { this.listeners[name] = fn; },
     scrollTo(x, y) { this.pageYOffset = y; document.documentElement.scrollTop = y; }
@@ -40,7 +48,7 @@ function boot({ en, uk, storage = {}, blockedStorage = false, hash = '#/chapter-
   };
   const location = { hash };
   const context = vm.createContext({ window, document, localStorage, location,
-    history: { replaceState() {} }, navigator: {}, setTimeout() {}, clearTimeout() {} });
+    history: { replaceState() {} }, navigator: { language: browserLanguage }, setTimeout() {}, clearTimeout() {} });
   vm.runInContext(source, context, { timeout: 5000 });
   function switchTo(language) {
     const toggle = elements.languageToggle;
@@ -51,7 +59,7 @@ function boot({ en, uk, storage = {}, blockedStorage = false, hash = '#/chapter-
     location.hash='#/'+slug;
     vm.runInContext('window.listeners.hashchange()', context, { timeout: 5000 });
   }
-  return { elements, document, window, storage, location, switchTo, navigate };
+  return { elements, document, window, storage, location, loaded, switchTo, navigate };
 }
 
 module.exports = { boot };

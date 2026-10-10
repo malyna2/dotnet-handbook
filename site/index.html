@@ -1,9 +1,9 @@
 <!doctype html>
-<html lang="uk" data-theme="auto">
+<html lang="en" data-theme="auto">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Довідник .NET</title>
+<title>.NET Handbook</title>
 <link rel="icon" type="image/svg+xml" href="favicon.svg">
 <link rel="stylesheet" href="style.css">
 </head>
@@ -11,30 +11,30 @@
 <div id="app">
   <!-- Top bar -->
   <header id="topbar">
-    <button id="menuBtn" class="icon-btn" aria-label="Показати або приховати навігацію" title="Показати або приховати навігацію">☰</button>
-    <div class="brand" id="brandHome">Довідник .NET</div>
+    <button id="menuBtn" class="icon-btn" aria-label="Toggle navigation" title="Toggle navigation">☰</button>
+    <div class="brand" id="brandHome">.NET Handbook</div>
     <div class="search-wrap">
-      <input id="search" type="search" placeholder="Шукати розділи…" aria-label="Шукати розділи" autocomplete="off" spellcheck="false">
+      <input id="search" type="search" placeholder="Search chapters…" aria-label="Search chapters…" autocomplete="off" spellcheck="false">
       <div id="searchResults" class="search-results" hidden></div>
     </div>
     <div class="top-actions">
-      <label class="switch" id="languageSwitch" title="Змінити мову сайту">
-        <input type="checkbox" id="languageToggle" role="switch" aria-label="Українська мова сайту" checked>
+      <label class="switch" id="languageSwitch" title="Switch site language">
+        <input type="checkbox" id="languageToggle" role="switch" aria-label="Ukrainian site language">
         <span class="switch-track"><span class="switch-thumb"></span></span>
         <span class="switch-lbl">EN / УКР</span>
       </label>
-      <button id="themeBtn" class="icon-btn" title="Змінити тему оформлення" aria-label="Змінити тему оформлення">🌓</button>
+      <button id="themeBtn" class="icon-btn" title="Toggle light/dark" aria-label="Toggle light/dark">🌓</button>
     </div>
   </header>
 
   <!-- Learning paths: which part of the book the sidebar lists. Filled by app.js from BOOK. -->
 
   <!-- Sidebar navigation -->
-  <nav id="sidebar" aria-label="Зміст">
+  <nav id="sidebar" aria-label="Table of contents">
     <div id="nav"></div>
     <!-- In-chapter section outline. Fixed to the right rail on wide screens; below the
          chapter list inside this drawer once the rail no longer fits. -->
-    <aside id="outline" aria-label="На цій сторінці"></aside>
+    <aside id="outline" aria-label="On this page"></aside>
   </nav>
   <div id="scrim"></div>
 
@@ -44,7 +44,7 @@
     <article id="content"></article>
     <nav id="pager" class="pager"></nav>
     <footer id="footer">
-      <p id="footerText">Самодостатній довідник · доступний українською та англійською офлайн.</p>
+      <p id="footerText">Self-contained handbook · available offline in English and Ukrainian.</p>
     </footer>
   </main>
 </div>
@@ -52,11 +52,11 @@
 <!-- "What's New" release popup — shown once per release (tracked in localStorage) -->
 <div id="wnModal" class="modal" hidden>
   <div class="modal-card wn-card">
-    <h3>🆕 <span id="wnTitle">Що нового</span> — <span id="wnDate"></span></h3>
+    <h3>🆕 <span id="wnTitle">What's new</span> — <span id="wnDate"></span></h3>
     <div id="wnBody" class="wn-body"></div>
     <div class="modal-actions">
-      <button id="wnOpen" class="btn ghost">Відкрити сторінку «Що нового»</button>
-      <button id="wnClose" class="btn">Зрозуміло</button>
+      <button id="wnOpen" class="btn ghost">Open the What's New page</button>
+      <button id="wnClose" class="btn">Got it</button>
     </div>
   </div>
 </div>
@@ -64,7 +64,6 @@
 <div id="toast" class="toast" hidden></div>
 
 <script src="content.js"></script>
-<script src="content.uk.js"></script>
 <script src="app.js"></script>
 </body>
 </html>

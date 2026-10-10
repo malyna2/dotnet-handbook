@@ -15,11 +15,10 @@ A self-contained .NET study handbook: English Markdown chapters in `chapters/` a
 
 - The handbook and reader have English and Ukrainian editions. English chapter sources stay in `chapters/`; complete Ukrainian translations live in `chapters/uk/` with identical filenames.
 - **Automatically translate every new chapter or section into Ukrainian during the same task, without waiting for a separate request.** Whenever existing reader-facing prose changes, update the corresponding Ukrainian prose too, including headings, tables, exercise answers, link labels and What's New entries.
-- **Delegate translation work to subagents using GPT-6 Luna. In Claude Code, use subagents with the latest available Claude Haiku model** (the `haiku` model alias). These model choices apply to translation work; the coordinator integrates and verifies the results.
 - Translate the complete text in natural Ukrainian: never substitute summaries, omit sections, or silently leave English prose in the Ukrainian edition. Keep technical names and API identifiers unchanged.
 - Preserve fenced code blocks exactly, including comments and diagrams; preserve inline code, URLs and link destinations. Keep Markdown heading levels, count and order and collapsible answer blocks. The build assigns the original English heading IDs and chapter slugs to the Ukrainian edition, so existing links and reading progress work in either language.
 - Run `python3 build_site.py`, `python3 verify/check_links.py`, `python3 verify/site/build_test.py` and `node --test verify/site/*.test.cjs`. The build rejects missing translations, altered examples or structure, and English source changes whose Ukrainian file has not been updated. Do not hand-edit `chapters/uk/_sources.json` to bypass this check.
-- The language toggle switches the prebuilt editions locally and remembers the choice. Do not add runtime translation APIs or translate content when readers switch languages.
+- The reader opens in the saved language, else the browser's (Ukrainian for `uk*`, English otherwise). `index.html` loads only `content.js`; `content.uk.js` is added on demand. The toggle switches the prebuilt editions locally and remembers the choice. Do not add runtime translation APIs or translate content when readers switch languages.
 
 ## Release process (pushing)
 

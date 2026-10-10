@@ -9,9 +9,22 @@ function readSetting(key, fallback){ try{ return localStorage.getItem(key)||fall
 function writeSetting(key, value){ try{ localStorage.setItem(key,value); }catch(e){} }
 var EN_BOOK = window.BOOK || [];
 var editions = {en:EN_BOOK, uk:window.BOOK_UK || []};
-var language = readSetting("site_lang", "uk");
-if(!editions[language] || !editions[language].length) language="en";
-var BOOK = editions[language];
+// A saved choice wins; otherwise follow the browser's language, falling back to English.
+var wantedLanguage = readSetting("site_lang", /^uk\b/i.test(navigator.language||"")?"uk":"en");
+if(!editions[wantedLanguage]) wantedLanguage="en";
+// Start on the English edition; the boot moves to the wanted one once its bundle has loaded.
+var language = "en";
+var BOOK = EN_BOOK;
+// Only the English bundle is in index.html. Another edition is ~4 MB, so it loads on demand,
+// through a <script> tag (not an XHR) so the site still opens from file://.
+function loadEdition(lang, done){
+  if(editions[lang].length) return done();
+  var s=document.createElement("script");
+  s.src="content."+lang+".js";
+  s.onload=function(){ editions.uk=window.BOOK_UK||[]; done(); };
+  s.onerror=function(){ done(); };   // missing or unreachable: the caller stays on English
+  document.head.appendChild(s);
+}
 var UI = {
   en: {
     brand:".NET Handbook", menu:"Toggle navigation", search:"Search chapters…",
@@ -583,7 +596,13 @@ themeBtn.addEventListener("click",function(){
 
 /* ---------------- Site language ---------------- */
 function switchLanguage(next){
-  if(next===language || !editions[next] || !editions[next].length) return;
+  if(next===language || !editions[next]) return;
+  loadEdition(next,function(){
+    if(editions[next].length) applyLanguage(next);
+    else localizeShell();   // the bundle did not load: put the toggle back
+  });
+}
+function applyLanguage(next){
   saveProgress(); clearTimeout(_saveT);
   var slug=current?current.slug:BOOK[0].slug;
   var index=topBlockIndex(), block=content.children[index];
@@ -735,10 +754,15 @@ wnModal.addEventListener("click",function(e){ if(e.target===wnModal) wnHide(); }
 function currentSlug(){var m=location.hash.match(/^#\/(.+)$/);return m?m[1]:null;}
 window.addEventListener("hashchange",function(){var s=currentSlug();if(s)go(s,false);});
 window.addEventListener("beforeunload", saveProgress);
-localizeShell();
-buildNav();
-// A shared link's hash still wins; otherwise always start at the front of the book.
-go(currentSlug()||BOOK[0].slug,false);
-try{ localStorage.removeItem("last"); }catch(e){}   // no longer used
-wnMaybeShow();
+loadEdition(wantedLanguage,function(){
+  if(editions[wantedLanguage].length){
+    language=wantedLanguage; BOOK=editions[language]; indexBook(); refreshWhatsNew();
+  }
+  localizeShell();
+  buildNav();
+  // A shared link's hash still wins; otherwise always start at the front of the book.
+  go(currentSlug()||BOOK[0].slug,false);
+  try{ localStorage.removeItem("last"); }catch(e){}   // no longer used
+  wnMaybeShow();
+});
 })();

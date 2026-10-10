@@ -39,7 +39,10 @@ test('translated headings retain every English section anchor in order', () => {
 test('both local editions load without a runtime translation service', () => {
   const html = fs.readFileSync(path.join(root, 'site/index.html'), 'utf8');
   const app = fs.readFileSync(path.join(root, 'site/app.js'), 'utf8');
-  assert.match(html, /src="content.uk.js"/);
+  // English readers do not download the Ukrainian bundle; app.js adds it on demand.
+  assert.match(html, /src="content.js"/);
+  assert.doesNotMatch(html, /src="content.uk.js"/);
+  assert.match(app, /"content\."\+lang\+"\.js"/);
   assert.match(html, /id="languageToggle"/);
   assert.doesNotMatch(html + app, /MyMemory|mymemory\.translated|easyToggle|selTranslate|langModal/);
   assert.doesNotMatch(app, /\bfetch\s*\(/);

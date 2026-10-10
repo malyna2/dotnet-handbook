@@ -25,12 +25,12 @@ A self-contained, responsive website for the handbook. No build step, no server,
 ## English / Ukrainian editions
 
 - The **EN / УКР** switch changes the entire site: chapter prose, navigation, search, buttons, reading-time labels and release notes.
-- Ukrainian is the default. The reader remembers your choice in `localStorage` under `site_lang`.
-- Both editions are included locally; switching works offline and makes no translation API requests.
+- The first visit follows the browser's language (Ukrainian for `uk*`, English otherwise). The reader remembers your choice in `localStorage` under `site_lang`.
+- Both editions ship with the site. English readers never download the Ukrainian bundle: `content.uk.js` loads only when that edition is chosen. Switching makes no translation API requests.
 - Chapter URLs, section anchors, reading progress and release read marks are shared between languages. Your open chapter and reading position are preserved when switching.
 
 ### Updating translations
-English source chapters live in `../chapters/`; complete Ukrainian translations use the same filenames in `../chapters/uk/`. Add and update both editions together, preserving heading structure, code samples and link destinations. Translation work uses GPT-6 Luna subagents, or the latest Haiku in Claude Code, as described in `../CLAUDE.md`.
+English source chapters live in `../chapters/`; complete Ukrainian translations use the same filenames in `../chapters/uk/`. Add and update both editions together, preserving heading structure, code samples and link destinations.
 
 The build rejects missing translations, altered examples or heading structure, and source changes without a translation update. `../chapters/uk/_sources.json` is generated freshness metadata; do not edit it by hand.
 
@@ -47,4 +47,4 @@ This regenerates `content.js`, `content.uk.js`, `../main.md` and `../main.uk.md`
 - `style.css` — all styling (responsive, theming)
 - `app.js` — Markdown renderer, highlighter, navigation, search, language switching
 - `content.js` — the book content (generated from `../chapters/*.md`)
-- `content.uk.js` — Ukrainian content with the same routes and heading IDs
+- `content.uk.js` — Ukrainian content with the same routes and heading IDs (loaded on demand)

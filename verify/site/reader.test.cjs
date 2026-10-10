@@ -17,9 +17,35 @@ const uk = [
 ];
 
 const { boot: bootReader } = require('./reader-harness.cjs');
-function boot(options={}) { return bootReader({ ...options, en, uk }); }
+// Most cases start from a Ukrainian browser; the default-language tests below set it explicitly.
+function boot(options={}) { return bootReader({ browserLanguage: 'uk-UA', ...options, en, uk }); }
 
-test('Ukrainian default translates shell, prose and buttons while retaining section anchors', () => {
+test('an English browser gets English and never downloads the Ukrainian bundle', () => {
+  const app = boot({ browserLanguage: 'en-GB' });
+  assert.equal(app.document.documentElement.lang, 'en');
+  assert.equal(app.elements.languageToggle.checked, false);
+  assert.match(app.elements.content.innerHTML, /English prose/);
+  assert.deepEqual(app.loaded, []);
+  app.switchTo('uk');
+  assert.deepEqual(app.loaded, ['content.uk.js']);
+  assert.match(app.elements.content.innerHTML, /Український текст/);
+});
+
+test('a saved choice wins over the browser language', () => {
+  assert.equal(boot({ storage: { site_lang: 'en' } }).document.documentElement.lang, 'en');
+  assert.equal(boot({ browserLanguage: 'en-US', storage: { site_lang: 'uk' } }).document.documentElement.lang, 'uk');
+});
+
+test('if the Ukrainian bundle cannot load, the reader stays usable in English', () => {
+  const app = boot({ ukUnavailable: true });
+  assert.equal(app.document.documentElement.lang, 'en');
+  assert.match(app.elements.content.innerHTML, /English prose/);
+  app.switchTo('uk');
+  assert.equal(app.elements.languageToggle.checked, false);
+  assert.equal(app.storage.site_lang, undefined);
+});
+
+test('a Ukrainian browser gets the Ukrainian shell, prose and buttons while retaining section anchors', () => {
   const app = boot();
   assert.equal(app.document.documentElement.lang, 'uk');
   assert.equal(app.elements.languageToggle.checked, true);
@@ -82,7 +108,7 @@ test('an isolated pipe row renders as prose and does not freeze chapter switchin
   const oddEn = structuredClone(en), oddUk = structuredClone(uk);
   oddEn[0].md += '\n\n| orphan row | no separator |\n';
   oddUk[0].md += '\n\n| окремий рядок | без роздільника |\n';
-  const app = bootReader({ en: oddEn, uk: oddUk });
+  const app = bootReader({ en: oddEn, uk: oddUk, browserLanguage: 'uk-UA' });
   assert.match(app.elements.content.innerHTML, /окремий рядок/);
   app.switchTo('en');
   assert.match(app.elements.content.innerHTML, /orphan row/);
