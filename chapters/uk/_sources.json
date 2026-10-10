@@ -1,206 +1,206 @@
 {
   "00-frontmatter": {
     "source": "e781924d0e30a5dacdf2acc2f5e7101bbc180b7448ac411c9eaf7a8abf776c83",
-    "translation": "48e7d5ffbe1b545bb0a74acbfe07bf4a4d945dea2d7aa1080665d83464bf7daf"
+    "translation": "daddad290d51955dcc5354a588321b6313350db29412d88a898daa49b6f8e5aa"
   },
   "100-part-1": {
     "source": "0fc9fd639e2cb04dde72d3feb31e749a46b05f16c0ccfae9088d7efd284b4a8b",
-    "translation": "75f67def6c6f108d862384d4e45792859d81118c5e7fe23eb34efb00fa57aee9"
+    "translation": "03539baf31c6878dcf0f364264f0f6a5506536939d7d399cfec956f1d0aaf423"
   },
   "101-csharp-essentials": {
     "source": "49a3c1331b75b95447fb6fd28c8231aa2dfc73ad2afecdbc72e832a7cfef9ce6",
-    "translation": "12ecda011dbaeafca37b3309a12397c0a31e9d63ec03a523cf1cdc796c017809"
+    "translation": "50262f23e1198ac5dfe7487bff50190ac2205e0aa26acbde446e36532f063d5f"
   },
   "102-algorithms-essentials": {
     "source": "bb58c8f62c565973460dfbd4e9a825693c271ec908eaada6a2c73771caa445e2",
-    "translation": "2bd6a8f443ede42f3fd4c4410eddccf320a1220189f510a1dd3c6f9f904d5c1b"
+    "translation": "24100fbaccaf9fe67cd7e31886430d83fa6ff5676477dddc4075c8cd336299f4"
   },
   "103-how-dotnet-runs-your-code": {
     "source": "d031a94dbd65672f858b6d545f1bdf771faf2bd080941aee37aebe32ef775279",
-    "translation": "4b72304d7495793ec5e467eb06829629f689a0a41add0c5427124f40c0ecf997"
+    "translation": "3f696f28bed6a98b004eac344cadee7086280d4615a603242635302664bd3553"
   },
   "104-async-essentials": {
     "source": "714e628b67e44f8a0d72bf93b2066a0d326f334a08997cafaea11d898a092acd",
-    "translation": "891ab0a7e0836fce4b4e577f7bc29d18f6a06371b3ced9fdf1f3f8797e11140f"
+    "translation": "63383e499f7685c89193e4f0dd9b0a1ade9194501b508d0b15d0141c85791216"
   },
   "105-http-and-web-apis": {
     "source": "6af6a501e6c286dd084f4c075775383a29ec100cc3847e87318633b3685a1227",
-    "translation": "e5e6eb7c3750390e3918f00292ecd21af93b6df989c7cb21b80349c7ac5f9597"
+    "translation": "0e9c77c8a6a974078634452825b563531006f7769d88ddd723be7924cead105e"
   },
   "106-frontend-essentials": {
     "source": "7042120a004265351d0deb045b4453026ed1c20b2c20cc29fe1e3522c835be03",
-    "translation": "cb6627ff43ca0c46fd50959fff4c666eabb7b88f22073cbfc77bc5bcb74a27ec"
+    "translation": "97300d9c0281a624182321a2f47e5f0af435b44906767a6d8cef75436e1ca790"
   },
   "107-data-access": {
     "source": "81f82bad351c4dc974d12d66381a9e09f069f22186bae3ef0e6a5ddff048f2c1",
-    "translation": "c8f3e6bf09c7a05100ca5ddc39cfc89d8d571a09652b00744e72db5c2ac1785e"
+    "translation": "4e8aeeb5ffb6f6046659c6f8202411587aaae1f1a3f8e60afb7f554fe943e2be"
   },
   "108-testing": {
     "source": "ddcbf9c1f36b926fbc8d99e1b741110e411dd485155c5daa3bf009ed0d663027",
-    "translation": "2cdae15120632ad0ad87c11d7c95a2064874d2ded7a1f8c08713097e368aa58b"
+    "translation": "6316b1fce3f5a0806d1f1621700b6fcd4bc54c831fcae0ad3010dd2594c2069f"
   },
   "109-exceptions-logging-diagnosis": {
     "source": "f8a897ba21a023b470083dd797bed148cd27d315ca517f655924235e50bb563c",
-    "translation": "9c54b4eac069f60c658418e551e277d0ea0556a5eb6c6cda46d5fb1acabab88b"
+    "translation": "11292650af22fd7fcdc9375c7c991611614bcec7c14f83ce20ab0a8f0e1097a0"
   },
   "110-design-basics": {
     "source": "c8ea45423fed551525a9e9e043fc58274fd444c28af3c3190af3a6f039fbff18",
-    "translation": "d3f812fb94df45ca5f53d8844aa20c63ab289552514af5e5fe9bc889e3c04513"
+    "translation": "132175be052f94babc965a6a313f590f41d7ce54d0f9e9527f7372894f8e0bf4"
   },
   "111-messaging-and-background-work": {
     "source": "61348d4464172754bb008f2a0bddeeee696d4cd42612afdd18417bf9911cb366",
-    "translation": "23452526c2135121d1b4c2ff28a9fe9e5eeb5e88b6c17d8b8dab16cd02e1abad"
+    "translation": "ce300c034f4f63e09cae09dace6b89731368728002713a8327175c394fa6cf00"
   },
   "112-security-essentials": {
     "source": "8eb6ff68b3a1622a2692a8b066d81c6b59c04efa193da693d8006265cae28634",
-    "translation": "698e0f0c01780797671141efac7b944ee025abd73fc1ce7c25a939c7f895ee12"
+    "translation": "4ea2509d7b7389babaa6599f08447001e2b16427330b1d3046a03d55b8ce038d"
   },
   "113-git-and-ci-cd": {
     "source": "4123001080f75f66245573ba89c1c940bf30d9afc26f0d9f147d76bcd2846284",
-    "translation": "c979592d84e8013db2903329a23757138104370da53341b2e047bedb2e0cf953"
+    "translation": "8bb6f78ddbea13a6a3c17357826d589fcb9f754fb2d72b3229a8207bc7c380ac"
   },
   "114-containers-and-linux": {
     "source": "e8fa2f2271d5c07b552dd6492003c02e967a89e7e947872ca1a36bf2fffe112e",
-    "translation": "5204830e2a067a29ab864e4bf5ace7fb6a865b006709540fdf1286d878ff2fd9"
+    "translation": "6d879a96c897c097a9f122ed39f77658911b72dd4c7baaeb461f851deba9b0c7"
   },
   "115-dates-money-strings": {
     "source": "0de0065422c2376828fa8ff9471549d895c4ca613c5905bab9fcad336fb0410e",
-    "translation": "8d7f6824aa4e47e1653155c65fc47acdb391dbe149d17954576b7ad373bfc9a1"
+    "translation": "ca6b87acc82d00e53da8dc39f79372a13d848e93be515ad007500df9944f6eb6"
   },
   "116-working-like-a-middle": {
     "source": "86c9c751262c949f94d8b8dd457df71c845ab462409a7d4fe750a8fb3c58f8bc",
-    "translation": "67d90697d63ac32f7eddf83d3ff5d2c262ddf462ac7cb76589a804d2ebb995a4"
+    "translation": "734afa06c5d79bfc2f04e2c1bae3c1d86d5fae9624b259fb3b64fe0c4953c716"
   },
   "199-part-1-pay-attention": {
     "source": "e0db1991b49cc4dc0357b7ff6977085ca380eafca323b98a75553ed0cb5c4451",
-    "translation": "17bf0fb12c8176fad68b37ab206298a485f326622b6c77063a0349a43416e65a"
+    "translation": "fbd3047e666f046b8fe47ac7d76bf0ce5ee74f70d8d217270cc11358f6065535"
   },
   "200-part-2": {
     "source": "70d70aacd7310fc1012d3916df1a1523bbcb266c2cea9f6bb0a283b48016bbcb",
-    "translation": "6ba68fed6d00ad3f1c005957e71868c9206f255d6b16799f64c53f29152dfe44"
+    "translation": "ff83d4763253264f6184267de6e997c585c4ddac289092a30d24fd4d0457914b"
   },
   "217-runtime-internals-performance": {
     "source": "b0f90ab47addf9bab298a102f7fd8818fd2b0a24500694d1a810c2c5c96d8e85",
-    "translation": "206f98a141eae209d5e66cddcb27fc43d329dffd2daa76440b447f12c2956bc1"
+    "translation": "4993567ea2edb9448f349bd3432c2ec7ce4d8a70aa4911537fdb6a7037d91799"
   },
   "218-data-in-depth": {
     "source": "2363deb1d61887a5bbf5465fc418ef3ac3aae65b2a1298b86d0e2f3aecb1b8d8",
-    "translation": "49d6d77a16c6e4cd0d8e9cb30985179f52459c196ee8e919cd6b27fc0b2edaea"
+    "translation": "8c51c6a4102e80dc744d9618f57411f3e8dac85388a5f19b32ff36dab5bfdb0d"
   },
   "219-lab-execution-plans": {
     "source": "ecae8685d587a7ba26d1a79605b32fe1425a80303bfcd404b5643369a9c225c1",
-    "translation": "8e91dd51c7ec57e7fe2b7164cebd00a518c66f23acfdd4e0720eda7712bd0f24"
+    "translation": "6a64fd0145d27cd65c3bfe0ff947c173838a31a1b1aa6a3859f32cfe01b2be2f"
   },
   "220-distributed-systems": {
     "source": "c82d837c6473ac034620a7fea7f6ff030a2a7948eef6572b1b250a3c23388a37",
-    "translation": "2828e3864e7c6779c99c869f9e1ee4e09ebdf5240e1f4a97314ac2b944fbbaa5"
+    "translation": "c04496d466a269a8abe1687500cc24b02e441c14dff65e7c78649d9463861657"
   },
   "221-architecture": {
     "source": "2cd57fa121ffe90d337f0bc3647f8bf532b83e33d534599787586879cc576897",
-    "translation": "6f6a486c141ff131cd251bd5ff61bdc85e27cf3abff924b85e00a93c3e952328"
+    "translation": "f73d0bc2a91c447b1071bb9c49a6cd9dd1dd1fff91a1a18a2def00afe04be2df"
   },
   "222-api-evolution": {
     "source": "d3f63ea0e8503541d47ba760b8acd454f2eefafdca08d9bc2e0f8c87ec919462",
-    "translation": "951ccc9d03a288c84ead5811644e7ad56236d220b5bc7c9f10e7cc1d1f0d6521"
+    "translation": "825f19c7390e2ed15806614cf14eeacd9d046722b8ce1d584931de854d813227"
   },
   "223-system-design": {
     "source": "3c8e7c811cacf69e65c8570a1985bc1f9f729773e5be3a916f3c207d660032bc",
-    "translation": "cecc2af907d2ef3ca01f4cba353d2d22f2da712cd63d3e7c33fa900be156f7d7"
+    "translation": "91f97bcecf1e00211850c2a4a38ada10c109844d5498434356849108db599fb0"
   },
   "224-legacy-brownfield": {
     "source": "b0cbfefa251e8cc9c1fc7e3cfe74a62df27f241d8f425a04c468aa09a2f2bc41",
-    "translation": "caa39d790af15da13e7396e69003f3fc7778f90b00fdcdff3fced0fac2e6661e"
+    "translation": "0a811d7746628afc68229d61affdc136212ba2696f48d4fa3a4e5fa1ab665df2"
   },
   "225-observability-testing-at-scale": {
     "source": "bfd8f8bb4293cbe4b71b8e245c7b2084de91c9cfa2e1e3f654ab6460b43a24b6",
-    "translation": "7239a76d999a05f720f4a4d09dbe99a20ebf5817a788d0bc9246f095e9525610"
+    "translation": "dc7644774777c207ad4de3b637e27399b0886fd867e360a7b36237cff154734f"
   },
   "226-delivery-and-platform": {
     "source": "ae1fff72806c277b53e380662196e19b4c3e7561f38bf4ebc4e2817c567347df",
-    "translation": "993f852a17d310c672ac8063dc94dab97dba71d817fb1950bec9f1e6d30007aa"
+    "translation": "9bf467f5c672d36068185cfa39396077024c8c895f9e697ad1bc18fe4cab2788"
   },
   "227-security-in-depth": {
     "source": "c40fb4e4851239d495c5dcf92ef3e997dfcbadc6bd17a1b81e7c94bedb1f7ec0",
-    "translation": "5ca083bdaa5d38fe141c9b245b6e38ee938f45f0ba9c5a2734c525f934d4f50a"
+    "translation": "c51b40764d002e21811afb0e74435040872eada746cdb6cf3d7a7619e21077e1"
   },
   "228-cloud-fundamentals": {
     "source": "272c445f57a3f0295fcf3e0084da2b154a780ef98fdd1c59e57ad8f5d1aa39b3",
-    "translation": "29be17e4c9d9803e76ac81a057fb5483cc17215767ffab7a133f945c99161cc9"
+    "translation": "6bc57b41ff9316d9afd6e49c738454183a7ca7fdd71e9ec44e813d60e601ed53"
   },
   "229-azure-in-depth": {
     "source": "d347b18bc1db596d9262defec90b5395fa08c10053645dc752258c1ee311e098",
-    "translation": "fc2e3d1a8935afe471e107c60b1bd3c1917fb21a6238609c321961f863640642"
+    "translation": "749630e72481fef13ac9043b3701e7c0e2601a67ccdd48de3be13eb0eea7356b"
   },
   "230-azure-casebook": {
     "source": "a8ec8b55ef82a6c319365130ebc411a33df3580a78a531063839501ce1e54c8d",
-    "translation": "337345539417f91c285c54f07e9fbd514c99551da8cc49b3fd392d5a6ce73a6f"
+    "translation": "0df9c66211a67abf173c97c4ae07095a1e7b680d49ed1a187985fc1111014ff7"
   },
   "231-compliance-finops": {
     "source": "832d7abdcbfe0a358b676559ac18985238894ba75f8913c11f96a59054695716",
-    "translation": "f94ff07c7bc40815594e57de2a6adbe2184f9de62a0685d1f4148335f406374b"
+    "translation": "789d0aba94d5c7a4c1f0da1e1c37073b6005410bb425a65b9248787cf46739cb"
   },
   "232-ai-native": {
     "source": "5bcfad7cd268e0f3b8f15d9883c9900883b1e01df4c51acb913cd998c7d44c45",
-    "translation": "82d3b251b5c6f0a6b60d821fb660fb61a86a95b282aaca60f02da831588b13d3"
+    "translation": "2dc7c9fe558c98126fa14500dc7b0025c1675262f4d7cdf9b126f0d5c62964c0"
   },
   "233-ai-systems": {
     "source": "431d36035ba110b578ab97cb3998fa8b71d98888e397d783ef60573dd7f8f603",
-    "translation": "0ec85c702d9be23fae0feada0dbf78276ffde8ff89b1b5ed4ed228f0b4071e71"
+    "translation": "a6425417f0ca9d33b280ca8b23d191c772590f6b603ab09f1ee6379d52a4640f"
   },
   "234-frontend-in-depth": {
     "source": "cb21f005175a3664a0737ee9d6e48a4c3d650fbe936503b36c4baa3587f5c6ce",
-    "translation": "2c5e4c9b1483403c9f8b226470a2056ab3686ec778eb4b458b8018e9f1921a99"
+    "translation": "21226e98becf6291875c597dc65041e371bd6f35a5339f7e0cb12861aeb41e82"
   },
   "235-production-incidents": {
     "source": "18090ebb8318d15e9205657f0d808c55f605e7f2c259c9de34a8949599fd10c4",
-    "translation": "13838708d1736d5dab893642a075ba84108835371fbe97e68d484b3d9cd17bab"
+    "translation": "1a01a57bff23b786f2768e0587515da8b00b8d4aa486b4062573f09367a20f79"
   },
   "236-senior-behaviours-career": {
     "source": "d53eb95ede19fb2c2a867fc9296d69950e0b8ff04b4a026dd6f008f8ecf4877f",
-    "translation": "0a8d587279ef08ad77652404ac3ce59e9d3ccc04029440d08323be77f773fc35"
+    "translation": "9e1eadc3226c46520f9b3ba78f34b55e2f0cf4c61bc27e82e910376b8b34aaaa"
   },
   "237-lab-story-bank": {
     "source": "e5c949b5f6ea74b4d081b65aec72bd137610b35cf8f43a984a5182cda05f5e53",
-    "translation": "aacc7221b5f3abfc15cdfe5e4569210152b61807da44dd7d1cfceb67ff2ccd37"
+    "translation": "bea010776b7e9de6202558bc47be1f2560935efee63cf7b62f7b1aa7315fc214"
   },
   "238-point-of-view": {
     "source": "adad8cff9086dba8492f73840a201af5fc3a9967d2dcc6159684487ba3119014",
-    "translation": "c6ae91b40782832c0402e4c32c8de851a0c040c76f76d0cf3cee4f4850b170a4"
+    "translation": "9faf16f4456fab7000ac45ceaa1854965b8143dd5f817879b39d90cb92057f56"
   },
   "239-discovery-and-diagnosis": {
     "source": "ebd00857c76d60e9ff6601eafb618d9807205090ec0e1afb24d0bfb816e3c74c",
-    "translation": "6bb8639f123323cf991429eb3c5c707ebfe7f49b2924184bc4b673b613f8cedd"
+    "translation": "9a1c2d101018dcb1aaab99a8b27459afcbd1e3f16b537bdcb8c1f8ebd89d9551"
   },
   "240-lab-health-check": {
     "source": "86394595d5501c3da6e9e7f23f16debe5a87b219d57d00bad303ff85e8118598",
-    "translation": "fa95d5c614de36e6a052ac8ca7600d4c64102a8040456fa3d70ee7f26289d538"
+    "translation": "6a93bc8807be738b8ccb402e81e17d6b47c8b77f40523a091b4523b86545f9f6"
   },
   "241-recommendations-proposals": {
     "source": "a255c801416b420ac8685c5a3be99c6da5e2ba547c186e1741ac8541b280707d",
-    "translation": "84fcfd77600bb13295a459b8053974e4167a17a5a336c5eb3c2e8ea549f1a9fb"
+    "translation": "bb93e3eaf288650dac7e0356b21ebb03d96a24d33bdf7b949cc64e460ec79df1"
   },
   "242-advisory-casebook": {
     "source": "dcd2122d030f77b917f7aad4d09be7001feb4d2ee467e189c69b06c2be4ce3e5",
-    "translation": "35c8ee0288964ee7b3b20be27efba75bfc978fd14845e6df58085bfbcd292d85"
+    "translation": "ef7c7092c4d6351913d071f8861504019c7c13ec7e57ede67349c19ae6fc50d9"
   },
   "243-positioning": {
     "source": "3df6405718f3d1377a0fc892d0eaead0faf5caabd39d9858f619ba1872b248e0",
-    "translation": "79878007f0c31f7a8cce91135d949c2263863968d28a32ec3bc841c196504145"
+    "translation": "686481355304b23afe9c04f8abca1c374a22d1cf9e6b3b45db6168da2f813482"
   },
   "244-capstone": {
     "source": "4fc1f1e4857d39e1fdcc93fb7564041264d85730ea54768c8a5f238be88c881d",
-    "translation": "20ffd7aa7291baf07919a9513a3fc50324d1885071946bdcc4157a5f7d17f713"
+    "translation": "681b23949f3b248edb48c3e853cf32879c6c063f83b5e5f43d186e394ce2ffea"
   },
   "299-part-2-pay-attention": {
     "source": "ae92f09bbc9f200cfac0ff79a72c0f83107dff43af52dbe7e9a589804195ccd5",
-    "translation": "901895c165b730674cfbb40397a276fd2ddd6d7070d67de257e74bcd85420090"
+    "translation": "76731d65c36ba44a1aea38a2b96628fd04597f432abb77f8ffb43cc919913d7f"
   },
   "900-appendix-net-versions": {
     "source": "b039cad9495baa81936b092b6ff1c27ca178edfe242c62fe4f420185df14b582",
-    "translation": "19e5c224c62f47aeb0fefc5a8916d291bc165c12901b01f71cb6bffb0791b917"
+    "translation": "8d948f63208a41d857fad1907242f756f1c10311a2a2b0f448eb7c0cb455b42d"
   },
   "999-whats-new": {
-    "source": "952857eb70814ee7a60df53f58e67f10094ed4b2376f977516c4143404cb914a",
-    "translation": "f6bd9fa4687e07afe0b28a52c0e8c4803d0070f53dc7fb5b35e058d5069e4ebf"
+    "source": "3384dc09e5387f909c539e2c9b741f4f38c86dd87a00727e94d90814e404c136",
+    "translation": "4160de7bbc7711c76220baff2e04ae5008337db296b2962b59a271767023584e"
   }
 }
