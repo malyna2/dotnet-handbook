@@ -1,13 +1,81 @@
 /* ============================================================
    The Middle → Senior .NET Developer Handbook — reader app
    Self-contained: custom Markdown renderer, highlighter,
-   navigation, search, and select-to-translate.
+   navigation, search, and English / Ukrainian editions.
    ============================================================ */
 (function () {
 "use strict";
-var BOOK = window.BOOK || [];
+function readSetting(key, fallback){ try{ return localStorage.getItem(key)||fallback; }catch(e){ return fallback; } }
+function writeSetting(key, value){ try{ localStorage.setItem(key,value); }catch(e){} }
+var EN_BOOK = window.BOOK || [];
+var editions = {en:EN_BOOK, uk:window.BOOK_UK || []};
+// A saved choice wins; otherwise follow the browser's language, falling back to English.
+var wantedLanguage = readSetting("site_lang", /^uk\b/i.test(navigator.language||"")?"uk":"en");
+if(!editions[wantedLanguage]) wantedLanguage="en";
+// Start on the English edition; the boot moves to the wanted one once its bundle has loaded.
+var language = "en";
+var BOOK = EN_BOOK;
+// Only the English bundle is in index.html. Another edition is ~4 MB, so it loads on demand,
+// through a <script> tag (not an XHR) so the site still opens from file://.
+function loadEdition(lang, done){
+  if(editions[lang].length) return done();
+  var s=document.createElement("script");
+  s.src="content."+lang+".js";
+  s.onload=function(){ editions.uk=window.BOOK_UK||[]; done(); };
+  s.onerror=function(){ done(); };   // missing or unreachable: the caller stays on English
+  document.head.appendChild(s);
+}
+var UI = {
+  en: {
+    brand:".NET Handbook", menu:"Toggle navigation", search:"Search chapters…",
+    contents:"Table of contents", outline:"On this page", language:"Switch site language",
+    ukrainian:"Ukrainian site language", theme:"Toggle light/dark",
+    footer:"Self-contained handbook · available offline in English and Ukrainian.",
+    wnTitle:"What's new", wnOpen:"Open the What's New page", wnClose:"Got it",
+    copy:"Copy", copied:"Copied!", reset:"Reset progress", resetDone:"Progress reset",
+    resume:"Continue where you got to", readOrder:"Read it in order", browse:"Browse chapters",
+    chapters:"chapters", chapter:"Chapter", appendix:"Appendix", previous:"← Previous",
+    next:"Next →", noResults:"No results", themeToast:"Theme: ",
+    dark:"dark", light:"light", auto:"auto"
+  },
+  uk: {
+    brand:"Довідник .NET", menu:"Показати або приховати навігацію", search:"Шукати розділи…",
+    contents:"Зміст", outline:"На цій сторінці", language:"Змінити мову сайту",
+    ukrainian:"Українська мова сайту", theme:"Змінити тему оформлення",
+    footer:"Самодостатній довідник · доступний українською та англійською офлайн.",
+    wnTitle:"Що нового", wnOpen:"Відкрити сторінку «Що нового»", wnClose:"Зрозуміло",
+    copy:"Копіювати", copied:"Скопійовано!", reset:"Скинути прогрес", resetDone:"Прогрес скинуто",
+    resume:"Продовжити з місця, де зупинилися", readOrder:"Читайте послідовно", browse:"Усі розділи",
+    chapters:"розділів", chapter:"Розділ", appendix:"Додаток", previous:"← Назад",
+    next:"Далі →", noResults:"Нічого не знайдено", themeToast:"Тема: ",
+    dark:"темна", light:"світла", auto:"автоматична"
+  }
+};
+function ui(key){ return UI[language][key]; }
+function localizeShell(){
+  document.documentElement.lang=language;
+  ["menuBtn", "themeBtn"].forEach(function(id){
+    var el=document.getElementById(id), label=ui(id==="menuBtn"?"menu":"theme");
+    el.title=label; el.setAttribute("aria-label",label);
+  });
+  document.getElementById("brandHome").textContent=ui("brand");
+  document.getElementById("search").placeholder=ui("search");
+  document.getElementById("search").setAttribute("aria-label",ui("search"));
+  document.getElementById("sidebar").setAttribute("aria-label",ui("contents"));
+  document.getElementById("outline").setAttribute("aria-label",ui("outline"));
+  document.getElementById("languageSwitch").title=ui("language");
+  var toggle=document.getElementById("languageToggle");
+  toggle.checked=language==="uk"; toggle.setAttribute("aria-label",ui("ukrainian"));
+  ["footerText", "wnTitle", "wnOpen", "wnClose"].forEach(function(id){
+    document.getElementById(id).textContent=ui(id==="footerText"?"footer":id);
+  });
+}
 var bySlug = {};
-BOOK.forEach(function (c, i) { c.index = i; bySlug[c.slug] = c; });
+function indexBook(){
+  bySlug={};
+  BOOK.forEach(function(c,i){ c.index=i; bySlug[c.slug]=c; });
+}
+indexBook();
 // Old chapter addresses (from before the book became Part 1 + Part 2) -> where they live now,
 // so bookmarks, shared links and old What's New entries still open the right chapter.
 var ALIASES = window.ALIASES || {};
@@ -23,7 +91,7 @@ function headingSlug(txt){
 // chapter (there are a handful, e.g. "summary") are left out rather than guessed at.
 var headingOwner=(function(){
   var owner={}, dupe={};
-  BOOK.forEach(function(c){
+  EN_BOOK.forEach(function(c){
     var used={};
     (c.md.match(/^#{1,6}[ \t]+.*$/gm)||[]).forEach(function(line){
       var base=headingSlug(line.replace(/^#{1,6}[ \t]+/,"").trim());
@@ -105,7 +173,7 @@ function highlight(code, lang){
   return scan(code,MIN_RE,MIN_CLASSES);
 }
 
-var usedIds={};
+var usedIds={}, headingAnchors=null, headingIndex=0;
 function render(md){
   var lines=md.replace(/\r\n/g,"\n").split("\n");
   var html=[], i=0;
@@ -119,7 +187,7 @@ function render(md){
       i++;
       var body=highlight(code.join("\n"),lang);
       html.push('<div class="codeblock">'+(lang?'<span class="lang">'+esc(lang)+'</span>':'')+
-        '<button class="copy" type="button">Copy</button><pre><code>'+body+'</code></pre></div>');
+        '<button class="copy" type="button">'+ui("copy")+'</button><pre><code>'+body+'</code></pre></div>');
       continue;
     }
     var hm=line.match(/^(#{1,6})\s+(.*)$/);
@@ -128,6 +196,7 @@ function render(md){
       var base=headingSlug(txt);
       usedIds[base]=(usedIds[base]||0)+1;
       var slug=usedIds[base]===1?base:base+"-"+usedIds[base];
+      if(headingAnchors) slug=headingAnchors[headingIndex++]||slug;
       html.push("<h"+lvl+' id="'+slug+'">'+inline(txt)+"</h"+lvl+">");
       i++; continue;
     }
@@ -167,6 +236,10 @@ function render(md){
           !/^<\/?(details|summary)(\s[^>]*)?>/i.test(lines[i].trim())){
       para.push(lines[i]); i++;
     }
+    // A pipe-delimited line without a table separator (or an unsupported HTML
+    // line) is plain text. Always consume it so malformed Markdown cannot freeze
+    // the reader while opening or switching a chapter.
+    if(!para.length){ para.push(lines[i]); i++; }
     flushPara(para);
   }
   return html.join("\n");
@@ -203,30 +276,6 @@ function parseList(lines,start){
   }
   out+="</"+(ordered?"ol":"ul")+">";
   return {html:out,next:i};
-}
-
-/* ---------------- Translation (MyMemory) ---------------- */
-var settings={ email: localStorage.getItem("tr_email")||"", lang: localStorage.getItem("tr_lang")||"uk", easy: localStorage.getItem("tr_easy")==="1" };
-function cacheKey(t){return "tr:"+settings.lang+":"+t;}
-function getCached(t){try{return localStorage.getItem(cacheKey(t));}catch(e){return null;}}
-function setCached(t,v){try{localStorage.setItem(cacheKey(t),v);}catch(e){}}
-function translate(text){
-  text=text.trim();
-  if(!text) return Promise.resolve("");
-  var hit=getCached(text);
-  if(hit!==null) return Promise.resolve(hit);
-  var url="https://api.mymemory.translated.net/get?q="+encodeURIComponent(text)+
-          "&langpair="+encodeURIComponent("en|"+settings.lang);
-  if(settings.email) url+="&de="+encodeURIComponent(settings.email);
-  return fetch(url).then(function(r){return r.json();}).then(function(d){
-    var out=(d&&d.responseData&&d.responseData.translatedText)||"";
-    if(/MYMEMORY WARNING|QUERY LENGTH LIMIT|YOU USED ALL AVAILABLE/i.test(out)){
-      throw new Error("Daily translation limit reached — add your email in 🇺🇦 settings for a higher limit.");
-    }
-    if(!out) throw new Error("No translation returned.");
-    setCached(text,out);
-    return out;
-  });
 }
 
 /* ---------------- App shell / routing ---------------- */
@@ -286,7 +335,7 @@ function resetProgress(slug){
   // event would immediately re-record the position you just cleared.
   if(current && current.slug===slug) window.scrollTo(0,0);
   updateNavProgress(slug);
-  toast("Progress reset");
+  toast(ui("resetDone"));
 }
 function isDone(slug){ var d=savedPos(slug); return !!(d&&(d.d||d.p>=97)); }
 function scheduleSave(){ clearTimeout(_saveT); _saveT=setTimeout(saveProgress,400); }
@@ -299,7 +348,7 @@ function savedPos(slug){
 }
 
 function readTime(md){
-  var m=md.match(/Estimated read time:\s*~\s*(\d+\s*h(?:\s*\d+\s*min)?|\d+\s*min)/i);
+  var m=md.match(/(?:Estimated read time|Орієнтовний час читання):\s*~\s*(\d+\s*(?:h|год)(?:\s*\d+\s*(?:min|хв))?|\d+\s*(?:min|хв))/i);
   return m?("~"+m[1].replace(/\s+/g," ").trim()):"";
 }
 function buildNav(){
@@ -324,9 +373,9 @@ var ICON_RESET='<svg viewBox="0 0 16 16" width="12" height="12" fill="none" stro
 function navActs(slug){
   return '<span class="nav-acts">'+
     '<span class="nav-act" role="button" tabindex="0" data-act="resume" data-slug="'+slug+
-      '" title="Continue where you got to" aria-label="Continue where you got to">'+ICON_RESUME+'</span>'+
+      '" title="'+ui("resume")+'" aria-label="'+ui("resume")+'">'+ICON_RESUME+'</span>'+
     '<span class="nav-act" role="button" tabindex="0" data-act="reset" data-slug="'+slug+
-      '" title="Reset progress" aria-label="Reset progress">'+ICON_RESET+'</span></span>';
+      '" title="'+ui("reset")+'" aria-label="'+ui("reset")+'">'+ICON_RESET+'</span></span>';
 }
 navEl.addEventListener("click",function(ev){
   var btn=ev.target.closest&&ev.target.closest(".nav-act"); if(!btn) return;
@@ -367,8 +416,8 @@ function go(slug, push){
   saveProgress();
   var c=bySlug[resolveSlug(slug)]||BOOK[0];
   current=c;
-  removePopup();
   usedIds={};
+  headingAnchors=c.anchors||null; headingIndex=0;
   content.innerHTML=render(c.md);
   postProcess(c);
   buildOutline(c);
@@ -380,7 +429,7 @@ function go(slug, push){
   if(pendingResume===c.slug) resumeTo(c);
   else if(pendingSection && pendingSection.slug===c.slug) scrollToId(pendingSection.sec);
   pendingResume=null; pendingSection=null;
-  document.title=(c.nav?c.nav+" · ":"")+".NET Handbook";
+  document.title=(c.nav?c.nav+" · ":"")+ui("brand");
   closeSidebar();
   if(push!==false) history.replaceState(null,"","#/"+c.slug);
   if(pendingFind){ highlightFind(pendingFind); pendingFind=null; }
@@ -394,19 +443,20 @@ function postProcess(c){
       var code=btn.parentNode.querySelector("code");
       var txt=code.innerText;
       if(navigator.clipboard) navigator.clipboard.writeText(txt);
-      btn.textContent="Copied!"; setTimeout(function(){btn.textContent="Copy";},1200);
+      btn.textContent=ui("copied"); setTimeout(function(){btn.textContent=ui("copy");},1200);
     });
   });
   if(c.part==="__home__"){
-    var parts=BOOK.filter(function(x){ return /^Part \d+:/.test(x.title); });
+    var parts=EN_BOOK.filter(function(x){ return /^Part \d+:/.test(x.title); });
     if(parts.length){
-      var ph=document.createElement("h2"); ph.textContent="Read it in order";
+      var ph=document.createElement("h2"); ph.textContent=ui("readOrder");
       var pg=document.createElement("div"); pg.className="home-grid paths";
-      parts.forEach(function(p){
-        var s2=p.title.split(": "), n=BOOK.filter(function(x){ return x.part.indexOf(s2[0])===0 && x.num; }).length;
+      parts.forEach(function(original){
+        var p=bySlug[original.slug], s2=p.title.split(": ");
+        var n=EN_BOOK.filter(function(x){ return x.part.indexOf(original.title.split(": ")[0])===0 && x.num; }).length;
         var pa=document.createElement("a"); pa.className="home-card path-card"; pa.href="#/"+p.slug;
         pa.innerHTML='<div class="hc-num">'+esc(s2[0])+'</div><div class="hc-ttl">'+esc(s2[1]||"")+'</div>'+
-          '<div class="hc-rt">'+n+' chapters</div>';
+          '<div class="hc-rt">'+n+' '+ui("chapters")+'</div>';
         pg.appendChild(pa);
       });
       content.appendChild(ph); content.appendChild(pg);
@@ -415,13 +465,12 @@ function postProcess(c){
     BOOK.forEach(function(ch){
       if(ch.part==="__home__" || !ch.num) return;
       var rt=readTime(ch.md);
-      var numMatch=ch.title.match(/^Chapter\s+\d+/);
       var a=document.createElement("a"); a.className="home-card"+(isDone(ch.slug)?" done":""); a.href="#/"+ch.slug;
-      a.innerHTML='<div class="hc-num">'+esc(numMatch?numMatch[0]:"Appendix")+'</div>'+
+      a.innerHTML='<div class="hc-num">'+esc(/^\d+$/.test(ch.num)?ui("chapter")+" "+ch.num:ui("appendix"))+'</div>'+
         '<div class="hc-ttl">'+esc(ch.nav)+'</div>'+(rt?'<div class="hc-rt">⏱️ '+rt+'</div>':'');
       grid.appendChild(a);
     });
-    var h=document.createElement("h2"); h.textContent="Browse chapters";
+    var h=document.createElement("h2"); h.textContent=ui("browse");
     content.appendChild(h); content.appendChild(grid);
   }
   // Decorate first: release links get their own handler and are skipped below, so a click
@@ -444,7 +493,7 @@ function postProcess(c){
 function buildOutline(c){
   var hs=content.querySelectorAll("h2, h3");
   if(!hs.length){ outlineEl.innerHTML=""; return; }
-  var html='<div class="ol-title">On this page</div>';
+  var html='<div class="ol-title">'+ui("outline")+'</div>';
   hs.forEach(function(h){ if(!h.id)h.id=Math.random().toString(36).slice(2);
     html+='<a href="#'+h.id+'" class="'+(h.tagName==="H3"?"h3":"h2")+'" data-id="'+h.id+'">'+
       esc(h.textContent)+"</a>"; });
@@ -460,9 +509,9 @@ function buildPager(c){
   var idx=list.indexOf(c);
   var prev=idx>0?list[idx-1]:null, next=idx>=0&&idx<list.length-1?list[idx+1]:null;
   var p=document.getElementById("pager"); p.innerHTML="";
-  if(prev)p.innerHTML+='<a class="prev" href="#/'+prev.slug+'"><span class="lbl">← Previous</span><span class="ttl">'+esc(prev.nav)+'</span></a>';
+  if(prev)p.innerHTML+='<a class="prev" href="#/'+prev.slug+'"><span class="lbl">'+ui("previous")+'</span><span class="ttl">'+esc(prev.nav)+'</span></a>';
   else p.innerHTML+='<span></span>';
-  if(next)p.innerHTML+='<a class="next" href="#/'+next.slug+'"><span class="lbl">Next →</span><span class="ttl">'+esc(next.nav)+'</span></a>';
+  if(next)p.innerHTML+='<a class="next" href="#/'+next.slug+'"><span class="lbl">'+ui("next")+'</span><span class="ttl">'+esc(next.nav)+'</span></a>';
 }
 
 /* ---------------- Search ---------------- */
@@ -484,7 +533,7 @@ function runSearch(q){
   });
   res.sort(function(a,b){return a.score-b.score;});
   res=res.slice(0,12);
-  if(!res.length){ searchResults.innerHTML='<a>No results</a>'; searchResults.hidden=false; return; }
+  if(!res.length){ searchResults.innerHTML='<div class="search-empty">'+ui("noResults")+'</div>'; searchResults.hidden=false; return; }
   var rq=q.replace(/[.*+?^${}()|[\]\\]/g,"\\$&");
   searchResults.innerHTML=res.map(function(r){
     var snip=esc(r.snippet).replace(new RegExp("("+rq+")","ig"),"<mark>$1</mark>");
@@ -508,91 +557,7 @@ document.addEventListener("click",function(e){
   if(!e.target.closest(".search-wrap")) searchResults.hidden=true;
 });
 
-/* ---------------- Select-to-translate → popup over the selection ---------------- */
-var selBtn=document.getElementById("selTranslate");
-var lastSel="", lastRect=null, popup=null, pendingText="";
-function positionSelBtn(vx, vy){
-  selBtn.style.left=(vx+window.scrollX)+"px";
-  selBtn.style.top=(vy+window.scrollY)+"px";
-}
-function removePopup(){ if(popup){popup.remove();popup=null;} }
-function rectFromSelection(){
-  var sel=window.getSelection();
-  if(sel && sel.rangeCount){ var r=sel.getRangeAt(0).getBoundingClientRect(); if(r.width||r.height) return r; }
-  return null;
-}
-
-function splitSentencesSmart(text){
-  var res=[], start=0, re=/[.!?]+["'’”)\]]*\s+(?=[A-Z0-9"“'(])/g, m;
-  while((m=re.exec(text))){ var end=m.index+m[0].length; res.push({s:start,e:end}); start=end; }
-  if(start<text.length) res.push({s:start,e:text.length});
-  return res;
-}
-function nearestBlock(node){
-  var el=node&&node.nodeType===3?node.parentNode:node;
-  while(el&&el!==content){
-    if(/^(P|LI|TD|TH|BLOCKQUOTE|H1|H2|H3|H4|H5|H6|DIV|DD|DT|FIGCAPTION)$/.test(el.tagName)) return el;
-    el=el.parentNode;
-  }
-  return null;
-}
-// Expand a selection to the sentence(s) it covers PLUS one sentence on each side,
-// so partial selections and abbreviations like ".NET" still translate as full context.
-function expandSelection(sel, fallback){
-  try{
-    if(!sel||!sel.anchorNode) return fallback;
-    var block=nearestBlock(sel.anchorNode);
-    var selText=sel.toString();
-    var text=block?block.textContent:"";
-    if(!text) return selText||fallback;
-    var idx=text.indexOf(selText);
-    if(idx<0) return selText||fallback;
-    var start=idx, end=idx+selText.length;
-    var sents=splitSentencesSmart(text), first=-1, last=-1, i;
-    for(i=0;i<sents.length;i++){ if(sents[i].e>start && sents[i].s<end){ if(first<0)first=i; last=i; } }
-    if(first<0) return selText||fallback;
-    var lo=Math.max(0,first-1), hi=Math.min(sents.length-1,last+1);
-    var withN=text.slice(sents[lo].s, sents[hi].e).trim();
-    if(withN.length<=480) return withN;                    // MyMemory free-tier length guard
-    var matched=text.slice(sents[first].s, sents[last].e).trim();
-    if(matched.length<=480) return matched;
-    return (selText||fallback).slice(0,480);
-  }catch(e){ return fallback; }
-}
-// Scroll to and briefly highlight the first occurrence of q in the current chapter.
-function caretAt(x,y){
-  if(document.caretRangeFromPoint) return document.caretRangeFromPoint(x,y);
-  if(document.caretPositionFromPoint){ var pp=document.caretPositionFromPoint(x,y);
-    if(pp){ var r=document.createRange(); r.setStart(pp.offsetNode,pp.offset); return r; } }
-  return null;
-}
-function textOffsetInBlock(block, container, offsetInNode){
-  var w=document.createTreeWalker(block, NodeFilter.SHOW_TEXT, null), n, total=0;
-  while((n=w.nextNode())){ if(n===container) return total+offsetInNode; total+=n.nodeValue.length; }
-  return total;
-}
-// The sentence at `off`, plus the previous and next sentence.
-function wordAtOffset(text, off){
-  if(off<0) off=0; if(off>=text.length) off=text.length-1;
-  if(off<0) return "";
-  var ws=function(c){ return c===undefined || /\s/.test(c); };
-  if(ws(text[off])){ if(off>0 && !ws(text[off-1])) off=off-1; else return ""; }
-  var l=off, r=off;
-  while(l>0 && !ws(text[l-1])) l--;
-  while(r<text.length && !ws(text[r])) r++;
-  return text.slice(l,r).replace(/^[^\w.#]+/,"").replace(/[^\w#]+$/,"").trim();
-}
-function expandAtOffset(text, off){
-  var sents=splitSentencesSmart(text), idx=-1, i;
-  for(i=0;i<sents.length;i++){ if(off>=sents[i].s && off<sents[i].e){ idx=i; break; } }
-  if(idx<0){ for(i=0;i<sents.length;i++){ if(off<sents[i].e){ idx=i; break; } } }
-  if(idx<0) idx=sents.length-1;
-  if(idx<0) return "";
-  var lo=Math.max(0,idx-1), hi=Math.min(sents.length-1,idx+1);
-  var out=text.slice(sents[lo].s, sents[hi].e).trim();
-  if(out.length<=480) return out;
-  return text.slice(sents[idx].s, sents[idx].e).trim().slice(0,480);
-}
+/* ---------------- Search hit highlighting ---------------- */
 function highlightFind(q){
   q=(q||"").trim(); if(!q) return;
   var old=content.querySelector("mark.find-hit");
@@ -601,7 +566,7 @@ function highlightFind(q){
   var walker=document.createTreeWalker(content,NodeFilter.SHOW_TEXT,null), node;
   while((node=walker.nextNode())){
     var par=node.parentNode; if(!par) continue;
-    if(par.closest && par.closest("pre,code,.tr-popup")) continue;
+    if(par.closest && par.closest("pre,code")) continue;
     var idx=node.nodeValue.toLowerCase().indexOf(ql);
     if(idx>=0){
       try{
@@ -617,108 +582,44 @@ function highlightFind(q){
   }
 }
 
-function doTranslate(text, rect){
-  if(!text || !rect) return;
-  lastRect=rect;
-  showPopup("…", rect, true);
-  translate(text).then(function(uk){ showPopup(uk, rect, false); })
-    .catch(function(err){ removePopup(); toast(err.message||"Translation failed. Check your connection."); });
-}
-// When Easy Translate is on: a selection or a word tap translates immediately.
-document.addEventListener("mouseup",function(e){
-  if(e.target.closest && e.target.closest(".tr-popup")) return;
-  setTimeout(function(){
-    if(!settings.easy) return;
-    var sel=window.getSelection();
-    var txt=sel&&sel.toString().trim();
-    if(txt && txt.length>0 && sel.anchorNode && content.contains(sel.anchorNode)){
-      doTranslate(txt, rectFromSelection());
-      return;
-    }
-    if(content.contains(e.target) && !(e.target.closest && e.target.closest("a, button, pre, code, .codeblock, .tr-popup"))){
-      var block=nearestBlock(e.target.nodeType===3?e.target.parentNode:e.target);
-      var rng=caretAt(e.clientX, e.clientY);
-      if(block && rng && rng.startContainer && block.contains(rng.startContainer)){
-        var off=textOffsetInBlock(block, rng.startContainer, rng.startOffset);
-        var word=wordAtOffset(block.textContent, off);
-        if(word) doTranslate(word, {left:e.clientX, top:e.clientY, width:0, height:0, bottom:e.clientY});
-      }
-    }
-  },10);
-});
-selBtn.addEventListener("mousedown",function(e){ e.preventDefault(); }); // preserve the selection
-selBtn.addEventListener("click",function(){
-  var r=rectFromSelection(); if(r) lastRect=r;
-  selBtn.hidden=true;
-  var textToTranslate=pendingText;
-  var anchor=lastRect;
-  showPopup("…", anchor, true);
-  translate(textToTranslate).then(function(uk){ showPopup(uk, anchor, false); })
-    .catch(function(err){ removePopup(); toast(err.message||"Translation failed. Check your connection."); });
-});
-function showPopup(text, r, loading){
-  removePopup();
-  if(!r) r=lastRect; if(!r) return;
-  popup=document.createElement("div");
-  popup.className="tr-popup"+(loading?" loading":"");
-  popup.innerHTML='<span class="tr-lbl">🇺🇦 '+esc(settings.lang.toUpperCase())+'</span>'+
-    '<span class="tr-txt">'+esc(text)+'</span><span class="tr-x" title="close">✕</span>';
-  document.body.appendChild(popup);
-  var cx=r.left+r.width/2+window.scrollX;
-  var above=r.top>150;
-  popup.style.left=cx+"px";
-  if(above){ popup.style.top=(r.top+window.scrollY-8)+"px"; }
-  else{ popup.classList.add("below"); popup.style.top=(r.bottom+window.scrollY+8)+"px"; }
-  // keep within horizontal viewport
-  var pr=popup.getBoundingClientRect();
-  if(pr.left<8) popup.style.left=(cx+(8-pr.left))+"px";
-  if(pr.right>window.innerWidth-8) popup.style.left=(cx-(pr.right-(window.innerWidth-8)))+"px";
-  popup.querySelector(".tr-x").addEventListener("click",removePopup);
-}
-document.addEventListener("mousedown",function(e){
-  if(popup && !e.target.closest(".tr-popup") && !e.target.closest(".sel-translate")) removePopup();
-});
-// Word taps and text selections are handled by the mouseup listener above: both
-// show the Translate button, and the API is only called when that button is pressed.
-
 /* ---------------- Theme ---------------- */
 var themeBtn=document.getElementById("themeBtn");
-var savedTheme=localStorage.getItem("theme")||"auto";
+var savedTheme=readSetting("theme","auto");
 document.documentElement.setAttribute("data-theme",savedTheme);
 themeBtn.addEventListener("click",function(){
   var cur=document.documentElement.getAttribute("data-theme");
   var next=cur==="dark"?"light":cur==="light"?"auto":"dark";
   document.documentElement.setAttribute("data-theme",next);
-  localStorage.setItem("theme",next);
-  toast("Theme: "+next);
+  writeSetting("theme",next);
+  toast(ui("themeToast")+ui(next));
 });
 
-/* ---------------- Language modal ---------------- */
-var langModal=document.getElementById("langModal");
-var emailInput=document.getElementById("emailInput");
-var targetLang=document.getElementById("targetLang");
-document.getElementById("langBtn").addEventListener("click",function(){
-  emailInput.value=settings.email; targetLang.value=settings.lang; langModal.hidden=false;
-});
-document.getElementById("langClose").addEventListener("click",function(){
-  settings.email=emailInput.value.trim(); settings.lang=targetLang.value;
-  localStorage.setItem("tr_email",settings.email); localStorage.setItem("tr_lang",settings.lang);
-  langModal.hidden=true;
-});
-document.getElementById("clearCache").addEventListener("click",function(){
-  var n=0; Object.keys(localStorage).forEach(function(k){if(k.indexOf("tr:")===0){localStorage.removeItem(k);n++;}});
-  toast("Cleared "+n+" cached translations");
-});
-langModal.addEventListener("click",function(e){if(e.target===langModal)langModal.hidden=true;});
-
-/* ---------------- Easy Translate toggle ---------------- */
-var easyToggle=document.getElementById("easyToggle");
-easyToggle.checked=settings.easy;
-easyToggle.addEventListener("change",function(){
-  settings.easy=easyToggle.checked;
-  localStorage.setItem("tr_easy", settings.easy?"1":"0");
-  if(!settings.easy){ selBtn.hidden=true; removePopup(); }
-  toast(settings.easy?"Easy Translate: on — tap a word or select text":"Easy Translate: off");
+/* ---------------- Site language ---------------- */
+function switchLanguage(next){
+  if(next===language || !editions[next]) return;
+  loadEdition(next,function(){
+    if(editions[next].length) applyLanguage(next);
+    else localizeShell();   // the bundle did not load: put the toggle back
+  });
+}
+function applyLanguage(next){
+  saveProgress(); clearTimeout(_saveT);
+  var slug=current?current.slug:BOOK[0].slug;
+  var index=topBlockIndex(), block=content.children[index];
+  var offset=block?block.getBoundingClientRect().top:0;
+  var popupOpen=!wnModal.hidden;
+  language=next; BOOK=editions[next]; indexBook(); current=null;
+  writeSetting("site_lang",language);
+  localizeShell(); buildNav(); refreshWhatsNew();
+  searchResults.hidden=true; pendingFind=null;
+  go(slug,false);
+  var translated=content.children[index];
+  if(translated) window.scrollTo(0,translated.getBoundingClientRect().top+window.pageYOffset-offset);
+  if(searchBox.value) runSearch(searchBox.value);
+  if(popupOpen) wnShow();
+}
+document.getElementById("languageToggle").addEventListener("change",function(){
+  switchLanguage(this.checked?"uk":"en");
 });
 
 /* ---------------- Sidebar (mobile) ---------------- */
@@ -760,21 +661,40 @@ function toast(msg,ms){
    The 101-whats-new chapter is the changelog. Its latest "## Release — <date>" section is
    shown in a popup once per release (localStorage "wn_seen"). Chapter links inside release
    sections get a per-user read mark (localStorage "wn_read") once clicked. */
-var WN=null;
-BOOK.forEach(function(c){ if((c.id||"").indexOf("whats-new")>=0) WN=c; });
+var WN=null, WN_SOURCE=null, releaseNames={};
+EN_BOOK.forEach(function(c){ if((c.id||"").indexOf("whats-new")>=0) WN_SOURCE=c; });
+function releases(c){
+  if(!c) return [];
+  var list=[], re=/^##\s+(?:Release|Випуск)[^\n]*$/gm, match;
+  while((match=re.exec(c.md))){
+    var rest=c.md.slice(match.index+match[0].length), end=rest.search(/^##\s+/m);
+    var prefix=c.md.slice(0,match.index+match[0].length);
+    var start=(prefix.match(/^#{1,6}\s+/gm)||[]).length;
+    list.push({heading:match[0].replace(/^##\s+/,"").trim(),
+      date:match[0].replace(/^##\s+(?:Release|Випуск)\s*[—–-]*\s*/,"").trim(),
+      md:rest.slice(0,end<0?rest.length:end).trim(), anchorStart:start});
+  }
+  return list;
+}
+function refreshWhatsNew(){
+  WN=WN_SOURCE?bySlug[WN_SOURCE.slug]:null;
+  releaseNames={};
+  var source=releases(WN_SOURCE), localized=releases(WN);
+  source.forEach(function(r,i){
+    releaseNames[r.heading]=r.heading;
+    if(localized[i]) releaseNames[localized[i].heading]=r.heading;
+  });
+}
+refreshWhatsNew();
 
 function wnHash(s){ var h=5381,i; for(i=0;i<s.length;i++){ h=((h<<5)+h+s.charCodeAt(i))|0; } return (h>>>0).toString(36); }
 function wnLatest(){
-  if(!WN) return null;
-  var m=WN.md.match(/^##\s+Release[^\n]*$/m);
-  if(!m) return null;
-  var rest=WN.md.slice(WN.md.indexOf(m[0])+m[0].length);
-  var next=rest.search(/^##\s+/m);
-  var heading=m[0].replace(/^##\s+/,"").trim();
-  var md=rest.slice(0,next<0?rest.length:next).trim();
+  var source=releases(WN_SOURCE)[0], localized=releases(WN)[0];
+  if(!source||!localized) return null;
   // seenKey includes a content hash so an amended release re-triggers the popup.
-  return { heading:heading, md:md, seenKey:heading+"|"+wnHash(md),
-           date:m[0].replace(/^##\s+Release\s*[—–-]*\s*/,"").trim() };
+  return { heading:source.heading, md:localized.md,
+           seenKey:source.heading+"|"+wnHash(source.md),
+           date:localized.date, anchorStart:localized.anchorStart };
 }
 function wnRead(){ try{ return JSON.parse(localStorage.getItem("wn_read")||"{}"); }catch(e){ return {}; } }
 function wnMarkSeen(){ var l=wnLatest(); if(l){ try{ localStorage.setItem("wn_seen",l.seenKey); }catch(e){} } }
@@ -784,7 +704,7 @@ function wnMarkSeen(){ var l=wnLatest(); if(l){ try{ localStorage.setItem("wn_se
 function wnDecorate(root, releaseId){
   var read=wnRead(), rel=releaseId||null, n=0;
   root.querySelectorAll("h2, a[href^='#']").forEach(function(el){
-    if(el.tagName==="H2"){ rel=/^Release/.test(el.textContent)?el.textContent.trim():null; n=0; return; }
+    if(el.tagName==="H2"){ rel=releaseNames[el.textContent.trim()]||null; n=0; return; }
     if(!rel) return;
     var slug=el.getAttribute("href").slice(1), sec=null, to=resolveSlug(slug);
     if(!bySlug[to]){
@@ -812,16 +732,17 @@ function wnHide(){ wnModal.hidden=true; }
 function wnShow(){
   var latest=wnLatest(); if(!latest||!latest.md) return;
   document.getElementById("wnDate").textContent=latest.date;
-  var saved=usedIds; usedIds={};
+  var saved=usedIds, savedAnchors=headingAnchors, savedIndex=headingIndex; usedIds={};
+  headingAnchors=WN.anchors?WN.anchors.slice(latest.anchorStart):null; headingIndex=0;
   document.getElementById("wnBody").innerHTML=render(latest.md);
-  usedIds=saved;
+  usedIds=saved; headingAnchors=savedAnchors; headingIndex=savedIndex;
   wnDecorate(document.getElementById("wnBody"), latest.heading);
   wnModal.hidden=false;
   wnMarkSeen();
 }
 function wnMaybeShow(){
   var latest=wnLatest(); if(!latest) return;
-  if(localStorage.getItem("wn_seen")===latest.seenKey) return;
+  if(readSetting("wn_seen","")===latest.seenKey) return;
   if(current&&WN&&current.id===WN.id){ wnMarkSeen(); return; } // already on the page
   wnShow();
 }
@@ -833,9 +754,15 @@ wnModal.addEventListener("click",function(e){ if(e.target===wnModal) wnHide(); }
 function currentSlug(){var m=location.hash.match(/^#\/(.+)$/);return m?m[1]:null;}
 window.addEventListener("hashchange",function(){var s=currentSlug();if(s)go(s,false);});
 window.addEventListener("beforeunload", saveProgress);
-buildNav();
-// A shared link's hash still wins; otherwise always start at the front of the book.
-go(currentSlug()||BOOK[0].slug,false);
-try{ localStorage.removeItem("last"); }catch(e){}   // no longer used
-wnMaybeShow();
+loadEdition(wantedLanguage,function(){
+  if(editions[wantedLanguage].length){
+    language=wantedLanguage; BOOK=editions[language]; indexBook(); refreshWhatsNew();
+  }
+  localizeShell();
+  buildNav();
+  // A shared link's hash still wins; otherwise always start at the front of the book.
+  go(currentSlug()||BOOK[0].slug,false);
+  try{ localStorage.removeItem("last"); }catch(e){}   // no longer used
+  wnMaybeShow();
+});
 })();

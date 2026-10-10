@@ -1,15 +1,24 @@
 # dotnet-handbook
 
-A self-contained .NET study handbook: Markdown chapters in `chapters/`, compiled by `build_site.py` into `main.md` (single-file book) and `site/content.js` (the reader web app's content bundle). The reader app itself is vanilla JS in `site/` (no build step, no dependencies).
+A self-contained .NET study handbook: English Markdown chapters in `chapters/` and Ukrainian translations in `chapters/uk/`, compiled by `build_site.py` into `main.md`, `main.uk.md` and the reader bundles `site/content.js` and `site/content.uk.js`. The reader app itself is vanilla JS in `site/` (no build step, no dependencies).
 
 ## Editing chapters
 
 - The book is one sequence in two parts (see *Book structure* below). Files are `chapters/NNN-*.md`, auto-discovered and ordered by numeric prefix; sidebar sections come from `PART_RANGES` in `build_site.py`.
-- After any chapter edit, run `python3 build_site.py` and commit the regenerated `main.md` and `site/content.js` together with the source change.
+- After any chapter edit, run `python3 build_site.py` and commit the regenerated `main.md`, `main.uk.md`, `site/content.js`, `site/content.uk.js` and `chapters/uk/_sources.json` together with the source change.
 - `python3 verify/check_links.py` resolves every in-book link the way the reader app does; run it after any heading or link change.
 - The `_⏱ Estimated read time_` line is regenerated in the outputs on every build; keep the hand-written line in the source chapter roughly in sync when a chapter grows substantially.
 - Chapter cross-links inside Markdown use the chapter's slug: `[Chapter 5: HTTP and Web APIs](#chapter-5-http-and-web-apis)` (slug = lowercased title, punctuation stripped, spaces → `-`).
 - **Renaming or renumbering a chapter changes its slug.** Add the old slug to `chapters/_aliases.json` (old slug → new slug) so bookmarks, shared links and old What's New entries still open it; `check_links.py` and the site both resolve through it.
+
+## Ukrainian translations
+
+- The handbook and reader have English and Ukrainian editions. English chapter sources stay in `chapters/`; complete Ukrainian translations live in `chapters/uk/` with identical filenames.
+- **Automatically translate every new chapter or section into Ukrainian during the same task, without waiting for a separate request.** Whenever existing reader-facing prose changes, update the corresponding Ukrainian prose too, including headings, tables, exercise answers, link labels and What's New entries.
+- Translate the complete text in natural Ukrainian: never substitute summaries, omit sections, or silently leave English prose in the Ukrainian edition. Keep technical names and API identifiers unchanged.
+- Preserve fenced code blocks exactly, including comments and diagrams; preserve inline code, URLs and link destinations. Keep Markdown heading levels, count and order and collapsible answer blocks. The build assigns the original English heading IDs and chapter slugs to the Ukrainian edition, so existing links and reading progress work in either language.
+- Run `python3 build_site.py`, `python3 verify/check_links.py`, `python3 verify/site/build_test.py` and `node --test verify/site/*.test.cjs`. The build rejects missing translations, altered examples or structure, and English source changes whose Ukrainian file has not been updated. Do not hand-edit `chapters/uk/_sources.json` to bypass this check.
+- The reader opens in the saved language, else the browser's (Ukrainian for `uk*`, English otherwise). `index.html` loads only `content.js`; `content.uk.js` is added on demand. The toggle switches the prebuilt editions locally and remembers the choice. Do not add runtime translation APIs or translate content when readers switch languages.
 
 ## Release process (pushing)
 

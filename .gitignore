@@ -4,3 +4,6 @@
 
 # build artifacts
 *.zip
+
+# Python bytecode (verify/site/build_test.py imports build_site.py)
+__pycache__/
