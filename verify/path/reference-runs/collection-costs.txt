@@ -1,0 +1,10 @@
+# Environment: Intel(R) Xeon(R) Processor @ 2.80GHz, 4 vCPU, 16 GB RAM, Ubuntu 24.04.5 LTS, .NET runtime 10.0.12, SDK 10.0.112
+# Captured: 2026-10-14 22:30 UTC by capture.sh
+# Program: CollectionCosts, Release build
+
+capacities while adding 10,000: 4 8 16 32 64 128 256 512 1024 2048 4096 8192 16384
+list.Contains(9999): 10000 Equals calls (a scan)
+set.Contains(9999):  1 Equals call (hash, bucket, one compare)
+after mutating key 42: set.Contains(it) False, set.Count 10000, still there by reference: True
+[process time: wall 0.289 s, user CPU 0.043 s, system CPU 0.022 s]
+[exit code 0]
