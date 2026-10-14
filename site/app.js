@@ -187,7 +187,7 @@ function render(md){
       i++;
       var body=highlight(code.join("\n"),lang);
       html.push('<div class="codeblock">'+(lang?'<span class="lang">'+esc(lang)+'</span>':'')+
-        '<button class="copy" type="button">'+ui("copy")+'</button><pre><code>'+body+'</code></pre></div>');
+        '<button class="copy" type="button">'+ui("copy")+'</button><pre tabindex="0"><code>'+body+'</code></pre></div>');
       continue;
     }
     var hm=line.match(/^(#{1,6})\s+(.*)$/);

@@ -1,6 +1,6 @@
 # The Middle → Senior .NET Developer Handbook
 
-### A self-contained, deep-dive textbook: the key concepts first, then the depth
+*A self-contained, deep-dive textbook: the key concepts first, then the depth*
 
 ---
 

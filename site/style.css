@@ -3,7 +3,7 @@
   --fg:#1f2328; --fg-muted:#57606a; --border:#d0d7de;
   --accent:#7c3aed; --accent-fg:#fff; --link:#0969da;
   --code-bg:#f6f8fa; --code-fg:#24292f; --sel:#efe6ff;
-  --kw:#cf222e; --str:#0a3069; --com:#6e7781; --num:#0550ae; --typ:#953800; --fn:#8250df;
+  --kw:#cf222e; --str:#0a3069; --com:#59636e; --num:#0550ae; --typ:#953800; --fn:#8250df;
   --shadow:0 6px 24px rgba(0,0,0,.12);
   --sidebar-w:300px; --outline-w:220px; --max:820px;
   --bars:56px;   /* the sticky top bar */
@@ -13,7 +13,7 @@
 :root[data-theme="dark"]{
   --bg:#0d1117; --bg-alt:#161b22; --bg-elev:#161b22;
   --fg:#e6edf3; --fg-muted:#9198a1; --border:#30363d;
-  --accent:#a371f7; --accent-fg:#fff; --link:#4493f8;
+  --accent:#a371f7; --accent-strong:#7c3aed; --accent-fg:#fff; --link:#4493f8;
   --code-bg:#161b22; --code-fg:#e6edf3; --sel:#2d2140;
   --kw:#ff7b72; --str:#a5d6ff; --com:#8b949e; --num:#79c0ff; --typ:#ffa657; --fn:#d2a8ff;
 }
@@ -21,7 +21,7 @@
   :root[data-theme="auto"]{
     --bg:#0d1117; --bg-alt:#161b22; --bg-elev:#161b22;
     --fg:#e6edf3; --fg-muted:#9198a1; --border:#30363d;
-    --accent:#a371f7; --accent-fg:#fff; --link:#4493f8;
+    --accent:#a371f7; --accent-strong:#7c3aed; --accent-fg:#fff; --link:#4493f8;
     --code-bg:#161b22; --code-fg:#e6edf3; --sel:#2d2140;
     --kw:#ff7b72; --str:#a5d6ff; --com:#8b949e; --num:#79c0ff; --typ:#ffa657; --fn:#d2a8ff;
   }
@@ -95,7 +95,7 @@ mark.find-hit{background:var(--accent);color:var(--accent-fg);border-radius:3px;
 #nav a{position:relative;overflow:hidden;display:block;padding:6px 10px;margin:1px 4px;border-radius:7px;color:var(--fg);
   text-decoration:none;font-size:13.5px;line-height:1.4}
 #nav a:hover{background:var(--bg-elev)}
-#nav a.active{background:var(--accent);color:var(--accent-fg);font-weight:600}
+#nav a.active{background:var(--accent-strong,var(--accent));color:var(--accent-fg);font-weight:600}
 #nav a .num{color:var(--fg-muted);font-variant-numeric:tabular-nums;margin-right:6px}
 #nav a.active .num{color:var(--accent-fg);opacity:.8}
 #nav a .rt{display:block;font-size:11px;color:var(--fg-muted)}
@@ -153,8 +153,10 @@ mark.find-hit{background:var(--accent);color:var(--accent-fg);border-radius:3px;
 #content h3{font-size:1.2em;margin:1.4em 0 .4em}
 #content h4{font-size:1.05em;margin:1.2em 0 .3em}
 #content p{margin:.7em 0}
-#content a{color:var(--link);text-decoration:none}
-#content a:hover{text-decoration:underline}
+/* Links in running text are underlined: colour alone doesn't separate them from the text around them. */
+#content a{color:var(--link);text-decoration:underline;text-decoration-thickness:1px;text-underline-offset:2px}
+#content a:hover{text-decoration-thickness:2px}
+#content a.home-card{text-decoration:none}
 #content ul,#content ol{padding-left:1.5em;margin:.6em 0}
 #content li{margin:.3em 0}
 #content li>ul,#content li>ol{margin:.2em 0}
@@ -186,6 +188,7 @@ mark.find-hit{background:var(--accent);color:var(--accent-fg);border-radius:3px;
   cursor:pointer;opacity:0;transition:opacity .12s}
 .codeblock:hover .copy{opacity:1}
 .codeblock .copy:hover{color:var(--fg);border-color:var(--accent)}
+.codeblock pre:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 .codeblock pre{margin:0;background:var(--code-bg);border:1px solid var(--border);border-radius:10px;
   padding:14px 16px;overflow-x:auto}
 .codeblock code{font-family:var(--mono);font-size:13.5px;line-height:1.55;color:var(--code-fg);white-space:pre}
