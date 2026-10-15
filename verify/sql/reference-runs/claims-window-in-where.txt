@@ -1,0 +1,14 @@
+# Environment: Intel(R) Xeon(R) Processor @ 2.80GHz, 4 vCPU, 16 GB RAM, Docker 29.8.2
+# Engines: PostgreSQL 17.11 (Debian 17.11-1.pgdg13+2); SQL Server 16.0.4295.3 CU27, collation SQL_Latin1_General_CP1_CI_AS
+# Data: schema.sql (4 customers, 8 orders, 10 order lines, 4 categories), loaded fresh before the run
+# Captured: 2026-10-15 08:13 UTC by verify.sh
+# File: verify/sql/claims/window-in-where.sql
+
+-- PostgreSQL (exit code 3)
+psql:<stdin>:4: ERROR:  window functions are not allowed in WHERE
+LINE 3: WHERE ROW_NUMBER() OVER (PARTITION BY CustomerId ORDER BY To...
+              ^
+
+-- SQL Server (exit code 1)
+Msg 4108, Level 15, State 1, Server b088a8badf26, Line 4
+Windowed functions can only appear in the SELECT or ORDER BY clauses.

@@ -1,0 +1,61 @@
+# Environment: Intel(R) Xeon(R) Processor @ 2.80GHz, 4 vCPU, 16 GB RAM, Docker 29.8.2
+# Engines: PostgreSQL 17.11 (Debian 17.11-1.pgdg13+2); SQL Server 16.0.4295.3 CU27, collation SQL_Latin1_General_CP1_CI_AS
+# Data: schema.sql (4 customers, 8 orders, 10 order lines, 4 categories), loaded fresh before the run
+# Captured: 2026-10-15 08:13 UTC by verify.sh
+# File: verify/sql/claims/semi-join-plan-mssql.sql
+
+-- PostgreSQL (exit code 3)
+psql:<stdin>:2: ERROR:  syntax error at or near "ON"
+LINE 1: SET SHOWPLAN_TEXT ON;
+                          ^
+
+-- SQL Server (exit code 0)
+StmtText
+--------
+SELECT Name FROM Customers c WHERE c.Id IN (SELECT o.CustomerId FROM Orders o);
+
+(1 rows affected)
+StmtText
+--------
+  |--Nested Loops(Left Semi Join, WHERE:([handbook].[dbo].[Customers].[Id] as [c].[Id]=[handbook].[dbo].[Orders].[CustomerId] as [o].[CustomerId]))
+       |--Clustered Index Scan(OBJECT:([handbook].[dbo].[Customers].[PK__Customer__3214EC075DDE1137] AS [c]))
+       |--Clustered Index Scan(OBJECT:([handbook].[dbo].[Orders].[PK__Orders__3214EC0719E819B6] AS [o]))
+
+(3 rows affected)
+StmtText
+--------
+SELECT Name FROM Customers c WHERE EXISTS (SELECT 1 FROM Orders o WHERE o.CustomerId = c.Id);
+
+(1 rows affected)
+StmtText
+--------
+  |--Nested Loops(Left Semi Join, WHERE:([handbook].[dbo].[Orders].[CustomerId] as [o].[CustomerId]=[handbook].[dbo].[Customers].[Id] as [c].[Id]))
+       |--Clustered Index Scan(OBJECT:([handbook].[dbo].[Customers].[PK__Customer__3214EC075DDE1137] AS [c]))
+       |--Clustered Index Scan(OBJECT:([handbook].[dbo].[Orders].[PK__Orders__3214EC0719E819B6] AS [o]))
+
+(3 rows affected)
+StmtText
+--------
+SELECT Name FROM Customers c WHERE NOT EXISTS (SELECT 1 FROM Orders o WHERE o.CustomerId = c.Id);
+
+(1 rows affected)
+StmtText
+--------
+  |--Nested Loops(Left Anti Semi Join, OUTER REFERENCES:([c].[Id]))
+       |--Clustered Index Scan(OBJECT:([handbook].[dbo].[Customers].[PK__Customer__3214EC075DDE1137] AS [c]))
+       |--Top(TOP EXPRESSION:((1)))
+            |--Clustered Index Scan(OBJECT:([handbook].[dbo].[Orders].[PK__Orders__3214EC0719E819B6] AS [o]), WHERE:([handbook].[dbo].[Orders].[CustomerId] as [o].[CustomerId]=[handbook].[dbo].[Customers].[Id] as [c].[Id]))
+
+(4 rows affected)
+StmtText
+--------
+SELECT Name FROM Customers c WHERE c.Id NOT IN (SELECT o.CustomerId FROM Orders o);
+
+(1 rows affected)
+StmtText
+--------
+  |--Nested Loops(Left Anti Semi Join, WHERE:([handbook].[dbo].[Orders].[CustomerId] as [o].[CustomerId] IS NULL OR [handbook].[dbo].[Customers].[Id] as [c].[Id]=[handbook].[dbo].[Orders].[CustomerId] as [o].[CustomerId]))
+       |--Clustered Index Scan(OBJECT:([handbook].[dbo].[Customers].[PK__Customer__3214EC075DDE1137] AS [c]))
+       |--Clustered Index Scan(OBJECT:([handbook].[dbo].[Orders].[PK__Orders__3214EC0719E819B6] AS [o]))
+
+(3 rows affected)
