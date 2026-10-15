@@ -5036,11 +5036,11 @@ LCP ≤ 2.5 s, INP ≤ 200 ms, CLS ≤ 0.1, at the 75th percentile of real visit
 
 # Chapter 7: Data Access
 
-_⏱️ Estimated read time: ~1 h 20 min · 11604 words (study pace)_
+_⏱️ Estimated read time: ~1 h 40 min · 14860 words (study pace)_
 
 Almost every non-trivial application is, underneath its features, a machine for moving data in and out of a database safely and quickly. Flawless business logic doesn't survive a data layer that fires a thousand queries where one would do, scans an index it was meant to seek, or loses one user's update under another's. This chapter makes you able to write and review data access that sends the SQL you expect: you will read a query's actual plan and say why each index operator seeks or scans, write EF Core queries whose round trips you can count before running them, and protect a row against lost updates.
 
-The order runs from the database up. The schema and SQL come first (normalization, joins, indexes, execution plans, transactions), because EF Core generates SQL and you can only judge its output once you can read it. Then EF Core itself: change tracking, loading related data and the N+1 problem, projections, bulk writes and cascades, and the lifetime of a `DbContext`. Concurrency builds on both: a concurrency token is a column in the `UPDATE`'s `WHERE`. Raw SQL and Dapper cover the queries an ORM shouldn't write, caching the queries you shouldn't run at all, and migrations how the schema changes in a pipeline. Part 2 goes further in [Chapter 18: Data in Depth](#chapter-18-data-in-depth): compiled queries, bulk inserts, PostgreSQL's planner, Redis, NoSQL and scaling.
+The order runs from the database up. The schema and SQL come first (normalization; querying with joins, grouping, NULL logic, subqueries and window functions; indexes, execution plans, transactions), because EF Core generates SQL and you can only judge its output once you can read it. Then EF Core itself: change tracking, loading related data and the N+1 problem, projections, bulk writes and cascades, and the lifetime of a `DbContext`. Concurrency builds on both: a concurrency token is a column in the `UPDATE`'s `WHERE`. Raw SQL and Dapper cover the queries an ORM shouldn't write, caching the queries you shouldn't run at all, and migrations how the schema changes in a pipeline. Part 2 goes further in [Chapter 18: Data in Depth](#chapter-18-data-in-depth): compiled queries, bulk inserts, PostgreSQL's planner, Redis, NoSQL and scaling.
 
 ## Database Design and Normalization
 
@@ -5075,15 +5075,21 @@ Normalization optimizes for correct writes; it can make reads slower by requirin
 
 ## SQL Fundamentals
 
-Every ORM call ends as SQL, so the SQL comes first: what a join returns, how an index finds rows, how the plan shows which way it found them, and what a transaction guarantees. A senior developer reads the generated SQL and the execution plan, not just the C#.
+Every ORM call ends as SQL, so the SQL comes first: what a join, a grouping or a window function returns and where NULL changes the answer, how an index finds rows, how the plan shows which way it found them, and what a transaction guarantees. A senior developer reads the generated SQL and the execution plan, not just the C#.
 
 ### Joins
 
-A join combines rows from two tables based on a related column.
+A join pairs each row of one table with the rows of another for which the `ON` condition is true. An *outer* join then adds back the rows that found no partner, with NULLs in the other table's columns. The examples from here to [Window Functions](#window-functions) run on a tiny shop whose schema, seed data and raw output on PostgreSQL 17 and SQL Server 2022 are in [`verify/sql`](https://github.com/malyna2/dotnet-handbook/tree/main/verify/sql): four customers (Cleo has no city, Dan has no orders) and eight orders, one of them a guest checkout whose `CustomerId` is NULL.
 
-- **INNER JOIN** returns only rows with a match in both tables.
-- **LEFT (OUTER) JOIN** returns all rows from the left table, with NULLs where the right has no match.
-- **RIGHT JOIN** is the mirror; **FULL OUTER JOIN** returns unmatched rows from both sides.
+| Join | Returns | `Customers` joined to `Orders` on the seed |
+|---|---|---|
+| `INNER JOIN` | only the pairs where `ON` is true | 7 rows |
+| `LEFT JOIN` | every left row, with NULLs where nothing on the right matched | 8: the 7, plus Dan |
+| `RIGHT JOIN` | every right row: the mirror image | 8: the 7, plus the guest order |
+| `FULL JOIN` | every row of both, padded on whichever side is missing | 9 |
+| `CROSS JOIN` | every left row with every right row, no `ON` | 32 (4 × 8) |
+
+A `RIGHT JOIN` is usually written as a `LEFT JOIN` with the tables swapped, so the query starts from the table whose rows it keeps.
 
 ```sql
 SELECT o.Id, c.Name
@@ -5093,6 +5099,201 @@ WHERE o.Status = 'Open';
 ```
 
 `o.Customer.Name` in an EF Core projection ([Projections](#projections-select-only-what-you-need), below) becomes exactly this INNER JOIN, or a LEFT JOIN if the relationship is optional.
+
+"Pair, then pad" has two consequences behind most wrong join results. A one-to-many join repeats the "one" row once per match, which is right until you add it up ([Grouping and Aggregates](#grouping-and-aggregates)). And the padding NULLs pass through everything that runs after the join, `WHERE` included.
+
+> **Pay attention.** **A `WHERE` on the right table turns a `LEFT JOIN` into an `INNER JOIN`.** `ON` decides which rows match; `WHERE` runs afterwards, on the joined rows. Dan survives the join as `Dan, NULL`, then `WHERE o.Status = 'Paid'` compares NULL with `'Paid'`. The result is *unknown*, not true, and `WHERE` keeps only the rows where its condition is true ([NULL and Three-Valued Logic](#null-and-three-valued-logic)), so Dan is gone. A condition on the outer-joined table belongs in `ON`. In `WHERE` it is right only as `IS NULL`, the test for "no match" (customers with no paid order).
+
+```sql
+-- Meant: every customer, with their paid orders. Dan, who has none, disappears.
+SELECT c.Name, o.Id AS OrderId
+FROM Customers c
+LEFT JOIN Orders o ON o.CustomerId = c.Id
+WHERE o.Status = 'Paid';
+
+-- Fix: a condition on the right table goes in ON. Dan comes back, with OrderId NULL.
+SELECT c.Name, o.Id AS OrderId
+FROM Customers c
+LEFT JOIN Orders o ON o.CustomerId = c.Id AND o.Status = 'Paid';
+```
+
+The first query returns five rows, the second six. Neither engine promises an order without `ORDER BY`: for the first query PostgreSQL listed Ada's orders as 17, 11, 10 and SQL Server as 10, 11, 17. In EF Core, filter the navigation itself, `c.Orders.Where(o => o.Status == "Paid")`: EF Core puts the filter inside the joined subquery, so Dan stays.
+
+### Grouping and Aggregates
+
+The clauses of a `SELECT` are written in one order and evaluated, logically, in another:
+
+```
+FROM, JOIN  ->  WHERE  ->  GROUP BY  ->  HAVING  ->  SELECT          ->  ORDER BY
+build rows      filter     one row       filter      compute columns     sort
+                rows       per group     groups      and window
+                                                     functions
+```
+
+The optimizer may execute a query in any order that gives the same answer; the diagram is what the query *means*, and it explains three rules people memorize instead. `WHERE` can't test an aggregate, because the groups don't exist yet: that is what `HAVING` is for. `WHERE` can't use a `SELECT` alias, because `SELECT` hasn't run (both engines reject `WHERE Doubled > 100` for a column aliased `Doubled`). Only `ORDER BY` sees everything.
+
+`GROUP BY` collapses the rows that share a key into one row, so every other column in the `SELECT` must sit inside an aggregate: the group holds many values for it, and the engine won't pick one for you.
+
+```sql
+SELECT CustomerId, COUNT(*) AS PaidOrders, SUM(Total) AS Paid
+FROM Orders
+WHERE Status = 'Paid'       -- filters rows, before grouping
+GROUP BY CustomerId
+HAVING COUNT(*) > 1;        -- filters groups, after aggregating
+```
+
+It returns one row, `1 | 3 | 180.00`: customer 1 has three paid orders, every other group has one. A condition on a plain column belongs in `WHERE`, where it removes rows before they are grouped.
+
+Aggregates skip NULLs, and an outer join produces them. `COUNT(*)` counts rows; `COUNT(column)` counts the non-NULL values in it. `SUM`, `AVG`, `MIN` and `MAX` ignore NULLs, and over no rows at all `COUNT` returns 0 while `SUM` returns NULL. `GROUP BY` puts all the NULL keys into one group.
+
+```sql
+SELECT c.Name,
+       COUNT(*)     AS AllRows,   -- Dan: 1, his row of NULLs counts
+       COUNT(o.Id)  AS Orders,    -- Dan: 0, NULLs are skipped
+       SUM(o.Total) AS Revenue    -- Dan: NULL, not 0
+FROM Customers c
+LEFT JOIN Orders o ON o.CustomerId = c.Id
+GROUP BY c.Name;
+```
+
+So "orders per customer" is `COUNT(o.Id)`, and revenue that should read 0 is `COALESCE(SUM(o.Total), 0)`. One dialect difference changes numbers: `AVG` of an integer column returns an integer on SQL Server. The seed's order lines average 1.9 items; PostgreSQL returns `1.9000000000000000`, SQL Server `1`. Write `AVG(1.0 * Quantity)`, or cast to a decimal first.
+
+> **Pay attention.** **A join to a child table multiplies the rows you then sum.** Ada's order 10 has two lines, so after the join to `OrderLines` it appears on two rows and its 100.00 is added twice: her revenue comes out 330.00 instead of 230.00, and Cleo's 70.00 becomes 140.00. `Items` is right, because quantities live at the grain of the lines. `DISTINCT` is not the fix: `SUM(DISTINCT o.Total)` gives Ada 180.00, because her orders 11 and 12 are both 50.00 and are added once. (`COUNT(DISTINCT o.Id)` does count her four orders correctly.) Bring each child table to the parent's grain *before* joining, as the second query does. `Include` of two collections multiplies rows by the same mechanism ([Split Queries](#split-queries)); an EF Core projection gives each aggregate over a navigation, such as `c.Orders.Sum(o => o.Total)`, its own subquery, so it doesn't.
+
+```sql
+-- Revenue and items per customer: Ada's revenue comes out 330.00, not 230.00
+SELECT c.Name, SUM(o.Total) AS Revenue, SUM(l.Quantity) AS Items
+FROM Customers c
+JOIN Orders o     ON o.CustomerId = c.Id
+JOIN OrderLines l ON l.OrderId = o.Id
+GROUP BY c.Name;
+
+-- Fix: bring the lines to one row per order first, then join
+SELECT c.Name, SUM(o.Total) AS Revenue, SUM(li.Items) AS Items
+FROM Customers c
+JOIN Orders o ON o.CustomerId = c.Id
+JOIN (SELECT OrderId, SUM(Quantity) AS Items
+      FROM OrderLines
+      GROUP BY OrderId) li ON li.OrderId = o.Id
+GROUP BY c.Name;
+```
+
+### NULL and Three-Valued Logic
+
+NULL is not a value but the absence of one: *unknown*. A comparison with an unknown is itself unknown, so SQL's logic has three values, and `WHERE`, `ON` and `HAVING` keep a row only when the condition is TRUE. FALSE and UNKNOWN are both dropped. `NOT UNKNOWN` is still UNKNOWN, while `FALSE AND UNKNOWN` is FALSE and `TRUE OR UNKNOWN` is TRUE, because there the unknown can't change the answer.
+
+```sql
+SELECT Name FROM Customers WHERE City = NULL;     -- no rows, whatever the data
+SELECT Name FROM Customers WHERE City IS NULL;    -- Cleo
+SELECT Name FROM Customers WHERE City <> 'Kyiv';  -- Ben only: Cleo's city is unknown
+```
+
+`City = NULL` asks whether the city equals something unknown, which is never true, not even for Cleo; `IS NULL` is the test. `City <> 'Kyiv'` misses Cleo too, because her city might be Kyiv; to include her, say so with `OR City IS NULL`. Sorting differs by engine: SQL Server puts NULLs first in an ascending `ORDER BY` and PostgreSQL last, and only PostgreSQL accepts `NULLS FIRST` and `NULLS LAST`.
+
+> **Pay attention.** **`NOT IN` over a subquery that returns a NULL returns no rows at all.** `Id NOT IN (1, 2, 3, NULL)` means `Id <> 1 AND Id <> 2 AND Id <> 3 AND Id <> NULL`. The last term is unknown for every `Id`, so the whole `AND` can be false or unknown but never true, and every row is dropped. One guest order with a NULL `CustomerId` empties the result. `NOT EXISTS` asks a different question, whether a matching row exists, and a NULL `CustomerId` matches nobody, which is what you meant. Use `NOT EXISTS`, or add `WHERE CustomerId IS NOT NULL` to the subquery. `IN` has no such trap: its `= NULL` term sits inside an `OR`, where it just fails to match. The plans show the extra work: PostgreSQL runs `NOT EXISTS` as an anti join but `NOT IN` as a check of every customer against the hashed subquery, and SQL Server adds `CustomerId IS NULL OR` to its anti-join predicate.
+
+```sql
+-- Meant: customers who never ordered. Returns no rows: guest order 16 has CustomerId NULL.
+SELECT Name FROM Customers
+WHERE Id NOT IN (SELECT CustomerId FROM Orders);
+
+-- Dan
+SELECT Name FROM Customers c
+WHERE NOT EXISTS (SELECT 1 FROM Orders o WHERE o.CustomerId = c.Id);
+```
+
+EF Core translates LINQ with C# semantics, where `null != "Kyiv"` is true. `c.City != "Kyiv"` becomes `[c].[City] <> 'Kyiv' OR [c].[City] IS NULL` and returns Ben *and* Cleo, and `!ids.Contains(c.Id)` over a subquery becomes `NOT EXISTS` on SQL Server and a NULL-safe `NOT IN` on PostgreSQL. The traps live in the SQL you write yourself (`FromSql`, Dapper, views, reports), or in LINQ after `UseRelationalNulls(true)` switches the compensation off.
+
+### Subqueries, EXISTS and CTEs
+
+A subquery is a `SELECT` inside another statement. It can return one value (a scalar subquery in `SELECT` or `WHERE`), a set to test against (`IN`, `EXISTS`), or a table to join (a *derived table* in `FROM`, as in the row-multiplication fix). A *correlated* subquery refers to the outer row, as the `NOT EXISTS` above does with `c.Id`: logically it runs once per outer row, and the optimizer turns it into a join.
+
+**`EXISTS` answers "has any" without duplicates.** "Customers with a paid order" written as a join returns Ada three times, once per paid order, and the usual patch is `DISTINCT`, which removes the duplicates after producing them. `WHERE EXISTS (SELECT 1 FROM Orders o WHERE o.CustomerId = c.Id AND o.Status = 'Paid')` asks a yes-or-no question per customer, returns each one once and can stop at the first match; the `SELECT 1` is never read. `IN (SELECT …)` returns the same three customers, and each engine gave it the same plan as `EXISTS`, so choose between those two for readability. The choice that changes results is `NOT EXISTS` over `NOT IN`. In EF Core, `Any()` becomes `EXISTS`, `!Any()` becomes `NOT EXISTS`, and `Contains` becomes `IN`.
+
+**A CTE names a subquery.** `WITH Name AS (…)`, a common table expression, lets a long query read top-down and refer to the same subquery more than once. It is a name, not a stored result: SQL Server expands a CTE at every reference, so one referenced twice reads its tables twice. PostgreSQL (since version 12) inlines a CTE referenced once and computes one referenced more than once a single time; `MATERIALIZED` and `NOT MATERIALIZED` override the choice. To compute an intermediate result once on SQL Server, put it in a temporary table.
+
+A **recursive** CTE walks a hierarchy of unknown depth. The anchor query finds the first rows; the recursive part then runs against the rows the previous step produced, again and again, until a step finds none, and `UNION ALL` collects every step:
+
+```sql
+WITH RECURSIVE Tree AS (          -- SQL Server: plain WITH
+    SELECT Id, Name, 0 AS Depth
+    FROM Categories
+    WHERE ParentId IS NULL           -- anchor: the roots
+    UNION ALL
+    SELECT c.Id, c.Name, t.Depth + 1
+    FROM Categories c
+    JOIN Tree t ON c.ParentId = t.Id -- step: the children of the rows found so far
+)
+SELECT Id, Name, Depth FROM Tree;
+```
+
+It returns Electronics at depth 0, Computers and Accessories at 1, and Laptops at 2. PostgreSQL requires the word `RECURSIVE`, and SQL Server rejects it. A cycle in the data never produces an empty step. SQL Server stops a recursive CTE after 100 levels with error 530 (`OPTION (MAXRECURSION n)` changes the limit); PostgreSQL has no default limit, so bound the depth in the recursive part yourself.
+
+### Window Functions
+
+`GROUP BY` returns one row per group; a **window function** computes across a group of rows and keeps every row. `OVER (…)` defines the window: `PARTITION BY` splits the rows into groups (one group if omitted), `ORDER BY` orders each partition, and the *frame* picks which of the ordered rows an aggregate sees. Window functions are evaluated with `SELECT`, after `WHERE`, `GROUP BY` and `HAVING`.
+
+The ranking functions number the rows of each partition and differ only on ties. Ada's orders 11 and 12 tie at 50.00:
+
+```sql
+SELECT Id, Total,
+       ROW_NUMBER() OVER (ORDER BY Total DESC, Id) AS RowNumber,  -- 1 2 3 4
+       RANK()       OVER (ORDER BY Total DESC)     AS Rank,       -- 1 2 2 4
+       DENSE_RANK() OVER (ORDER BY Total DESC)     AS DenseRank   -- 1 2 2 3
+FROM Orders
+WHERE CustomerId = 1;
+```
+
+`ROW_NUMBER` always numbers 1, 2, 3, 4, and breaks a tie arbitrarily unless its `ORDER BY` is unique, hence the `, Id`. `RANK` gives tied rows the same number and skips the next; `DENSE_RANK` doesn't skip.
+
+An aggregate with `OVER` becomes a running value:
+
+```sql
+SELECT Id, CreatedAt, Total,
+       SUM(Total) OVER (ORDER BY CreatedAt)              AS ByDate,   -- 100 200 200 230
+       SUM(Total) OVER (ORDER BY CreatedAt, Id
+                        ROWS BETWEEN UNBOUNDED PRECEDING
+                                 AND CURRENT ROW)       AS Running   -- 100 150 200 230
+FROM Orders
+WHERE CustomerId = 1;
+```
+
+> **Pay attention.** **A running total without a frame adds up ties together.** With an `ORDER BY` and no frame, both engines use the frame `RANGE BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW`, and `RANGE` includes the current row's *peers*: the rows with the same `ORDER BY` value. Orders 11 and 12 were both placed on 2026-02-10, so both show 200.00 in `ByDate`, and the 150.00 between them never appears. `ROWS` counts physical rows, so with an `ORDER BY` made unique by `Id`, `Running` steps through 100, 150, 200, 230. Write the frame whenever you mean a running total.
+
+**Top N per group** is the classic use: number the rows of each partition, then keep the first N. The filter needs an outer query, because the row number doesn't exist yet when `WHERE` runs (both engines reject `ROW_NUMBER()` in a `WHERE`):
+
+```sql
+WITH Ranked AS (
+    SELECT CustomerId, Id, Total,
+           ROW_NUMBER() OVER (PARTITION BY CustomerId
+                              ORDER BY Total DESC, Id) AS Rn
+    FROM Orders
+)
+SELECT CustomerId, Id, Total
+FROM Ranked
+WHERE Rn <= 2;   -- the two largest orders of each customer
+```
+
+It returns orders 10 and 11 for customer 1, 13 and 14 for customer 2, 15 for customer 3, and 16 for a NULL `CustomerId`: like `GROUP BY`, `PARTITION BY` puts the NULLs in a group of their own. Use `RANK` instead of `ROW_NUMBER` when every tied row should be kept.
+
+LINQ has no operator for a window function, but EF Core writes `ROW_NUMBER` itself for the top N per group: `ctx.Customers.Select(c => new { c.Name, Top = c.Orders.OrderByDescending(o => o.Total).ThenBy(o => o.Id).Take(2).ToList() })` becomes a `ROW_NUMBER() OVER(PARTITION BY [o].[CustomerId] ORDER BY [o].[Total] DESC, [o].[Id])` subquery filtered on `<= 2`, on SQL Server and PostgreSQL alike. Ranks, running totals and CTEs go in [raw SQL](#stored-procedures-views-and-raw-sql) or [Dapper](#dapper-when-the-orm-is-too-much).
+
+### SQL Queries in EF Core LINQ
+
+How the SQL above maps to LINQ, as EF Core 10 translates it on both providers. [IEnumerable vs IQueryable](#ienumerable-vs-iqueryable) in Chapter 1 explains why the lambdas become SQL at all.
+
+| SQL | EF Core LINQ | What to know |
+|---|---|---|
+| `INNER JOIN` | a navigation on a required relationship (`o.Customer.Name`), or `Join` | |
+| `LEFT JOIN` | a navigation on an optional relationship, or `LeftJoin` (EF Core 10) | before EF Core 10: `GroupJoin`, `SelectMany`, `DefaultIfEmpty` |
+| `RIGHT JOIN` | `RightJoin` (EF Core 10) | |
+| a condition in a `LEFT JOIN`'s `ON` | `c.Orders.Where(…)` inside the query | lands inside the join, so the outer rows stay |
+| `GROUP BY … HAVING` | `GroupBy(…).Where(g => g.Count() > 1).Select(…)` | the `Where` after `GroupBy` becomes `HAVING` |
+| `COUNT`, `SUM` per parent | `c.Orders.Count()`, `c.Orders.Sum(o => o.Total)` | a subquery each, so no row multiplication; `Sum` of nothing is 0 (`COALESCE`) |
+| `EXISTS`, `NOT EXISTS`, `IN` | `Any()`, `!Any()`, `Contains` | `!Contains` is NULL-safe |
+| `<>` on a nullable column | `!=` | adds `OR … IS NULL`: C# semantics |
+| `ROW_NUMBER`, top N per group | `OrderBy(…).Take(n)` on a navigation, in a projection | |
+| `RANK`, running totals, CTEs | none | `FromSql` or Dapper |
 
 ### Indexes: Clustered, Non-Clustered, Covering
 
@@ -5671,7 +5872,7 @@ The strategic question is *when* migrations run in your pipeline. Options:
 
 ## Summary
 
-The database is not a black box. Normalization keeps each fact in one place, and constraints keep bad data out whatever the application does. An index is a sorted copy of some columns, so a query seeks only when its predicate pins a leftmost prefix with values the index stores; the actual plan and its logical reads show whether it did. A transaction makes a group of statements all-or-nothing, and its isolation level decides what concurrent transactions see.
+The database is not a black box. Normalization keeps each fact in one place, and constraints keep bad data out whatever the application does. A query's clauses run in a fixed logical order, a join pairs rows and pads the misses with NULLs, and a comparison with NULL is unknown: most wrong query results come from forgetting one of the three. An index is a sorted copy of some columns, so a query seeks only when its predicate pins a leftmost prefix with values the index stores; the actual plan and its logical reads show whether it did. A transaction makes a group of statements all-or-nothing, and its isolation level decides what concurrent transactions see.
 
 EF Core is a productivity multiplier only if you know the SQL it sends: tracking only where you save, related rows in one round trip through `Include` or a projection, one short-lived `DbContext` per request, set-based statements for bulk writes, and a concurrency token whose original value is the one the user saw. Raw SQL and Dapper take the queries LINQ expresses badly, caching removes load you understand, and expand-then-contract migrations let the schema change under a running system. The question to keep asking is *what is actually happening at the database, and is it the least work required to be correct?*
 
@@ -6011,6 +6212,34 @@ When you need tight control over SQL and maximum read performance — hot query 
 
 **What is normalization and when do you denormalize?**
 Normalization organizes data to eliminate redundancy (each fact stored once) — reduces update anomalies. You denormalize deliberately for read performance: duplicate or pre-join data to avoid expensive joins on hot read paths, accepting the cost of keeping copies in sync. Normalize by default, denormalize with evidence.
+
+**`WHERE` vs `HAVING`?**
+`WHERE` filters rows before grouping, so it can't see aggregates; `HAVING` filters groups after aggregation. A condition on a plain column belongs in `WHERE`, where it removes rows before the engine groups them.
+
+**What does each join type return, and how does a `LEFT JOIN` quietly become an inner one?**
+INNER returns matched pairs only; LEFT and RIGHT return every row of one side, NULL-padded where the other side has no match; FULL returns both; CROSS returns every combination. A `WHERE` condition on the right table of a `LEFT JOIN` is unknown for the padded rows, so it drops them and the join behaves as an inner join; the condition belongs in `ON`.
+
+**`COUNT(*)` vs `COUNT(column)`?**
+`COUNT(*)` counts rows; `COUNT(column)` counts non-NULL values. After a `LEFT JOIN`, a customer with no orders has one row of NULLs: `COUNT(*)` gives 1, `COUNT(o.Id)` gives 0. `SUM` over no rows is NULL, not 0.
+
+**Why does `WHERE Id NOT IN (SELECT CustomerId FROM Orders)` return nothing?**
+If the subquery returns a NULL, `Id <> NULL` is unknown for every row, so the `AND` that `NOT IN` expands to is never true. Use `NOT EXISTS`, which asks whether a matching row exists and is unaffected by NULLs.
+
+**Red flag:** "`= NULL` works like `IS NULL`": a comparison with NULL is unknown, so `= NULL` matches no row, ever.
+
+**A report's totals went up after someone added a join. Why?**
+The join is one-to-many, so each parent row is repeated once per child and every parent-level value is summed once per child. Aggregate the child table to the parent's grain first (a derived table or a CTE), then join.
+
+**Red flag:** "Add `DISTINCT` to get rid of the duplicates": `SUM(DISTINCT)` also merges different rows that happen to hold the same value.
+
+**How do you get the latest N rows per group?**
+`ROW_NUMBER() OVER (PARTITION BY CustomerId ORDER BY CreatedAt DESC, Id)` in a CTE or derived table, then `WHERE rn <= N` in the outer query. A window function can't be filtered in `WHERE`, because it is computed after `WHERE`. Make the `ORDER BY` unique, or use `RANK` to keep ties. In EF Core, `Take(n)` on a navigation inside a projection produces the same `ROW_NUMBER` query.
+
+**`ROW_NUMBER` vs `RANK` vs `DENSE_RANK`?**
+All three number rows in window order and differ on ties: `ROW_NUMBER` is always unique and breaks ties arbitrarily, `RANK` repeats a number and leaves a gap (1, 2, 2, 4), `DENSE_RANK` repeats without a gap (1, 2, 2, 3).
+
+**Is a CTE computed once and cached?**
+Not necessarily: it is a named subquery. SQL Server expands it at every reference; PostgreSQL 12+ inlines one referenced once and computes one referenced several times once. Use CTEs for readability and recursion, and a temporary table when you need a result computed once.
 
 
 ---
@@ -6752,11 +6981,11 @@ Fast, isolated/independent (no order dependence, no shared state), deterministic
 
 # Chapter 9: Exceptions, Logging and First Diagnosis
 
-_⏱️ Estimated read time: ~1 h · 9437 words (study pace)_
+_⏱️ Estimated read time: ~1 h 10 min · 11807 words (study pace)_
 
 Every service fails, and what decides how fast a failure gets fixed is the trail it leaves: one log entry carrying the whole exception, a response that tells the caller what they can do about it, and one id that joins the two. This chapter teaches the habits that leave that trail, and the first measurements to take when the complaint is not an error but slowness.
 
-It starts with the tool every later section uses: `ILogger` and structured logging, where a message template keeps typed properties a log store can query, a level says who has to act, and secrets stay out. The exception-handling strategy then settles where a failure is caught (almost nowhere), what gets logged (once, at the boundary) and what the caller sees (a ProblemDetails body with a stable code and a trace id). Next comes the trace id itself: the wiring that gives every request one, and how it follows the request across services and queues so the logs of five services read as one story. The chapter closes with a method for a slow endpoint — CPU-bound or waiting, and the fingerprint of a starved thread pool — and then two programs to run, three questions and checks for your own service.
+It starts with the tool every later section uses: `ILogger` and structured logging, where a message template keeps typed properties a log store can query, a level says who has to act, and secrets stay out. The exception-handling strategy then settles where a failure is caught (almost nowhere), what gets logged (once, at the boundary) and what the caller sees (a ProblemDetails body with a stable code and a trace id). On your own machine, the debugger then finds a reproducible failure faster than any log: conditional breakpoints and tracepoints, why it stops on an exception your code catches, async stacks, attaching to a running process, and when it is the wrong tool. Next comes the trace id itself: the wiring that gives every request one, and how it follows the request across services and queues so the logs of five services read as one story. The chapter closes with a method for a slow endpoint — CPU-bound or waiting, and the fingerprint of a starved thread pool — and then two programs to run, three questions, checks for your own service and interview questions.
 
 ## Logging with Microsoft.Extensions.Logging
 
@@ -7183,6 +7412,62 @@ Run down this list on any pull request that touches error handling:
 - [ ] Custom exceptions carry structured properties, are named for the situation, and there are few of them.
 - [ ] `TaskScheduler.UnobservedTaskException` is subscribed somewhere in the host.
 
+## Using the Debugger Well
+
+Logs tell you what happened where you can't watch. On your own machine, with a failure you can reproduce, the debugger is faster: it stops the process at a line, shows every variable and the chain of calls that led there, and runs the code one statement at a time. Visual Studio, Rider and VS Code with the C# extension share the concepts below. Menu names and keys differ, so where this section names one, it says which IDE.
+
+### Breakpoints That Stop Only When It Matters
+
+A breakpoint puts the process into *break mode* when execution reaches its line: the app is suspended while its variables and objects stay in memory to inspect. A breakpoint in a loop or a busy endpoint stops on every pass, so the useful ones are qualified:
+
+- **Condition.** Stop only when an expression is true, such as `order.Id == 4711` or `items.Count == 0`, written in C#.
+- **Hit count.** Stop on the Nth time the line is reached: the iteration where the loop goes wrong.
+- **Tracepoint** (Visual Studio) or **logpoint** (VS Code). Don't stop; write a message with values in braces, such as `Order {order.Id} total {order.Total}`, to the Output window or Debug Console, and carry on. It is a log line you add without editing, rebuilding or restarting, and remove the same way.
+- Visual Studio also has *data breakpoints* (.NET Core 3 and later), which stop when a property's value changes, and *dependent* breakpoints, which arm only after another breakpoint has been hit.
+
+### Stepping, the Call Stack and Watching Values
+
+From a breakpoint, **Step Over** (F10 in Visual Studio) runs the current line, calls included, and stops on the next one. **Step Into** (F11) enters the method the line calls; **Step Out** (Shift+F11) runs to the end of the current method and stops in its caller. The usual rhythm is to step over until a value is wrong, then go back one level of detail: run again and step into the call that produced it.
+
+The **Call Stack** window lists the frames that led to the current line. Select a frame and the debugger shows that method's locals as they are now, so you can find which caller passed the bad argument without restarting. With **Just My Code** on (the default in Visual Studio and in VS Code's C# extension), frames from the framework and from optimized or symbol-less assemblies collapse into `[External Code]`, and Step Into skips them. Turn it off to step into a library, which then needs that library's symbols (`.pdb`).
+
+Hover a variable to see its value, keep expressions in a **Watch** window, or evaluate one in the Immediate window (Visual Studio) or the Debug Console (VS Code). Evaluating runs code inside the paused process, so a getter or method with side effects changes the very state you are inspecting.
+
+> **Pay attention.** **Why the debugger stops on an exception your code catches.** When `throw` runs, the runtime raises a *first-chance* notification before it searches the stack for a handler: the debugger hears of the exception, and `AppDomain.FirstChanceException` fires, while nobody knows yet whether a `catch` will take it. A debugger set to break when an exception is *thrown* therefore stops at the throw site even if a `catch` three frames up would handle it, which is what you want when a library swallows an exception you need to see. What breaks by default differs. Visual Studio breaks when thrown only for the types checked in **Exception Settings** (Debug > Windows > Exception Settings), and otherwise on exceptions your code doesn't handle. VS Code's C# extension has two checkboxes in the Breakpoints pane: **All Exceptions** (break when thrown) and **User-Unhandled Exceptions**, on by default, which breaks when an exception that came through your code is caught by code that isn't yours. That is how the debugger stops on an exception ASP.NET Core's exception middleware would otherwise turn quietly into a 500. To stop breaking on an exception you expect, narrow the setting: VS Code takes a condition such as `!System.Threading.Tasks.TaskCanceledException`, and Visual Studio a module name.
+
+The same notification is available in code. In a development build it lists every exception as it is thrown, caught or not:
+
+```csharp
+// Development only: report every exception the moment it is thrown, caught or not.
+AppDomain.CurrentDomain.FirstChanceException += (_, e) =>
+    Console.WriteLine($"first chance: {e.Exception.GetType().Name}: {e.Exception.Message}");
+```
+
+With `int.Parse("forty-two")` inside a `try` whose `catch (FormatException) when (…)` logs from its filter, the handler prints its line first, then the filter runs, then the `catch`: the notification comes before the runtime has looked for a handler.
+
+### Debugging Async Code
+
+After an `await`, the rest of the method runs as a continuation, called by whatever completed the awaited task, often on another thread-pool thread. Print the stack after `await Task.Delay(10)` in a method called from `Outer()`, and the frames below the resumed `MoveNext` belong to the timer that completed the delay, on another thread; `Outer` is not among them. So a thread's **Call Stack** after an `await` shows who *resumed* the method, not who is *waiting* for it. Visual Studio rebuilds the logical chain: the **Tasks** view of the **Parallel Stacks** window draws task-centered call stacks, and the **Tasks** window lists every task with its status (active, awaiting, blocked, deadlocked). When requests hang, look there first. Many tasks *blocked* rather than *awaiting* is the [sync-over-async](#the-sync-over-async-deadlock) of Chapter 4. Parallel Stacks' **Threads** view merges the stacks of every thread, the same picture `parallelstacks` prints from a dump.
+
+### Attaching to a Running Process
+
+You don't have to start the app from the IDE. **Attach to Process** (Ctrl+Alt+P in Visual Studio; the *Debug: Attach to a .NET 5+ or .NET Core process* command in VS Code) connects the debugger to a process that is already running: a service started from the command line, or an app that has just started misbehaving. VS Code's C# extension can also attach through a transport program such as `ssh`, `docker exec` or `kubectl exec`. Breakpoints bind once the module's symbols load.
+
+A Release build is harder to debug, because the JIT optimizes it: locals show as unavailable and stepping jumps around. Debug a Debug build, or turn on Visual Studio's *Suppress JIT optimization on module load* (`suppressJITOptimizations` in VS Code), which asks the JIT not to optimize modules that load from then on. Modules already loaded when you attach stay optimized.
+
+### When the Debugger Is the Wrong Tool
+
+Break mode suspends the process. On your machine that is the point; on a shared server it also stops every other request the process is serving, callers time out while you read variables, and a liveness probe that gets no answer has the instance restarted under you. It changes timing too: a race that depends on two threads interleaving can vanish while one of them sits at a breakpoint, and a tracepoint disturbs less than a stop.
+
+| Situation | Reach for |
+|---|---|
+| Reproducible on your machine | The debugger: a breakpoint at the symptom, the call stack back to the cause |
+| Appears only under load or as a race | Tracepoints or logs with thread ids, and a dump taken when it happens |
+| Production, failing requests | The logs and traces this chapter wires up, joined by the trace id |
+| Production, slow, hung or leaking | `dotnet-counters`, then `dotnet-trace` or a dump |
+
+A dump (`dotnet-dump collect`) is the debugger's view frozen at one moment, taken from the live process and read later: `dotnet-dump analyze` reads it, and Visual Studio opens one with a heap much like a session stopped at a breakpoint, except that execution can't continue. [Diagnosing a Performance Problem](#diagnosing-a-performance-problem-a-worked-methodology), below, is the method for production; [Profiling](#profiling-finding-the-bottleneck-in-a-running-system) in Chapter 17 runs the tools against a live process, and [How to Triage](#how-to-triage-from-symptom-to-theory) in Chapter 35 works from symptom to theory during an incident.
+
 ## Why Observability, and How It Differs from Monitoring
 
 Everything so far ends a failure in one log entry and a response carrying a trace id. The rest of the chapter is about that id and the telemetry around it, because in production you cannot attach a debugger, step through a request as it hops across five services, or ask a customer to reproduce the bug while you watch: what the running system emits is your only window into it.
@@ -7472,6 +7757,108 @@ Fix the cause: remove the blocking call (raising the pool's minimum only moves t
 A good result: each hit is a deliberate boundary. A bad one: a `catch` in every layer.
 
 **Measure.** In a test environment, make one request fail. Count the `Error` entries it produced (one is right), then search your log store for the `traceId` from its ProblemDetails response and count the services whose entries you get back. During the next busy hour, run `dotnet-counters monitor` against one instance and write down CPU usage, thread-pool queue length and thread count: that is your baseline for the next slow day.
+
+## Interview Questions
+
+The questions on diagnosing a slow endpoint (CPU-bound or waiting, which tools, the usual culprits, a slow database) are answered in [Diagnosing a Performance Problem](#diagnosing-a-performance-problem-a-worked-methodology) above.
+
+**Where should a .NET service catch exceptions?**
+
+<details>
+<summary>Answer</summary>
+
+Only where the `catch` adds value: to translate a low-level exception into one of your abstraction (keeping the original as the inner exception), to handle it (retry a transient failure, fall back, compensate), or to report it at the outermost boundary, where the exception middleware or a worker's loop logs it once and turns it into a response. Every other layer lets it pass. A bug isn't caught at all below the boundary, because no code can know what is still true.
+
+**Red flag:** "Wrap every method in `try`/`catch` and log." Each layer logs the same failure again, and a `catch (Exception)` also swallows cancellations.
+</details>
+
+**`throw;` or `throw ex;`, and why?**
+
+<details>
+<summary>Answer</summary>
+
+`throw;` rethrows the original exception with its stack trace. `throw ex;` restarts the trace at the rethrow, so the frames below the `catch`, the ones with the bug, are lost from every log. To rethrow later or on another thread, capture it with `ExceptionDispatchInfo.Capture(ex)` and call `Throw()`, which keeps the original trace.
+</details>
+
+**When do you return a `Result<T>` instead of throwing?**
+
+<details>
+<summary>Answer</summary>
+
+For an expected outcome the caller must decide about, such as a domain rule saying no (insufficient balance, coupon expired): it belongs in the method's signature and maps to a 409 or 422. Exceptions stay for the exceptional, where continuing would be worse than stopping, because they can't be ignored. Cost matters in loops: a throw costs microseconds, which is noise once per request and seconds across hundreds of thousands of rows.
+</details>
+
+**What does an exception filter (`catch … when`) give you that catching and rethrowing doesn't?**
+
+<details>
+<summary>Answer</summary>
+
+The filter runs during the first pass, before the stack unwinds. If it returns `false`, the exception keeps travelling with every frame intact, so a crash dump or debugger still sees the original throw site. Catch-inspect-rethrow has already unwound the stack by the time it decides. Filters are also the idiomatic way to branch on an error code (`when (ex.Number == 1205)`).
+</details>
+
+**Why does the debugger stop on an exception that a `catch` handles?**
+
+<details>
+<summary>Answer</summary>
+
+The runtime raises a first-chance notification when the exception is thrown, before it searches for a handler, so a debugger set to break when that type is thrown stops at the throw site whether or not a `catch` exists. The default settings break only on exceptions that go unhandled, or, with Just My Code, on exceptions that leave your code and are caught by framework code. `AppDomain.FirstChanceException` is the same notification in code.
+</details>
+
+**Why use message templates instead of string interpolation in log calls?**
+
+<details>
+<summary>Answer</summary>
+
+A template (`"Order {OrderId} placed"`, with the value as an argument) gives the provider the value as a typed property and the template as the event's identity, so a log store can query `OrderId = 42` and group events of one kind. An interpolated string is built before the call: one finished string, no properties, a different template for every value, and the formatting cost paid even when the level is disabled.
+</details>
+
+**What must never appear in a log?**
+
+<details>
+<summary>Answer</summary>
+
+Secrets (passwords, API keys, connection strings, bearer tokens) and personal data such as full card numbers, government ids, emails or addresses. Logs are shipped to third-party systems, kept for months and readable by a broad audience, so a logged secret is a leaked secret, and personal data in logs falls under retention and deletion rules. Log a masked value or a pseudonymous id instead, and strip sensitive fields from destructured objects.
+</details>
+
+**How do you follow one request through five services' logs?**
+
+<details>
+<summary>Answer</summary>
+
+By the trace id. ASP.NET Core and `HttpClient` propagate the W3C `traceparent` header automatically, `Activity.Current` carries the id through the async call chain, and the logging providers record it on every entry. Return it to clients (ProblemDetails' `traceId`) and search by it. Across a queue, the producer must write the trace context into the message and the consumer must read it, which some client libraries do and others leave to you.
+</details>
+
+**How should an API treat `OperationCanceledException`?**
+
+<details>
+<summary>Answer</summary>
+
+As a successful response to a request to stop, not as an error: the client disconnected or the host is shutting down. Catch it at the boundary with `when (ct.IsCancellationRequested)`, log it at `Information` or `Debug`, and don't turn it into a 500. The filter matters, because without it a timeout, which is a real problem, would be swallowed too.
+</details>
+
+**What happens when an exception escapes a `BackgroundService`'s `ExecuteAsync`?**
+
+<details>
+<summary>Answer</summary>
+
+Since .NET 6 the default is to stop the whole host, so the orchestrator restarts a broken worker instead of leaving a process that looks healthy and does nothing. Catch inside the loop, per item, so one bad message doesn't stop the worker; let anything that escapes the loop stop the host.
+</details>
+
+**Why can't you just debug the problem in production?**
+
+<details>
+<summary>Answer</summary>
+
+Break mode suspends the process: every request it serves stops, callers time out, and a liveness probe that gets no answer has the instance restarted. It also changes timing, so a race can disappear while you look. In production the evidence comes from what the process emits and from snapshots: logs and traces joined by the trace id, `dotnet-counters`, `dotnet-trace`, and a dump from `dotnet-dump collect`, read later with `dotnet-dump analyze` or in Visual Studio.
+</details>
+
+**Monitoring vs observability?**
+
+<details>
+<summary>Answer</summary>
+
+Monitoring answers questions you decided on in advance: dashboards and alerts for known failure modes, such as error rate above 1%. Observability is the property that lets you ask new questions of the running system without shipping code, because its logs, metrics and traces carry enough context, correlated by trace id, to slice by any dimension after the fact. Monitoring tells you that something is wrong; observability helps you find out why.
+</details>
 
 
 ---
