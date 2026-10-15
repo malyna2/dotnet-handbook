@@ -1083,7 +1083,7 @@ The compiler rewrites the method into a state machine. At an `await`, if the awa
 
 # Chapter 2: Data Structures and Algorithms Essentials
 
-_⏱️ Estimated read time: ~30 min · 4611 words (study pace)_
+_⏱️ Estimated read time: ~40 min · 5945 words (study pace)_
 
 This chapter makes you able to say what a piece of code costs as its input grows, and to pick the .NET collection whose cost matches the job: why `Dictionary` lookups are constant time and what makes them linear, why `List<T>.Add` is cheap on average and occasionally not, why `Array.Sort` is not stable, and when a plain list beats every clever structure. That is the instinct that spots a nested loop over a growing list long before it becomes an incident, and the vocabulary interviewers test.
 
@@ -1450,6 +1450,101 @@ When a task lands on your desk, resist jumping to code. Frame it first:
 
 The through-line is one habit: **reason about cost before you commit to code.** Pick the collection whose Big-O matches your access pattern and your realistic `n`, know which internal mechanism (contiguous array, hash buckets, balanced tree, binary heap) produces that cost and what breaks it (a bad hash, a mutated key, unsorted input to a binary search), and recognize the handful of algorithmic patterns most problems reduce to. Strong engineers are not the ones who memorized the most algorithms; they are the ones who reliably ask "how does this behave as it grows?" and have the vocabulary to answer.
 
+## Prove it
+
+One program shows three mechanisms from this chapter: the list's doubling array, a scan against a hash lookup, and what a mutated key does to a hash set. `Key` counts its `Equals` calls, so each cost shows as a count rather than a timing that changes from run to run. Predict the counts before you run it.
+
+`verify/path/CollectionCosts/Program.cs` · run it from `verify/path` with `dotnet run --project CollectionCosts`:
+
+```csharp
+// Prove it: a List<T> doubles its array as it grows; a hash set finds a key by its hash and loses a key whose hash changed.
+var list = new List<Key>();
+var capacities = new List<int>();
+for (int i = 0; i < 10_000; i++)
+{
+    list.Add(new Key(i));
+    if (capacities.Count == 0 || capacities[^1] != list.Capacity) capacities.Add(list.Capacity);
+}
+Console.WriteLine($"capacities while adding 10,000: {string.Join(" ", capacities)}");
+
+var set = new HashSet<Key>(list);
+var probe = new Key(9_999);
+Key.EqualsCalls = 0; list.Contains(probe);
+Console.WriteLine($"list.Contains(9999): {Key.EqualsCalls} Equals calls (a scan)");
+Key.EqualsCalls = 0; set.Contains(probe);
+Console.WriteLine($"set.Contains(9999):  {Key.EqualsCalls} Equals call (hash, bucket, one compare)");
+
+Key stored = list[42];
+stored.Id = 1_000_042;                       // mutate a key while it is in the set
+Console.WriteLine($"after mutating key 42: set.Contains(it) {set.Contains(stored)}, set.Count {set.Count}, " +
+                  $"still there by reference: {set.Any(k => ReferenceEquals(k, stored))}");
+
+sealed class Key(int id)
+{
+    public static int EqualsCalls;
+    public int Id = id;
+    public override bool Equals(object? obj) { EqualsCalls++; return obj is Key other && other.Id == Id; }
+    public override int GetHashCode() => Id;
+}
+```
+
+```text
+capacities while adding 10,000: 4 8 16 32 64 128 256 512 1024 2048 4096 8192 16384
+list.Contains(9999): 10000 Equals calls (a scan)
+set.Contains(9999):  1 Equals call (hash, bucket, one compare)
+after mutating key 42: set.Contains(it) False, set.Count 10000, still there by reference: True
+```
+
+What to notice:
+
+- **The capacity starts at 4 and doubles.** Thirteen arrays for 10,000 items. The twelve copies moved 4 + 8 + … + 8,192 = 16,380 elements in all, fewer than two per item added: that bounded total is the amortized O(1) of `Add`. The last array has 16,384 slots for 10,000 items; the 6,384 empty ones are what doubling costs in memory, and a capacity passed to the constructor avoids both the copies and the slack.
+- **The scan compared every item.** `List<T>.Contains` calls `Equals` on each element in turn, and 9,999 is the last one: 10,000 calls. The set computed the probe's hash, went to one bucket and called `Equals` once. At 10,000 items the gap is four orders of magnitude, and it grows with `n`.
+- **The mutated key is still in the set, and lookups can't find it.** The set filed the object under hash 42 and stored that hash in the entry. `Contains` hashes the new `Id`, 1,000,042, and searches that hash's bucket; even in the same bucket, it compares the stored hash before it calls `Equals`, and 42 doesn't match. `Count` still says 10,000 and enumeration still yields the object: the entry is lost to `Contains` and `Remove`, not removed. A `Dictionary` loses a mutated key the same way.
+
+## Three questions
+
+**1.** An `Order` class overrides `Equals` to compare `Id`, but not `GetHashCode`. `orders.Distinct()` returns orders with the same `Id` twice, and `dictionary[order]` throws `KeyNotFoundException` for an order equal to the one stored. Why doesn't `Distinct`, which "removes equal items", use your `Equals`?
+
+<details>
+<summary>Answer</summary>
+
+- **It never gets that far.** `Distinct` builds a hash set as it goes, and a hash set compares only items whose hash codes match ([the hash table](#dictionarykv-and-hashsett-the-hash-table) above). `Equals` is the last check, not the first.
+- **The inherited `GetHashCode` is per object.** `object.GetHashCode` is tied to the instance, not to its fields, so two separate orders with the same `Id` almost always get different hash codes, land in different buckets, and are never compared. The dictionary lookup fails for the same reason.
+- **The contract the class broke:** equal objects must return equal hash codes. The compiler warns about it (CS0659 when a class overrides `Equals` without `GetHashCode`); a project that suppresses the warning ships the bug.
+
+Fix: override `GetHashCode` from the same fields as `Equals` (`HashCode.Combine(Id)` for one field), make those fields immutable, or use a `record`, which generates both from the same members. For a one-off comparison, pass an `IEqualityComparer<Order>` to `Distinct` or to the dictionary's constructor.
+</details>
+
+**2.** A request handler builds a `List<OrderLine>` with two million `Add` calls. Each `Add` is O(1), yet the handler allocates about twice the memory its final list holds, and Gen 2 collections climb under load. Why?
+
+<details>
+<summary>Answer</summary>
+
+- **Every growth allocates a new array and abandons the old one.** The capacity goes 4, 8, 16 … 2,097,152: about twenty arrays, and their sizes add up to roughly twice the last one. With 8-byte references, the last array is 16 MB, and the handler allocated about 32 MB to get there. The final array alone is the list's memory; each earlier one is garbage the moment the next one replaces it.
+- **The big arrays skip Gen 0.** An array of 85,000 bytes or more is allocated on the Large Object Heap, which is collected only with Gen 2 ([Chapter 3](#generations-0-1-and-2)). With 8-byte references that is every array from capacity 16,384 up: eight per request, seven of them dead before the handler returns, and each one waits for a full collection.
+- **Amortized O(1) speaks about time, not allocation.** The total copy work is O(n), as promised; the memory the copies leave behind is the part the Big-O doesn't show.
+
+Fix: pass the expected count as the capacity, which allocates one array of the right size and copies nothing. Better still, ask whether the handler needs all two million items at once: streaming them (`IAsyncEnumerable<T>`, paging, a database cursor) keeps memory flat. [Chapter 17](#the-large-object-heap-loh) covers what the Large Object Heap does under load.
+</details>
+
+**3.** `List<T>.BinarySearch` on an unsorted list returns a wrong index instead of throwing. Why doesn't .NET check that the list is sorted, and what else makes a binary search wrong on a sorted list?
+
+<details>
+<summary>Answer</summary>
+
+- **The check would cost more than the search.** Proving a list is sorted means reading every element, O(n); the search reads about log₂ n of them, 14 for 10,000 items. A check would turn the O(log n) operation into an O(n) one, so sortedness is a precondition the caller guarantees, not something the method verifies ([Binary Search](#binary-search)).
+- **On unsorted data, each halving discards the wrong half.** The search compares the middle element and throws away the half that "can't" hold the value; when the order is wrong, that half may hold it, and the search ends on a negative result or a wrong position without any error.
+- **The second trap: a different comparer.** A list sorted with `StringComparer.OrdinalIgnoreCase` is not sorted for the default comparer, which orders by culture and case. Searching it with the default comparer breaks the same precondition with the same silence.
+
+Fix: sort and search with the same comparer (`list.Sort(comparer)`, then `list.BinarySearch(item, comparer)`), and keep the list sorted on every insert, at the position `~result` returns. If the data changes often, a `SortedSet<T>` or a `Dictionary` usually costs less than keeping a list sorted by hand.
+</details>
+
+## Check at work
+
+**Inspect.** Search for lookups by key inside loops and lambdas: `.Contains(`, `.Any(`, `.First(` and `.FirstOrDefault(` on a `List<T>`, each called once per element of another collection. Each is a scan per element, and a `HashSet<T>` or `Dictionary<TKey,TValue>` built once before the loop removes it. Then search for `Insert(0,` and `RemoveAt(0)` in loops, classes that override `Equals` without `GetHashCode` (search the build for a suppressed CS0659), mutable properties read by a `GetHashCode`, and hash codes written to a database or a cache key.
+
+**Measure.** For one hot endpoint, find the largest collection it builds per request and its realistic `n` in production, from logs or a row count. If a lookup runs inside a loop over it, time both versions with [BenchmarkDotNet](#benchmarking-with-benchmarkdotnet) at that `n`, and write down where the plain list stops winning.
+
 ## Interview Questions
 
 Algorithm questions reward the same order every time: restate the problem and its edge cases, give the brute-force solution and its complexity, then improve it by naming the structure or pattern that removes the repeated work, and finish by testing it aloud on a small input. The general approach to an interview is in [Chapter 36: Senior Behaviours, Career and Interviews](#chapter-36-senior-behaviours-career-and-interviews).
@@ -1499,7 +1594,7 @@ Overlapping subproblems (the same smaller question recurs) and optimal substruct
 
 # Chapter 3: How .NET Runs Your Code
 
-_⏱️ Estimated read time: ~25 min · 3794 words (study pace)_
+_⏱️ Estimated read time: ~35 min · 5795 words (study pace)_
 
 This chapter explains the machinery around your code that every .NET service shares: where the runtime puts what you allocate and how the garbage collector gets it back, how settings reach your classes, how the dependency-injection container builds and disposes your objects, and how the Generic Host starts and stops the application. With it you can explain why memory climbs and comes back, why a misspelt setting fails silently, and why a `Scoped` service inside a singleton serves stale data to every request.
 
@@ -1821,6 +1916,176 @@ Versions and their dates, as of October 2026 (`releases-index.json` in the `dotn
 - The **DI container** builds the object graph with three lifetimes; a service may depend only on equal or longer lifetimes, and `ValidateScopes` catches the captive dependency only in Development.
 - The **Generic Host** composes configuration, DI and logging, starts and stops hosted services, and hands `BackgroundService` a stopping token to honor.
 - The **November release cadence** with **LTS (even) / STS (odd)** tracks lets you plan upgrades before support ends.
+
+## Prove it
+
+Two claims from [Garbage Collection](#garbage-collection), observed directly: a survivor is promoted one generation per collection, and a finalizer keeps unreachable memory for one more collection. The program calls `GC.Collect()` because here a collection is the experiment's clock; in application code the advice above stands. Predict the generations and the four `alive` values before you run it.
+
+`verify/path/GcGenerations/Program.cs` · run it from `verify/path` with `dotnet run --project GcGenerations`:
+
+```csharp
+// Prove it: a survivor moves up one generation per collection; a finalizer keeps garbage alive for one more.
+using System.Runtime.CompilerServices;
+
+var survivor = new object();
+Console.Write($"a live object:       gen {GC.GetGeneration(survivor)}");
+for (int i = 0; i < 2; i++) { GC.Collect(); Console.Write($" -> gen {GC.GetGeneration(survivor)}"); }
+Console.WriteLine("  (one step per collection it survives)");
+
+WeakReference plain = Unreachable(), finalizable = UnreachableWithFinalizer();
+GC.Collect();
+Console.WriteLine($"after 1 collection:  plain alive {plain.IsAlive}, with finalizer alive {finalizable.IsAlive}");
+GC.WaitForPendingFinalizers();                 // the finalizer thread runs ~WithFinalizer
+Console.WriteLine($"finalizer has run:   {WithFinalizer.Ran}");
+GC.Collect();
+Console.WriteLine($"after 2 collections: plain alive {plain.IsAlive}, with finalizer alive {finalizable.IsAlive}");
+GC.KeepAlive(survivor);
+
+// Allocated in methods of their own, so no local in this method keeps them reachable.
+// trackResurrection: true follows an object until its memory is reclaimed, not just until it is unreachable.
+[MethodImpl(MethodImplOptions.NoInlining)]
+static WeakReference Unreachable() => new(new object(), trackResurrection: true);
+[MethodImpl(MethodImplOptions.NoInlining)]
+static WeakReference UnreachableWithFinalizer() => new(new WithFinalizer(), trackResurrection: true);
+
+class WithFinalizer
+{
+    public static bool Ran;
+    ~WithFinalizer() => Ran = true;
+}
+```
+
+```text
+a live object:       gen 0 -> gen 1 -> gen 2  (one step per collection it survives)
+after 1 collection:  plain alive False, with finalizer alive True
+finalizer has run:   True
+after 2 collections: plain alive False, with finalizer alive False
+```
+
+What to notice:
+
+- **Promotion is one step per survived collection.** The object starts in Gen 0, survives a collection into Gen 1 and another into Gen 2, and stays there: Gen 2 is as old as it gets. A short-lived object dies before any collection sees it and is never promoted; an object that lives just long enough to survive two collections ends up in the generation that only full collections clean.
+- **The plain object was gone after one collection.** Nothing reached it, so the GC reclaimed its memory at once.
+- **The object with a finalizer outlived the same collection.** The GC found it unreachable, but because it has a finalizer it went on the finalization queue, which keeps it alive, and its memory stayed. The finalizer thread ran `~WithFinalizer` after that collection, and only the next collection reclaimed the memory. That extra collection is what `GC.SuppressFinalize` in `Dispose` saves.
+- **Why the objects are made in separate methods.** A reference held in a local of the running method can count as a root until the method ends, so an object allocated inline might never look unreachable here. Allocating it in a method that returns only a `WeakReference` leaves no strong reference behind.
+
+## Three questions
+
+**1.** A service allocates hundreds of megabytes a minute, and its Gen 0 collections stay cheap. Then an in-memory cache with a ten-minute expiry is added, holding far less memory than the service allocates, and Gen 2 collections become frequent. Why does the volume of allocation matter less than the lifetime of what is allocated?
+
+<details>
+<summary>Answer</summary>
+
+- **A collection's cost follows what survives, not what died.** The GC traces from the roots and moves the survivors together; dead objects are never visited. A Gen 0 full of request garbage is mostly dead, so collecting it is cheap however much was allocated ([Generations 0, 1, and 2](#generations-0-1-and-2)).
+- **Cache entries live just long enough to be promoted.** An entry that lives ten minutes survives many Gen 0 and Gen 1 collections and reaches Gen 2, then expires there. Garbage in Gen 2 is reclaimed only by a Gen 2 collection, so a steady flow of entries that die in Gen 2 fills its budget and triggers full collections, which trace the whole heap.
+- **Old-to-young references add their own cost.** Each time the long-lived cache stores a reference to a new entry, the write barrier marks a card, and the next Gen 0 collection scans those dirty cards.
+
+Fix: avoid objects of middling lifetime. Cache fewer, larger entries, or values without inner references; give the cache a size limit; or keep data that must live long alive for the whole process, where it costs little once it has reached Gen 2. Compare the Gen 2 count before and after ([Chapter 17](#garbage-collection-in-depth) covers the GC under load).
+</details>
+
+**2.** `appsettings.json` sets `Email:SmtpHost` to `smtp.local`, and production sets the environment variable `Email__SmtpHost=smtp.prod`. It worked until someone added `builder.Configuration.AddJsonFile("appsettings.json")` after `WebApplication.CreateBuilder(args)`, to load the file from a new path. Now production sends mail through `smtp.local`. Why?
+
+<details>
+<summary>Answer</summary>
+
+- **Configuration has no priorities, only an order.** `IConfiguration` asks its providers from the last added to the first and takes the first one that has the key ([The Configuration System](#the-configuration-system)). "Environment variables override JSON" is true only because `CreateBuilder` adds them after the JSON files.
+- **`AddJsonFile` appends.** Called after `CreateBuilder`, it places the file after the environment variables and the command line, so it now wins over both, for every key it contains.
+- **Nothing reports it.** Both providers hold a valid value, and a key held by more than one provider is normal, so there is no error: the other value is simply read.
+
+Fix: add extra sources before the environment variables and the command line, or call `AddEnvironmentVariables()` and `AddCommandLine(args)` again after your file so they stay last. To see which provider supplied each value, `((IConfigurationRoot)builder.Configuration).GetDebugView()` lists every key with its provider.
+</details>
+
+**3.** A singleton factory calls `serviceProvider.GetRequiredService<ReportExporter>()` for every report. `ReportExporter` is registered with `AddTransient` and implements `IDisposable`. Memory grows with every report until the process restarts, and `ValidateScopes` reports nothing. Why?
+
+<details>
+<summary>Answer</summary>
+
+- **The container disposes what it creates, so it remembers it.** A disposable service is recorded in the scope that resolved it and disposed when that scope ends ([Captive dependencies](#captive-dependencies-the-classic-di-bug) covers which scope owns what). For a request scope, that is the end of the request.
+- **The singleton resolves from the root scope, which ends at shutdown.** Every `ReportExporter` it creates is added to the root scope's list and stays referenced there until the application stops. Each call makes a new transient, so the list grows with every report and none of them can be collected.
+- **Nothing validates it.** Resolving a transient from the root is legal; `ValidateScopes` rejects only scoped services resolved from the root or captured by singletons.
+
+Fix: give each unit of work its own scope (`using var scope = scopeFactory.CreateScope();` and resolve from it), so the exporter is disposed when the scope ends. If the factory owns the object's lifetime outright, it can construct the exporter with `ActivatorUtilities.CreateInstance<ReportExporter>(provider)`, which the container doesn't track, and dispose it with `using`.
+</details>
+
+## Check at work
+
+**Inspect.** Search the service for:
+
+- `GC.Collect(` and finalizers (`~` followed by the class name): each one needs a reason written next to it;
+- `GetService(` and `GetRequiredService(` outside `Program.cs`: who resolves, from which scope, and is the result disposable?
+- `BuildServiceProvider(` in application code, which builds a second container with its own copy of every singleton;
+- singletons whose constructors take a `DbContext`, an `IOptionsSnapshot<T>` or anything registered as scoped;
+- configuration sources added after `CreateBuilder`, and options bound without `ValidateOnStart()`.
+
+Then check whether `ValidateOnBuild` and `ValidateScopes` run anywhere besides a developer's machine: a test that builds the host with both switched on catches captive dependencies before production does.
+
+**Measure.** Run `dotnet-counters monitor --counters 'EventCounters\System.Runtime' -p <pid>` against one instance at peak traffic and write down `Gen 0 GC Count`, `Gen 2 GC Count`, `GC Heap Size` and `% Time in GC since last GC`. A Gen 2 count that climbs steadily along with the Gen 0 count is the middling-lifetime pattern from the first question.
+
+## Interview Questions
+
+**How does the GC decide that an object is garbage?**
+
+<details>
+<summary>Answer</summary>
+
+It traces from roots: static fields, the locals and registers of every thread's stack, and GC handles. Anything reachable from a root is live and everything else is garbage; there is no reference counting, so cycles are collected too. The same rule is how managed memory leaks: a static collection or a long-lived event publisher keeps reachable what the code no longer needs ([Garbage Collection](#garbage-collection)).
+</details>
+
+**Why is a Gen 0 collection cheap and a Gen 2 collection expensive?**
+
+<details>
+<summary>Answer</summary>
+
+A collection's cost follows the live objects it traces and moves. Gen 0 is small and mostly dead, and thanks to the card table, kept by the write barrier, only the dirty parts of older generations are scanned for references into it. A Gen 2 collection traces the whole heap. Objects that survive into Gen 2 and then die there are what make full collections frequent ([Generations 0, 1, and 2](#generations-0-1-and-2)).
+</details>
+
+**What does a finalizer cost, and why does `Dispose` call `GC.SuppressFinalize(this)`?**
+
+<details>
+<summary>Answer</summary>
+
+An unreachable object with a finalizer can't be reclaimed at once: the finalization queue keeps it alive, the finalizer thread runs it later, and only the next collection frees its memory, so it is often promoted on the way. `Dispose` has already released the resource, so it takes the object off finalization and it dies as cheaply as any other. Write a finalizer only when you own a raw unmanaged handle, and prefer `SafeHandle` even then ([Finalization and the relationship to IDisposable](#finalization-and-the-relationship-to-idisposable)).
+</details>
+
+**Should production code call `GC.Collect()`?**
+
+<details>
+<summary>Answer</summary>
+
+Almost never. It discards the budgets the GC has tuned from the application's own behaviour, promotes whatever happens to be alive at that moment into an older generation, and pauses at a moment the GC didn't choose. Memory that only `GC.Collect()` brings down is memory the code allocates too much of or holds too long ([GC.Collect and why not to call it](#gccollect-and-why-not-to-call-it)).
+</details>
+
+**How does an environment variable override `appsettings.json`, and how do you write a nested key as one?**
+
+<details>
+<summary>Answer</summary>
+
+Configuration reads its providers from the last added to the first. `CreateBuilder` adds environment variables after the JSON files and the command line after both, so the later source wins for every key it holds. The `:` of a nested key is written `__` in a variable name: `Email__SmtpHost` sets `Email:SmtpHost`. Sources added after `CreateBuilder` come after all of these and override them ([The Configuration System](#the-configuration-system)).
+</details>
+
+**`IOptions<T>`, `IOptionsSnapshot<T>` or `IOptionsMonitor<T>`: which one sees a changed setting?**
+
+<details>
+<summary>Answer</summary>
+
+`IOptions<T>` is a singleton computed once, so it never sees a reload. `IOptionsSnapshot<T>` is scoped and recomputed per request, so it sees reloads but can't be injected into a singleton. `IOptionsMonitor<T>` is a singleton whose `CurrentValue` follows reloads and which raises `OnChange`: the choice for a singleton that needs live values. None of them fails on a missing key unless validation runs, and `ValidateOnStart()` runs it at start-up ([The Options pattern and binding](#the-options-pattern-and-binding)).
+</details>
+
+**What is a captive dependency, and why doesn't production catch it?**
+
+<details>
+<summary>Answer</summary>
+
+A longer-lived service holding a shorter-lived one. A singleton that takes a scoped `DbContext` resolves it once, in the root scope, and every request then shares that one instance, with concurrency errors and stale tracked entities as the symptoms. `ValidateScopes` and `ValidateOnBuild` reject it, but `WebApplicationBuilder` turns them on only in Development. The fix is to inject `IServiceScopeFactory` and create a scope per unit of work ([Captive dependencies — the classic DI bug](#captive-dependencies-the-classic-di-bug)).
+</details>
+
+**What does the Generic Host do when Kubernetes sends SIGTERM?**
+
+<details>
+<summary>Answer</summary>
+
+It starts a graceful shutdown: it calls `StopAsync` on each hosted service, and a `BackgroundService` responds by cancelling the stopping token passed to `ExecuteAsync` and waiting for it to return, all within `HostOptions.ShutdownTimeout` (30 seconds by default). A worker that ignores the token is abandoned when that timeout expires, or killed when the orchestrator's grace period ends: mid-work either way. Honour the token, and make the work idempotent so an item that was cut off can safely run again ([The Generic Host and Background Services](#the-generic-host-and-background-services)).
+</details>
 
 
 ---
@@ -3558,7 +3823,7 @@ CORS is a browser security mechanism: a page on origin A calling an API on origi
 
 # Chapter 6: Frontend Essentials
 
-_⏱️ Estimated read time: ~1 h 20 min · 11613 words (study pace)_
+_⏱️ Estimated read time: ~1 h 25 min · 12290 words (study pace)_
 
 The moment your API meets a browser, problems land on your desk that you cannot hand off: why the SPA works locally and fails in production, why a request "blocked by CORS" still changed the database, why the page freezes while your endpoint answers in 40 ms, where the login token should live. Most .NET teams ship a React or Angular frontend next to their API, and their interviews ask backend candidates frontend questions. This chapter gives you a junior-plus foundation: enough to read and change a SPA, debug it in the browser's DevTools, answer the standard questions by their mechanism, and design the API boundary so the frontend team can move fast.
 
@@ -4046,7 +4311,7 @@ console.log(isOrder(fromServer));    // false
 
 `as` is not a C# cast: it converts and checks nothing. `any` switches checking off; `unknown` is the safe counterpart you must narrow. A function returning `value is Order` is a *type guard*, a runtime check the compiler trusts. Validate at the boundary with a schema library (Zod is common), or use a client generated from your OpenAPI document so at least the types match the contract.
 
-| | C# | TypeScript |
+| Aspect | C# | TypeScript |
 |---|---|---|
 | Compatibility | Nominal: declared inheritance | Structural: matching shape |
 | At run time | Types exist (reflection, `is`, `typeof(T)`) | Erased; plain JavaScript runs |
@@ -4139,7 +4404,7 @@ A **session** keeps an opaque ID in the cookie and the state in a *shared* serve
 
 ### Cookies, localStorage and sessionStorage: Where Browser State Lives
 
-| | Cookie | `localStorage` | `sessionStorage` |
+| Aspect | Cookie | `localStorage` | `sessionStorage` |
 |---|---|---|---|
 | Sent to the server | Automatically | No | No |
 | Readable by any script on the origin | Not if `HttpOnly` | Yes | Yes |
@@ -4575,6 +4840,44 @@ A short decision guide:
 - **React** (react.dev): state as a snapshot, rules of hooks, synchronizing with effects, rendering lists. **Angular** (angular.dev): DI, signals, zoneless, security. **RxJS** (rxjs.dev).
 - **TypeScript Handbook** (typescriptlang.org); **Vite** (vite.dev); **npm** (docs.npmjs.com): `package-lock.json`, `npm ci`.
 - **web.dev** and the **`web-vitals` README** (GitHub `GoogleChrome/web-vitals`); **WCAG 2.2** and the **ARIA Authoring Practices Guide** (w3.org).
+
+## Three questions
+
+**1.** A clock component calls `setInterval(() => setSeconds(seconds + 1), 1000)` inside `useEffect(..., [])`. The display goes from 0 to 1 and stays at 1, although the interval keeps firing every second. Why, and why is adding `seconds` to the dependency array a worse fix than it looks?
+
+<details>
+<summary>Answer</summary>
+
+- **The callback belongs to the first render.** The effect ran once, after the first render, and the arrow function it gave `setInterval` closed over that render's `seconds`, a constant 0 ([State and Re-rendering](#state-and-re-rendering)). Every tick computes `0 + 1`.
+- **Then React stops listening.** From the second tick on, the setter receives 1 while the state is already 1. React compares with `Object.is`, finds nothing changed, and skips the re-render, so nothing on screen moves although the timer runs.
+- **`[seconds]` works by tearing the timer down every second.** Each change re-runs the effect: the cleanup clears the old interval (if there is a cleanup; without one, intervals pile up) and a new one starts, so the tick drifts by however long each render takes. The effect now restarts on every state change it causes ([Effects and Their Dependency Arrays](#effects-and-their-dependency-arrays)).
+
+Fix: keep `[]` and stop reading the snapshot: `setSeconds((s) => s + 1)` receives the current value from React on every tick. Return `() => clearInterval(id)` as the cleanup, which `<StrictMode>`'s setup, cleanup, setup in development will exercise.
+</details>
+
+**2.** A design system styles buttons with `#app .btn { background: gray; }`. Your `.btn-primary { background: blue; }` comes later in the stylesheet and doesn't apply. `!important` makes it work, and two weeks later another team's `!important` beats yours. Why doesn't the later rule win, and what ends the escalation?
+
+<details>
+<summary>Answer</summary>
+
+- **Order is the last tie-breaker, not the first.** The cascade compares origin and importance, then layers, then specificity, and only then order ([The Cascade and Specificity](#the-cascade-and-specificity)). `#app .btn` scores (1, 1, 0) against `.btn-primary`'s (0, 1, 0): the ID decides, and order is never consulted.
+- **`!important` moves the fight, it doesn't end it.** An important declaration beats every normal one, but among important declarations the same comparison runs again: layers, specificity, order. The next team's `!important` with a longer selector wins the same way the ID did.
+- **The cause is the design system's selector.** An ID in a shared component style makes every override need an ID or `!important`.
+
+Fix: lower the specificity at the source. Put the design system's styles in an `@layer`, so any unlayered rule beats them whatever its selector, or write them inside `:where()`, which counts as zero specificity. In your own code, rely on scoped styles (CSS Modules, component styles) so you never compete with global selectors at all.
+</details>
+
+**3.** The SPA on `app.example.com` calls the API on `api.example.com` with a session cookie set `SameSite=Lax`, and it works. The API moves to `example-api.net`; CORS allows the SPA's origin with credentials, the SPA sends `credentials: "include"`, and yet every call after login answers `401`: the session cookie never comes back. Why?
+
+<details>
+<summary>Answer</summary>
+
+- **`SameSite` compares sites, not origins.** A site is the scheme plus the registrable domain. `app.example.com` and `api.example.com` are two origins of one site, so the browser treated the calls as same-site and sent the `Lax` cookie ([Cookies and Sessions](#cookies-and-sessions)).
+- **`example-api.net` is another site.** A `Lax` cookie goes cross-site only on top-level navigations with safe methods. A `fetch` from the page is neither, so the browser leaves the cookie out, whatever CORS says: CORS decides whether the script may *read* the response, not which cookies the request carries.
+- **`SameSite=None; Secure` is not a reliable way back.** It allows the cookie cross-site, but it is now a third-party cookie, and browsers that block those by default, Safari among them, still withhold it.
+
+Fix: keep the SPA and the API on one site (`api.example.com`), or serve both from one origin, for example through a BFF that holds the session ([Chapter 34](#chapter-34-frontend-and-full-stack-in-depth) covers the BFF). Then the cookie is first-party and `Lax` (or `Strict`) keeps its CSRF protection.
+</details>
 
 ## Exercises
 
@@ -15305,7 +15608,7 @@ Small teams, early-stage products, unclear domain boundaries, or when the operat
 
 # Chapter 22: API Evolution, Real-Time and Serialization
 
-_⏱️ Estimated read time: ~50 min · 8123 words (study pace)_
+_⏱️ Estimated read time: ~1 h · 10243 words (study pace)_
 
 Every non-trivial system eventually stops being a single process holding objects in memory. The moment your data crosses a boundary — a socket, a message broker, a file on disk, a cache, an HTTP response — those in-memory objects have to be flattened into a sequence of bytes and reconstructed on the other side. That flattening is *serialization*, and the reconstruction is *deserialization*. It sounds mechanical, almost beneath a senior engineer's attention. It is not. The decisions you make here quietly determine how fast your service is, how much you pay for network and storage, whether two teams can deploy independently, and whether a schema change ships smoothly on a Tuesday or triggers a 2 a.m. incident.
 
@@ -15947,6 +16250,146 @@ Reach for SignalR for dashboards, chat, live collaboration, notifications, and p
 
 Serialization is where your data model meets the outside world, and the format you choose trades off interoperability, size, speed, and evolvability. Use text (JSON via `System.Text.Json`, ideally source-generated) at edges where humans and diverse clients live; use binary (Protobuf for gRPC and cross-language, MessagePack for fast internal .NET, Avro for Kafka pipelines) in the machine-to-machine interior. But the format is only the encoding — the durable challenge is evolving the *contract* without breaking the systems already depending on it. Master the compatibility directions, keep field identities permanent, add optional fields with defaults, ignore what you don't understand, and reach for expand–contract before a new version. When a version is unavoidable, pick one scheme, advertise deprecation in the responses, and tag telemetry with version and consumer so you can retire it. For events, let schema registries and upcasters enforce and absorb change. And choose the transport for the boundary: REST at the edge, gRPC inside, SSE or SignalR when the server has to push. Do that, and your contracts can grow for years without a single 2 a.m. page.
 
+## Practice
+
+**1. Evolve a contract under a consumer-driven test (2 h).** Build two small projects: a provider (a Minimal API returning an order with `id`, `customer`, `status` and `total`) and a consumer (a typed `HttpClient` that reads only `id`, `customer` and `status`). Write the consumer's pact and the provider's verification the way [Chapter 25's consumer-driven contracts](#consumer-driven-contracts-and-pact) do, matching on type, not value. Then make four provider changes, one at a time, and record for each whether the verification fails: add a response field; rename `customer` to `customerName`; add a `"refunded"` value to `status`; cap a request field's length. Finish the rename the way [expand and contract](#expand-and-contract-how-to-not-need-a-new-version) says: emit both names, move the consumer, drop the old one, and watch the verification stay green at every step. Write two sentences on what the pact did not catch, and why: a pact checks only the interactions the consumer recorded, so a value or a constraint no recorded interaction uses passes unseen.
+
+**2. Break a protobuf contract on purpose (45 min).** Take the `OrderPlaced` message from [the order-event example](#a-concrete-example-evolving-an-order-event-safely) and generate C# for two versions of it with `Grpc.Tools`. Serialize a message with one version and parse it with the other: first after renaming a field (it still reads), then after renumbering `customer` from 2 to 6 (the reader sees an empty string, and nothing throws), then after reusing a deleted number for a field of another type. Add the `reserved` lines and confirm `protoc` now refuses the reuse.
+
+**3. A retirement report (45 min).** In the provider from task 1, add a v2 with `Asp.Versioning`, send `Deprecation` and `Sunset` on v1 as in [Retiring a version](#retiring-a-version), and record the resolved version and a consumer id on each request's log or span. Generate traffic from two consumers and write the one query that answers "who is still on v1, and how often?".
+
+**Evidence to keep**, in your own public portfolio repo, not in this one: the two projects with the pact and its verification, the table of the four changes with what failed and what didn't, the protobuf experiment's output, and the retirement query with its result. Contracts and consumer names from a real employer's system stay private; publish the invented ones.
+
+Later, if you need it: [Chapter 25: The broker and the safety net](#the-broker-and-the-safety-net) for `can-i-deploy` as a pipeline gate.
+
+## Three questions
+
+**1.** The provider team added `"refunded"` to an order's `status` and called it an additive change. A partner's client, generated from your OpenAPI document, started failing on every order list that contained a refund. Why, when adding is supposed to be safe, and what do you change on each side?
+
+<details>
+<summary>Answer</summary>
+
+- **Adding is safe for the shape, not for a closed set of values.** The generator modelled `status` as a C# enum, and an enum is a closed list: the deserializer meets a member it has no constant for and throws, and one bad element fails the whole list. It is the case [Enums: The Change Everyone Calls Additive](#enums-the-change-everyone-calls-additive) describes, and it is why the breaking-change table marks a new enum value as *breaking for strict readers*.
+- **Provider side.** Send enum values as strings, document that consumers must tolerate unknown members, and treat a new member as a contract change: announce it before it ships, like any other.
+- **Consumer side.** Read the field as `string` and map it with an explicit arm for the unknown (`_ => OrderStatus.Unknown`), so a member added later becomes a value you handle rather than an exception.
+</details>
+
+**2.** Your client reads a customer with `GET`, changes the email, and sends the whole object back with `PUT`. After the provider added a `preferences` field, customers who edited their email lost their preferences. Nothing threw. What happened?
+
+<details>
+<summary>Answer</summary>
+
+- **Ignoring is not preserving.** `System.Text.Json` ignores properties the model doesn't declare, which is what lets the client survive the new field; but because the model has no slot for `preferences`, the value is gone after deserialization, and the `PUT` writes back an object without it. The provider reads the missing field as "cleared". [Unknown Fields and the Tolerant Reader](#unknown-fields-and-the-tolerant-reader) names this hazard.
+- **The fix on the client.** If you must round-trip, capture what you didn't model with `[JsonExtensionData]`, which writes it back out on serialize. Better still, send only what changed: a `PATCH` with the email alone can't erase what it never carried.
+- **The fix on the provider.** A full-replacement `PUT` makes every client that is older than the schema a data-loss risk; offering `PATCH`, or treating an absent field as "unchanged", shrinks that risk.
+</details>
+
+**3.** A gRPC service runs on six pods behind a Kubernetes `Service`. Under load, one pod is at 90% CPU and the other five are almost idle, and adding pods doesn't help. Why?
+
+<details>
+<summary>Answer</summary>
+
+- **gRPC multiplexes every call over one long-lived HTTP/2 connection** per channel. A Kubernetes `Service` balances at L4, per connection, so it picks a pod once when the client connects, and every call on that channel goes to that pod for the channel's lifetime ([gRPC](#grpc) and [Chapter 26: Load Balancers, L4 vs L7](#load-balancers-l4-vs-l7)).
+- **New pods don't help** because the existing connections never move; only new clients would land on them.
+- **The fix is to balance calls, not connections:** an L7, gRPC-aware proxy or service mesh (Envoy, YARP, Linkerd), or client-side load balancing in `Grpc.Net.Client` over the addresses of all pods (a headless `Service` returns them).
+</details>
+
+## Decide
+
+An `OrderPlaced` event is published as JSON to a Kafka topic with seven-day retention. Seven teams consume it; you know five of them, and the broker's consumer-group list shows two more nobody has claimed. The business needs a currency on every order, and the right model is to replace the bare `total` number with a `money` object (amount and currency). Three proposals:
+
+1. Publish a new `OrderPlacedV2` event to a new topic, write both topics during a migration window, and ask each team to switch.
+2. Expand in place: add `money` next to `total`, keep `total` populated, let consumers move at their own pace, and remove `total` once nobody reads it.
+3. Introduce a schema registry now with `FULL` compatibility, and move the topic to Avro or Protobuf as part of this change.
+
+<details>
+<summary>How a senior engineer weighs it</summary>
+
+**What each costs.**
+
+- *A new topic:* a second producer path to keep consistent, and a coordinated move for every consumer, including the two nobody owns. The boundary between versions is clean, but ordering between the two topics is not guaranteed, and the old topic lives until the last consumer moves.
+- *Expand in place:* one producer release. Adding an optional field is fully compatible for tolerant readers ([Compatibility Directions](#compatibility-directions)), and `System.Text.Json` consumers ignore the new field by default. The cost is that nothing enforces the rule: the next change is safe only if someone remembers the table.
+- *A registry and a binary format:* weeks of infrastructure, and the format change is itself a breaking change for all seven consumers, who must swap deserializers. It is option 1's migration plus a new system to run. What it buys is enforcement: an incompatible schema is rejected when CI registers it ([Versioning Events and Messages](#versioning-events-and-messages)).
+
+**What decides it here:** the change is additive, and two consumers can't be reached. Anything that needs every consumer to act is blocked by the two you can't find.
+
+**The choice.** Option 2 now, exactly as [the order-event example](#a-concrete-example-evolving-an-order-event-safely) does it. Use the window to find the two unknown consumers from their consumer groups' client ids, and remove `total` only when every group has been shown to read `money`. Treat the registry as a separate decision for new event types, where it costs no migration.
+
+**What would change it.** A change that isn't additive (a field whose meaning changes, or a type change), which needs a new event name and a migration; events kept forever in an event store, which need [upcasters](#upcasting-in-event-sourcing) as well; or a stream of such changes across many teams, which makes the registry's enforcement worth its cost.
+</details>
+
+## Check at work
+
+**Inspect.** Search for `UnmappedMemberHandling.Disallow` and for clients that round-trip a `GET` into a full `PUT`. Are enums on your wire strings or numbers, and do your generated clients model them as closed enums? Which `.proto` files deleted a field without a `reserved` line? Does the pipeline diff the OpenAPI document against the last release, and does that diff compare constraints (`maxLength`, `pattern`, `required`) as well as shapes? Do your deprecated versions send `Deprecation` and `Sunset`?
+
+**Measure.** Requests per API version per consumer over the last 30 days. Breaking changes found before release against those found in production, last quarter. For a gRPC service: calls per pod, which shows whether a connection-level balancer has pinned clients to one of them.
+
+## Interview Questions
+
+**Why can you rename a field in Protobuf without breaking anyone, but not in JSON?**
+
+<details>
+<summary>Answer</summary>
+
+Because each format identifies a field differently. Protobuf writes the field number on the wire and never the name, so a rename changes nothing in the bytes; JSON writes the name, so a renamed field is a removed field plus an added one. The same reason makes renumbering a Protobuf field catastrophic: the reader looks for the old number, finds nothing, and silently gets the default. See [Protocol Buffers](#protocol-buffers-schema-first-binary) and the matrix in [Safe Changes vs Breaking Changes](#safe-changes-vs-breaking-changes).
+</details>
+
+**Backward and forward compatibility: what does each let you deploy first?**
+
+<details>
+<summary>Answer</summary>
+
+Backward compatibility (new code reads old data) lets you upgrade consumers first; forward compatibility (old code reads new data) lets you upgrade producers first, and it rests on old readers ignoring fields they don't know. Full compatibility is both, and it is what lets independent teams deploy in any order. See [Compatibility Directions](#compatibility-directions).
+</details>
+
+**What is a tolerant reader, and why shouldn't you make `System.Text.Json` stricter?**
+
+<details>
+<summary>Answer</summary>
+
+A consumer that reads only the fields it uses and ignores the rest, including extra fields and unknown enum members. `System.Text.Json` ignores unknown properties by default; turning on `JsonUnmappedMemberHandling.Disallow` makes every additive change by the provider a breaking release for you. When you must round-trip a payload, keep what you didn't model with `[JsonExtensionData]`. See [Unknown Fields and the Tolerant Reader](#unknown-fields-and-the-tolerant-reader).
+</details>
+
+**How do you rename a field in a public API without a v2?**
+
+<details>
+<summary>Answer</summary>
+
+Expand and contract. Release one version that emits both names and accepts either; watch, per consumer, which one is read; drop the old name once nobody reads it after an announced date. A new version is for what that can't absorb: a restructured resource, a different auth scheme, a workflow whose steps changed. See [Expand and contract](#expand-and-contract-how-to-not-need-a-new-version).
+</details>
+
+**URL path or header versioning, and what does a CDN have to do with it?**
+
+<details>
+<summary>Answer</summary>
+
+URL path for public APIs: the version is visible in logs and `curl`, a proxy can route versions to different deployments, and the version is part of the cache key for free. A version in a header or a media type is invisible to a shared cache unless responses send `Vary` on it, so without `Vary` a CDN can serve a v1 body to a v2 request. See [Versioning Strategies for REST APIs](#versioning-strategies-for-rest-apis).
+</details>
+
+**How do you know it is safe to delete v1?**
+
+<details>
+<summary>Answer</summary>
+
+From telemetry that records the resolved version and a consumer identity on each request, collected from the day v2 ships: it tells you who still calls v1, how often, and for what, and it can't be reconstructed afterwards. With many consumers, put the identity on logs or spans rather than metric tags, because unbounded tag values wreck a metrics backend. See [Retiring a version](#retiring-a-version).
+</details>
+
+**What is upcasting, and why not migrate the stored events instead?**
+
+<details>
+<summary>Answer</summary>
+
+Transforming an old event version into the current shape on read, before it reaches domain code, with one small upcaster per version step. In event sourcing the stored events are the source of truth and are kept for years, so rewriting them is risky and destroys the record of what was written; upcasting leaves them untouched and keeps the domain handling one version. See [Upcasting in Event Sourcing](#upcasting-in-event-sourcing).
+</details>
+
+**SignalR runs on three instances, and some users never receive their notifications. Why?**
+
+<details>
+<summary>Answer</summary>
+
+A SignalR connection lives on one server, so an instance can push only to its own connections; a message sent on server 2 for a user connected to server 1 goes nowhere. A backplane (Redis pub/sub) republishes every message to all servers, or Azure SignalR Service holds the connections for you. Unless the transport is restricted to WebSockets, the fallback transports also need sticky sessions. See [SignalR](#signalr).
+</details>
+
 ## Sources & Further Reading
 
 - **Microsoft Learn — System.Text.Json:** "How to serialize and deserialize JSON in .NET," "How to use source generation in System.Text.Json," and the migration guidance from Newtonsoft.Json. https://learn.microsoft.com/dotnet/standard/serialization/system-text-json/
@@ -16098,7 +16541,7 @@ Use one structure for every design prompt: **Requirements → Scale estimate →
 
 # Chapter 24: Working with Legacy & Brownfield Code
 
-_⏱️ Estimated read time: ~35 min · 5559 words (study pace)_
+_⏱️ Estimated read time: ~50 min · 7620 words (study pace)_
 
 Most professional work happens on systems that already exist, and the senior skill is changing them safely while understanding only a slice. This chapter makes you able to do that: pin a system's current behaviour before you touch it, find the seams where it can be changed without editing everything at once, decide between incremental strangling and a rewrite, move a .NET Framework system to modern .NET, and keep the platform under it from going out of support again.
 
@@ -16594,6 +17037,150 @@ The deepest version of this point: **the maintenance cadence you can sustain is 
 Forty microservices means forty runtime upgrades, forty base images, forty dependency graphs. That is a real, recurring cost, and it is one of the strongest arguments for the modular monolith ([Chapter 21](#chapter-21-architecture)) at team sizes that cannot staff forty upgrade paths. Similarly, every additional language, framework, database engine and cloud service you adopt adds its own independent expiry schedule.
 
 The question to ask when adopting anything new is not only "does this solve our problem?" but "**who will upgrade this in three years, and will they know why we chose it?**" A team that asks this consistently ends up with fewer, better-understood technologies — and considerably less of the legacy this chapter is about.
+
+## Practice
+
+**1. Characterize, refactor, then change (2 h).** Clone the C# version of Emily Bache's *Gilded Rose* refactoring kata (`emilybache/GildedRose-Refactoring-Kata` on GitHub), a public legacy-code exercise: one long `UpdateQuality` method of nested conditions, and a requirement to add "Conjured" items. Do it in three separate commits, in this order:
+
+- *Characterize.* Pin what `UpdateQuality` does today, with [the deliberately wrong assertion](#characterization-tests-pinning-down-behavior) or a snapshot of many items over many days ([Chapter 25: Snapshot Testing with Verify](#snapshot-testing-with-verify)). Then run Stryker.NET ([Chapter 25: Mutation Testing](#mutation-testing-testing-your-tests)) and add cases until the surviving mutants are ones you can explain. Coverage alone won't tell you the net is tight; surviving mutants will.
+- *Refactor* under the green suite, without changing a single pinned value.
+- *Change.* Add Conjured items with a normal test written first, [sprouting](#sprout-method-and-sprout-class) the new rule beside the old code if the method still resists.
+
+**2. Make a seam two ways (45 min).** Copy the `OrderProcessor` from [Seams](#seams-places-to-change-behavior-without-editing) into a project and get its "too early" guard under test twice: once with [Extract and Override Call](#dependency-breaking-technique-2-wrap-the-dependency) and a testing subclass, once with an injected `TimeProvider` ([Chapter 8: Fake time with TimeProvider](#fake-time-with-timeprovider-net-8)) in the place of the chapter's hand-rolled `IClock`. Compare the two diffs: how many lines and how many callers each touched.
+
+**3. An EOL inventory (45 min).** For a public repository you contribute to, or one you choose, list every deployable with its target framework, its base image and the database engine it needs, with the end-of-support date of each, as [Budget it as a standing cost](#budget-it-as-a-standing-cost-not-a-project) describes. Mark the earliest date, and add a CI leg that builds against the next .NET version.
+
+**Evidence to keep**, in your own public portfolio repo, not in this one: the kata with its three commits and the mutation report before and after, the two seam diffs with your comparison, and the inventory. Legacy code from a real employer stays private, and so does its inventory: it is a map of what is unpatched.
+
+Later, if you need it: [Chapter 41: A Worked Example: The .NET Framework 4.8 Monolith](#a-worked-example-the-net-framework-48-monolith) for the system-level options written up as a recommendation.
+
+## Three questions
+
+**1.** Your characterization test pinned an invoice total of `142.87m`. A finance expert says the correct total is `142.88m`, because the code rounds each line instead of the sum. You are in the middle of a refactor. Do you fix it now, and why does the order matter?
+
+<details>
+<summary>Answer</summary>
+
+- **Not in the refactor.** A characterization test is a change detector, not a specification ([Characterization Tests](#characterization-tests-pinning-down-behavior)). During the refactor its job is to prove that nothing changed; a bug fix mixed into the same commits turns a red test into "was that the fix or a mistake?" and the net stops working.
+- **Fix it as its own change, afterwards.** Change the rounding in a separate commit that updates the pinned value deliberately, with a normal test that states the rule. The diff then shows exactly one behaviour change, reviewed as one.
+- **Then ask who depends on the wrong value.** Invoices already issued, reconciliation jobs and partners may all expect the old rounding. A behaviour that has run in production for years is a contract, whether or not anyone wrote it down, so the fix may need a cut-over date or a feature flag, not just a merge.
+</details>
+
+**2.** `Process` calls `DateTime.Now` and `SqlGateway.Save` directly, and a colleague says it can't be unit tested without a rewrite. Why does making those two calls `protected virtual` methods change that, and what does it leave unsolved?
+
+<details>
+<summary>Answer</summary>
+
+- **It creates an object seam.** A call to a virtual method is dispatched at run time to the most derived override, so a testing subclass can replace `CurrentTime()` and `Save()` without editing `Process` itself. That is what a seam is: a place where behaviour changes without an edit in that place ([Seams](#seams-places-to-change-behavior-without-editing), [Dependency-Breaking Technique 2](#dependency-breaking-technique-2-wrap-the-dependency)).
+- **Why it is the first move.** The edit is tiny and mechanical, every existing caller is untouched, and the code is under test today, which makes the bigger refactor safe.
+- **What it leaves.** Production code still creates the real collaborators, the class can't be `sealed`, and the dependencies stay hidden from anyone reading the constructor. Once the tests are in place, move to injected dependencies ([Extract Interface](#dependency-breaking-technique-1-extract-interface), or `TimeProvider` for time), and delete the virtual hooks.
+</details>
+
+**3.** Orders moved from the monolith to a new service behind the strangler facade six months ago. The new service still breaks every time the legacy team ships. Both read and write the same `Orders` tables. Why didn't the strangler isolate them, and what do you change?
+
+<details>
+<summary>Answer</summary>
+
+- **The facade separated the traffic, not the data.** The router decides which code answers a request ([The Strangler Fig Pattern](#the-strangler-fig-pattern)), but both systems still couple through the schema: a column the legacy team renames, a status value it adds or a trigger it changes reaches the new service with no API in between.
+- **Give the data one owner.** Decide which system owns the tables now. The other reads them through a translation (an [anti-corruption layer](#anti-corruption-layers-at-the-boundary) over the shared schema, or a view) and never writes them directly.
+- **Change the shared schema with expand and contract** ([Data, Downtime, and Measuring Progress](#data-downtime-and-measuring-progress)), so each step keeps both systems working, and move the data into the new service's own store as part of the slice: a migrated slice is only independent when its data is.
+</details>
+
+## Decide
+
+It is October 2026. Your team owns fourteen services: nine on .NET 8, three on .NET 6, and two on .NET Framework 4.8. .NET 8 reaches end of support on November 10, 2026, and .NET 6 is already past it ([The current, dated example](#the-current-dated-example)). Five of the services face the internet. Three proposals:
+
+1. A one-month feature freeze in which the whole team moves the twelve modern services to .NET 10 together.
+2. Rolling upgrades with a standing allocation: start with one low-risk service to learn what the upgrade involves, then go in order of exposure.
+3. Upgrade the five internet-facing services now, and accept the risk for the internal ones on paper until next quarter.
+
+<details>
+<summary>How a senior engineer weighs it</summary>
+
+**What each costs.**
+
+- *The freeze:* a month without features, and every service hits the same unknown breaking changes in parallel, so what one engineer learns on Monday isn't reused on Tuesday. It covers everything before the deadline, and it teaches the organization nothing about doing it next time.
+- *Rolling upgrades:* the first service is slow, because it writes the runbook; the rest go faster with it. On its own the order is wrong for this deadline, since three services are already unpatched today and "boring first" could leave an internet-facing one for last.
+- *Internet-facing only:* the cheapest now, and it covers the obvious attack path. But internal services are reachable from anything that gets inside ([Chapter 27: Zero Trust](#zero-trust-and-workload-identity)), an audit or a customer questionnaire asks about all of them, and "accepted on paper" is a decision someone with the authority to accept that risk must sign, not the team by default.
+
+**What decides it here:** the deadline is four weeks away and three services are already past theirs. Exposure has to set the order; the runbook has to come from somewhere.
+
+**The choice.** A short pilot on one low-risk .NET 8 service in the first days, then the three .NET 6 services and the internet-facing ones, then the rest, with the pilot's runbook. Alongside it, the standing allocation, the dated inventory and a CI leg against the next runtime ([Budget it as a standing cost](#budget-it-as-a-standing-cost-not-a-project)), so the next end-of-support date is a task, not a program. The two .NET Framework services are a separate decision with their own blockers ([The Common Blockers](#the-common-blockers)).
+
+**What would change it.** A service to be retired within months is worth isolating and documenting rather than upgrading. A dependency with no supported version for .NET 10 turns that dependency into the project. An audit date before the deadline would pull the internal services forward.
+</details>
+
+## Check at work
+
+**Inspect.** In your top hotspot files: how many ambient statics (`DateTime.Now`, `ConfigurationManager`, `HttpContext.Current`, static gateways) stand between the code and a test? Which `HACK` and `TODO` comments have no ticket or reason? For each deployable: its runtime and base image, with their end-of-support dates, and whether that list is generated from what is deployed or kept by hand. Is there a CI leg that builds against the next .NET version?
+
+**Measure.** The days until the earliest end-of-support date across your runtimes and base images. For a modernization in progress: the share of traffic served by the new path, the legacy endpoints retired this quarter, and, if you run a shadow comparison, its mismatch rate over a week.
+
+## Interview Questions
+
+**What is legacy code, and why does the definition matter?**
+
+<details>
+<summary>Answer</summary>
+
+Feathers' definition: code without tests. It matters because it names the actual problem, which is that you can't tell quickly whether a change broke something, so every change is made in fear and patched around rather than improved. It also makes legacy a property of changeability rather than age: last month's untested service qualifies. See [What "Legacy" Actually Means](#what-legacy-actually-means).
+</details>
+
+**What is a characterization test, and how is it different from a unit test?**
+
+<details>
+<summary>Answer</summary>
+
+A unit test asserts what the code should do; a characterization test asserts what it does now, right or wrong, found by writing a deliberately wrong assertion and reading the real value from the failure. It is a net that catches any change during a refactor; correcting the behaviour comes later, as a separate change. See [Characterization Tests](#characterization-tests-pinning-down-behavior).
+</details>
+
+**Sprout method or wrap method: when do you use each?**
+
+<details>
+<summary>Answer</summary>
+
+Sprout when you add new logic inside an untested method: write it test-first in a new method or class and call it with one line. Wrap when new behaviour must run every time an existing method runs: rename the original and give its old name to a method that calls both. Both follow "add, don't modify". See [Sprout Method and Sprout Class](#sprout-method-and-sprout-class) and [Wrap Method](#wrap-method).
+</details>
+
+**Why do big-bang rewrites fail, and what does the strangler fig change?**
+
+<details>
+<summary>Answer</summary>
+
+A rewrite loses the edge cases encoded only in the old code, chases a target that keeps moving, delivers value only at the end, and cuts over all at once. The strangler fig puts a router in front of the old system and moves one business capability at a time, so value ships continuously, a misbehaving slice is routed back, and you can stop at any point with a working system. See [Why Big-Bang Rewrites Usually Fail](#why-big-bang-rewrites-usually-fail) and [The Strangler Fig Pattern](#the-strangler-fig-pattern).
+</details>
+
+**What is an anti-corruption layer?**
+
+<details>
+<summary>Answer</summary>
+
+A translation layer between the legacy model and the new domain, speaking each side's language, so legacy names and codes (`CUST_FNM`, `LYLTY_CD`) never leak into the new code. When the legacy system goes, one class changes and the domain doesn't. See [Anti-Corruption Layers at the Boundary](#anti-corruption-layers-at-the-boundary).
+</details>
+
+**How do you move a shared library to modern .NET while legacy hosts still use it?**
+
+<details>
+<summary>Answer</summary>
+
+Multi-target it (`<TargetFrameworks>net48;net8.0</TargetFrameworks>`), guard the differences with `#if`, or target .NET Standard 2.0 where the code allows, so one project serves both hosts while they migrate around it. See [Multi-Targeting During the Transition](#multi-targeting-during-the-transition).
+</details>
+
+**What is a parallel run, and why serve the old result?**
+
+<details>
+<summary>Answer</summary>
+
+Running the new implementation next to the old one on real traffic and comparing their results in the background. The old result is served because it is the one you trust; each mismatch is a case the new code doesn't handle yet, found without any user seeing it. Cut over when mismatches stop. See [Data, Downtime, and Measuring Progress](#data-downtime-and-measuring-progress).
+</details>
+
+**Why is upgrading every year cheaper than every four years?**
+
+<details>
+<summary>Answer</summary>
+
+Because the cost isn't linear. Consecutive versions have a documented path; four versions combine four sets of breaking changes, packages drop old targets so every dependency moves at once, tooling and answers target recent versions, and the people who knew why things are the way they are have left. A yearly upgrade is a task; a four-yearly one is a project. See [Why frequent is cheaper than infrequent](#why-frequent-is-cheaper-than-infrequent).
+</details>
 
 ## Sources & Further Reading
 
@@ -17420,7 +18007,7 @@ Checkout calls Payments and Inventory, each owned by another team and deployed o
 
 # Chapter 26: Delivery and Platform
 
-_⏱️ Estimated read time: ~1 h 15 min · 12325 words (study pace)_
+_⏱️ Estimated read time: ~1 h 30 min · 14465 words (study pace)_
 
 Part 1 taught you to build, test and containerize one service ([Chapter 13: Git and CI/CD](#chapter-13-git-and-cicd), [Chapter 14: Containers and Linux](#chapter-14-containers-and-linux)). This chapter is about everything between that image and a user, and about doing it for many services and many teams. It makes you able to run a .NET service on a VM or a Kubernetes cluster and know what each probe, limit and manifest does; to read and fix an Azure Pipelines build and promote one artifact through gated environments; to release safely with rolling, blue-green and canary deployments and feature flags; to put the right box in front of your servers and defend it against traffic that is trying to hurt you; and to judge a platform team and its delivery metrics.
 
@@ -18503,6 +19090,151 @@ Where the time usually goes, in rough order of payoff:
 - **Measure it.** Track p50 and p95 pipeline duration as a metric your team actually looks at, the same way you'd track service latency. Slow CI degrades continuously and silently until someone charts it.
 
 **Monorepo or many repos** shapes all of this. A monorepo gives atomic cross-service changes, one dependency version, and trivially consistent tooling, at the cost of needing affected-target selection and good ownership boundaries to stay fast. Many repositories give independence and simple CI at the cost of coordinating changes that cross boundaries, and of versioning your internal libraries as if they were public. Both work at scale; what does not work is a monorepo without build-graph tooling, or polyrepo without a way to propagate a change across forty repositories. Pick the failure mode you can afford to engineer around.
+
+## Practice
+
+**1. A zero-downtime deployment rehearsal (2 h 30 min).** Create a local cluster with `kind` (Kubernetes in Docker), load an image of a small ASP.NET Core API into it, and apply the chapter's manifests from [Kubernetes YAML for a .NET Deployment](#kubernetes-yaml-for-a-net-deployment): three replicas, separate liveness and readiness endpoints, requests and limits. Put a constant load on the Service with k6 ([Chapter 25: Load Testing](#load-testing-proving-it-under-pressure)) and count every response that isn't a `2xx`. Then, under that load:
+
+- *Roll out* a new image tag with `kubectl set image` and watch `kubectl rollout status`. Record the failed requests.
+- *Break it, one change at a time,* and record the failures for each: remove the readiness probe and add a ten-second delay to startup; switch the Dockerfile to the shell form of `ENTRYPOINT`, so `SIGTERM` never reaches .NET ([Chapter 14: Processes, Signals, Graceful Shutdown](#processes-signals-graceful-shutdown)).
+- *Find the last few errors.* With both fixed, a handful of failures can remain at the moment old pods stop. Kubernetes sends `SIGTERM` and removes the pod from the Service's endpoints at the same time, not one after the other, so for a moment traffic still arrives at a pod that is shutting down. Add a `preStop` hook with the `sleep` action (the kubelet runs it, so it works in an image without a shell) for a few seconds, keep `terminationGracePeriodSeconds` above the sleep plus the app's own shutdown time, and roll out again.
+- *Roll back* with `kubectl rollout undo` and time it, from the command to the old version serving every request.
+
+**2. Release behind a flag (45 min).** Put a changed code path behind `Microsoft.FeatureManagement` ([Feature Flags](#feature-flags)) with a percentage filter, enable it for 10% of requests, then turn it off again without a deployment. Finish the job the pitfall describes: delete the flag and the losing path in a final commit.
+
+**3. Your pipeline's numbers (30 min).** From the CI history of a repository you own, compute the p50 and p95 pipeline duration over the last month and the share of runs that failed, and name the step that takes the most time ([Feedback loop time](#feedback-loop-time-is-a-first-class-engineering-problem)).
+
+**Evidence to keep**, in your own public portfolio repo, not in this one: the manifests, the k6 script, a table of failed requests for each experiment with the cluster's Kubernetes version, the rollback time, and the flag's three commits. Deployment details of a real employer's system stay private.
+
+Later, if you need it: [Chapter 18: Migrations at Scale](#migrations-at-scale-zero-downtime) for the schema half of a zero-downtime release, and [Chapter 11: Graceful shutdown and the `CancellationToken`](#graceful-shutdown-and-the-cancellationtoken) for the application's half of shutdown.
+
+## Three questions
+
+**1.** The database had a 40-second failover. Afterwards every pod of the API had restarted at the same moment, and the outage lasted four minutes instead of 40 seconds. Why did Kubernetes restart healthy processes, and what do you change?
+
+<details>
+<summary>Answer</summary>
+
+- **The liveness probe checked the database.** A failing liveness probe means "this process is wedged", and the kubelet's answer is to kill and restart the container. When the database blipped, every pod's liveness probe failed together, so every pod restarted together, and then all of them paid their startup cost and refilled their connection pools against a database that had just come back ([Health probes](#health-probes-liveness-readiness-startup)).
+- **What liveness should check:** only that the process itself is responsive, cheaply. Dependency health belongs in readiness, whose failure removes the pod from the Service without killing it, so traffic returns the moment the database does.
+- **The general rule:** a probe's action has to match what its failure means. Restarting a process can't fix a dependency, so no probe that restarts should depend on one.
+</details>
+
+**2.** You configured ASP.NET Core's rate limiter for 100 requests per minute per client. During a scraping incident one client made close to 1,000 requests a minute, and got a fresh allowance each time a pod was replaced. Why?
+
+<details>
+<summary>Answer</summary>
+
+- **The built-in limiter keeps its counters in the process.** With ten replicas behind the load balancer, each one counts only the requests it sees, so the real limit is up to ten times the configured one, and a new pod starts with empty counters ([Rate limiting against someone who is trying](#rate-limiting-against-someone-who-is-trying)).
+- **What it is good for:** self-protection, so one instance isn't overwhelmed. It is not a system-wide policy.
+- **The fix:** keep the in-process limiter as a backstop, and put the real policy where the counter is shared: Redis, the API gateway or the CDN, as far out as possible, so the requests you reject never reach anything you pay for. Choose the key with care, too: per account or tenant for authenticated traffic, and per /64 prefix for IPv6.
+</details>
+
+**3.** A blue-green release went wrong, and the team flipped the router back to blue within a minute, as designed. Blue then failed on every write. Why wasn't the rollback instant, and what makes it so?
+
+<details>
+<summary>Answer</summary>
+
+- **Blue-green swaps the code, not the data.** Green's release had run a migration that renamed a column. The database is shared by both colours, so blue came back to a schema it no longer understood ([Deployment Strategies](#deployment-strategies)).
+- **Rollback is instant only for what the switch covers.** Rolling deployments, blue-green and canaries all run old and new code against the same database at some point, so every schema change has to be one both versions tolerate.
+- **The fix is expand and contract** ([Chapter 18: Migrations at Scale](#migrations-at-scale-zero-downtime)): add the new column and write both in one release, move reads in the next, and drop the old column only when no version that might be rolled back to still reads it. Then the router flip really is the whole rollback.
+</details>
+
+## Decide
+
+A team of six runs one ASP.NET Core service on Kubernetes and deploys three times a week with the default rolling update. Last month a release returned `500` for orders in one currency, about 2% of traffic. A customer reported it after 20 minutes, and the rollback took another 15, because the pipeline rebuilt the previous version from source. Three proposals:
+
+1. Move to blue-green deployments.
+2. Move to canary releases: send 5% of traffic to the new version, compare its error rate with the stable version, and promote or roll back automatically.
+3. Keep rolling updates, make rollback a redeploy of the previous image, alert on the `5xx` rate, and put risky behaviour changes behind feature flags.
+
+<details>
+<summary>How a senior engineer weighs it</summary>
+
+**What each costs.**
+
+- *Blue-green:* double capacity during each switch, and a rollback that is one router flip. But the flip sends everyone to green at once, so a bug that hits 2% of requests is still exposed to all users until someone notices, and the detection problem is untouched.
+- *Canary:* traffic splitting at the ingress or a mesh, and automated analysis that compares the two versions. It limits exposure, but at 5% of traffic a bug that hits 2% of requests is 0.1% of the total, which the analysis catches only if the service has enough volume and the metric is the right one. It is the most infrastructure of the three.
+- *Fix rollback, detection and release:* days. Redeploying the image that was running before takes seconds, because it was built once and is still in the registry ([Deployment Strategies](#deployment-strategies)). An alert on the `5xx` rate catches the next one in minutes instead of a customer email. A flag would have let the currency change ship dark and then be enabled for internal users first ([Feature Flags](#feature-flags)).
+
+**What decides it here:** the 35 minutes went to detection (20) and to a rollback that rebuilt from source (15). Neither is about how traffic moves to the new version.
+
+**The choice.** Option 3 now. Revisit canaries once the alerting is trusted and traffic is high enough for a 5% slice to show a small error rate within minutes; then the analysis has a signal to work with.
+
+**What would change it.** A strict SLO with heavy traffic makes canaries pay. Long-lived connections (SignalR, gRPC streams) that should drain on their own schedule favour blue-green. A change that can't be flagged, such as a runtime upgrade, is where a canary earns its cost first.
+</details>
+
+## Check at work
+
+**Inspect.** Does any liveness endpoint call a database, a cache or another service? Is the `ENTRYPOINT` in exec form, and is `terminationGracePeriodSeconds` longer than the app's shutdown timeout plus any `preStop` sleep? Does every container set requests and limits? Is the artifact that reaches production the one that passed staging, or is it rebuilt per environment? Which feature flags are older than three months? Where are your rate limits enforced: in the process only, or at a gateway or CDN with a shared counter?
+
+**Measure.** Non-`2xx` responses during your last deployment window, against the same window a day earlier. Time from a rollback decision to the previous version serving all traffic. Deployment frequency and change failure rate over the last quarter, read together. The p50 and p95 duration of your main pipeline.
+
+## Interview Questions
+
+**Liveness, readiness and startup probes: what does each do when it fails?**
+
+<details>
+<summary>Answer</summary>
+
+A failing liveness probe gets the container killed and restarted, so it should check only that the process is responsive. A failing readiness probe removes the pod from the Service's endpoints without restarting it, which is where dependency health belongs. A startup probe holds off the other two until the app has started, so a slow starter isn't killed by liveness. See [Health probes](#health-probes-liveness-readiness-startup).
+</details>
+
+**What happens when a container exceeds its CPU limit, and its memory limit?**
+
+<details>
+<summary>Answer</summary>
+
+CPU is compressible: past the limit the container is throttled, so it gets slower, but it isn't killed. Memory isn't: past the limit the kernel OOM-kills the container. Requests are different again: they are the guaranteed share the scheduler uses to place the pod. See [Resource requests and limits](#resource-requests-and-limits).
+</details>
+
+**The HPA targets 70% CPU utilization. 70% of what, and why does it matter?**
+
+<details>
+<summary>Answer</summary>
+
+Of each pod's CPU request, not of its limit or the node. A request set too low makes utilization read high and scales out early; set too high, it scales out late. The HPA also needs the metrics-server to supply the numbers. See [Horizontal Pod Autoscaler](#horizontal-pod-autoscaler-hpa).
+</details>
+
+**Rolling, blue-green or canary: what does each cost and buy?**
+
+<details>
+<summary>Answer</summary>
+
+Rolling needs no extra capacity, but old and new versions serve traffic side by side for a while. Blue-green doubles the infrastructure during the switch and gives an instant rollback by flipping the router. A canary exposes a small share of traffic first and widens it while the metrics stay healthy, at the cost of traffic splitting and good observability. In all three the database must tolerate both versions. See [Deployment Strategies](#deployment-strategies).
+</details>
+
+**Why build an artifact once and promote it, instead of building per environment?**
+
+<details>
+<summary>Answer</summary>
+
+Because a rebuild is a different artifact: dependencies may resolve differently and the build environment may have changed, so what passed staging is not what reaches production. One immutable artifact, tagged by commit SHA or version and promoted through environments, means you know exactly what runs, and a rollback is a redeploy of something that already exists. See [Deployment Strategies](#deployment-strategies).
+</details>
+
+**L4 or L7 load balancer: what can each see, and when does it matter?**
+
+<details>
+<summary>Answer</summary>
+
+An L4 balancer routes by IP address and port and never sees HTTP, so it balances connections. An L7 balancer reads the HTTP request, so it can route by path, host, header or cookie, terminate TLS, and balance individual requests. It matters whenever one connection carries many requests, as with gRPC over HTTP/2. See [Load Balancers: L4 vs L7](#load-balancers-l4-vs-l7).
+</details>
+
+**Fixed window, sliding window or token bucket for an API rate limit?**
+
+<details>
+<summary>Answer</summary>
+
+A fixed window lets a client spend a full allowance at the end of one window and again at the start of the next, twice the intended rate at the boundary. A sliding window fixes that with more state. A token bucket is usually the right default for APIs because it allows a bounded burst, like a page load firing a dozen requests, and refills steadily. For expensive endpoints, a concurrency limit protects the resource better than any rate. See [Rate limiting against someone who is trying](#rate-limiting-against-someone-who-is-trying).
+</details>
+
+**What are the DORA metrics, and why read deployment frequency and change failure rate together?**
+
+<details>
+<summary>Answer</summary>
+
+Deployment frequency, lead time for changes, change failure rate and failed deployment recovery time. They measure throughput and stability, not value. Each can be gamed alone: frequency rises with reckless shipping, and failure rate falls with paralysis, so only the pair shows improvement. Use them as a team's own trend, never to compare teams or people. See [DORA](#dora-four-metrics-and-exactly-how-each-is-gamed).
+</details>
 
 
 ---

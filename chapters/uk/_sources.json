@@ -12,12 +12,12 @@
     "translation": "77858f731ad8b2820843f0a06b305406b8fdfa5de324a01c21b429c505355ec1"
   },
   "102-algorithms-essentials": {
-    "source": "bb58c8f62c565973460dfbd4e9a825693c271ec908eaada6a2c73771caa445e2",
-    "translation": "24100fbaccaf9fe67cd7e31886430d83fa6ff5676477dddc4075c8cd336299f4"
+    "source": "9389c912449654306675a40ce9653aafb67517991d23eff668de991b40ec3994",
+    "translation": "0fdca0cd56743771aaeb01d35cd0cd8f46cca99531a8be931edcca3fc1c28d35"
   },
   "103-how-dotnet-runs-your-code": {
-    "source": "d031a94dbd65672f858b6d545f1bdf771faf2bd080941aee37aebe32ef775279",
-    "translation": "3f696f28bed6a98b004eac344cadee7086280d4615a603242635302664bd3553"
+    "source": "40d8cb40f1f0873c2a224c1a3554b984c824ada527cbefced6db384a32051b3b",
+    "translation": "6d301e6eb7283d3882f5b748d3bd9bc813af117f98cd6196fb458f48c9a62cab"
   },
   "104-async-essentials": {
     "source": "714e628b67e44f8a0d72bf93b2066a0d326f334a08997cafaea11d898a092acd",
@@ -28,8 +28,8 @@
     "translation": "0e9c77c8a6a974078634452825b563531006f7769d88ddd723be7924cead105e"
   },
   "106-frontend-essentials": {
-    "source": "7042120a004265351d0deb045b4453026ed1c20b2c20cc29fe1e3522c835be03",
-    "translation": "97300d9c0281a624182321a2f47e5f0af435b44906767a6d8cef75436e1ca790"
+    "source": "93f4100c83f895dfe5ad242e39c7391067071f7962be4d50b825cfb88999cfac",
+    "translation": "b81f6e64030a026f505325498cb3a7c632900f0ec21510c1d2cddb4bf0a9f431"
   },
   "107-data-access": {
     "source": "81f82bad351c4dc974d12d66381a9e09f069f22186bae3ef0e6a5ddff048f2c1",
@@ -100,24 +100,24 @@
     "translation": "f73d0bc2a91c447b1071bb9c49a6cd9dd1dd1fff91a1a18a2def00afe04be2df"
   },
   "222-api-evolution": {
-    "source": "d3f63ea0e8503541d47ba760b8acd454f2eefafdca08d9bc2e0f8c87ec919462",
-    "translation": "825f19c7390e2ed15806614cf14eeacd9d046722b8ce1d584931de854d813227"
+    "source": "e1cdc1ebeea557a3bb2b3a0a14ae48102b308f557ae3edec2a53adc9c31f128a",
+    "translation": "16528b9c4f90ec71f51dbaa67e95a5ff2870506a501d7ec725621b5e83de64a6"
   },
   "223-system-design": {
     "source": "3c8e7c811cacf69e65c8570a1985bc1f9f729773e5be3a916f3c207d660032bc",
     "translation": "91f97bcecf1e00211850c2a4a38ada10c109844d5498434356849108db599fb0"
   },
   "224-legacy-brownfield": {
-    "source": "b0cbfefa251e8cc9c1fc7e3cfe74a62df27f241d8f425a04c468aa09a2f2bc41",
-    "translation": "0a811d7746628afc68229d61affdc136212ba2696f48d4fa3a4e5fa1ab665df2"
+    "source": "760020045cc570c82bc17d6b2d62eb47f678d12a491246aca347b6db0e545268",
+    "translation": "8cfff40a5e55b2a8669c30ce533393e93433bdf8b2d59d9dd3d0a3bc4bbb9178"
   },
   "225-observability-testing-at-scale": {
     "source": "bfd8f8bb4293cbe4b71b8e245c7b2084de91c9cfa2e1e3f654ab6460b43a24b6",
     "translation": "dc7644774777c207ad4de3b637e27399b0886fd867e360a7b36237cff154734f"
   },
   "226-delivery-and-platform": {
-    "source": "ae1fff72806c277b53e380662196e19b4c3e7561f38bf4ebc4e2817c567347df",
-    "translation": "9bf467f5c672d36068185cfa39396077024c8c895f9e697ad1bc18fe4cab2788"
+    "source": "59000224e7ce68bd4961462b61760724cddb9d672dc6fa0fec32e6788b9a2614",
+    "translation": "881db8fe21bfab88ccbefd366ef94ab4aeb3fcbac194a2f6eb4017c31248b244"
   },
   "227-security-in-depth": {
     "source": "c40fb4e4851239d495c5dcf92ef3e997dfcbadc6bd17a1b81e7c94bedb1f7ec0",
