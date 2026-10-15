@@ -546,6 +546,148 @@ Your dependency graph is a list of people who can reach production, and it is lo
 
 None of this makes an untrusted dependency trustworthy. That is not the goal. The goal is that when — not if — one of those hundred maintainers has a bad day, you find out fast, you know exactly what you shipped, and the blast radius stops well short of production.
 
+## Practice
+
+**1. Dependency confusion in a sandbox (1 h).** Reproduce [the attack](#dependency-confusion-and-why-pinning-does-not-fix-it) with nothing but local folders. Pack a tiny class library twice with `dotnet pack -p:PackageId=Contoso.Billing.Client`: version `2.1.0` into a folder that plays your private feed, and version `99.0.0` into a folder that plays nuget.org. Point a console app's `nuget.config` at both and restore three references in turn: `Version="2.1.0"`, `Version="*"`, and `Version="3.0.0"` (a version you haven't published internally yet). Without mapping, the last two resolve the attacker's `99.0.0`, and the third does it with nothing louder than warning `NU1603`, because a version is a minimum and the nearest higher match on any source satisfies it. Reorder the sources and restore again: nothing changes. Then add `packageSourceMapping` with `Contoso.*` mapped to the private folder: `*` resolves `2.1.0`, and `3.0.0` fails with `NU1102` instead of falling through to the public feed.
+
+**2. Make drift fail the build (45 min).** In a repository of your own, turn on `RestorePackagesWithLockFile`, commit `packages.lock.json`, and restore with `--locked-mode` in CI ([Lockfiles](#lockfiles)). Change a version in a project file without updating the lockfile and watch CI fail with `NU1004`. Then move the versions to `Directory.Packages.props` with transitive pinning ([Central package management](#central-package-management)) and use it to force a patched version of one transitive dependency.
+
+**3. An SBOM you can query (45 min).** Generate a CycloneDX SBOM in the build that produces the artifact, as [Knowing What You Shipped](#knowing-what-you-shipped-sboms) shows, and attach it to the release. Make three releases, then write the one query (with `jq`, or in Dependency-Track) that answers "which of my releases contain package X at version Y?", the first question of [the response playbook](#when-it-happens-the-response-playbook).
+
+**4. Harden one workflow (30 min).** Pin every action in one of your GitHub workflows by commit SHA with the tag in a comment, set `permissions: contents: read` at the top and grant back only what each job needs ([The Build Is Part of the Attack Surface](#the-build-is-part-of-the-attack-surface)), and remove any long-lived cloud secret the workflow holds in favour of OIDC.
+
+**Evidence to keep**, in your own public portfolio repo, not in this one: the sandbox with its `nuget.config` before and after and the restore output of all six runs, the failing and passing CI runs, the SBOMs with your query and its answer, and the hardened workflow's diff. A real employer's feed names, internal package IDs and trust policies stay private: they are an attacker's shopping list.
+
+Later, if you need it: [Chapter 12: Dependency Scanning](#dependency-scanning) for the known-CVE side, and [Chapter 26: NuGet in Depth](#nuget-in-depth) for private feeds.
+
+## Three questions
+
+**1.** After a dependency-confusion advisory, your team moved the private feed to the top of `nuget.config` and pinned every internal package to an exact version. The security team says you are still exposed. Why?
+
+<details>
+<summary>Answer</summary>
+
+- **Source order is not precedence.** NuGet queries every configured source and takes the best match it finds on any of them; the order in the file decides nothing ([Dependency confusion](#dependency-confusion-and-why-pinning-does-not-fix-it)).
+- **A pinned version is still a minimum.** `Version="3.0.0"` means "3.0.0 or higher". The day someone references a version you haven't published internally yet, restore finds nothing at 3.0.0, takes the nearest higher version anywhere (the attacker's `99.0.0` on the public feed), and reports only a warning. A brand-new internal package name has no pin at all.
+- **The structural fix is package source mapping:** `Contoso.*` may come only from the private feed, so the public feed is never asked for those IDs, at any version. Reserve the ID prefix on nuget.org as well, for machines without your `nuget.config`.
+</details>
+
+**2.** A pull request bumped a third-party package. The lockfile diff was reviewed, the build passed, and nobody's code called the new version. Two days later the registry yanked that version as malicious, and your cloud deployment token turned up in an attacker's hands. How did code run, and what would have contained it?
+
+<details>
+<summary>Answer</summary>
+
+- **NuGet has no install scripts, but building is execution.** A package's `build/*.targets` are imported by MSBuild and can run anything MSBuild can, and analyzers and source generators run inside the compiler on every build ([The maintainer is a single point of failure](#the-maintainer-is-a-single-point-of-failure)). The PR build ran the attacker's code on a runner that could see the token.
+- **The lockfile did its job, which is visibility.** It turned the bump into a reviewable diff; it can't tell a malicious version from a good one ([Lockfiles](#lockfiles)).
+- **What contains it:** a cooldown window on dependency updates, which steps around most releases that are yanked within days ([Update policy](#update-policy-neither-frozen-nor-firehose)); no long-lived credential on the runner at all, with OIDC for the jobs that deploy ([Stop putting long-lived cloud credentials in CI](#stop-putting-long-lived-cloud-credentials-in-ci)); the job that builds untrusted changes separated from the job that holds secrets; and egress control, so a stolen token has nowhere to go. Then rotate everything that runner could see.
+</details>
+
+**3.** Your deployment role in AWS trusts GitHub's OIDC issuer with the condition `StringLike` on `sub` = `repo:contoso/*`. The tokens are signed by GitHub and expire in minutes. Why is this still a way into production?
+
+<details>
+<summary>Answer</summary>
+
+- **The signature proves who issued the token, not who should get in.** Any workflow in any repository under `contoso` can obtain a validly signed token whose `sub` matches `repo:contoso/*`, including a repository created yesterday by a contractor, or a workflow run in a repository that accepts outside pull requests ([OIDC federation](#oidc-federation-killing-the-last-static-credential-in-ci)).
+- **The trust policy is the authorization.** Short lifetimes limit how long a stolen token is useful; they don't limit who can mint one in the first place.
+- **The fix:** `StringEquals` on a `sub` that names one repository and one environment or ref (`repo:contoso/billing:environment:production`), the `aud` condition, and a review of these policies with the care you would give an internet-facing firewall rule.
+</details>
+
+## Decide
+
+Your company sells a .NET product into the EU. A large customer's security questionnaire asks for an SBOM per release and for evidence of how builds are protected. You have two engineer-weeks this quarter. Today: no `packageSourceMapping`, no lockfiles, actions referenced by tag, a long-lived cloud key in repository secrets, and no SBOMs. Three proposals:
+
+1. Build the SBOM pipeline first (CycloneDX per release, Dependency-Track), because that is what the customer asked for.
+2. Go straight to signing, provenance and admission control, the strongest controls in the chapter.
+3. Do the structural controls first (source mapping, SHA-pinned actions with read-only permissions, a cooldown window, lockfiles with `--locked-mode`, OIDC), then SBOMs per release with whatever time is left.
+
+<details>
+<summary>How a senior engineer weighs it</summary>
+
+**What each costs.**
+
+- *SBOMs first:* about two days, and it answers the questionnaire. But an SBOM records what you shipped; it doesn't stop dependency confusion, a repointed action tag, or the static key on the runner. You would be able to list the malicious package after the fact.
+- *Signing and provenance:* about a week, plus an admission policy in every cluster that runs your images, and it pays only once something verifies at deploy time ([Proving How You Built It](#proving-how-you-built-it-provenance)). It protects against artifacts that never went through your build, while the build itself and what it consumes stay open.
+- *Structural controls, then SBOMs:* the first three take an afternoon together and close the three most commonly exploited paths; lockfiles take half a day and turn incident response into a query; OIDC takes a day and removes the standing prize on the runner ([Where to Start](#where-to-start)). That leaves time for SBOMs per release inside the two weeks.
+
+**What decides it here:** the customer is asking for evidence, and the evidence is stronger when it describes controls that close real paths. Every control in option 3 is also an answer to "how are builds protected?".
+
+**The choice.** Option 3, in the table's order, with SBOMs generated in the build at the end of the fortnight. Signing, provenance and admission control go in next quarter's plan with a date, which is itself something to show the customer.
+
+**What would change it.** If your customers deploy packages or images you publish, you are their supply chain, and provenance and signing climb the list. If the questionnaire has a hard deadline before the fortnight ends, generate the SBOMs first, since they take two days, and do the rest straight after. If there has been an incident, rotating every credential the runners could see comes before all of it.
+</details>
+
+## Check at work
+
+**Inspect.** Does every `nuget.config` your builds use have `packageSourceMapping`? Are `packages.lock.json` files committed, and does CI restore with `--locked-mode`? Which references float (`*`, `8.*`)? Which actions are referenced by tag, which workflows lack a top-level `permissions` block, and does any use `pull_request_target`? Which long-lived cloud credentials sit in CI secrets, and for every OIDC trust policy: is `sub` pinned with `StringEquals`? Is any certificate renewed by a person following a runbook? Can you list where your service signs or encrypts anything?
+
+**Measure.** The number of packages in your transitive closure (`dotnet list package --include-transitive`). The number of long-lived credentials your pipelines hold. The days until your earliest certificate expiry. And, as a drill: the time it takes to answer "does any release from the last year contain package X at version Y?".
+
+## Interview Questions
+
+**What does zero trust actually claim?**
+
+<details>
+<summary>Answer</summary>
+
+That network position confers no trust. Every request, including service-to-service calls inside the cluster, is authenticated and authorized on its own merits, because attackers do get inside, and a flat trusted network hands them everything. Three consequences: authenticate every hop, authorize every call, and design as if a service is already compromised. See [What zero trust actually claims](#what-zero-trust-actually-claims).
+</details>
+
+**Why is workload identity better than a secret kept in a vault?**
+
+<details>
+<summary>Answer</summary>
+
+Because the service still needs a secret to reach the vault: secret zero, a static string that never expires and is copied into every replica and every leaked environment dump. Workload identity replaces knowledge with attestation: the platform, which scheduled the workload, vouches for it, and issues a credential that is valid for minutes and rotated automatically. See [The problem: how does a service prove what it is?](#the-problem-how-does-a-service-prove-what-it-is) and [SPIFFE and SPIRE](#spiffe-and-spire).
+</details>
+
+**What does mTLS between services prove, and what doesn't it?**
+
+<details>
+<summary>Answer</summary>
+
+It proves which service is on the other end of the connection, so you can authorize on a verified identity instead of an IP address. It says nothing about the end user on whose behalf the call is made; that user's permissions still have to be checked, or any authenticated service can read any customer's data, the confused deputy with a certificate. See [mTLS between services](#mtls-between-services).
+</details>
+
+**Why is key exchange the urgent half of the post-quantum migration?**
+
+<details>
+<summary>Answer</summary>
+
+Because traffic recorded today can be decrypted once a large enough quantum computer exists: harvest now, decrypt later. A signature verified today can't be forged retroactively, so signatures can move later. The deployed answer is hybrid key exchange (classical ECDH plus ML-KEM), secure unless both break, usually switched on at the CDN or load balancer. Symmetric ciphers survive with larger keys. See [Crypto Agility and the Post-Quantum Migration](#crypto-agility-and-the-post-quantum-migration).
+</details>
+
+**What makes a system crypto-agile?**
+
+<details>
+<summary>Answer</summary>
+
+Being able to change an algorithm without a rewrite: ciphertext carries an envelope naming the algorithm and key that produced it, so old data stays readable while new writes use the new one (`IDataProtector` does this); no algorithm identifier is hard-coded in a schema, wire format or public contract; one interface sits between code and primitive; and rotation has been rehearsed. The inventory of where cryptography lives comes first. See [Crypto Agility and the Post-Quantum Migration](#crypto-agility-and-the-post-quantum-migration).
+</details>
+
+**What does a lockfile protect you from, and what not?**
+
+<details>
+<summary>Answer</summary>
+
+It freezes the resolved graph with content hashes, so restores are reproducible, a change in the transitive closure becomes a reviewable diff, `--locked-mode` fails the build on drift, and a package whose contents changed under a fixed version is detected. It doesn't protect you from a malicious version you deliberately upgrade to: it makes changes visible, not safe. See [Lockfiles](#lockfiles).
+</details>
+
+**Why pin GitHub Actions by commit SHA?**
+
+<details>
+<summary>Answer</summary>
+
+Because a tag is a mutable pointer into someone else's repository: whoever gains write access can repoint `v4` to malicious code, and your next run executes it with your secrets in the environment. A SHA names one immutable tree. Keep the tag in a comment so the pin stays reviewable, and let Dependabot or Renovate update it. See [Pin your actions by commit SHA](#pin-your-actions-by-commit-sha-not-by-tag).
+</details>
+
+**SBOM or provenance: what does each tell you, and where must it be checked?**
+
+<details>
+<summary>Answer</summary>
+
+An SBOM lists what is inside an artifact, so "are we affected?" becomes a query; it is an inventory, not a safety check. Provenance is a signed statement from the build platform of where the artifact came from: which commit, workflow and build. Both matter only if something uses them: SBOMs in a standing query against new advisories, provenance and signatures in an admission controller that refuses images your build didn't produce. See [Knowing What You Shipped](#knowing-what-you-shipped-sboms) and [Proving How You Built It](#proving-how-you-built-it-provenance).
+</details>
+
 ## Sources & Further Reading
 
 - **Microsoft Learn — "Package Source Mapping"** and **"Central Package Management"**, NuGet documentation. https://learn.microsoft.com/nuget/consume-packages/package-source-mapping
