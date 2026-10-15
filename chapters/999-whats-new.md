@@ -2,6 +2,39 @@
 
 This page is the handbook's changelog. When a new release lands, a popup announces it on your next visit. Under each release, **Site & functionality** items are plain notes, while **Content updates** link to every chapter that changed — a link is ticked off (✓, stored locally in your browser) once you visit it, so you can work through an update at your own pace and see what's still unread.
 
+## Release — October 15, 2026
+
+**🔧 Site & functionality**
+
+- Accessibility: stronger contrast for code comments and the active chapter in the dark theme, underlined links in text, and keyboard-scrollable code blocks.
+- A stale copy of the page that was published alongside the site has been removed.
+
+**📖 Content updates**
+
+- [Part 1 · Pay Attention To](#part-1-pay-attention-to) — New rows: method hiding, a WHERE that undoes a LEFT JOIN, and NOT IN with a NULL.
+- [Chapter 1: C# Essentials](#chapter-1-c-essentials) — New: object-oriented fundamentals (access modifiers, construction order, virtual vs new, abstract classes vs interfaces), LINQ operators in practice, strings, and C# 14 syntax.
+- [Chapter 2: Data Structures and Algorithms Essentials](#chapter-2-data-structures-and-algorithms-essentials) — New practice: a Prove it program on collection costs, three questions and a check at work.
+- [Chapter 3: How .NET Runs Your Code](#chapter-3-how-net-runs-your-code) — New practice: a Prove it program on GC generations, three questions, a check at work and interview questions.
+- [Chapter 6: Frontend Essentials](#chapter-6-frontend-essentials) — New: three questions on the browser, JavaScript and React mechanisms.
+- [Chapter 7: Data Access](#chapter-7-data-access) — New: SQL querying — joins, grouping, NULL logic, subqueries and CTEs, window functions — with every query run on PostgreSQL and SQL Server.
+- [Chapter 9: Exceptions, Logging and First Diagnosis](#chapter-9-exceptions-logging-and-first-diagnosis) — New: using the debugger well, and interview questions on exceptions, logging and diagnosis.
+- [Chapter 10: Design Basics](#chapter-10-design-basics) — New: three questions and interview questions on design.
+- [Chapter 11: Messaging and Background Work](#chapter-11-messaging-and-background-work) — New: interview questions on messaging and background work.
+- [Chapter 12: Security Essentials](#chapter-12-security-essentials) — New: three questions on security mechanisms.
+- [Chapter 13: Git and CI/CD](#chapter-13-git-and-cicd) — New: three questions and interview questions; corrected what git reset --hard loses.
+- [Chapter 14: Containers and Linux](#chapter-14-containers-and-linux) — New: three questions, a check at work and interview questions; corrected docker stop's default grace period.
+- [Chapter 15: Dates, Money and Strings](#chapter-15-dates-money-and-strings) — New: interview questions on dates, money and strings.
+- [Chapter 16: Working Like a Middle Developer](#chapter-16-working-like-a-middle-developer) — New: interview questions on working like a middle developer.
+- [Chapter 22: API Evolution, Real-Time and Serialization](#chapter-22-api-evolution-real-time-and-serialization) — New: practice on contract evolution, three questions, a decision and interview questions.
+- [Chapter 23: System Design](#chapter-23-system-design) — Expanded into a full chapter: estimation, four worked designs (URL shortener, rate limiter, notifications, checkout), practice and interview questions.
+- [Chapter 24: Working with Legacy & Brownfield Code](#chapter-24-working-with-legacy-brownfield-code) — New: characterization-test practice, three questions, a decision and interview questions.
+- [Chapter 26: Delivery and Platform](#chapter-26-delivery-and-platform) — New: a zero-downtime deployment rehearsal, three questions, a decision and interview questions.
+- [Chapter 27: Security in Depth and the Supply Chain](#chapter-27-security-in-depth-and-the-supply-chain) — New: SBOM and dependency-pinning practice, three questions, a decision and interview questions.
+- [Chapter 32: The AI-Native Developer — Thriving in the AI Era](#chapter-32-the-ai-native-developer-thriving-in-the-ai-era) — New: reviewing an AI-written pull request, three questions, a decision and interview questions.
+- [Chapter 33: Building AI-Powered Systems](#chapter-33-building-ai-powered-systems) — New: build and evaluate a small RAG, three questions, a decision and interview questions.
+- [Chapter 34: Frontend and Full-Stack in Depth](#chapter-34-frontend-and-full-stack-in-depth) — New: measure and fix one Core Web Vital, three questions and a decision.
+- [Chapter 35: Production Incidents](#chapter-35-production-incidents) — New: a game day on one scenario, three questions, a decision and interview questions.
+
 ## Release — October 10, 2026
 
 **🔧 Site & functionality**
