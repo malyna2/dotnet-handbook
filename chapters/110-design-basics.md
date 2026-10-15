@@ -923,8 +923,112 @@ Notice how many of these patterns dissolved into ordinary C# — Iterator became
 
 So hold the patterns lightly and the principles tightly. When you feel real pain — a growing `switch`, a class with three jobs, a test you can't write because a dependency is hard-wired — let a pattern relieve exactly that pain and no more. Resist the urge to build cathedrals of indirection for problems you don't yet have, and match an architecture's ceremony to the domain's complexity in the same way. The mark of a senior developer is not how many patterns they can deploy, but how much needless complexity they can keep out of the codebase.
 
+## Three questions
+
+**1.** `ReadOnlyOrderRepository` derives from `OrderRepository` and overrides `SaveAsync` to throw `NotSupportedException`, because reports must never write. It compiles, both classes pass their own tests, and a checkout path that was handed the read-only repository throws in production. Why did neither the compiler nor the tests catch it, and what would have?
+
+<details>
+<summary>Answer</summary>
+
+- **The compiler checks signatures, not promises.** An override must match the base method's parameters and return type, and this one does. What a caller relies on beyond that, "`SaveAsync` saves", is a behavioural contract the type system can't express, so a subtype can break it and still compile. That is exactly what the Liskov Substitution Principle is about ([SOLID](#solid)).
+- **Each test checked a class, not the substitution.** The bug exists only where code written against `OrderRepository` receives the subtype, which happens at composition time, in DI registration, far from either class's tests.
+- **The .NET library carries the same shape.** An array implements `ICollection<T>`, and `((ICollection<int>)new int[3]).Add(1)` throws `NotSupportedException` ("Collection was of a fixed size"); `IsReadOnly` exists so that callers can ask first. Every caller that forgets to ask has the same latent failure.
+
+Fix: make the type say what it can do. Split the interface (`IOrderReader` with the queries, `IOrderWriter` with `SaveAsync`) and let the read-only class implement only the reader. The checkout path asks for an `IOrderWriter`, and handing it a reader no longer compiles: Interface Segregation turned a run-time surprise into a compile-time error.
+</details>
+
+**2.** To add caching, a developer registers `services.AddScoped<IProductRepository, SqlProductRepository>()` and then `services.AddScoped<IProductRepository, CachingProductRepository>()`, whose constructor takes an `IProductRepository`. The first request fails with *"A circular dependency was detected for the service of type 'IProductRepository'"*. Why, and how does Scrutor's `Decorate` avoid it?
+
+<details>
+<summary>Answer</summary>
+
+- **The last registration wins.** Both lines register `IProductRepository`; when one instance is requested, the container uses the last one, `CachingProductRepository` ([Decorator](#decorator)).
+- **The decorator asks for the service it is.** To build `CachingProductRepository` the container must resolve its constructor's `IProductRepository`, which is again `CachingProductRepository`. The container tracks the chain it is building, sees the same service twice, and throws instead of recursing forever. `SqlProductRepository` is registered but never reached.
+- **The container has no notion of "the previous registration".** Nothing in a plain `AddScoped` says "wrap the one before me", which is why the built-in container needs help.
+
+Fix: `services.Decorate<IProductRepository, CachingProductRepository>()` replaces the existing registration with one that builds the original implementation first and passes it to the decorator's constructor. Without Scrutor, register the inner class as itself and build the decorator in a factory: `services.AddScoped<SqlProductRepository>()` and `services.AddScoped<IProductRepository>(sp => new CachingProductRepository(sp.GetRequiredService<SqlProductRepository>(), sp.GetRequiredService<IMemoryCache>()))`.
+</details>
+
+**3.** In a Clean Architecture solution, why does `IOrderRepository` live in the Application (or Domain) project, next to the code that uses it, and not in Infrastructure next to `EfOrderRepository`, which implements it?
+
+<details>
+<summary>Answer</summary>
+
+- **A project reference is the dependency, and the compiler enforces it.** Code can only name types from the projects it references. If the interface lived in Infrastructure, Application would have to reference Infrastructure to use it, and through it EF Core: the business rules could then reach `DbContext` directly, and nothing would stop them ([The Dependency Rule](#the-dependency-rule)).
+- **The owner of the interface owns its vocabulary.** Defined by the use cases, the interface speaks in their terms (`GetOverdueOrdersAsync`, returning materialized orders). Defined by the database side, it drifts toward the database's: `IQueryable<T>`, includes, tracking options, which carry EF Core's behaviour back into the core.
+- **The arrow is inverted, not the call.** At run time Application still calls into Infrastructure. At compile time Infrastructure references Application to implement its interface, so the dependency points inward, and only `Web`, the composition root, knows both.
+
+Fix (or check): the Domain and Application projects reference no infrastructure package. An architecture test (NetArchTest, ArchUnitNET) or simply the project file's reference list makes a violation visible in review.
+</details>
+
 ## Check at work
 
 **Inspect.** Open the class in your service that changes most often (`git log --format= --name-only | sort | uniq -c | sort -rn | head`). List its reasons to change; more than one is a candidate for Extract Class. Then search for `switch` statements on the same type or enum in more than one file, and for interfaces with exactly one implementation and no test double. Good: each is justified in one sentence. Bad: "we might need it".
 
 **Measure.** In your next three pull requests, name every smell you notice from this chapter's smells table in a review comment, with the refactoring it points to. Count how many the author agreed with; the ones they didn't are where your reasoning needs one more sentence.
+
+## Interview Questions
+
+**What does "a single reason to change" mean in practice?**
+
+<details>
+<summary>Answer</summary>
+
+Not "does one thing": a class answers to one source of change, one stakeholder or concern. An `InvoiceService` that calculates totals, renders a PDF and sends email changes when tax rules, the PDF library or the delivery channel change, and each such change risks the other two. Split along those lines and each change touches one class and its tests ([SOLID](#solid)).
+</details>
+
+**Give an example of a Liskov violation, and explain why the compiler accepts it.**
+
+<details>
+<summary>Answer</summary>
+
+`Square : Rectangle` overriding both setters to keep the sides equal: code that sets width 5 and height 4 expects area 20 and gets 16. The compiler checks only that the overrides match the signatures; the expectation that width and height are independent is a behavioural contract it can't see. The fix is a hierarchy that tells the truth (a shared `IShape`, or composition), not a subtype that refuses part of its base's contract ([SOLID](#solid)).
+</details>
+
+**Dependency Inversion and dependency injection: the same thing?**
+
+<details>
+<summary>Answer</summary>
+
+No. Dependency Inversion is the design rule: high-level policy depends on an abstraction it owns, and the low-level detail implements it. Dependency injection is one mechanism for supplying the implementation from outside, usually through the constructor, with a container doing the wiring. You can inject a concrete class and invert nothing, and you can invert with a hand-written factory and no container ([SOLID](#solid)).
+</details>
+
+**Why is the Singleton pattern considered harmful when "one instance" is often exactly what you want?**
+
+<details>
+<summary>Answer</summary>
+
+What you want is the lifetime; the pattern also gives you a global static access point. That access point hides the dependency (it appears in no constructor), makes it impossible to substitute a fake in a test, and shares state between tests. Registering the type with `AddSingleton` keeps the single instance and makes the dependency explicit and replaceable ([Singleton](#singleton)).
+</details>
+
+**How does a Decorator add behaviour without changing the class it wraps, and where do you meet it in ASP.NET Core?**
+
+<details>
+<summary>Answer</summary>
+
+The decorator implements the same interface and holds an instance of it: it does its own work (caching, logging, retries) before or after delegating the call inward, and callers can't tell the difference. That is Open/Closed in practice, new behaviour as a new class. The middleware pipeline is the same idea, each middleware wrapping `next`, and `services.Decorate<,>()` from Scrutor registers decorators in DI ([Decorator](#decorator)).
+</details>
+
+**Should you put your own repository over EF Core?**
+
+<details>
+<summary>Answer</summary>
+
+Not by reflex. `DbContext` is already a unit of work and `DbSet<T>` a repository, so a generic `Repository<T>` either hides EF Core's useful features or leaks them through `IQueryable<T>`. A repository earns its place as a domain boundary with specific, intention-named methods returning materialized results (`GetOverdueOrdersAsync`); elsewhere, using `DbContext` directly is the honest choice ([Repository & Unit of Work](#repository-unit-of-work)).
+</details>
+
+**When do you return a `Result<T>` and when do you throw?**
+
+<details>
+<summary>Answer</summary>
+
+A `Result<T>` for expected failures that are part of the business flow: validation errors, "not found", a rule that refuses the operation. The signature then says the call can fail, and the caller must handle it. Throw for the exceptional, where the caller can't sensibly continue: a broken invariant, a dependency that is down after retries. A `Result` that wraps every exception hides bugs; exceptions used for validation make normal flow expensive and invisible in signatures ([Result Pattern & Railway-Oriented Programming](#result-pattern-railway-oriented-programming)).
+</details>
+
+**What does Clean Architecture change compared with a classic layered architecture?**
+
+<details>
+<summary>Answer</summary>
+
+The direction of one arrow. In layers, business logic references the data layer, so the rules depend on EF Core and the table shapes. In Clean, Onion or Hexagonal architecture the core defines the interfaces it needs and infrastructure implements them, so every source dependency points inward and the domain can be tested without a database. The price is more projects, interfaces and mapping, which a CRUD tool doesn't repay ([The Dependency Rule](#the-dependency-rule)).
+</details>

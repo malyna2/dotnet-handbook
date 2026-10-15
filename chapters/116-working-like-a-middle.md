@@ -549,3 +549,69 @@ And the meta-point about Friday afternoon: if the change is not urgent, a review
 - Read the last three PRs you reviewed. Count how many of your comments explained *why* versus stated *what*. Count how many were nits with no label.
 - Look at your last estimate that was wrong. Was it wrong because the work was harder than you thought, or because you estimated a different scope than the one you were handed? These have different fixes.
 - Ask one person you work with what they wish you did differently. Then say nothing except "thank you" and think about it for a week.
+
+## Interview Questions
+
+**How do you review a pull request?**
+
+<details>
+<summary>Answer</summary>
+
+Beyond style, by asking each change the questions its tests didn't: what if it runs twice, concurrently, slowly, fails halfway, or meets a hundred times the data. Each one supplies a condition the tests never created, and that is where retries without idempotency, check-then-act races and N+1 queries hide. If all five come back clean, approve and say which risks you checked ([Finding What to Say in a Review](#finding-what-to-say-in-a-review)).
+</details>
+
+**How do you write a review comment the author will act on?**
+
+<details>
+<summary>Answer</summary>
+
+Give it four parts: the condition under which the code misbehaves, the mechanism that makes it misbehave, the cost when it does, and the fix, ideally pointing at code in the repository that already does it right. The author can then verify the claim in a minute instead of arguing about it. A label such as `blocking:` or `nit:` says how much the comment matters ([Giving feedback: kind, specific, actionable](#giving-feedback-kind-specific-actionable)).
+</details>
+
+**How do you estimate a task you have never done before?**
+
+<details>
+<summary>Answer</summary>
+
+Slice it until each piece is something you can picture doing, and timebox a spike for the part you can't. Give a range and the assumption its upper end depends on, anchored on how long similar work actually took rather than on the steps you can list, because the steps you can't picture are the ones that make estimates run long. When the assumption breaks, re-estimate that day ([Estimation & Planning](#estimation-planning)).
+</details>
+
+**Walk me through how you debug a problem you can't explain.**
+
+<details>
+<summary>Answer</summary>
+
+Reproduce it first, then read the whole error and stack trace. Form one falsifiable hypothesis and change one thing to test it. When the space is large, halve it: `git bisect` across commits, a log line in the middle of a pipeline. After a fixed timebox, ask for help with what you tried and what each attempt ruled out ([Methodical Debugging & Problem Solving](#methodical-debugging-problem-solving)).
+</details>
+
+**What is a blameless post-mortem, and why blameless?**
+
+<details>
+<summary>Answer</summary>
+
+A review of an incident that assumes everyone acted reasonably given what they knew, and asks how the system let a reasonable action cause the outage. Blame teaches people to hide information, and hidden information makes the next incident longer. The output is a timeline, the impact, a root cause dug past the first answer (the deploy didn't cause it; the missing canary let it through), and owned, dated actions that make the failure impossible or detectable ([Blameless post-mortems](#blameless-post-mortems)).
+</details>
+
+**How do you get technical debt onto a product roadmap?**
+
+<details>
+<summary>Answer</summary>
+
+Translate it into the business's terms: what it costs now in delivery speed or risk, what fixing it costs, and what it pays back, for example "changes to reporting take three times as long and risk billing; one sprint of tests and splitting makes that area twice as fast." Track it as visible tickets, and keep deliberate, written-down debt apart from the undocumented kind ([Making tech debt visible to the business](#making-tech-debt-visible-to-the-business)).
+</details>
+
+**What do you do when you disagree with a technical decision?**
+
+<details>
+<summary>Answer</summary>
+
+Argue about the problem, not the person, and ask for the reasoning first: "I'm worried this couples us to the vendor's API; what am I missing?" State the objection clearly and with evidence once. If the decision goes the other way after a fair hearing, disagree and commit: support it fully and don't reopen it, unless new information appears ([Disagreeing productively and managing up](#disagreeing-productively-and-managing-up)).
+</details>
+
+**Why does limiting work in progress make a team deliver sooner?**
+
+<details>
+<summary>Answer</summary>
+
+Because work delivers value only when it is finished, and starting more doesn't finish anything sooner. At a steady rate of completion, the average time an item spends in progress is the amount in progress divided by that rate (Little's law), so twice the items in flight means each takes twice as long. Fewer items also mean less switching between them, which raises the rate itself. A limit forces the team to finish and ship before starting the next item ([Agile in Practice (Not Cargo-Cult)](#agile-in-practice-not-cargo-cult)).
+</details>
