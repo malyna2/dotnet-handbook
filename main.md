@@ -27,7 +27,7 @@ Let's begin.
 
 ## Contents
 
-> **Total study time: about 38 hours** — Part 1 about 14 hours, Part 2 about 24 hours (reading prose at ~200 wpm and every code sample at ~60 wpm, the pace behind each chapter's own estimate). A straight read (prose at ~250 wpm, code at ~100) is closer to **29 hours**; a quick skim (~300 and ~200 wpm), **22 hours**. Practice and labs come on top.
+> **Total study time: about 43 hours** — Part 1 about 16 hours, Part 2 about 27 hours (reading prose at ~200 wpm and every code sample at ~60 wpm, the pace behind each chapter's own estimate). A straight read (prose at ~250 wpm, code at ~100) is closer to **32 hours**; a quick skim (~300 and ~200 wpm), **24 hours**. Practice and labs come on top.
 
 Use the **sidebar** on the left (or the cards below) to jump to any chapter; the **Next →** button at the bottom of every page walks the book in reading order.
 
@@ -40,7 +40,7 @@ Use the **sidebar** on the left (or the cards below) to jump to any chapter; the
 
 # Part 1: Junior → Middle
 
-_⏱️ Estimated read time: ~5 min · 474 words (study pace)_
+_⏱️ Estimated read time: ~5 min · 478 words (study pace)_
 
 > **What Part 1 makes you able to do.** Work as a solid middle developer inside one service, without help: write C#, async, web, data-access and messaging code that survives production; explain the mechanism behind each classic trap and the fix for it; find the first cause of a slow or failing endpoint yourself; hold your own in a frontend conversation; and turn vague tickets, estimates and reviews into work the team can rely on.
 
@@ -61,22 +61,22 @@ Before an interview, reread [Part 1 · Pay Attention To](#part-1-pay-attention-t
 
 | Chapter | | Reading |
 |---|---|---|
-| 1 | [C# Essentials](#chapter-1-c-essentials) | 55 min |
-| 2 | [Data Structures and Algorithms Essentials](#chapter-2-data-structures-and-algorithms-essentials) | 30 min |
-| 3 | [How .NET Runs Your Code](#chapter-3-how-net-runs-your-code) | 25 min |
+| 1 | [C# Essentials](#chapter-1-c-essentials) | 1 h 20 min |
+| 2 | [Data Structures and Algorithms Essentials](#chapter-2-data-structures-and-algorithms-essentials) | 40 min |
+| 3 | [How .NET Runs Your Code](#chapter-3-how-net-runs-your-code) | 35 min |
 | 4 | [Async Essentials](#chapter-4-async-essentials) | 45 min |
 | 5 | [HTTP and Web APIs](#chapter-5-http-and-web-apis) | 1 h 10 min |
 | 6 | [Frontend Essentials](#chapter-6-frontend-essentials) | 1 h 25 min |
-| 7 | [Data Access](#chapter-7-data-access) | 1 h 20 min |
+| 7 | [Data Access](#chapter-7-data-access) | 1 h 40 min |
 | 8 | [Testing](#chapter-8-testing) | 45 min |
-| 9 | [Exceptions, Logging and First Diagnosis](#chapter-9-exceptions-logging-and-first-diagnosis) | 1 h |
-| 10 | [Design Basics](#chapter-10-design-basics) | 1 h 15 min |
-| 11 | [Messaging and Background Work](#chapter-11-messaging-and-background-work) | 55 min |
+| 9 | [Exceptions, Logging and First Diagnosis](#chapter-9-exceptions-logging-and-first-diagnosis) | 1 h 10 min |
+| 10 | [Design Basics](#chapter-10-design-basics) | 1 h 20 min |
+| 11 | [Messaging and Background Work](#chapter-11-messaging-and-background-work) | 1 h |
 | 12 | [Security Essentials](#chapter-12-security-essentials) | 45 min |
-| 13 | [Git and CI/CD](#chapter-13-git-and-cicd) | 35 min |
-| 14 | [Containers and Linux](#chapter-14-containers-and-linux) | 45 min |
-| 15 | [Dates, Money and Strings](#chapter-15-dates-money-and-strings) | 35 min |
-| 16 | [Working Like a Middle Developer](#chapter-16-working-like-a-middle-developer) | 45 min |
+| 13 | [Git and CI/CD](#chapter-13-git-and-cicd) | 40 min |
+| 14 | [Containers and Linux](#chapter-14-containers-and-linux) | 55 min |
+| 15 | [Dates, Money and Strings](#chapter-15-dates-money-and-strings) | 40 min |
+| 16 | [Working Like a Middle Developer](#chapter-16-working-like-a-middle-developer) | 50 min |
 
 
 ---
@@ -7865,7 +7865,7 @@ Monitoring answers questions you decided on in advance: dashboards and alerts fo
 
 # Chapter 10: Design Basics
 
-_⏱️ Estimated read time: ~1 h 15 min · 9663 words (study pace)_
+_⏱️ Estimated read time: ~1 h 20 min · 10969 words (study pace)_
 
 A senior developer is not someone who has memorized twenty-three patterns from a book. It is someone who can look at a tangle of code and *feel* where the seams should be, who reaches for a pattern the way a carpenter reaches for the right chisel, and who — crucially — knows when to leave the chisel in the box and just drive the nail. This chapter is about that judgment: the force that pushes you toward a design, the cost the design extracts, and the point at which the cure becomes worse than the disease.
 
@@ -8790,18 +8790,122 @@ Notice how many of these patterns dissolved into ordinary C# — Iterator became
 
 So hold the patterns lightly and the principles tightly. When you feel real pain — a growing `switch`, a class with three jobs, a test you can't write because a dependency is hard-wired — let a pattern relieve exactly that pain and no more. Resist the urge to build cathedrals of indirection for problems you don't yet have, and match an architecture's ceremony to the domain's complexity in the same way. The mark of a senior developer is not how many patterns they can deploy, but how much needless complexity they can keep out of the codebase.
 
+## Three questions
+
+**1.** `ReadOnlyOrderRepository` derives from `OrderRepository` and overrides `SaveAsync` to throw `NotSupportedException`, because reports must never write. It compiles, both classes pass their own tests, and a checkout path that was handed the read-only repository throws in production. Why did neither the compiler nor the tests catch it, and what would have?
+
+<details>
+<summary>Answer</summary>
+
+- **The compiler checks signatures, not promises.** An override must match the base method's parameters and return type, and this one does. What a caller relies on beyond that, "`SaveAsync` saves", is a behavioural contract the type system can't express, so a subtype can break it and still compile. That is exactly what the Liskov Substitution Principle is about ([SOLID](#solid)).
+- **Each test checked a class, not the substitution.** The bug exists only where code written against `OrderRepository` receives the subtype, which happens at composition time, in DI registration, far from either class's tests.
+- **The .NET library carries the same shape.** An array implements `ICollection<T>`, and `((ICollection<int>)new int[3]).Add(1)` throws `NotSupportedException` ("Collection was of a fixed size"); `IsReadOnly` exists so that callers can ask first. Every caller that forgets to ask has the same latent failure.
+
+Fix: make the type say what it can do. Split the interface (`IOrderReader` with the queries, `IOrderWriter` with `SaveAsync`) and let the read-only class implement only the reader. The checkout path asks for an `IOrderWriter`, and handing it a reader no longer compiles: Interface Segregation turned a run-time surprise into a compile-time error.
+</details>
+
+**2.** To add caching, a developer registers `services.AddScoped<IProductRepository, SqlProductRepository>()` and then `services.AddScoped<IProductRepository, CachingProductRepository>()`, whose constructor takes an `IProductRepository`. The first request fails with *"A circular dependency was detected for the service of type 'IProductRepository'"*. Why, and how does Scrutor's `Decorate` avoid it?
+
+<details>
+<summary>Answer</summary>
+
+- **The last registration wins.** Both lines register `IProductRepository`; when one instance is requested, the container uses the last one, `CachingProductRepository` ([Decorator](#decorator)).
+- **The decorator asks for the service it is.** To build `CachingProductRepository` the container must resolve its constructor's `IProductRepository`, which is again `CachingProductRepository`. The container tracks the chain it is building, sees the same service twice, and throws instead of recursing forever. `SqlProductRepository` is registered but never reached.
+- **The container has no notion of "the previous registration".** Nothing in a plain `AddScoped` says "wrap the one before me", which is why the built-in container needs help.
+
+Fix: `services.Decorate<IProductRepository, CachingProductRepository>()` replaces the existing registration with one that builds the original implementation first and passes it to the decorator's constructor. Without Scrutor, register the inner class as itself and build the decorator in a factory: `services.AddScoped<SqlProductRepository>()` and `services.AddScoped<IProductRepository>(sp => new CachingProductRepository(sp.GetRequiredService<SqlProductRepository>(), sp.GetRequiredService<IMemoryCache>()))`.
+</details>
+
+**3.** In a Clean Architecture solution, why does `IOrderRepository` live in the Application (or Domain) project, next to the code that uses it, and not in Infrastructure next to `EfOrderRepository`, which implements it?
+
+<details>
+<summary>Answer</summary>
+
+- **A project reference is the dependency, and the compiler enforces it.** Code can only name types from the projects it references. If the interface lived in Infrastructure, Application would have to reference Infrastructure to use it, and through it EF Core: the business rules could then reach `DbContext` directly, and nothing would stop them ([The Dependency Rule](#the-dependency-rule)).
+- **The owner of the interface owns its vocabulary.** Defined by the use cases, the interface speaks in their terms (`GetOverdueOrdersAsync`, returning materialized orders). Defined by the database side, it drifts toward the database's: `IQueryable<T>`, includes, tracking options, which carry EF Core's behaviour back into the core.
+- **The arrow is inverted, not the call.** At run time Application still calls into Infrastructure. At compile time Infrastructure references Application to implement its interface, so the dependency points inward, and only `Web`, the composition root, knows both.
+
+Fix (or check): the Domain and Application projects reference no infrastructure package. An architecture test (NetArchTest, ArchUnitNET) or simply the project file's reference list makes a violation visible in review.
+</details>
+
 ## Check at work
 
 **Inspect.** Open the class in your service that changes most often (`git log --format= --name-only | sort | uniq -c | sort -rn | head`). List its reasons to change; more than one is a candidate for Extract Class. Then search for `switch` statements on the same type or enum in more than one file, and for interfaces with exactly one implementation and no test double. Good: each is justified in one sentence. Bad: "we might need it".
 
 **Measure.** In your next three pull requests, name every smell you notice from this chapter's smells table in a review comment, with the refactoring it points to. Count how many the author agreed with; the ones they didn't are where your reasoning needs one more sentence.
 
+## Interview Questions
+
+**What does "a single reason to change" mean in practice?**
+
+<details>
+<summary>Answer</summary>
+
+Not "does one thing": a class answers to one source of change, one stakeholder or concern. An `InvoiceService` that calculates totals, renders a PDF and sends email changes when tax rules, the PDF library or the delivery channel change, and each such change risks the other two. Split along those lines and each change touches one class and its tests ([SOLID](#solid)).
+</details>
+
+**Give an example of a Liskov violation, and explain why the compiler accepts it.**
+
+<details>
+<summary>Answer</summary>
+
+`Square : Rectangle` overriding both setters to keep the sides equal: code that sets width 5 and height 4 expects area 20 and gets 16. The compiler checks only that the overrides match the signatures; the expectation that width and height are independent is a behavioural contract it can't see. The fix is a hierarchy that tells the truth (a shared `IShape`, or composition), not a subtype that refuses part of its base's contract ([SOLID](#solid)).
+</details>
+
+**Dependency Inversion and dependency injection: the same thing?**
+
+<details>
+<summary>Answer</summary>
+
+No. Dependency Inversion is the design rule: high-level policy depends on an abstraction it owns, and the low-level detail implements it. Dependency injection is one mechanism for supplying the implementation from outside, usually through the constructor, with a container doing the wiring. You can inject a concrete class and invert nothing, and you can invert with a hand-written factory and no container ([SOLID](#solid)).
+</details>
+
+**Why is the Singleton pattern considered harmful when "one instance" is often exactly what you want?**
+
+<details>
+<summary>Answer</summary>
+
+What you want is the lifetime; the pattern also gives you a global static access point. That access point hides the dependency (it appears in no constructor), makes it impossible to substitute a fake in a test, and shares state between tests. Registering the type with `AddSingleton` keeps the single instance and makes the dependency explicit and replaceable ([Singleton](#singleton)).
+</details>
+
+**How does a Decorator add behaviour without changing the class it wraps, and where do you meet it in ASP.NET Core?**
+
+<details>
+<summary>Answer</summary>
+
+The decorator implements the same interface and holds an instance of it: it does its own work (caching, logging, retries) before or after delegating the call inward, and callers can't tell the difference. That is Open/Closed in practice, new behaviour as a new class. The middleware pipeline is the same idea, each middleware wrapping `next`, and `services.Decorate<,>()` from Scrutor registers decorators in DI ([Decorator](#decorator)).
+</details>
+
+**Should you put your own repository over EF Core?**
+
+<details>
+<summary>Answer</summary>
+
+Not by reflex. `DbContext` is already a unit of work and `DbSet<T>` a repository, so a generic `Repository<T>` either hides EF Core's useful features or leaks them through `IQueryable<T>`. A repository earns its place as a domain boundary with specific, intention-named methods returning materialized results (`GetOverdueOrdersAsync`); elsewhere, using `DbContext` directly is the honest choice ([Repository & Unit of Work](#repository-unit-of-work)).
+</details>
+
+**When do you return a `Result<T>` and when do you throw?**
+
+<details>
+<summary>Answer</summary>
+
+A `Result<T>` for expected failures that are part of the business flow: validation errors, "not found", a rule that refuses the operation. The signature then says the call can fail, and the caller must handle it. Throw for the exceptional, where the caller can't sensibly continue: a broken invariant, a dependency that is down after retries. A `Result` that wraps every exception hides bugs; exceptions used for validation make normal flow expensive and invisible in signatures ([Result Pattern & Railway-Oriented Programming](#result-pattern-railway-oriented-programming)).
+</details>
+
+**What does Clean Architecture change compared with a classic layered architecture?**
+
+<details>
+<summary>Answer</summary>
+
+The direction of one arrow. In layers, business logic references the data layer, so the rules depend on EF Core and the table shapes. In Clean, Onion or Hexagonal architecture the core defines the interfaces it needs and infrastructure implements them, so every source dependency points inward and the domain can be tested without a database. The price is more projects, interfaces and mapping, which a CRUD tool doesn't repay ([The Dependency Rule](#the-dependency-rule)).
+</details>
+
 
 ---
 
 # Chapter 11: Messaging and Background Work
 
-_⏱️ Estimated read time: ~55 min · 8063 words (study pace)_
+_⏱️ Estimated read time: ~1 h · 8799 words (study pace)_
 
 Sooner or later a request has to do something it shouldn't wait for: send an email, notify another service, build a report that takes minutes. Doing it inline couples the user's latency, and the request's success, to work that has no business being on the hot path. This chapter makes you able to move that work out of the request without losing it or doing it twice: put a queue between two parts of a system, write a handler that stays correct when a message arrives twice, late or out of order, and run long work in a worker behind `202 Accepted`.
 
@@ -9599,12 +9703,78 @@ What to notice:
 
 **Measure.** For each queue and subscription: the lock duration against the handler's p99 duration, `MaxDeliveryCount`, the dead-letter count (the `DeadletteredMessages` metric) and whether anything alerts on it, and how often your handlers log `DeliveryCount > 1`.
 
+## Interview Questions
+
+**What is the difference between a command and an event, and why does it matter for the broker setup?**
+
+<details>
+<summary>Answer</summary>
+
+A command asks one specific handler to do something (`ShipOrder`) and its sender cares whether it happened; an event announces something that already happened (`OrderShipped`) to zero or many subscribers the publisher doesn't know. So a command goes to one queue with one logical consumer, and an event to a topic where each subscriber gets its own copy. An "event" that really tells another service what to do is a command in disguise, with the coupling of a command ([Event-Driven Architecture](#event-driven-architecture-events-commands-and-messages)).
+</details>
+
+**RabbitMQ or Kafka: what is the mechanical difference?**
+
+<details>
+<summary>Answer</summary>
+
+RabbitMQ is a queue: it routes a message to queues, hands each message to one consumer and deletes it on acknowledgement. Kafka is a log: messages are appended to partitions and kept for the retention period, and each consumer group tracks its own offset, so several groups read the same data independently and a new one can replay history. Choose the queue for work distribution and flexible routing, the log for high-throughput streams, replay and many independent readers ([Apache Kafka — The Distributed Log](#apache-kafka-the-distributed-log)).
+</details>
+
+**A Kafka topic has 12 partitions and the consumer group has 12 instances. You add a 13th. What happens?**
+
+<details>
+<summary>Answer</summary>
+
+Nothing useful: within a group each partition is assigned to exactly one consumer, so the 13th instance gets no partition and sits idle. The partition is both the unit of parallelism and the unit of ordering, since a key always hashes to the same partition. More throughput needs more partitions, and adding partitions later moves keys to different partitions, which breaks per-key order across the change ([Apache Kafka — The Distributed Log](#apache-kafka-the-distributed-log)).
+</details>
+
+**Why do brokers deliver at least once rather than exactly once?**
+
+<details>
+<summary>Answer</summary>
+
+Because the acknowledgement is itself a message that can be lost. A consumer that did the work and then crashed, or whose acknowledgement never arrived, looks to the broker exactly like one that never did the work, so the broker redelivers. "Exactly-once" offerings are at-least-once delivery plus deduplication under specific constraints. The practical answer is at-least-once delivery and idempotent consumers, which gives exactly-once effects ([Why Exactly-Once Is (Almost) a Myth](#why-exactly-once-is-almost-a-myth)).
+</details>
+
+**How do you make a consumer idempotent, and what is wrong with "if processed, return"?**
+
+<details>
+<summary>Answer</summary>
+
+"Check, do the work, record the ID" has a window: two copies delivered at once both pass the check before either records, and a crash after the work loses the record. Make the record the check: insert the message ID (or a natural business key) under a unique index first, in the same transaction as the effect, and treat a duplicate-key error as "already done". An effect outside the database, such as a payment, gets the same key as its idempotency key ([Idempotent Consumers](#idempotent-consumers)).
+</details>
+
+**What problem does the transactional outbox solve?**
+
+<details>
+<summary>Answer</summary>
+
+The dual write: saving data and publishing a message are two systems with no shared transaction, so a crash between them leaves a saved order nobody hears about, or a message about an order that was never saved. The outbox writes the message into a table in the same transaction as the data; a relay publishes it after the commit and marks it sent. The relay can publish twice after a crash, so consumers still deduplicate ([The Transactional Outbox](#the-transactional-outbox)).
+</details>
+
+**When does a message end up in a dead-letter queue, and what do you do about it?**
+
+<details>
+<summary>Answer</summary>
+
+When the handler dead-letters it explicitly, or when its delivery count passes the limit (`MaxDeliveryCount`, 10 by default in Service Bus), every exception, abandon or expired lock counting as one delivery. Nothing drains a DLQ, so alert on its depth, read why each message failed, fix the cause, and only then resubmit; a DLQ that fills silently is a common incident ([Dead-Letter Queues (DLQ)](#dead-letter-queues-dlq)).
+</details>
+
+**How does a `BackgroundService` shut down gracefully?**
+
+<details>
+<summary>Answer</summary>
+
+On SIGTERM or Ctrl+C the host cancels the `stoppingToken` and waits for `ExecuteAsync` to finish, up to `HostOptions.ShutdownTimeout` (30 seconds by default). A loop that observes the token stops taking new work and finishes or abandons the current item cleanly; one that passes `CancellationToken.None` downstream is cut off mid-item when the timeout ends. Because a cut-off item will be delivered again, it must be safe to repeat ([Graceful shutdown and the CancellationToken](#graceful-shutdown-and-the-cancellationtoken)).
+</details>
+
 
 ---
 
 # Chapter 12: Security Essentials
 
-_⏱️ Estimated read time: ~45 min · 7330 words (study pace)_
+_⏱️ Estimated read time: ~45 min · 8096 words (study pace)_
 
 Security is not a feature you bolt on at the end of a sprint. It is a property of a system that emerges from thousands of small decisions: how you parse input, where you store a connection string, which overload of a crypto API you call, and whether you trusted a value that came from the network. This chapter makes you able to write and review an endpoint so that it checks who the caller is and what this caller may do to *this* record, treats every input as data, keeps secrets out of the repository, and doesn't carry one of the handful of configuration lines that quietly switch a defence off.
 
@@ -10171,6 +10341,49 @@ Security is a discipline of layered, deliberate decisions. Adopt the mindset —
 
 [Chapter 27: Security in Depth and the Supply Chain](#chapter-27-security-in-depth-and-the-supply-chain) takes the next step: replacing stored secrets with workload identity and short-lived tokens, zero trust between services, algorithm agility, and the software supply chain.
 
+## Three questions
+
+**1.** A database backup leaks. Passwords were stored as SHA-256 with a unique random salt per user. Why does the salt not protect them, and what exactly does a slow hash change?
+
+<details>
+<summary>Answer</summary>
+
+- **A salt defeats precomputation, not guessing.** With a unique salt, a rainbow table built in advance is useless and two users with the same password get different hashes. But the salt sits next to the hash in the same row, so the attacker simply guesses against each hash with its salt: common passwords first, then variations ([Password Hashing](#password-hashing)).
+- **SHA-256 is built to be fast.** A GPU computes billions of SHA-256 hashes per second, so a dictionary of common passwords and their variations runs through each salted hash in moments. Speed is the property the attacker needs.
+- **A work factor makes every single guess expensive.** PBKDF2 with 600,000 iterations computes the underlying hash 600,000 times per guess, which multiplies the attacker's cost per guess by roughly that factor while one login stays fast enough for a user. Argon2 also demands memory per guess, which limits how many guesses a GPU can run at once.
+
+Fix: rehash with a password-hashing algorithm (`PasswordHasher<T>`, Argon2, bcrypt), with parameters stored next to the hash so the work factor can be raised later and old hashes upgraded on the next login. After a leak, also force a reset: hashes that were fast to crack may already be cracked.
+</details>
+
+**2.** An administrator disables a user's account, and the user's API calls keep succeeding for the next 50 minutes. The API validates JWTs correctly. Why can't it simply invalidate the token, and what are the options?
+
+<details>
+<summary>Answer</summary>
+
+- **A JWT is validated without asking anyone.** The API checks the signature with the issuer's public key and reads `exp` from the token itself ([Validating JWTs Correctly](#validating-jwts-correctly)). Nothing in that check looks up the user, so the API holds no state it could change, and a correctly signed token stays valid until it expires. That independence is the reason to use self-contained tokens: no database or identity-provider call per request.
+- **Disabling the account acts at the identity provider.** It stops the user signing in and stops refresh tokens from issuing new access tokens. The access token already issued lives out its lifetime.
+
+The options trade freshness against a lookup per request:
+
+1. **Short access-token lifetimes** (minutes), with refresh tokens the identity provider can revoke. Revocation then takes effect within one access-token lifetime.
+2. **A deny-list** of revoked token IDs (`jti`) or users, checked on every request, typically in a cache: immediate, at the price of the lookup self-contained tokens were meant to avoid.
+3. **Reference tokens with introspection**: the token is an opaque handle, and the API asks the identity provider about it (and caches the answer briefly). Revocation is immediate, every request depends on the identity provider.
+
+Pick per API: a short lifetime is enough for most; an admin or payments API may justify the lookup.
+</details>
+
+**3.** An image-import endpoint downloads a user-supplied URL. It rejects URLs whose host is `localhost`, `127.0.0.1` or `169.254.169.254`. An attacker still makes it fetch the cloud metadata endpoint. Name three ways, and the fix that covers all of them.
+
+<details>
+<summary>Answer</summary>
+
+- **Another spelling of the same address.** A check on the URL text misses `http://[::ffff:169.254.169.254]/`, an IPv4-mapped IPv6 address that reaches the same host. (`System.Uri` already turns the decimal form `http://2852039166/` into `169.254.169.254`, so a check on the parsed `Uri.Host` catches that one, and a check on the raw string doesn't.)
+- **A name that resolves inside.** The attacker's own domain has a DNS record pointing at `169.254.169.254` or a private address. The host string passes every check; the address it resolves to is the target. With a short DNS lifetime, the name can even resolve to a public address when you check and to an internal one when you connect (DNS rebinding).
+- **A redirect.** The URL points at the attacker's server, which answers `302` with `Location: http://169.254.169.254/...`. `HttpClient` follows redirects by default (`AllowAutoRedirect` is `true`), and the redirect target never went through your check.
+
+Fix: check the address you actually connect to, not the text you were given. Turn off automatic redirects for user-supplied URLs (and validate any redirect you choose to follow as a new URL), resolve the host yourself in `SocketsHttpHandler.ConnectCallback` and refuse loopback, private, link-local and IPv4-mapped addresses before opening the socket, and prefer an allow-list of destinations where the feature permits one. Block the metadata endpoint at the network level as well ([A10: Server-Side Request Forgery (SSRF)](#a10-server-side-request-forgery-ssrf)).
+</details>
+
 ## Interview Questions
 
 **AuthN vs AuthZ?**
@@ -10216,7 +10429,7 @@ Out of source control and out of plain config: use a secrets manager / vault (Az
 
 # Chapter 13: Git and CI/CD
 
-_⏱️ Estimated read time: ~35 min · 5452 words (study pace)_
+_⏱️ Estimated read time: ~40 min · 6830 words (study pace)_
 
 The people who write software and the people who run it share one piece of machinery: version control that lets many people change the same codebase safely, and pipelines that build and test every change the same way on every machine. This chapter makes you able to keep a branch current, clean and reviewable without losing anyone's work, get back commits that look lost, and set up the SDK, its tools, the analyzers and the formatter so that your laptop and the CI build apply the same rules, then read and write a GitHub Actions pipeline for a .NET service.
 
@@ -10397,7 +10610,7 @@ git reset --hard 9a8b7c6      # move the branch back to that commit
 git switch -c recovery 9a8b7c6
 ```
 
-Reflog entries are local and expire (by default after 90 days, or 30 for commits no longer reachable from a branch), which is plenty for any "I destroyed my work" moment. The limit is the word *committed*: `git reset --hard` over uncommitted changes discards them for good, because they never became objects. Commit (or stash) before an experiment, and every Git command becomes reversible.
+Reflog entries are local and expire (by default after 90 days, or 30 for commits no longer reachable from a branch), which is plenty for any "I destroyed my work" moment. The limit is the word *committed*: `git reset --hard` discards unstaged edits for good, because they never became objects. (Staged content did: `git add` wrote it as a blob, so `git fsck --lost-found` can still find it, without its file name.) Commit (or stash) before an experiment, and every Git command becomes reversible.
 
 ### Git GUIs
 
@@ -10744,6 +10957,44 @@ Command of Git and CI is a chain of small, well-understood decisions. You keep b
 
 None of these practices is exotic. Their power is cumulative: together they turn shipping software from a nerve-wracking event into a routine, boring, reversible non-event. How that artifact reaches production safely (deployment strategies, feature flags, Azure Pipelines and measuring delivery) is [Chapter 26: Delivery and Platform](#chapter-26-delivery-and-platform).
 
+## Three questions
+
+**1.** A developer commits an API key in `appsettings.json`, notices a minute later, deletes the line and commits again before pushing both commits. Why is the key exposed anyway, and why doesn't rewriting history with `git filter-repo` and a force push end the incident?
+
+<details>
+<summary>Answer</summary>
+
+- **A commit is a snapshot, not a diff.** The first commit's tree points to the blob of `appsettings.json` with the key in it. The second commit points to a new blob without it, but the first commit and its blob are still in the history that was pushed, and `git log -p` or `git show <first commit>` prints the key ([The Object Model](#the-object-model)).
+- **Rewriting creates a new history; it doesn't recall the old one.** `filter-repo` produces new commits with new hashes (every hash after the change differs, because each commit contains its parent's hash). Every clone, fork, CI cache and pull-request ref made before the force push still holds the old objects, and the hosting service may keep them reachable for a while.
+- **So the secret's exposure is a fact, not a state you can undo.** Anything that copied the repository since the push has the key.
+
+Fix: rotate the key first, at the provider, which makes every copy worthless; clean the history afterwards if you want to, and tell everyone with a clone. Then make the next one impossible: secret scanning before merge, and secrets kept in user-secrets and a vault, never in files the repository tracks ([Secrets in Pipelines](#secrets-in-pipelines)).
+</details>
+
+**2.** Why can the reflog undo a botched rebase or a `git reset --hard HEAD~3`, but not a `git reset --hard` over edits you hadn't committed? And are those edits really all gone?
+
+<details>
+<summary>Answer</summary>
+
+- **The reflog records pointer moves, and commits are objects.** A rebase or a reset moves the branch pointer and leaves the old commits in the object store. The reflog keeps the previous positions, so `git reset --hard HEAD@{2}` points the branch back at commits that never went away, until garbage collection removes unreachable ones after the reflog entries expire ([The Reflog: Your Safety Net](#the-reflog-your-safety-net)).
+- **Unstaged edits exist only in your working files.** `reset --hard` overwrites those files with the commit's version, and no object, no pointer and no reflog entry ever recorded what you had typed.
+- **Staged edits are a half-way case.** `git add` writes the file's content into the object store as a blob. After a `reset --hard` nothing points to it, but it is still there: `git fsck --lost-found` lists dangling blobs and writes them to `.git/lost-found/other/`, with their content but without their file names.
+
+Fix: commit (or `git stash`) before any experiment, so that everything is an object reachable from the reflog; a work-in-progress commit is free to squash later.
+</details>
+
+**3.** Two pull requests each pass CI and merge within an hour of each other. Neither had a merge conflict. The build on `main` fails right after the second merge. How can two green changes combine into a red one, and what prevents it?
+
+<details>
+<summary>Answer</summary>
+
+- **CI tested each pull request against an old `main`.** For a pull request, GitHub Actions builds a test merge of the branch with the base as it was when the run started. The second pull request's run happened before the first one merged, so nothing ever built the combination.
+- **A clean textual merge says nothing about meaning.** Git merges by lines. If one pull request renames a method and the other adds a new call to the old name in a different file, the merge has no conflict and doesn't compile; a changed default can break a test the same way.
+- **The window grows with time and traffic.** The longer a pull request waits after its last run, and the more changes merge meanwhile, the staler its green check.
+
+Fix: make the base current at merge time. Either require branches to be up to date before merging (the branch protection rule), which re-runs CI after each update, or use a merge queue, which tests each pull request on top of the ones queued ahead of it and merges only what passed in that order. Small, short-lived pull requests make the window small either way ([Branching Strategies: GitFlow vs Trunk-Based](#branching-strategies-gitflow-vs-trunk-based)).
+</details>
+
 ## Check at work
 
 **Inspect.** Four commands in your own repository:
@@ -10757,12 +11008,78 @@ None of these practices is exotic. Their power is cumulative: together they turn
 
 **Measure.** For your last ten merged pull requests, note the lines changed and the hours from the first commit to the merge. Several days or several hundred lines is where reviews turn into "LGTM" and conflicts start to cost more than the change itself.
 
+## Interview Questions
+
+**What is a commit in Git, and what is a branch?**
+
+<details>
+<summary>Answer</summary>
+
+A commit is a snapshot: it points to a tree (the whole project's directory structure, down to blobs of file contents) and to its parent commits, and its ID is a hash of all of that, so it covers the entire history behind it. A branch is a movable pointer to one commit, a file holding a hash, which is why creating one is instant and why `reset`, `rebase` and `merge` are all, at heart, pointer moves ([The Object Model](#the-object-model)).
+</details>
+
+**Merge or rebase: what does each do to history, and what is the rule?**
+
+<details>
+<summary>Answer</summary>
+
+Merge adds a commit with two parents and keeps history as it happened. Rebase replays your commits on top of another branch as new commits with new hashes, giving a linear history. The rule follows from the new hashes: rebase only commits nobody else has, such as your own feature branch before review, because anyone who built on the old commits ends up with duplicated, divergent history ([Merge vs Rebase](#merge-vs-rebase)).
+</details>
+
+**After a rebase, `git push` is rejected. Why, and what do you run?**
+
+<details>
+<summary>Answer</summary>
+
+A push is accepted only as a fast-forward: the remote's tip must be an ancestor of yours. Rebased commits are new objects, so the old tip is no longer in your history. On your own pull-request branch, `git push --force-with-lease --force-if-includes` overwrites only if the remote is still where you last saw it, so a teammate's push in between makes it fail instead of disappearing. On a shared branch, don't force; merge ([Merge vs Rebase](#merge-vs-rebase)).
+</details>
+
+**You ran `git reset --hard` and lost three commits. How do you get them back?**
+
+<details>
+<summary>Answer</summary>
+
+`git reflog` lists where `HEAD` has been; find the entry before the reset and run `git reset --hard <hash>`, or `git switch -c recovery <hash>` to look first. The commits were never deleted, only unreferenced, and they stay until the reflog entries expire and garbage collection runs. Unstaged edits are the exception: they never became objects ([The Reflog: Your Safety Net](#the-reflog-your-safety-net)).
+</details>
+
+**GitFlow or trunk-based development?**
+
+<details>
+<summary>Answer</summary>
+
+Trunk-based for a continuously deployed service: everyone merges small, short-lived branches into `main` daily, and unfinished work hides behind feature flags, so integration problems surface while they are small. GitFlow's long-lived `develop`, `release` and `hotfix` branches suit software that maintains several released versions in parallel; their cost is deferred integration and large merges ([Branching Strategies: GitFlow vs Trunk-Based](#branching-strategies-gitflow-vs-trunk-based)).
+</details>
+
+**Continuous integration, continuous delivery, continuous deployment: what separates them?**
+
+<details>
+<summary>Answer</summary>
+
+CI is the practice of merging into the mainline at least daily, with every merge built and tested automatically. Continuous delivery adds that every change that passes is a deployable artifact, with a human deciding when it goes to production. Continuous deployment removes that decision: whatever passes the gates ships. In GitHub Actions the difference is often one setting, an environment with a required reviewer ([What CI/CD Actually Means](#what-cicd-actually-means)).
+</details>
+
+**What does Semantic Versioning promise, and how does `2.4.0-beta.1` compare with `2.4.0`?**
+
+<details>
+<summary>Answer</summary>
+
+`MAJOR.MINOR.PATCH`: a major bump means a breaking change, a minor one new backward-compatible functionality, a patch a backward-compatible fix, which lets consumers accept a range such as "any 2.x" safely. A pre-release sorts before its release, so `2.4.0-beta.1` < `2.4.0`. GitVersion derives the version from tags and branches, so the same commit always gets the same version ([Semantic Versioning and GitVersion](#semantic-versioning-and-gitversion)).
+</details>
+
+**What do `Directory.Build.props` and Central Package Management solve?**
+
+<details>
+<summary>Answer</summary>
+
+Drift. MSBuild imports the nearest `Directory.Build.props` above each project, so settings such as the target framework, nullable and warnings-as-errors live in one file. `Directory.Packages.props` with `ManagePackageVersionsCentrally` holds every package version once, and projects reference packages without versions, so two projects can no longer pull different versions of the same library ([MSBuild, Directory.Build.props, and Central Package Management](#msbuild-directorybuildprops-and-central-package-management)).
+</details>
+
 
 ---
 
 # Chapter 14: Containers and Linux
 
-_⏱️ Estimated read time: ~45 min · 6181 words (study pace)_
+_⏱️ Estimated read time: ~55 min · 7719 words (study pace)_
 
 For most of its life, .NET meant Windows: Visual Studio, F5, IIS. That world still exists, but it is no longer where most new .NET code *runs*. The default target for a cloud deployment is a Linux container, and "it works on my machine" fails there in specific, explainable ways: a file the app can't write, a shutdown that loses requests, a port nobody can reach. This chapter makes you able to work on Linux from the shell, containerize a .NET service into a small, non-root image, run a local multi-service stack with Docker Compose, and diagnose a container that won't start, won't write or won't answer.
 
@@ -11001,7 +11318,7 @@ kill -TERM 4321    # explicit SIGTERM
 pkill dotnet       # kill by name
 ```
 
-This ties directly into containers. When Kubernetes or `docker stop` shuts down your app, it sends **SIGTERM**, waits a grace period (default 30s in Docker, `terminationGracePeriodSeconds` in K8s), and only then sends **SIGKILL**. ASP.NET Core's generic host listens for SIGTERM and triggers `IHostApplicationLifetime.ApplicationStopping`, runs your `IHostedService.StopAsync`, and drains requests. If your app ignores SIGTERM or takes too long, it gets SIGKILL'd mid-request. [Chapter 11: Graceful shutdown and the `CancellationToken`](#graceful-shutdown-and-the-cancellationtoken) covers the application's side: the shutdown timeout and the token every worker must observe.
+This ties directly into containers. When Kubernetes or `docker stop` shuts down your app, it sends **SIGTERM**, waits a grace period (10 seconds by default for `docker stop`, set with `-t`; `terminationGracePeriodSeconds` in Kubernetes, 30 by default), and only then sends **SIGKILL**. ASP.NET Core's generic host listens for SIGTERM and triggers `IHostApplicationLifetime.ApplicationStopping`, runs your `IHostedService.StopAsync`, and drains requests. If your app ignores SIGTERM or takes too long, it gets SIGKILL'd mid-request. [Chapter 11: Graceful shutdown and the `CancellationToken`](#graceful-shutdown-and-the-cancellationtoken) covers the application's side: the shutdown timeout and the token every worker must observe.
 
 > **Best practice:** Make sure .NET actually *receives* SIGTERM. Use the **exec form** of `ENTRYPOINT` (`ENTRYPOINT ["dotnet", "MyApp.dll"]`), not the shell form (`ENTRYPOINT dotnet MyApp.dll`). The shell form runs your app as a child of `/bin/sh`, which is PID 1 and does not forward signals — so SIGTERM never reaches .NET and every shutdown is a hard kill.
 
@@ -11415,12 +11732,129 @@ Practice by doing: spin up an Ubuntu container (`docker run -it ubuntu bash`), p
 - **systemd documentation (`man systemd.service`, `man journalctl`)** — reference for unit-file directives and journal querying.
 - **Docker documentation: stop, signals, and PID 1** — explains SIGTERM/SIGKILL behavior and the exec-vs-shell ENTRYPOINT distinction.
 
+## Three questions
+
+**1.** Every deployment of a service takes exactly the grace period to stop its old containers (10 seconds under `docker stop`, 30 in Kubernetes), requests in flight at that moment fail, and the stopped container's exit code is 137. The Dockerfile ends with `ENTRYPOINT dotnet MyApi.dll`. What is happening?
+
+<details>
+<summary>Answer</summary>
+
+- **The shell form makes the shell PID 1.** `ENTRYPOINT dotnet MyApi.dll` is stored as `["/bin/sh", "-c", "dotnet MyApi.dll"]`, and on the Debian-based images the shell (dash) starts `dotnet` as its child instead of replacing itself with it ([Processes & Signals](#processes-signals-graceful-shutdown)).
+- **SIGTERM goes to PID 1, and this PID 1 ignores it.** The runtime signals only the container's PID 1. The kernel doesn't apply a signal's default action to the PID 1 of a namespace, so a process that installed no handler, as the shell didn't, simply doesn't react, and it doesn't pass the signal on to its child. .NET, which would have started a graceful shutdown, never hears about it.
+- **So the grace period always runs out.** After it, the runtime sends SIGKILL, which can't be ignored, and kills everything at once, mid-request. 137 is 128 + 9: terminated by signal 9, SIGKILL. A `docker stop` against a container whose PID 1 was `sh -c` with a child process took 10.2 seconds and exited with 137.
+
+Fix: use the exec form, `ENTRYPOINT ["dotnet", "MyApi.dll"]`, so `dotnet` is PID 1 and the Generic Host receives SIGTERM. If a script must run first, end it with `exec dotnet MyApi.dll`, or run the container with `--init`, which puts a small init process at PID 1 to forward signals. Then check that the application's own shutdown timeout fits inside the orchestrator's grace period.
+</details>
+
+**2.** The container is isolated from the host, so why does it matter that its process runs as root?
+
+<details>
+<summary>Answer</summary>
+
+- **The isolation is the kernel's, and the kernel is shared.** A container is an ordinary process in namespaces ([The two kernel features that make it work](#the-two-kernel-features-that-make-it-work)). Unless user namespaces are configured, which Docker doesn't do by default, UID 0 inside the container is UID 0 to the host kernel.
+- **Every boundary is then one mistake away from the host.** A kernel vulnerability that lets a process escape its namespaces gives the attacker root on the host. So does a configuration slip: a mounted Docker socket, a host-path volume, a container started `--privileged`. Inside the container, root also lets an attacker install tools, rewrite the application's files and read every secret on disk.
+- **Bind mounts carry ownership out.** Files a root process writes into a mounted host directory are owned by root on the host.
+
+Fix: run as an unprivileged user, the `app` user (UID 1654) that Microsoft's .NET images ship, or a chiseled image, which defaults to it. Give that user ownership of the few directories it writes to, and add a read-only root filesystem and dropped capabilities ([Running as non-root](#running-as-non-root)).
+</details>
+
+**3.** An image's Dockerfile copies the source, builds, and ends with `RUN rm -rf /src /root/.nuget`. The image is still several hundred megabytes larger than the published application. Why didn't the `rm` help?
+
+<details>
+<summary>Answer</summary>
+
+- **Layers are immutable, and each one is a diff.** The `COPY` and the build each produced a layer containing those files. The `rm` produces a new layer that records "these paths are deleted" (a whiteout); the earlier layers, and every byte in them, remain part of the image, pulled and stored with it ([Layers and layer caching](#layers-and-layer-caching)).
+- **The files are invisible, not gone.** In a running container the deleted paths don't exist, which is what makes the cleanup look as if it worked. `docker history <image>` shows the truth: one layer per instruction with its size, and the large layers below the small `rm`. A test image that wrote a 50 MB file in one `RUN` and deleted it in the next showed a 50 MB layer followed by a 4.1 kB one.
+- **The base image counts too.** Building on the SDK image ships the whole SDK, whatever you delete afterwards.
+
+Fix: a multi-stage build ([Multi-stage builds](#multi-stage-builds)). Build and publish in an SDK stage, then copy only the published output into a fresh runtime (or chiseled) stage; nothing from the build stage reaches the final image. Where a single `RUN` creates temporary files, delete them in the same `RUN`.
+</details>
+
+## Check at work
+
+**Inspect.** In each Dockerfile your team ships:
+
+- the `ENTRYPOINT` and `CMD`: the exec form (`["dotnet", "App.dll"]`), or a script that ends with `exec`;
+- a `USER` instruction, or a chiseled base image; without either the process runs as root;
+- a multi-stage build whose final `FROM` is a runtime image, and a `.dockerignore` next to the Dockerfile;
+- base images pinned to a version (`aspnet:10.0`, or a digest), not `latest`, and no secrets in `ENV` or `ARG`.
+
+Then compare the orchestrator's grace period (`terminationGracePeriodSeconds`) with the application's `HostOptions.ShutdownTimeout`: the application must finish inside the orchestrator's window.
+
+**Measure.** For the production image: its size (`docker image ls`), its largest layers (`docker history <image>`), and the user it runs as (`docker inspect --format '{{.Config.User}}' <image>`; empty means root). Then start a container, send it a request, run `docker stop` and time it: a stop that takes the whole timeout and an exit code of 137 mean SIGTERM never reached .NET.
+
+## Interview Questions
+
+**What is the difference between a container and a virtual machine?**
+
+<details>
+<summary>Answer</summary>
+
+A virtual machine virtualizes hardware and runs a complete guest operating system with its own kernel. A container is a process on the host's kernel, isolated by namespaces and limited by cgroups; there is no second kernel to boot, which is why containers start in milliseconds and cost little at idle. The flip side is a weaker boundary: a kernel bug is shared by every container on the host ([What a Container Actually Is](#what-a-container-actually-is)).
+</details>
+
+**What do namespaces and cgroups each do?**
+
+<details>
+<summary>Answer</summary>
+
+Namespaces decide what a process can see: its own process tree with itself as PID 1, its own network stack and ports, its own filesystem root and hostname. Cgroups decide what it can consume: CPU, memory and I/O. A Kubernetes memory limit is a cgroup limit, and a process that exceeds it is killed by the kernel's out-of-memory killer ([The two kernel features that make it work](#the-two-kernel-features-that-make-it-work)).
+</details>
+
+**An image and a container: what is the difference, and where does a file written inside a container go?**
+
+<details>
+<summary>Answer</summary>
+
+An image is a read-only stack of layers plus metadata; a container is a running instance of it with a thin writable layer on top. A write lands in that writable layer through copy-on-write and disappears with the container, so anything that must survive goes to a volume or an external store ([Images vs. Containers](#images-vs-containers)).
+</details>
+
+**How do you order a Dockerfile for fast builds, and why does the order matter?**
+
+<details>
+<summary>Answer</summary>
+
+Each instruction produces a layer, and the cache reuses a layer only while its instruction and inputs are unchanged; the first change invalidates that layer and every one after it. So copy the project files and run `dotnet restore` first, then copy the rest of the source: editing a `.cs` file then rebuilds only the layers after the restore ([Layers and layer caching](#layers-and-layer-caching)).
+</details>
+
+**What does a multi-stage build give you?**
+
+<details>
+<summary>Answer</summary>
+
+A build stage based on the SDK image compiles and publishes, and the final stage starts from the much smaller runtime (or chiseled) image and copies in only the published output. The SDK, the source and the NuGet cache never reach the final image, which makes it smaller to pull and gives an attacker less to work with ([Multi-stage builds](#multi-stage-builds)).
+</details>
+
+**SIGTERM or SIGKILL: what happens to a .NET app in each case?**
+
+<details>
+<summary>Answer</summary>
+
+SIGTERM can be handled: the Generic Host catches it, signals `ApplicationStopping`, stops hosted services and drains requests in flight. SIGKILL can't be caught; the kernel ends the process immediately, mid-request. Orchestrators send SIGTERM, wait the grace period, then send SIGKILL, so the app must actually receive SIGTERM (exec-form `ENTRYPOINT`) and finish within the period ([Processes & Signals](#processes-signals-graceful-shutdown)).
+</details>
+
+**A containerized app running as a non-root user throws `UnauthorizedAccessException` writing to `/app/data`. Why, and what is the right fix?**
+
+<details>
+<summary>Answer</summary>
+
+The directory was created during the build as root with mode `755`, so only root may create files in it, and the process runs as UID 1654. The fix is to give the runtime user the directory (`RUN mkdir -p /app/data && chown -R app:app /app/data` before `USER app`), or, for a mounted volume, to match its ownership; switching back to root trades a permission error for a security hole ([Permissions](#permissions-why-your-container-app-cant-write-that-file)).
+</details>
+
+**The app works with `curl` inside the container but is unreachable from outside. What do you check first?**
+
+<details>
+<summary>Answer</summary>
+
+What it listens on. `ss -tlnp` inside the container shows the bound address: an app bound to `127.0.0.1` accepts connections only from inside its own network namespace. Bind to all interfaces (`ASPNETCORE_URLS=http://+:8080`, or `ASPNETCORE_HTTP_PORTS`, which the .NET 8+ images set to 8080), then check the port mapping and the firewall ([Networking Tools](#networking-tools)).
+</details>
+
 
 ---
 
 # Chapter 15: Dates, Money and Strings
 
-_⏱️ Estimated read time: ~35 min · 4846 words (study pace)_
+_⏱️ Estimated read time: ~40 min · 5490 words (study pace)_
 
 Most textbook code lives in a fantasy world. The clock is always noon, everyone speaks American English, prices are round dollar amounts, files fit in memory, and email "just sends." Production is where those assumptions go to die. The incidents that wake engineers at 3 a.m. are rarely caused by clever algorithms gone wrong — they are caused by a timestamp stored in the server's local time, a `double` that lost a penny, a `ToUpper()` that mangled a Turkish username, or a 2 GB upload that pinned a web server's memory.
 
@@ -11864,12 +12298,78 @@ The output is from `verify/path/reference-runs/money-and-rounding.txt` (.NET 10.
 
 **Measure.** Run your test suite with another zone and culture: `TZ=Pacific/Chatham dotnet test` on Linux (UTC+12:45 in winter, +13:45 in summer), and one test fixture that sets `CultureInfo.CurrentCulture = new CultureInfo("tr-TR")`. Every new failure is a place where the machine's context leaked into a result.
 
+## Interview Questions
+
+**`DateTime`, `DateTimeOffset`, `DateOnly`: which one for what?**
+
+<details>
+<summary>Answer</summary>
+
+`DateTimeOffset` for an instant, such as when an order was placed: it carries its offset from UTC, so it identifies one point on the timeline. `DateOnly` for a calendar date with no time, such as a birthday or an invoice date, which a time component would shift across days in a zone conversion. `DateTime` carries only a `Kind` flag, `Unspecified` by default, so a stored `DateTime` usually doesn't say which zone it was in ([The four types, and what each one means](#the-four-types-and-what-each-one-means)).
+</details>
+
+**Why is `DateTime.Now` a bug in server code?**
+
+<details>
+<summary>Answer</summary>
+
+It reads the server's local clock and zone, so the same code gives different results in a container set to UTC, a server in another region, or after a migration. Intervals between local times are also wrong across a DST change, because a local day can be 23 or 25 hours. Capture `DateTimeOffset.UtcNow` (through `TimeProvider`), store and compute in UTC, and convert to the user's zone only for display ([Store and compute in UTC. Always.](#store-and-compute-in-utc-always)).
+</details>
+
+**A nightly job is scheduled for 02:30 local time. What happens on the DST nights?**
+
+<details>
+<summary>Answer</summary>
+
+In spring, 02:30 doesn't exist in zones that jump from 02:00 to 03:00, so the job doesn't run (and `TimeZoneInfo.ConvertTimeToUtc` throws for that time). In autumn, 02:30 happens twice, so a scheduler on local time can run it twice, while .NET's conversion silently picks the standard-time instant. Schedule on UTC, or decide explicitly what the job does in the gap and the overlap ([Daylight Saving Time: gaps and overlaps](#daylight-saving-time-gaps-and-overlaps)).
+</details>
+
+**How do you test code that depends on the current time?**
+
+<details>
+<summary>Answer</summary>
+
+Inject `TimeProvider` (.NET 8+) instead of reading `DateTimeOffset.UtcNow`: production registers `TimeProvider.System`, and tests use `FakeTimeProvider`, set to a chosen instant and moved with `Advance`. Because `TimeProvider` also creates timers and drives `Task.Delay`, timeouts and retries can be tested without waiting ([`TimeProvider`: testable time (.NET 8+)](#timeprovider-testable-time-net-8)).
+</details>
+
+**Why `decimal` and not `double` for money?**
+
+<details>
+<summary>Answer</summary>
+
+`double` is binary floating point and can't represent most decimal fractions: `0.1 + 0.2` is `0.30000000000000004`, and `1.005` is stored as `1.00499999999999989342`, so it rounds to `1.00`. `decimal` is base 10 and represents those values exactly, so sums and roundings come out as an accountant computes them. Keep `double` for measurements, where relative precision matters ([Never use `double` (or `float`) for money](#never-use-double-or-float-for-money)).
+</details>
+
+**What does `Math.Round(2.5m)` return, and why?**
+
+<details>
+<summary>Answer</summary>
+
+`2`. The default midpoint rule is round half to even (banker's rounding), which avoids a systematic upward bias when many values are rounded; `Math.Round(3.5m)` is `4`. For "school" rounding pass `MidpointRounding.AwayFromZero`. Beware that `ToString("F2")` rounds half away from zero, so format the value you already rounded, with an explicit mode, at one defined point ([Rounding, and the surprise of banker's rounding](#rounding-and-the-surprise-of-bankers-rounding)).
+</details>
+
+**How do you store a monetary amount?**
+
+<details>
+<summary>Answer</summary>
+
+Always with its currency, since the number of decimal places depends on it (none for JPY, two for USD, three for BHD). Either as an integer of minor units (`1999` cents and `USD`), as payment providers do, or as a `decimal` with an explicit precision plus the currency code. And when an amount is split, an allocation rule decides where the remainder goes: 100.00 split three ways is 33.33 + 33.33 + 33.34 ([Store money as minor units, and always with its currency](#store-money-as-minor-units-and-always-with-its-currency)).
+</details>
+
+**Why does `"file".ToUpper() == "FILE"` fail on some machines, and how do you compare identifiers?**
+
+<details>
+<summary>Answer</summary>
+
+`ToUpper()` uses the current culture, and in Turkish the uppercase of `i` is the dotted `İ`. Anything a program compares internally (extensions, header names, keys, tokens) should use `StringComparison.Ordinal` or `OrdinalIgnoreCase`, which compare code units and ignore culture; culture-aware comparison is for sorting text a human reads. Analyzers CA1304, CA1305, CA1307 and CA1310 find the implicit calls ([String comparison and sorting: the quiet catastrophe](#string-comparison-and-sorting-the-quiet-catastrophe)).
+</details>
+
 
 ---
 
 # Chapter 16: Working Like a Middle Developer
 
-_⏱️ Estimated read time: ~45 min · 7435 words (study pace)_
+_⏱️ Estimated read time: ~50 min · 8116 words (study pace)_
 
 The previous fifteen chapters are about code. This one is about the work around it, which decides how much of that code ends up useful: a message that gets read and acted on, a pull request reviewed so the author leaves smarter rather than smaller, an estimate for work you have never done, a bug found by method rather than luck, a change made safely in code you don't fully understand, and an outcome owned from the ticket to the alert. The chapter makes you able to take a vague ticket, a request for an estimate or a pull request, and send back something a teammate can act on without a meeting.
 
@@ -12421,12 +12921,78 @@ And the meta-point about Friday afternoon: if the change is not urgent, a review
 - Look at your last estimate that was wrong. Was it wrong because the work was harder than you thought, or because you estimated a different scope than the one you were handed? These have different fixes.
 - Ask one person you work with what they wish you did differently. Then say nothing except "thank you" and think about it for a week.
 
+## Interview Questions
+
+**How do you review a pull request?**
+
+<details>
+<summary>Answer</summary>
+
+Beyond style, by asking each change the questions its tests didn't: what if it runs twice, concurrently, slowly, fails halfway, or meets a hundred times the data. Each one supplies a condition the tests never created, and that is where retries without idempotency, check-then-act races and N+1 queries hide. If all five come back clean, approve and say which risks you checked ([Finding What to Say in a Review](#finding-what-to-say-in-a-review)).
+</details>
+
+**How do you write a review comment the author will act on?**
+
+<details>
+<summary>Answer</summary>
+
+Give it four parts: the condition under which the code misbehaves, the mechanism that makes it misbehave, the cost when it does, and the fix, ideally pointing at code in the repository that already does it right. The author can then verify the claim in a minute instead of arguing about it. A label such as `blocking:` or `nit:` says how much the comment matters ([Giving feedback: kind, specific, actionable](#giving-feedback-kind-specific-actionable)).
+</details>
+
+**How do you estimate a task you have never done before?**
+
+<details>
+<summary>Answer</summary>
+
+Slice it until each piece is something you can picture doing, and timebox a spike for the part you can't. Give a range and the assumption its upper end depends on, anchored on how long similar work actually took rather than on the steps you can list, because the steps you can't picture are the ones that make estimates run long. When the assumption breaks, re-estimate that day ([Estimation & Planning](#estimation-planning)).
+</details>
+
+**Walk me through how you debug a problem you can't explain.**
+
+<details>
+<summary>Answer</summary>
+
+Reproduce it first, then read the whole error and stack trace. Form one falsifiable hypothesis and change one thing to test it. When the space is large, halve it: `git bisect` across commits, a log line in the middle of a pipeline. After a fixed timebox, ask for help with what you tried and what each attempt ruled out ([Methodical Debugging & Problem Solving](#methodical-debugging-problem-solving)).
+</details>
+
+**What is a blameless post-mortem, and why blameless?**
+
+<details>
+<summary>Answer</summary>
+
+A review of an incident that assumes everyone acted reasonably given what they knew, and asks how the system let a reasonable action cause the outage. Blame teaches people to hide information, and hidden information makes the next incident longer. The output is a timeline, the impact, a root cause dug past the first answer (the deploy didn't cause it; the missing canary let it through), and owned, dated actions that make the failure impossible or detectable ([Blameless post-mortems](#blameless-post-mortems)).
+</details>
+
+**How do you get technical debt onto a product roadmap?**
+
+<details>
+<summary>Answer</summary>
+
+Translate it into the business's terms: what it costs now in delivery speed or risk, what fixing it costs, and what it pays back, for example "changes to reporting take three times as long and risk billing; one sprint of tests and splitting makes that area twice as fast." Track it as visible tickets, and keep deliberate, written-down debt apart from the undocumented kind ([Making tech debt visible to the business](#making-tech-debt-visible-to-the-business)).
+</details>
+
+**What do you do when you disagree with a technical decision?**
+
+<details>
+<summary>Answer</summary>
+
+Argue about the problem, not the person, and ask for the reasoning first: "I'm worried this couples us to the vendor's API; what am I missing?" State the objection clearly and with evidence once. If the decision goes the other way after a fair hearing, disagree and commit: support it fully and don't reopen it, unless new information appears ([Disagreeing productively and managing up](#disagreeing-productively-and-managing-up)).
+</details>
+
+**Why does limiting work in progress make a team deliver sooner?**
+
+<details>
+<summary>Answer</summary>
+
+Because work delivers value only when it is finished, and starting more doesn't finish anything sooner. At a steady rate of completion, the average time an item spends in progress is the amount in progress divided by that rate (Little's law), so twice the items in flight means each takes twice as long. Fewer items also mean less switching between them, which raises the rate itself. A limit forces the team to finish and ship before starting the next item ([Agile in Practice (Not Cargo-Cult)](#agile-in-practice-not-cargo-cult)).
+</details>
+
 
 ---
 
 # Part 1 · Pay Attention To
 
-_⏱️ Estimated read time: ~5 min · 1435 words (study pace)_
+_⏱️ Estimated read time: ~10 min · 1579 words (study pace)_
 
 > **What this page is for.** The traps behind the most common wrong answers in Part 1, one row each: what the trap looks like, the mechanism that makes it bite, and the fix. Reread it before an interview or a review; the chapter in the first column explains the row in full.
 
@@ -12440,6 +13006,8 @@ _⏱️ Estimated read time: ~5 min · 1435 words (study pace)_
 | [7](#chapter-7-data-access) | Tracking queries on read-only endpoints | The change tracker keeps a snapshot and an identity-map entry for every row returned, and nothing ever saves them. | `AsNoTracking()` or a projection. |
 | [7](#chapter-7-data-access) | A composite index in the wrong order | The index is sorted left to right. Without the leading column there is no contiguous range, so it scans; with a range first, the equality column becomes a row-by-row filter. | Equality columns first, then the range or sort column; check that both appear in the seek predicate. |
 | [7](#chapter-7-data-access) | A function or a conversion on the column | `LOWER(Email)`, or a `varchar` column compared with an `nvarchar` parameter, asks about values the index doesn't store, so it scans (888 reads against 3 in the experiment). | Compare the raw column with a parameter of the right type (`IsUnicode(false)`, `DbString { IsAnsi = true }`); a case-insensitive collation instead of `LOWER`. |
+| [7](#chapter-7-data-access) | A `WHERE` on the right table of a `LEFT JOIN` | The filter runs after the join and throws away the NULL-extended rows, so the query quietly becomes an inner join. | Put the condition in `ON`, or test `IS NULL` explicitly. |
+| [7](#chapter-7-data-access) | `NOT IN` over a subquery that can return NULL | `x <> NULL` is unknown, never true, so one NULL in the list makes every row fail the test: no rows, no error. | `NOT EXISTS`, or filter the NULLs out of the subquery. |
 | [11](#chapter-11-messaging-and-background-work) | A handler that runs longer than its lock | The lock is a lease (1 minute by default, 5 at most); when it expires, another consumer gets the message while you are still working. | `ServiceBusProcessor` with lock renewal, no oversized batches or prefetch, and an idempotent handler. |
 | [11](#chapter-11-messaging-and-background-work) | Check-then-act deduplication | Two concurrent copies both pass the check before either records the ID; a crash between the effect and the record repeats the effect. | Claim first: insert the ID under a unique key in the effect's transaction; pass the key to external APIs. |
 | [11](#chapter-11-messaging-and-background-work) | "Duplicate detection makes us idempotent" | It drops repeated *sends* within its window; a redelivery is the same message, which it never sees. | Keep it for producers; make every handler idempotent anyway. |
@@ -12453,6 +13021,7 @@ _⏱️ Estimated read time: ~5 min · 1435 words (study pace)_
 | [1](#chapter-1-c-essentials) | `==` on `object` or in a `where T : class` generic | Operators bind at compile time, so it compares references, with no warning. | Compare through the real type, or use `Equals`. |
 | [1](#chapter-1-c-essentials) | An EF query declared as `IEnumerable<T>` | It binds `Enumerable.Where`: later filters run in C#, and each enumeration runs the SQL again. | Keep `IQueryable<T>` until filtered; materialise once. |
 | [1](#chapter-1-c-essentials) | Trusting nullable annotations on deserialized data | They are compile-time only; the serializer writes `null` into a non-nullable property. | `required`, `RespectNullableAnnotations`, `ArgumentNullException.ThrowIfNull`. |
+| [1](#chapter-1-c-essentials) | `new` instead of `override` on a base method | `new` hides the method: the call binds at compile time to the declared type, so code holding a base reference still runs the base version. | `virtual` + `override` for polymorphism; treat warning CS0114 as an error. |
 | [5](#chapter-5-http-and-web-apis) | A singleton that takes a scoped `DbContext` | It is resolved from the root scope and never disposed: one context shared by every request and thread. The check runs only in Development. | A scoped consumer, or `IServiceScopeFactory` / `IDbContextFactory`; `ValidateOnBuild` in Development. |
 | [5](#chapter-5-http-and-web-apis) | `UseAuthorization` before `UseAuthentication` or `UseRouting` | Authorization reads a `User` and endpoint metadata that aren't set yet: 401 for valid tokens, or a 500. | Routing, then authentication, then authorization. |
 | [8](#chapter-8-testing) | Tests on the EF in-memory provider | No SQL runs: unique indexes, collation and transactions never apply, so the tests pass code the real engine rejects. | The production engine in Testcontainers for anything that touches SQL. |
@@ -12470,7 +13039,7 @@ _⏱️ Estimated read time: ~5 min · 1435 words (study pace)_
 
 # Part 2: Middle → Senior
 
-_⏱️ Estimated read time: ~5 min · 620 words (study pace)_
+_⏱️ Estimated read time: ~5 min · 622 words (study pace)_
 
 > **What Part 2 makes you able to do.** Explain why the platform behaves the way it does under load, keep data and messages consistent across services and over time, choose an architecture and defend its trade-offs, run what you build in production and in the cloud, build with and around AI, and make the decisions a team trusts a senior with: what to build, what to defer, and what to write down.
 
@@ -12493,20 +13062,20 @@ Before an interview, reread [Part 2 · Pay Attention To](#part-2-pay-attention-t
 | 19 | [The Slow-Query Lab — Reading Execution Plans](#chapter-19-the-slow-query-lab-reading-execution-plans) | 40 min |
 | 20 | [Distributed Systems](#chapter-20-distributed-systems) | 1 h 15 min |
 | 21 | [Architecture](#chapter-21-architecture) | 30 min |
-| 22 | [API Evolution, Real-Time and Serialization](#chapter-22-api-evolution-real-time-and-serialization) | 50 min |
-| 23 | [System Design](#chapter-23-system-design) | 10 min |
-| 24 | [Working with Legacy & Brownfield Code](#chapter-24-working-with-legacy-brownfield-code) | 35 min |
+| 22 | [API Evolution, Real-Time and Serialization](#chapter-22-api-evolution-real-time-and-serialization) | 1 h |
+| 23 | [System Design](#chapter-23-system-design) | 1 h |
+| 24 | [Working with Legacy & Brownfield Code](#chapter-24-working-with-legacy-brownfield-code) | 50 min |
 | 25 | [Observability and Testing at Scale](#chapter-25-observability-and-testing-at-scale) | 1 h 5 min |
-| 26 | [Delivery and Platform](#chapter-26-delivery-and-platform) | 1 h 15 min |
-| 27 | [Security in Depth and the Supply Chain](#chapter-27-security-in-depth-and-the-supply-chain) | 45 min |
+| 26 | [Delivery and Platform](#chapter-26-delivery-and-platform) | 1 h 30 min |
+| 27 | [Security in Depth and the Supply Chain](#chapter-27-security-in-depth-and-the-supply-chain) | 55 min |
 | 28 | [Cloud Fundamentals — AWS & Azure](#chapter-28-cloud-fundamentals-aws-azure) | 30 min |
 | 29 | [Azure in Depth for .NET Developers](#chapter-29-azure-in-depth-for-net-developers) | 1 h 35 min |
 | 30 | [The Azure Casebook — Real Incidents, Real Fixes](#chapter-30-the-azure-casebook-real-incidents-real-fixes) | 55 min |
 | 31 | [Compliance, Data Privacy & Cloud Cost (FinOps)](#chapter-31-compliance-data-privacy-cloud-cost-finops) | 30 min |
-| 32 | [The AI-Native Developer — Thriving in the AI Era](#chapter-32-the-ai-native-developer-thriving-in-the-ai-era) | 1 h |
-| 33 | [Building AI-Powered Systems](#chapter-33-building-ai-powered-systems) | 1 h 15 min |
-| 34 | [Frontend and Full-Stack in Depth](#chapter-34-frontend-and-full-stack-in-depth) | 45 min |
-| 35 | [Production Incidents](#chapter-35-production-incidents) | 1 h 25 min |
+| 32 | [The AI-Native Developer — Thriving in the AI Era](#chapter-32-the-ai-native-developer-thriving-in-the-ai-era) | 1 h 10 min |
+| 33 | [Building AI-Powered Systems](#chapter-33-building-ai-powered-systems) | 1 h 25 min |
+| 34 | [Frontend and Full-Stack in Depth](#chapter-34-frontend-and-full-stack-in-depth) | 50 min |
+| 35 | [Production Incidents](#chapter-35-production-incidents) | 1 h 35 min |
 | 36 | [Senior Behaviours, Career and Interviews](#chapter-36-senior-behaviours-career-and-interviews) | 25 min |
 | 37 | [The Story Bank & Evidence Portfolio](#chapter-37-the-story-bank-evidence-portfolio) | 55 min |
 | 38 | [Having a Point of View](#chapter-38-having-a-point-of-view) | 1 h 5 min |

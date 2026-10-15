@@ -1,11 +1,11 @@
 {
   "00-frontmatter": {
-    "source": "103c91a333628e727aa974f2edd58d84ab4e76f45cfdfa983398a39571b11544",
-    "translation": "f0c080f62a7952ae56d0397a8d508b54a9ce26ea79abe57c4d2fa96cdee402ee"
+    "source": "8acd8892c3f18904b644cd34b80c0c8cc56a70fbce0445bc6b102c20b7250056",
+    "translation": "563335abcbfa0059ac9e38588496089f8a9aaf458704b91ac1c86c8574b03e8f"
   },
   "100-part-1": {
-    "source": "0fc9fd639e2cb04dde72d3feb31e749a46b05f16c0ccfae9088d7efd284b4a8b",
-    "translation": "03539baf31c6878dcf0f364264f0f6a5506536939d7d399cfec956f1d0aaf423"
+    "source": "503b0a03aee5817fec5c4e0c80bfa46fc90763422f4aa89a7e84716447ee8363",
+    "translation": "66f1b357e42e511bd3d5b5d475c19aebbb1e63c17013c071bfd46dd87ef14816"
   },
   "101-csharp-essentials": {
     "source": "26422849ddab72147f9f4c692bde62b652b4478f665baafef087fed11f6761a4",
@@ -44,40 +44,40 @@
     "translation": "1be40c5d40fefd114f54be63072e2602bbde1ca2cf23cf7dd92e88f149e3d2f8"
   },
   "110-design-basics": {
-    "source": "c8ea45423fed551525a9e9e043fc58274fd444c28af3c3190af3a6f039fbff18",
-    "translation": "132175be052f94babc965a6a313f590f41d7ce54d0f9e9527f7372894f8e0bf4"
+    "source": "878a7f6dfc77c45adcf6ec25541f35af33c521f18c3cb6659b756d08407d292a",
+    "translation": "64d15df7a02dd35da4bd520d43a869baece4692d6052351bd2a71d750dc5621f"
   },
   "111-messaging-and-background-work": {
-    "source": "61348d4464172754bb008f2a0bddeeee696d4cd42612afdd18417bf9911cb366",
-    "translation": "ce300c034f4f63e09cae09dace6b89731368728002713a8327175c394fa6cf00"
+    "source": "ad177c1b2f56b465830e356f28cfecdb7fc973e4aa9ec70ebba9c214f8a17431",
+    "translation": "01da83a702b3469d61f5da0ad92dbb2ac76763e3144c25974e49f9efdca5dac9"
   },
   "112-security-essentials": {
-    "source": "8eb6ff68b3a1622a2692a8b066d81c6b59c04efa193da693d8006265cae28634",
-    "translation": "4ea2509d7b7389babaa6599f08447001e2b16427330b1d3046a03d55b8ce038d"
+    "source": "2ffa4a912a494fe8a5d193ee37d7a4a647344b74520e3fce8764802505dfe6d3",
+    "translation": "876d8738b6b206d9ea9843e91bf686c9f75a3cd451fbe8f9c4d04098f5ded22f"
   },
   "113-git-and-ci-cd": {
-    "source": "4123001080f75f66245573ba89c1c940bf30d9afc26f0d9f147d76bcd2846284",
-    "translation": "8bb6f78ddbea13a6a3c17357826d589fcb9f754fb2d72b3229a8207bc7c380ac"
+    "source": "fd9714e504a47140c80c45fb18b4166b1e4991986a366b1538959ae3877b2505",
+    "translation": "59de444b8128171a4bbe03112734bcbc99c4a459094ef40c3146b2e24d091ab4"
   },
   "114-containers-and-linux": {
-    "source": "e8fa2f2271d5c07b552dd6492003c02e967a89e7e947872ca1a36bf2fffe112e",
-    "translation": "6d879a96c897c097a9f122ed39f77658911b72dd4c7baaeb461f851deba9b0c7"
+    "source": "08fd31242313a5c093bb1e6a55c34d6d2c558849982a1d2024e998ca3a3c10ae",
+    "translation": "091afdf77ad46c8c9f902feefdb99af83fd8c85b682f08eb04c5e16f11b35e31"
   },
   "115-dates-money-strings": {
-    "source": "0de0065422c2376828fa8ff9471549d895c4ca613c5905bab9fcad336fb0410e",
-    "translation": "ca6b87acc82d00e53da8dc39f79372a13d848e93be515ad007500df9944f6eb6"
+    "source": "a9279608b292e7981b7baae9949477363125a1db0032baf6288a3c3a9ebf7aeb",
+    "translation": "b48c586d42cd71f9edb758947199ec7a8004a57d68e9a622066719005ba435b6"
   },
   "116-working-like-a-middle": {
-    "source": "86c9c751262c949f94d8b8dd457df71c845ab462409a7d4fe750a8fb3c58f8bc",
-    "translation": "734afa06c5d79bfc2f04e2c1bae3c1d86d5fae9624b259fb3b64fe0c4953c716"
+    "source": "eb07e35814f31a446abc7c08328794dd4eb37d6aeef2457bd0e7ee27cb8fa642",
+    "translation": "c69aa7b25e9fa831cd332fb66832b76c8c042ece9abd5b822f8c4df0e036919b"
   },
   "199-part-1-pay-attention": {
-    "source": "e0db1991b49cc4dc0357b7ff6977085ca380eafca323b98a75553ed0cb5c4451",
-    "translation": "fbd3047e666f046b8fe47ac7d76bf0ce5ee74f70d8d217270cc11358f6065535"
+    "source": "8bdae38f173840d770d8ad06205170d9100fb303b347dc82bbcfaa7c03fa8f7e",
+    "translation": "cad192304a731d729acc0accec37f41697ebe3810ce8bb409c061c72c1e323fe"
   },
   "200-part-2": {
-    "source": "70d70aacd7310fc1012d3916df1a1523bbcb266c2cea9f6bb0a283b48016bbcb",
-    "translation": "ff83d4763253264f6184267de6e997c585c4ddac289092a30d24fd4d0457914b"
+    "source": "94781b01a6f3346bb6ef20df8e58666ff4356ca08d4c93c0dd98a9470f12027c",
+    "translation": "daa6a134afd001830ad9e040a8187e19ec89b0a23d579480f59b82248136d946"
   },
   "217-runtime-internals-performance": {
     "source": "b0f90ab47addf9bab298a102f7fd8818fd2b0a24500694d1a810c2c5c96d8e85",
