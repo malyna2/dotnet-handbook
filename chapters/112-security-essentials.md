@@ -565,6 +565,49 @@ Security is a discipline of layered, deliberate decisions. Adopt the mindset —
 
 [Chapter 27: Security in Depth and the Supply Chain](#chapter-27-security-in-depth-and-the-supply-chain) takes the next step: replacing stored secrets with workload identity and short-lived tokens, zero trust between services, algorithm agility, and the software supply chain.
 
+## Three questions
+
+**1.** A database backup leaks. Passwords were stored as SHA-256 with a unique random salt per user. Why does the salt not protect them, and what exactly does a slow hash change?
+
+<details>
+<summary>Answer</summary>
+
+- **A salt defeats precomputation, not guessing.** With a unique salt, a rainbow table built in advance is useless and two users with the same password get different hashes. But the salt sits next to the hash in the same row, so the attacker simply guesses against each hash with its salt: common passwords first, then variations ([Password Hashing](#password-hashing)).
+- **SHA-256 is built to be fast.** A GPU computes billions of SHA-256 hashes per second, so a dictionary of common passwords and their variations runs through each salted hash in moments. Speed is the property the attacker needs.
+- **A work factor makes every single guess expensive.** PBKDF2 with 600,000 iterations computes the underlying hash 600,000 times per guess, which multiplies the attacker's cost per guess by roughly that factor while one login stays fast enough for a user. Argon2 also demands memory per guess, which limits how many guesses a GPU can run at once.
+
+Fix: rehash with a password-hashing algorithm (`PasswordHasher<T>`, Argon2, bcrypt), with parameters stored next to the hash so the work factor can be raised later and old hashes upgraded on the next login. After a leak, also force a reset: hashes that were fast to crack may already be cracked.
+</details>
+
+**2.** An administrator disables a user's account, and the user's API calls keep succeeding for the next 50 minutes. The API validates JWTs correctly. Why can't it simply invalidate the token, and what are the options?
+
+<details>
+<summary>Answer</summary>
+
+- **A JWT is validated without asking anyone.** The API checks the signature with the issuer's public key and reads `exp` from the token itself ([Validating JWTs Correctly](#validating-jwts-correctly)). Nothing in that check looks up the user, so the API holds no state it could change, and a correctly signed token stays valid until it expires. That independence is the reason to use self-contained tokens: no database or identity-provider call per request.
+- **Disabling the account acts at the identity provider.** It stops the user signing in and stops refresh tokens from issuing new access tokens. The access token already issued lives out its lifetime.
+
+The options trade freshness against a lookup per request:
+
+1. **Short access-token lifetimes** (minutes), with refresh tokens the identity provider can revoke. Revocation then takes effect within one access-token lifetime.
+2. **A deny-list** of revoked token IDs (`jti`) or users, checked on every request, typically in a cache: immediate, at the price of the lookup self-contained tokens were meant to avoid.
+3. **Reference tokens with introspection**: the token is an opaque handle, and the API asks the identity provider about it (and caches the answer briefly). Revocation is immediate, every request depends on the identity provider.
+
+Pick per API: a short lifetime is enough for most; an admin or payments API may justify the lookup.
+</details>
+
+**3.** An image-import endpoint downloads a user-supplied URL. It rejects URLs whose host is `localhost`, `127.0.0.1` or `169.254.169.254`. An attacker still makes it fetch the cloud metadata endpoint. Name three ways, and the fix that covers all of them.
+
+<details>
+<summary>Answer</summary>
+
+- **Another spelling of the same address.** A check on the URL text misses `http://[::ffff:169.254.169.254]/`, an IPv4-mapped IPv6 address that reaches the same host. (`System.Uri` already turns the decimal form `http://2852039166/` into `169.254.169.254`, so a check on the parsed `Uri.Host` catches that one, and a check on the raw string doesn't.)
+- **A name that resolves inside.** The attacker's own domain has a DNS record pointing at `169.254.169.254` or a private address. The host string passes every check; the address it resolves to is the target. With a short DNS lifetime, the name can even resolve to a public address when you check and to an internal one when you connect (DNS rebinding).
+- **A redirect.** The URL points at the attacker's server, which answers `302` with `Location: http://169.254.169.254/...`. `HttpClient` follows redirects by default (`AllowAutoRedirect` is `true`), and the redirect target never went through your check.
+
+Fix: check the address you actually connect to, not the text you were given. Turn off automatic redirects for user-supplied URLs (and validate any redirect you choose to follow as a new URL), resolve the host yourself in `SocketsHttpHandler.ConnectCallback` and refuse loopback, private, link-local and IPv4-mapped addresses before opening the socket, and prefer an allow-list of destinations where the feature permits one. Block the metadata endpoint at the network level as well ([A10: Server-Side Request Forgery (SSRF)](#a10-server-side-request-forgery-ssrf)).
+</details>
+
 ## Interview Questions
 
 **AuthN vs AuthZ?**
