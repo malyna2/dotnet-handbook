@@ -179,7 +179,7 @@ git reset --hard 9a8b7c6      # move the branch back to that commit
 git switch -c recovery 9a8b7c6
 ```
 
-Reflog entries are local and expire (by default after 90 days, or 30 for commits no longer reachable from a branch), which is plenty for any "I destroyed my work" moment. The limit is the word *committed*: `git reset --hard` over uncommitted changes discards them for good, because they never became objects. Commit (or stash) before an experiment, and every Git command becomes reversible.
+Reflog entries are local and expire (by default after 90 days, or 30 for commits no longer reachable from a branch), which is plenty for any "I destroyed my work" moment. The limit is the word *committed*: `git reset --hard` discards unstaged edits for good, because they never became objects. (Staged content did: `git add` wrote it as a blob, so `git fsck --lost-found` can still find it, without its file name.) Commit (or stash) before an experiment, and every Git command becomes reversible.
 
 ### Git GUIs
 
@@ -526,6 +526,44 @@ Command of Git and CI is a chain of small, well-understood decisions. You keep b
 
 None of these practices is exotic. Their power is cumulative: together they turn shipping software from a nerve-wracking event into a routine, boring, reversible non-event. How that artifact reaches production safely (deployment strategies, feature flags, Azure Pipelines and measuring delivery) is [Chapter 26: Delivery and Platform](#chapter-26-delivery-and-platform).
 
+## Three questions
+
+**1.** A developer commits an API key in `appsettings.json`, notices a minute later, deletes the line and commits again before pushing both commits. Why is the key exposed anyway, and why doesn't rewriting history with `git filter-repo` and a force push end the incident?
+
+<details>
+<summary>Answer</summary>
+
+- **A commit is a snapshot, not a diff.** The first commit's tree points to the blob of `appsettings.json` with the key in it. The second commit points to a new blob without it, but the first commit and its blob are still in the history that was pushed, and `git log -p` or `git show <first commit>` prints the key ([The Object Model](#the-object-model)).
+- **Rewriting creates a new history; it doesn't recall the old one.** `filter-repo` produces new commits with new hashes (every hash after the change differs, because each commit contains its parent's hash). Every clone, fork, CI cache and pull-request ref made before the force push still holds the old objects, and the hosting service may keep them reachable for a while.
+- **So the secret's exposure is a fact, not a state you can undo.** Anything that copied the repository since the push has the key.
+
+Fix: rotate the key first, at the provider, which makes every copy worthless; clean the history afterwards if you want to, and tell everyone with a clone. Then make the next one impossible: secret scanning before merge, and secrets kept in user-secrets and a vault, never in files the repository tracks ([Secrets in Pipelines](#secrets-in-pipelines)).
+</details>
+
+**2.** Why can the reflog undo a botched rebase or a `git reset --hard HEAD~3`, but not a `git reset --hard` over edits you hadn't committed? And are those edits really all gone?
+
+<details>
+<summary>Answer</summary>
+
+- **The reflog records pointer moves, and commits are objects.** A rebase or a reset moves the branch pointer and leaves the old commits in the object store. The reflog keeps the previous positions, so `git reset --hard HEAD@{2}` points the branch back at commits that never went away, until garbage collection removes unreachable ones after the reflog entries expire ([The Reflog: Your Safety Net](#the-reflog-your-safety-net)).
+- **Unstaged edits exist only in your working files.** `reset --hard` overwrites those files with the commit's version, and no object, no pointer and no reflog entry ever recorded what you had typed.
+- **Staged edits are a half-way case.** `git add` writes the file's content into the object store as a blob. After a `reset --hard` nothing points to it, but it is still there: `git fsck --lost-found` lists dangling blobs and writes them to `.git/lost-found/other/`, with their content but without their file names.
+
+Fix: commit (or `git stash`) before any experiment, so that everything is an object reachable from the reflog; a work-in-progress commit is free to squash later.
+</details>
+
+**3.** Two pull requests each pass CI and merge within an hour of each other. Neither had a merge conflict. The build on `main` fails right after the second merge. How can two green changes combine into a red one, and what prevents it?
+
+<details>
+<summary>Answer</summary>
+
+- **CI tested each pull request against an old `main`.** For a pull request, GitHub Actions builds a test merge of the branch with the base as it was when the run started. The second pull request's run happened before the first one merged, so nothing ever built the combination.
+- **A clean textual merge says nothing about meaning.** Git merges by lines. If one pull request renames a method and the other adds a new call to the old name in a different file, the merge has no conflict and doesn't compile; a changed default can break a test the same way.
+- **The window grows with time and traffic.** The longer a pull request waits after its last run, and the more changes merge meanwhile, the staler its green check.
+
+Fix: make the base current at merge time. Either require branches to be up to date before merging (the branch protection rule), which re-runs CI after each update, or use a merge queue, which tests each pull request on top of the ones queued ahead of it and merges only what passed in that order. Small, short-lived pull requests make the window small either way ([Branching Strategies: GitFlow vs Trunk-Based](#branching-strategies-gitflow-vs-trunk-based)).
+</details>
+
 ## Check at work
 
 **Inspect.** Four commands in your own repository:
@@ -538,3 +576,69 @@ None of these practices is exotic. Their power is cumulative: together they turn
 **Do.** In a throwaway clone, run `git reset --hard HEAD~3`, then get the three commits back from `git reflog`, before you ever need to do it for real.
 
 **Measure.** For your last ten merged pull requests, note the lines changed and the hours from the first commit to the merge. Several days or several hundred lines is where reviews turn into "LGTM" and conflicts start to cost more than the change itself.
+
+## Interview Questions
+
+**What is a commit in Git, and what is a branch?**
+
+<details>
+<summary>Answer</summary>
+
+A commit is a snapshot: it points to a tree (the whole project's directory structure, down to blobs of file contents) and to its parent commits, and its ID is a hash of all of that, so it covers the entire history behind it. A branch is a movable pointer to one commit, a file holding a hash, which is why creating one is instant and why `reset`, `rebase` and `merge` are all, at heart, pointer moves ([The Object Model](#the-object-model)).
+</details>
+
+**Merge or rebase: what does each do to history, and what is the rule?**
+
+<details>
+<summary>Answer</summary>
+
+Merge adds a commit with two parents and keeps history as it happened. Rebase replays your commits on top of another branch as new commits with new hashes, giving a linear history. The rule follows from the new hashes: rebase only commits nobody else has, such as your own feature branch before review, because anyone who built on the old commits ends up with duplicated, divergent history ([Merge vs Rebase](#merge-vs-rebase)).
+</details>
+
+**After a rebase, `git push` is rejected. Why, and what do you run?**
+
+<details>
+<summary>Answer</summary>
+
+A push is accepted only as a fast-forward: the remote's tip must be an ancestor of yours. Rebased commits are new objects, so the old tip is no longer in your history. On your own pull-request branch, `git push --force-with-lease --force-if-includes` overwrites only if the remote is still where you last saw it, so a teammate's push in between makes it fail instead of disappearing. On a shared branch, don't force; merge ([Merge vs Rebase](#merge-vs-rebase)).
+</details>
+
+**You ran `git reset --hard` and lost three commits. How do you get them back?**
+
+<details>
+<summary>Answer</summary>
+
+`git reflog` lists where `HEAD` has been; find the entry before the reset and run `git reset --hard <hash>`, or `git switch -c recovery <hash>` to look first. The commits were never deleted, only unreferenced, and they stay until the reflog entries expire and garbage collection runs. Unstaged edits are the exception: they never became objects ([The Reflog: Your Safety Net](#the-reflog-your-safety-net)).
+</details>
+
+**GitFlow or trunk-based development?**
+
+<details>
+<summary>Answer</summary>
+
+Trunk-based for a continuously deployed service: everyone merges small, short-lived branches into `main` daily, and unfinished work hides behind feature flags, so integration problems surface while they are small. GitFlow's long-lived `develop`, `release` and `hotfix` branches suit software that maintains several released versions in parallel; their cost is deferred integration and large merges ([Branching Strategies: GitFlow vs Trunk-Based](#branching-strategies-gitflow-vs-trunk-based)).
+</details>
+
+**Continuous integration, continuous delivery, continuous deployment: what separates them?**
+
+<details>
+<summary>Answer</summary>
+
+CI is the practice of merging into the mainline at least daily, with every merge built and tested automatically. Continuous delivery adds that every change that passes is a deployable artifact, with a human deciding when it goes to production. Continuous deployment removes that decision: whatever passes the gates ships. In GitHub Actions the difference is often one setting, an environment with a required reviewer ([What CI/CD Actually Means](#what-cicd-actually-means)).
+</details>
+
+**What does Semantic Versioning promise, and how does `2.4.0-beta.1` compare with `2.4.0`?**
+
+<details>
+<summary>Answer</summary>
+
+`MAJOR.MINOR.PATCH`: a major bump means a breaking change, a minor one new backward-compatible functionality, a patch a backward-compatible fix, which lets consumers accept a range such as "any 2.x" safely. A pre-release sorts before its release, so `2.4.0-beta.1` < `2.4.0`. GitVersion derives the version from tags and branches, so the same commit always gets the same version ([Semantic Versioning and GitVersion](#semantic-versioning-and-gitversion)).
+</details>
+
+**What do `Directory.Build.props` and Central Package Management solve?**
+
+<details>
+<summary>Answer</summary>
+
+Drift. MSBuild imports the nearest `Directory.Build.props` above each project, so settings such as the target framework, nullable and warnings-as-errors live in one file. `Directory.Packages.props` with `ManagePackageVersionsCentrally` holds every package version once, and projects reference packages without versions, so two projects can no longer pull different versions of the same library ([MSBuild, Directory.Build.props, and Central Package Management](#msbuild-directorybuildprops-and-central-package-management)).
+</details>
