@@ -795,3 +795,69 @@ What to notice:
 **Inspect.** For each message consumer in your codebase, find where it deduplicates. Good: an insert under a unique key, or a conditional update, in the same transaction as the effect, plus an idempotency key passed to any external API it calls. Bad: `if (await AlreadyProcessed(id)) return;` followed by the effect and then a "mark processed" call, or no deduplication at all. While you are there, search for `ReceiveMessagesAsync(` with large batches, `PrefetchCount`, handlers that wrap everything in `catch (Exception)`, and endpoints that return `Accepted()` without a `Location`.
 
 **Measure.** For each queue and subscription: the lock duration against the handler's p99 duration, `MaxDeliveryCount`, the dead-letter count (the `DeadletteredMessages` metric) and whether anything alerts on it, and how often your handlers log `DeliveryCount > 1`.
+
+## Interview Questions
+
+**What is the difference between a command and an event, and why does it matter for the broker setup?**
+
+<details>
+<summary>Answer</summary>
+
+A command asks one specific handler to do something (`ShipOrder`) and its sender cares whether it happened; an event announces something that already happened (`OrderShipped`) to zero or many subscribers the publisher doesn't know. So a command goes to one queue with one logical consumer, and an event to a topic where each subscriber gets its own copy. An "event" that really tells another service what to do is a command in disguise, with the coupling of a command ([Event-Driven Architecture](#event-driven-architecture-events-commands-and-messages)).
+</details>
+
+**RabbitMQ or Kafka: what is the mechanical difference?**
+
+<details>
+<summary>Answer</summary>
+
+RabbitMQ is a queue: it routes a message to queues, hands each message to one consumer and deletes it on acknowledgement. Kafka is a log: messages are appended to partitions and kept for the retention period, and each consumer group tracks its own offset, so several groups read the same data independently and a new one can replay history. Choose the queue for work distribution and flexible routing, the log for high-throughput streams, replay and many independent readers ([Apache Kafka — The Distributed Log](#apache-kafka-the-distributed-log)).
+</details>
+
+**A Kafka topic has 12 partitions and the consumer group has 12 instances. You add a 13th. What happens?**
+
+<details>
+<summary>Answer</summary>
+
+Nothing useful: within a group each partition is assigned to exactly one consumer, so the 13th instance gets no partition and sits idle. The partition is both the unit of parallelism and the unit of ordering, since a key always hashes to the same partition. More throughput needs more partitions, and adding partitions later moves keys to different partitions, which breaks per-key order across the change ([Apache Kafka — The Distributed Log](#apache-kafka-the-distributed-log)).
+</details>
+
+**Why do brokers deliver at least once rather than exactly once?**
+
+<details>
+<summary>Answer</summary>
+
+Because the acknowledgement is itself a message that can be lost. A consumer that did the work and then crashed, or whose acknowledgement never arrived, looks to the broker exactly like one that never did the work, so the broker redelivers. "Exactly-once" offerings are at-least-once delivery plus deduplication under specific constraints. The practical answer is at-least-once delivery and idempotent consumers, which gives exactly-once effects ([Why Exactly-Once Is (Almost) a Myth](#why-exactly-once-is-almost-a-myth)).
+</details>
+
+**How do you make a consumer idempotent, and what is wrong with "if processed, return"?**
+
+<details>
+<summary>Answer</summary>
+
+"Check, do the work, record the ID" has a window: two copies delivered at once both pass the check before either records, and a crash after the work loses the record. Make the record the check: insert the message ID (or a natural business key) under a unique index first, in the same transaction as the effect, and treat a duplicate-key error as "already done". An effect outside the database, such as a payment, gets the same key as its idempotency key ([Idempotent Consumers](#idempotent-consumers)).
+</details>
+
+**What problem does the transactional outbox solve?**
+
+<details>
+<summary>Answer</summary>
+
+The dual write: saving data and publishing a message are two systems with no shared transaction, so a crash between them leaves a saved order nobody hears about, or a message about an order that was never saved. The outbox writes the message into a table in the same transaction as the data; a relay publishes it after the commit and marks it sent. The relay can publish twice after a crash, so consumers still deduplicate ([The Transactional Outbox](#the-transactional-outbox)).
+</details>
+
+**When does a message end up in a dead-letter queue, and what do you do about it?**
+
+<details>
+<summary>Answer</summary>
+
+When the handler dead-letters it explicitly, or when its delivery count passes the limit (`MaxDeliveryCount`, 10 by default in Service Bus), every exception, abandon or expired lock counting as one delivery. Nothing drains a DLQ, so alert on its depth, read why each message failed, fix the cause, and only then resubmit; a DLQ that fills silently is a common incident ([Dead-Letter Queues (DLQ)](#dead-letter-queues-dlq)).
+</details>
+
+**How does a `BackgroundService` shut down gracefully?**
+
+<details>
+<summary>Answer</summary>
+
+On SIGTERM or Ctrl+C the host cancels the `stoppingToken` and waits for `ExecuteAsync` to finish, up to `HostOptions.ShutdownTimeout` (30 seconds by default). A loop that observes the token stops taking new work and finishes or abandons the current item cleanly; one that passes `CancellationToken.None` downstream is cut off mid-item when the timeout ends. Because a cut-off item will be delivered again, it must be safe to repeat ([Graceful shutdown and the CancellationToken](#graceful-shutdown-and-the-cancellationtoken)).
+</details>
