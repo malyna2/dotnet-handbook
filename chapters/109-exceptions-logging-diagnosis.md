@@ -2,7 +2,7 @@
 
 Every service fails, and what decides how fast a failure gets fixed is the trail it leaves: one log entry carrying the whole exception, a response that tells the caller what they can do about it, and one id that joins the two. This chapter teaches the habits that leave that trail, and the first measurements to take when the complaint is not an error but slowness.
 
-It starts with the tool every later section uses: `ILogger` and structured logging, where a message template keeps typed properties a log store can query, a level says who has to act, and secrets stay out. The exception-handling strategy then settles where a failure is caught (almost nowhere), what gets logged (once, at the boundary) and what the caller sees (a ProblemDetails body with a stable code and a trace id). Next comes the trace id itself: the wiring that gives every request one, and how it follows the request across services and queues so the logs of five services read as one story. The chapter closes with a method for a slow endpoint — CPU-bound or waiting, and the fingerprint of a starved thread pool — and then two programs to run, three questions and checks for your own service.
+It starts with the tool every later section uses: `ILogger` and structured logging, where a message template keeps typed properties a log store can query, a level says who has to act, and secrets stay out. The exception-handling strategy then settles where a failure is caught (almost nowhere), what gets logged (once, at the boundary) and what the caller sees (a ProblemDetails body with a stable code and a trace id). On your own machine, the debugger then finds a reproducible failure faster than any log: conditional breakpoints and tracepoints, why it stops on an exception your code catches, async stacks, attaching to a running process, and when it is the wrong tool. Next comes the trace id itself: the wiring that gives every request one, and how it follows the request across services and queues so the logs of five services read as one story. The chapter closes with a method for a slow endpoint — CPU-bound or waiting, and the fingerprint of a starved thread pool — and then two programs to run, three questions, checks for your own service and interview questions.
 
 ## Logging with Microsoft.Extensions.Logging
 
@@ -429,6 +429,62 @@ Run down this list on any pull request that touches error handling:
 - [ ] Custom exceptions carry structured properties, are named for the situation, and there are few of them.
 - [ ] `TaskScheduler.UnobservedTaskException` is subscribed somewhere in the host.
 
+## Using the Debugger Well
+
+Logs tell you what happened where you can't watch. On your own machine, with a failure you can reproduce, the debugger is faster: it stops the process at a line, shows every variable and the chain of calls that led there, and runs the code one statement at a time. Visual Studio, Rider and VS Code with the C# extension share the concepts below. Menu names and keys differ, so where this section names one, it says which IDE.
+
+### Breakpoints That Stop Only When It Matters
+
+A breakpoint puts the process into *break mode* when execution reaches its line: the app is suspended while its variables and objects stay in memory to inspect. A breakpoint in a loop or a busy endpoint stops on every pass, so the useful ones are qualified:
+
+- **Condition.** Stop only when an expression is true, such as `order.Id == 4711` or `items.Count == 0`, written in C#.
+- **Hit count.** Stop on the Nth time the line is reached: the iteration where the loop goes wrong.
+- **Tracepoint** (Visual Studio) or **logpoint** (VS Code). Don't stop; write a message with values in braces, such as `Order {order.Id} total {order.Total}`, to the Output window or Debug Console, and carry on. It is a log line you add without editing, rebuilding or restarting, and remove the same way.
+- Visual Studio also has *data breakpoints* (.NET Core 3 and later), which stop when a property's value changes, and *dependent* breakpoints, which arm only after another breakpoint has been hit.
+
+### Stepping, the Call Stack and Watching Values
+
+From a breakpoint, **Step Over** (F10 in Visual Studio) runs the current line, calls included, and stops on the next one. **Step Into** (F11) enters the method the line calls; **Step Out** (Shift+F11) runs to the end of the current method and stops in its caller. The usual rhythm is to step over until a value is wrong, then go back one level of detail: run again and step into the call that produced it.
+
+The **Call Stack** window lists the frames that led to the current line. Select a frame and the debugger shows that method's locals as they are now, so you can find which caller passed the bad argument without restarting. With **Just My Code** on (the default in Visual Studio and in VS Code's C# extension), frames from the framework and from optimized or symbol-less assemblies collapse into `[External Code]`, and Step Into skips them. Turn it off to step into a library, which then needs that library's symbols (`.pdb`).
+
+Hover a variable to see its value, keep expressions in a **Watch** window, or evaluate one in the Immediate window (Visual Studio) or the Debug Console (VS Code). Evaluating runs code inside the paused process, so a getter or method with side effects changes the very state you are inspecting.
+
+> **Pay attention.** **Why the debugger stops on an exception your code catches.** When `throw` runs, the runtime raises a *first-chance* notification before it searches the stack for a handler: the debugger hears of the exception, and `AppDomain.FirstChanceException` fires, while nobody knows yet whether a `catch` will take it. A debugger set to break when an exception is *thrown* therefore stops at the throw site even if a `catch` three frames up would handle it, which is what you want when a library swallows an exception you need to see. What breaks by default differs. Visual Studio breaks when thrown only for the types checked in **Exception Settings** (Debug > Windows > Exception Settings), and otherwise on exceptions your code doesn't handle. VS Code's C# extension has two checkboxes in the Breakpoints pane: **All Exceptions** (break when thrown) and **User-Unhandled Exceptions**, on by default, which breaks when an exception that came through your code is caught by code that isn't yours. That is how the debugger stops on an exception ASP.NET Core's exception middleware would otherwise turn quietly into a 500. To stop breaking on an exception you expect, narrow the setting: VS Code takes a condition such as `!System.Threading.Tasks.TaskCanceledException`, and Visual Studio a module name.
+
+The same notification is available in code. In a development build it lists every exception as it is thrown, caught or not:
+
+```csharp
+// Development only: report every exception the moment it is thrown, caught or not.
+AppDomain.CurrentDomain.FirstChanceException += (_, e) =>
+    Console.WriteLine($"first chance: {e.Exception.GetType().Name}: {e.Exception.Message}");
+```
+
+With `int.Parse("forty-two")` inside a `try` whose `catch (FormatException) when (…)` logs from its filter, the handler prints its line first, then the filter runs, then the `catch`: the notification comes before the runtime has looked for a handler.
+
+### Debugging Async Code
+
+After an `await`, the rest of the method runs as a continuation, called by whatever completed the awaited task, often on another thread-pool thread. Print the stack after `await Task.Delay(10)` in a method called from `Outer()`, and the frames below the resumed `MoveNext` belong to the timer that completed the delay, on another thread; `Outer` is not among them. So a thread's **Call Stack** after an `await` shows who *resumed* the method, not who is *waiting* for it. Visual Studio rebuilds the logical chain: the **Tasks** view of the **Parallel Stacks** window draws task-centered call stacks, and the **Tasks** window lists every task with its status (active, awaiting, blocked, deadlocked). When requests hang, look there first. Many tasks *blocked* rather than *awaiting* is the [sync-over-async](#the-sync-over-async-deadlock) of Chapter 4. Parallel Stacks' **Threads** view merges the stacks of every thread, the same picture `parallelstacks` prints from a dump.
+
+### Attaching to a Running Process
+
+You don't have to start the app from the IDE. **Attach to Process** (Ctrl+Alt+P in Visual Studio; the *Debug: Attach to a .NET 5+ or .NET Core process* command in VS Code) connects the debugger to a process that is already running: a service started from the command line, or an app that has just started misbehaving. VS Code's C# extension can also attach through a transport program such as `ssh`, `docker exec` or `kubectl exec`. Breakpoints bind once the module's symbols load.
+
+A Release build is harder to debug, because the JIT optimizes it: locals show as unavailable and stepping jumps around. Debug a Debug build, or turn on Visual Studio's *Suppress JIT optimization on module load* (`suppressJITOptimizations` in VS Code), which asks the JIT not to optimize modules that load from then on. Modules already loaded when you attach stay optimized.
+
+### When the Debugger Is the Wrong Tool
+
+Break mode suspends the process. On your machine that is the point; on a shared server it also stops every other request the process is serving, callers time out while you read variables, and a liveness probe that gets no answer has the instance restarted under you. It changes timing too: a race that depends on two threads interleaving can vanish while one of them sits at a breakpoint, and a tracepoint disturbs less than a stop.
+
+| Situation | Reach for |
+|---|---|
+| Reproducible on your machine | The debugger: a breakpoint at the symptom, the call stack back to the cause |
+| Appears only under load or as a race | Tracepoints or logs with thread ids, and a dump taken when it happens |
+| Production, failing requests | The logs and traces this chapter wires up, joined by the trace id |
+| Production, slow, hung or leaking | `dotnet-counters`, then `dotnet-trace` or a dump |
+
+A dump (`dotnet-dump collect`) is the debugger's view frozen at one moment, taken from the live process and read later: `dotnet-dump analyze` reads it, and Visual Studio opens one with a heap much like a session stopped at a breakpoint, except that execution can't continue. [Diagnosing a Performance Problem](#diagnosing-a-performance-problem-a-worked-methodology), below, is the method for production; [Profiling](#profiling-finding-the-bottleneck-in-a-running-system) in Chapter 17 runs the tools against a live process, and [How to Triage](#how-to-triage-from-symptom-to-theory) in Chapter 35 works from symptom to theory during an incident.
+
 ## Why Observability, and How It Differs from Monitoring
 
 Everything so far ends a failure in one log entry and a response carrying a trace id. The rest of the chapter is about that id and the telemetry around it, because in production you cannot attach a debugger, step through a request as it hops across five services, or ask a customer to reproduce the bug while you watch: what the running system emits is your only window into it.
@@ -718,3 +774,105 @@ Fix the cause: remove the blocking call (raising the pool's minimum only moves t
 A good result: each hit is a deliberate boundary. A bad one: a `catch` in every layer.
 
 **Measure.** In a test environment, make one request fail. Count the `Error` entries it produced (one is right), then search your log store for the `traceId` from its ProblemDetails response and count the services whose entries you get back. During the next busy hour, run `dotnet-counters monitor` against one instance and write down CPU usage, thread-pool queue length and thread count: that is your baseline for the next slow day.
+
+## Interview Questions
+
+The questions on diagnosing a slow endpoint (CPU-bound or waiting, which tools, the usual culprits, a slow database) are answered in [Diagnosing a Performance Problem](#diagnosing-a-performance-problem-a-worked-methodology) above.
+
+**Where should a .NET service catch exceptions?**
+
+<details>
+<summary>Answer</summary>
+
+Only where the `catch` adds value: to translate a low-level exception into one of your abstraction (keeping the original as the inner exception), to handle it (retry a transient failure, fall back, compensate), or to report it at the outermost boundary, where the exception middleware or a worker's loop logs it once and turns it into a response. Every other layer lets it pass. A bug isn't caught at all below the boundary, because no code can know what is still true.
+
+**Red flag:** "Wrap every method in `try`/`catch` and log." Each layer logs the same failure again, and a `catch (Exception)` also swallows cancellations.
+</details>
+
+**`throw;` or `throw ex;`, and why?**
+
+<details>
+<summary>Answer</summary>
+
+`throw;` rethrows the original exception with its stack trace. `throw ex;` restarts the trace at the rethrow, so the frames below the `catch`, the ones with the bug, are lost from every log. To rethrow later or on another thread, capture it with `ExceptionDispatchInfo.Capture(ex)` and call `Throw()`, which keeps the original trace.
+</details>
+
+**When do you return a `Result<T>` instead of throwing?**
+
+<details>
+<summary>Answer</summary>
+
+For an expected outcome the caller must decide about, such as a domain rule saying no (insufficient balance, coupon expired): it belongs in the method's signature and maps to a 409 or 422. Exceptions stay for the exceptional, where continuing would be worse than stopping, because they can't be ignored. Cost matters in loops: a throw costs microseconds, which is noise once per request and seconds across hundreds of thousands of rows.
+</details>
+
+**What does an exception filter (`catch … when`) give you that catching and rethrowing doesn't?**
+
+<details>
+<summary>Answer</summary>
+
+The filter runs during the first pass, before the stack unwinds. If it returns `false`, the exception keeps travelling with every frame intact, so a crash dump or debugger still sees the original throw site. Catch-inspect-rethrow has already unwound the stack by the time it decides. Filters are also the idiomatic way to branch on an error code (`when (ex.Number == 1205)`).
+</details>
+
+**Why does the debugger stop on an exception that a `catch` handles?**
+
+<details>
+<summary>Answer</summary>
+
+The runtime raises a first-chance notification when the exception is thrown, before it searches for a handler, so a debugger set to break when that type is thrown stops at the throw site whether or not a `catch` exists. The default settings break only on exceptions that go unhandled, or, with Just My Code, on exceptions that leave your code and are caught by framework code. `AppDomain.FirstChanceException` is the same notification in code.
+</details>
+
+**Why use message templates instead of string interpolation in log calls?**
+
+<details>
+<summary>Answer</summary>
+
+A template (`"Order {OrderId} placed"`, with the value as an argument) gives the provider the value as a typed property and the template as the event's identity, so a log store can query `OrderId = 42` and group events of one kind. An interpolated string is built before the call: one finished string, no properties, a different template for every value, and the formatting cost paid even when the level is disabled.
+</details>
+
+**What must never appear in a log?**
+
+<details>
+<summary>Answer</summary>
+
+Secrets (passwords, API keys, connection strings, bearer tokens) and personal data such as full card numbers, government ids, emails or addresses. Logs are shipped to third-party systems, kept for months and readable by a broad audience, so a logged secret is a leaked secret, and personal data in logs falls under retention and deletion rules. Log a masked value or a pseudonymous id instead, and strip sensitive fields from destructured objects.
+</details>
+
+**How do you follow one request through five services' logs?**
+
+<details>
+<summary>Answer</summary>
+
+By the trace id. ASP.NET Core and `HttpClient` propagate the W3C `traceparent` header automatically, `Activity.Current` carries the id through the async call chain, and the logging providers record it on every entry. Return it to clients (ProblemDetails' `traceId`) and search by it. Across a queue, the producer must write the trace context into the message and the consumer must read it, which some client libraries do and others leave to you.
+</details>
+
+**How should an API treat `OperationCanceledException`?**
+
+<details>
+<summary>Answer</summary>
+
+As a successful response to a request to stop, not as an error: the client disconnected or the host is shutting down. Catch it at the boundary with `when (ct.IsCancellationRequested)`, log it at `Information` or `Debug`, and don't turn it into a 500. The filter matters, because without it a timeout, which is a real problem, would be swallowed too.
+</details>
+
+**What happens when an exception escapes a `BackgroundService`'s `ExecuteAsync`?**
+
+<details>
+<summary>Answer</summary>
+
+Since .NET 6 the default is to stop the whole host, so the orchestrator restarts a broken worker instead of leaving a process that looks healthy and does nothing. Catch inside the loop, per item, so one bad message doesn't stop the worker; let anything that escapes the loop stop the host.
+</details>
+
+**Why can't you just debug the problem in production?**
+
+<details>
+<summary>Answer</summary>
+
+Break mode suspends the process: every request it serves stops, callers time out, and a liveness probe that gets no answer has the instance restarted. It also changes timing, so a race can disappear while you look. In production the evidence comes from what the process emits and from snapshots: logs and traces joined by the trace id, `dotnet-counters`, `dotnet-trace`, and a dump from `dotnet-dump collect`, read later with `dotnet-dump analyze` or in Visual Studio.
+</details>
+
+**Monitoring vs observability?**
+
+<details>
+<summary>Answer</summary>
+
+Monitoring answers questions you decided on in advance: dashboards and alerts for known failure modes, such as error rate above 1%. Observability is the property that lets you ask new questions of the running system without shipping code, because its logs, metrics and traces carry enough context, correlated by trace id, to slice by any dimension after the fact. Monitoring tells you that something is wrong; observability helps you find out why.
+</details>

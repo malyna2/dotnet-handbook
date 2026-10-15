@@ -320,3 +320,173 @@ Versions and their dates, as of October 2026 (`releases-index.json` in the `dotn
 - The **DI container** builds the object graph with three lifetimes; a service may depend only on equal or longer lifetimes, and `ValidateScopes` catches the captive dependency only in Development.
 - The **Generic Host** composes configuration, DI and logging, starts and stops hosted services, and hands `BackgroundService` a stopping token to honor.
 - The **November release cadence** with **LTS (even) / STS (odd)** tracks lets you plan upgrades before support ends.
+
+## Prove it
+
+Two claims from [Garbage Collection](#garbage-collection), observed directly: a survivor is promoted one generation per collection, and a finalizer keeps unreachable memory for one more collection. The program calls `GC.Collect()` because here a collection is the experiment's clock; in application code the advice above stands. Predict the generations and the four `alive` values before you run it.
+
+`verify/path/GcGenerations/Program.cs` · run it from `verify/path` with `dotnet run --project GcGenerations`:
+
+```csharp
+// Prove it: a survivor moves up one generation per collection; a finalizer keeps garbage alive for one more.
+using System.Runtime.CompilerServices;
+
+var survivor = new object();
+Console.Write($"a live object:       gen {GC.GetGeneration(survivor)}");
+for (int i = 0; i < 2; i++) { GC.Collect(); Console.Write($" -> gen {GC.GetGeneration(survivor)}"); }
+Console.WriteLine("  (one step per collection it survives)");
+
+WeakReference plain = Unreachable(), finalizable = UnreachableWithFinalizer();
+GC.Collect();
+Console.WriteLine($"after 1 collection:  plain alive {plain.IsAlive}, with finalizer alive {finalizable.IsAlive}");
+GC.WaitForPendingFinalizers();                 // the finalizer thread runs ~WithFinalizer
+Console.WriteLine($"finalizer has run:   {WithFinalizer.Ran}");
+GC.Collect();
+Console.WriteLine($"after 2 collections: plain alive {plain.IsAlive}, with finalizer alive {finalizable.IsAlive}");
+GC.KeepAlive(survivor);
+
+// Allocated in methods of their own, so no local in this method keeps them reachable.
+// trackResurrection: true follows an object until its memory is reclaimed, not just until it is unreachable.
+[MethodImpl(MethodImplOptions.NoInlining)]
+static WeakReference Unreachable() => new(new object(), trackResurrection: true);
+[MethodImpl(MethodImplOptions.NoInlining)]
+static WeakReference UnreachableWithFinalizer() => new(new WithFinalizer(), trackResurrection: true);
+
+class WithFinalizer
+{
+    public static bool Ran;
+    ~WithFinalizer() => Ran = true;
+}
+```
+
+```text
+a live object:       gen 0 -> gen 1 -> gen 2  (one step per collection it survives)
+after 1 collection:  plain alive False, with finalizer alive True
+finalizer has run:   True
+after 2 collections: plain alive False, with finalizer alive False
+```
+
+What to notice:
+
+- **Promotion is one step per survived collection.** The object starts in Gen 0, survives a collection into Gen 1 and another into Gen 2, and stays there: Gen 2 is as old as it gets. A short-lived object dies before any collection sees it and is never promoted; an object that lives just long enough to survive two collections ends up in the generation that only full collections clean.
+- **The plain object was gone after one collection.** Nothing reached it, so the GC reclaimed its memory at once.
+- **The object with a finalizer outlived the same collection.** The GC found it unreachable, but because it has a finalizer it went on the finalization queue, which keeps it alive, and its memory stayed. The finalizer thread ran `~WithFinalizer` after that collection, and only the next collection reclaimed the memory. That extra collection is what `GC.SuppressFinalize` in `Dispose` saves.
+- **Why the objects are made in separate methods.** A reference held in a local of the running method can count as a root until the method ends, so an object allocated inline might never look unreachable here. Allocating it in a method that returns only a `WeakReference` leaves no strong reference behind.
+
+## Three questions
+
+**1.** A service allocates hundreds of megabytes a minute, and its Gen 0 collections stay cheap. Then an in-memory cache with a ten-minute expiry is added, holding far less memory than the service allocates, and Gen 2 collections become frequent. Why does the volume of allocation matter less than the lifetime of what is allocated?
+
+<details>
+<summary>Answer</summary>
+
+- **A collection's cost follows what survives, not what died.** The GC traces from the roots and moves the survivors together; dead objects are never visited. A Gen 0 full of request garbage is mostly dead, so collecting it is cheap however much was allocated ([Generations 0, 1, and 2](#generations-0-1-and-2)).
+- **Cache entries live just long enough to be promoted.** An entry that lives ten minutes survives many Gen 0 and Gen 1 collections and reaches Gen 2, then expires there. Garbage in Gen 2 is reclaimed only by a Gen 2 collection, so a steady flow of entries that die in Gen 2 fills its budget and triggers full collections, which trace the whole heap.
+- **Old-to-young references add their own cost.** Each time the long-lived cache stores a reference to a new entry, the write barrier marks a card, and the next Gen 0 collection scans those dirty cards.
+
+Fix: avoid objects of middling lifetime. Cache fewer, larger entries, or values without inner references; give the cache a size limit; or keep data that must live long alive for the whole process, where it costs little once it has reached Gen 2. Compare the Gen 2 count before and after ([Chapter 17](#garbage-collection-in-depth) covers the GC under load).
+</details>
+
+**2.** `appsettings.json` sets `Email:SmtpHost` to `smtp.local`, and production sets the environment variable `Email__SmtpHost=smtp.prod`. It worked until someone added `builder.Configuration.AddJsonFile("appsettings.json")` after `WebApplication.CreateBuilder(args)`, to load the file from a new path. Now production sends mail through `smtp.local`. Why?
+
+<details>
+<summary>Answer</summary>
+
+- **Configuration has no priorities, only an order.** `IConfiguration` asks its providers from the last added to the first and takes the first one that has the key ([The Configuration System](#the-configuration-system)). "Environment variables override JSON" is true only because `CreateBuilder` adds them after the JSON files.
+- **`AddJsonFile` appends.** Called after `CreateBuilder`, it places the file after the environment variables and the command line, so it now wins over both, for every key it contains.
+- **Nothing reports it.** Both providers hold a valid value, and a key held by more than one provider is normal, so there is no error: the other value is simply read.
+
+Fix: add extra sources before the environment variables and the command line, or call `AddEnvironmentVariables()` and `AddCommandLine(args)` again after your file so they stay last. To see which provider supplied each value, `((IConfigurationRoot)builder.Configuration).GetDebugView()` lists every key with its provider.
+</details>
+
+**3.** A singleton factory calls `serviceProvider.GetRequiredService<ReportExporter>()` for every report. `ReportExporter` is registered with `AddTransient` and implements `IDisposable`. Memory grows with every report until the process restarts, and `ValidateScopes` reports nothing. Why?
+
+<details>
+<summary>Answer</summary>
+
+- **The container disposes what it creates, so it remembers it.** A disposable service is recorded in the scope that resolved it and disposed when that scope ends ([Captive dependencies](#captive-dependencies-the-classic-di-bug) covers which scope owns what). For a request scope, that is the end of the request.
+- **The singleton resolves from the root scope, which ends at shutdown.** Every `ReportExporter` it creates is added to the root scope's list and stays referenced there until the application stops. Each call makes a new transient, so the list grows with every report and none of them can be collected.
+- **Nothing validates it.** Resolving a transient from the root is legal; `ValidateScopes` rejects only scoped services resolved from the root or captured by singletons.
+
+Fix: give each unit of work its own scope (`using var scope = scopeFactory.CreateScope();` and resolve from it), so the exporter is disposed when the scope ends. If the factory owns the object's lifetime outright, it can construct the exporter with `ActivatorUtilities.CreateInstance<ReportExporter>(provider)`, which the container doesn't track, and dispose it with `using`.
+</details>
+
+## Check at work
+
+**Inspect.** Search the service for:
+
+- `GC.Collect(` and finalizers (`~` followed by the class name): each one needs a reason written next to it;
+- `GetService(` and `GetRequiredService(` outside `Program.cs`: who resolves, from which scope, and is the result disposable?
+- `BuildServiceProvider(` in application code, which builds a second container with its own copy of every singleton;
+- singletons whose constructors take a `DbContext`, an `IOptionsSnapshot<T>` or anything registered as scoped;
+- configuration sources added after `CreateBuilder`, and options bound without `ValidateOnStart()`.
+
+Then check whether `ValidateOnBuild` and `ValidateScopes` run anywhere besides a developer's machine: a test that builds the host with both switched on catches captive dependencies before production does.
+
+**Measure.** Run `dotnet-counters monitor --counters 'EventCounters\System.Runtime' -p <pid>` against one instance at peak traffic and write down `Gen 0 GC Count`, `Gen 2 GC Count`, `GC Heap Size` and `% Time in GC since last GC`. A Gen 2 count that climbs steadily along with the Gen 0 count is the middling-lifetime pattern from the first question.
+
+## Interview Questions
+
+**How does the GC decide that an object is garbage?**
+
+<details>
+<summary>Answer</summary>
+
+It traces from roots: static fields, the locals and registers of every thread's stack, and GC handles. Anything reachable from a root is live and everything else is garbage; there is no reference counting, so cycles are collected too. The same rule is how managed memory leaks: a static collection or a long-lived event publisher keeps reachable what the code no longer needs ([Garbage Collection](#garbage-collection)).
+</details>
+
+**Why is a Gen 0 collection cheap and a Gen 2 collection expensive?**
+
+<details>
+<summary>Answer</summary>
+
+A collection's cost follows the live objects it traces and moves. Gen 0 is small and mostly dead, and thanks to the card table, kept by the write barrier, only the dirty parts of older generations are scanned for references into it. A Gen 2 collection traces the whole heap. Objects that survive into Gen 2 and then die there are what make full collections frequent ([Generations 0, 1, and 2](#generations-0-1-and-2)).
+</details>
+
+**What does a finalizer cost, and why does `Dispose` call `GC.SuppressFinalize(this)`?**
+
+<details>
+<summary>Answer</summary>
+
+An unreachable object with a finalizer can't be reclaimed at once: the finalization queue keeps it alive, the finalizer thread runs it later, and only the next collection frees its memory, so it is often promoted on the way. `Dispose` has already released the resource, so it takes the object off finalization and it dies as cheaply as any other. Write a finalizer only when you own a raw unmanaged handle, and prefer `SafeHandle` even then ([Finalization and the relationship to IDisposable](#finalization-and-the-relationship-to-idisposable)).
+</details>
+
+**Should production code call `GC.Collect()`?**
+
+<details>
+<summary>Answer</summary>
+
+Almost never. It discards the budgets the GC has tuned from the application's own behaviour, promotes whatever happens to be alive at that moment into an older generation, and pauses at a moment the GC didn't choose. Memory that only `GC.Collect()` brings down is memory the code allocates too much of or holds too long ([GC.Collect and why not to call it](#gccollect-and-why-not-to-call-it)).
+</details>
+
+**How does an environment variable override `appsettings.json`, and how do you write a nested key as one?**
+
+<details>
+<summary>Answer</summary>
+
+Configuration reads its providers from the last added to the first. `CreateBuilder` adds environment variables after the JSON files and the command line after both, so the later source wins for every key it holds. The `:` of a nested key is written `__` in a variable name: `Email__SmtpHost` sets `Email:SmtpHost`. Sources added after `CreateBuilder` come after all of these and override them ([The Configuration System](#the-configuration-system)).
+</details>
+
+**`IOptions<T>`, `IOptionsSnapshot<T>` or `IOptionsMonitor<T>`: which one sees a changed setting?**
+
+<details>
+<summary>Answer</summary>
+
+`IOptions<T>` is a singleton computed once, so it never sees a reload. `IOptionsSnapshot<T>` is scoped and recomputed per request, so it sees reloads but can't be injected into a singleton. `IOptionsMonitor<T>` is a singleton whose `CurrentValue` follows reloads and which raises `OnChange`: the choice for a singleton that needs live values. None of them fails on a missing key unless validation runs, and `ValidateOnStart()` runs it at start-up ([The Options pattern and binding](#the-options-pattern-and-binding)).
+</details>
+
+**What is a captive dependency, and why doesn't production catch it?**
+
+<details>
+<summary>Answer</summary>
+
+A longer-lived service holding a shorter-lived one. A singleton that takes a scoped `DbContext` resolves it once, in the root scope, and every request then shares that one instance, with concurrency errors and stale tracked entities as the symptoms. `ValidateScopes` and `ValidateOnBuild` reject it, but `WebApplicationBuilder` turns them on only in Development. The fix is to inject `IServiceScopeFactory` and create a scope per unit of work ([Captive dependencies — the classic DI bug](#captive-dependencies-the-classic-di-bug)).
+</details>
+
+**What does the Generic Host do when Kubernetes sends SIGTERM?**
+
+<details>
+<summary>Answer</summary>
+
+It starts a graceful shutdown: it calls `StopAsync` on each hosted service, and a `BackgroundService` responds by cancelling the stopping token passed to `ExecuteAsync` and waiting for it to return, all within `HostOptions.ShutdownTimeout` (30 seconds by default). A worker that ignores the token is abandoned when that timeout expires, or killed when the orchestrator's grace period ends: mid-work either way. Honour the token, and make the work idempotent so an item that was cut off can safely run again ([The Generic Host and Background Services](#the-generic-host-and-background-services)).
+</details>

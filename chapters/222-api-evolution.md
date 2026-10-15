@@ -640,6 +640,146 @@ Reach for SignalR for dashboards, chat, live collaboration, notifications, and p
 
 Serialization is where your data model meets the outside world, and the format you choose trades off interoperability, size, speed, and evolvability. Use text (JSON via `System.Text.Json`, ideally source-generated) at edges where humans and diverse clients live; use binary (Protobuf for gRPC and cross-language, MessagePack for fast internal .NET, Avro for Kafka pipelines) in the machine-to-machine interior. But the format is only the encoding — the durable challenge is evolving the *contract* without breaking the systems already depending on it. Master the compatibility directions, keep field identities permanent, add optional fields with defaults, ignore what you don't understand, and reach for expand–contract before a new version. When a version is unavoidable, pick one scheme, advertise deprecation in the responses, and tag telemetry with version and consumer so you can retire it. For events, let schema registries and upcasters enforce and absorb change. And choose the transport for the boundary: REST at the edge, gRPC inside, SSE or SignalR when the server has to push. Do that, and your contracts can grow for years without a single 2 a.m. page.
 
+## Practice
+
+**1. Evolve a contract under a consumer-driven test (2 h).** Build two small projects: a provider (a Minimal API returning an order with `id`, `customer`, `status` and `total`) and a consumer (a typed `HttpClient` that reads only `id`, `customer` and `status`). Write the consumer's pact and the provider's verification the way [Chapter 25's consumer-driven contracts](#consumer-driven-contracts-and-pact) do, matching on type, not value. Then make four provider changes, one at a time, and record for each whether the verification fails: add a response field; rename `customer` to `customerName`; add a `"refunded"` value to `status`; cap a request field's length. Finish the rename the way [expand and contract](#expand-and-contract-how-to-not-need-a-new-version) says: emit both names, move the consumer, drop the old one, and watch the verification stay green at every step. Write two sentences on what the pact did not catch, and why: a pact checks only the interactions the consumer recorded, so a value or a constraint no recorded interaction uses passes unseen.
+
+**2. Break a protobuf contract on purpose (45 min).** Take the `OrderPlaced` message from [the order-event example](#a-concrete-example-evolving-an-order-event-safely) and generate C# for two versions of it with `Grpc.Tools`. Serialize a message with one version and parse it with the other: first after renaming a field (it still reads), then after renumbering `customer` from 2 to 6 (the reader sees an empty string, and nothing throws), then after reusing a deleted number for a field of another type. Add the `reserved` lines and confirm `protoc` now refuses the reuse.
+
+**3. A retirement report (45 min).** In the provider from task 1, add a v2 with `Asp.Versioning`, send `Deprecation` and `Sunset` on v1 as in [Retiring a version](#retiring-a-version), and record the resolved version and a consumer id on each request's log or span. Generate traffic from two consumers and write the one query that answers "who is still on v1, and how often?".
+
+**Evidence to keep**, in your own public portfolio repo, not in this one: the two projects with the pact and its verification, the table of the four changes with what failed and what didn't, the protobuf experiment's output, and the retirement query with its result. Contracts and consumer names from a real employer's system stay private; publish the invented ones.
+
+Later, if you need it: [Chapter 25: The broker and the safety net](#the-broker-and-the-safety-net) for `can-i-deploy` as a pipeline gate.
+
+## Three questions
+
+**1.** The provider team added `"refunded"` to an order's `status` and called it an additive change. A partner's client, generated from your OpenAPI document, started failing on every order list that contained a refund. Why, when adding is supposed to be safe, and what do you change on each side?
+
+<details>
+<summary>Answer</summary>
+
+- **Adding is safe for the shape, not for a closed set of values.** The generator modelled `status` as a C# enum, and an enum is a closed list: the deserializer meets a member it has no constant for and throws, and one bad element fails the whole list. It is the case [Enums: The Change Everyone Calls Additive](#enums-the-change-everyone-calls-additive) describes, and it is why the breaking-change table marks a new enum value as *breaking for strict readers*.
+- **Provider side.** Send enum values as strings, document that consumers must tolerate unknown members, and treat a new member as a contract change: announce it before it ships, like any other.
+- **Consumer side.** Read the field as `string` and map it with an explicit arm for the unknown (`_ => OrderStatus.Unknown`), so a member added later becomes a value you handle rather than an exception.
+</details>
+
+**2.** Your client reads a customer with `GET`, changes the email, and sends the whole object back with `PUT`. After the provider added a `preferences` field, customers who edited their email lost their preferences. Nothing threw. What happened?
+
+<details>
+<summary>Answer</summary>
+
+- **Ignoring is not preserving.** `System.Text.Json` ignores properties the model doesn't declare, which is what lets the client survive the new field; but because the model has no slot for `preferences`, the value is gone after deserialization, and the `PUT` writes back an object without it. The provider reads the missing field as "cleared". [Unknown Fields and the Tolerant Reader](#unknown-fields-and-the-tolerant-reader) names this hazard.
+- **The fix on the client.** If you must round-trip, capture what you didn't model with `[JsonExtensionData]`, which writes it back out on serialize. Better still, send only what changed: a `PATCH` with the email alone can't erase what it never carried.
+- **The fix on the provider.** A full-replacement `PUT` makes every client that is older than the schema a data-loss risk; offering `PATCH`, or treating an absent field as "unchanged", shrinks that risk.
+</details>
+
+**3.** A gRPC service runs on six pods behind a Kubernetes `Service`. Under load, one pod is at 90% CPU and the other five are almost idle, and adding pods doesn't help. Why?
+
+<details>
+<summary>Answer</summary>
+
+- **gRPC multiplexes every call over one long-lived HTTP/2 connection** per channel. A Kubernetes `Service` balances at L4, per connection, so it picks a pod once when the client connects, and every call on that channel goes to that pod for the channel's lifetime ([gRPC](#grpc) and [Chapter 26: Load Balancers, L4 vs L7](#load-balancers-l4-vs-l7)).
+- **New pods don't help** because the existing connections never move; only new clients would land on them.
+- **The fix is to balance calls, not connections:** an L7, gRPC-aware proxy or service mesh (Envoy, YARP, Linkerd), or client-side load balancing in `Grpc.Net.Client` over the addresses of all pods (a headless `Service` returns them).
+</details>
+
+## Decide
+
+An `OrderPlaced` event is published as JSON to a Kafka topic with seven-day retention. Seven teams consume it; you know five of them, and the broker's consumer-group list shows two more nobody has claimed. The business needs a currency on every order, and the right model is to replace the bare `total` number with a `money` object (amount and currency). Three proposals:
+
+1. Publish a new `OrderPlacedV2` event to a new topic, write both topics during a migration window, and ask each team to switch.
+2. Expand in place: add `money` next to `total`, keep `total` populated, let consumers move at their own pace, and remove `total` once nobody reads it.
+3. Introduce a schema registry now with `FULL` compatibility, and move the topic to Avro or Protobuf as part of this change.
+
+<details>
+<summary>How a senior engineer weighs it</summary>
+
+**What each costs.**
+
+- *A new topic:* a second producer path to keep consistent, and a coordinated move for every consumer, including the two nobody owns. The boundary between versions is clean, but ordering between the two topics is not guaranteed, and the old topic lives until the last consumer moves.
+- *Expand in place:* one producer release. Adding an optional field is fully compatible for tolerant readers ([Compatibility Directions](#compatibility-directions)), and `System.Text.Json` consumers ignore the new field by default. The cost is that nothing enforces the rule: the next change is safe only if someone remembers the table.
+- *A registry and a binary format:* weeks of infrastructure, and the format change is itself a breaking change for all seven consumers, who must swap deserializers. It is option 1's migration plus a new system to run. What it buys is enforcement: an incompatible schema is rejected when CI registers it ([Versioning Events and Messages](#versioning-events-and-messages)).
+
+**What decides it here:** the change is additive, and two consumers can't be reached. Anything that needs every consumer to act is blocked by the two you can't find.
+
+**The choice.** Option 2 now, exactly as [the order-event example](#a-concrete-example-evolving-an-order-event-safely) does it. Use the window to find the two unknown consumers from their consumer groups' client ids, and remove `total` only when every group has been shown to read `money`. Treat the registry as a separate decision for new event types, where it costs no migration.
+
+**What would change it.** A change that isn't additive (a field whose meaning changes, or a type change), which needs a new event name and a migration; events kept forever in an event store, which need [upcasters](#upcasting-in-event-sourcing) as well; or a stream of such changes across many teams, which makes the registry's enforcement worth its cost.
+</details>
+
+## Check at work
+
+**Inspect.** Search for `UnmappedMemberHandling.Disallow` and for clients that round-trip a `GET` into a full `PUT`. Are enums on your wire strings or numbers, and do your generated clients model them as closed enums? Which `.proto` files deleted a field without a `reserved` line? Does the pipeline diff the OpenAPI document against the last release, and does that diff compare constraints (`maxLength`, `pattern`, `required`) as well as shapes? Do your deprecated versions send `Deprecation` and `Sunset`?
+
+**Measure.** Requests per API version per consumer over the last 30 days. Breaking changes found before release against those found in production, last quarter. For a gRPC service: calls per pod, which shows whether a connection-level balancer has pinned clients to one of them.
+
+## Interview Questions
+
+**Why can you rename a field in Protobuf without breaking anyone, but not in JSON?**
+
+<details>
+<summary>Answer</summary>
+
+Because each format identifies a field differently. Protobuf writes the field number on the wire and never the name, so a rename changes nothing in the bytes; JSON writes the name, so a renamed field is a removed field plus an added one. The same reason makes renumbering a Protobuf field catastrophic: the reader looks for the old number, finds nothing, and silently gets the default. See [Protocol Buffers](#protocol-buffers-schema-first-binary) and the matrix in [Safe Changes vs Breaking Changes](#safe-changes-vs-breaking-changes).
+</details>
+
+**Backward and forward compatibility: what does each let you deploy first?**
+
+<details>
+<summary>Answer</summary>
+
+Backward compatibility (new code reads old data) lets you upgrade consumers first; forward compatibility (old code reads new data) lets you upgrade producers first, and it rests on old readers ignoring fields they don't know. Full compatibility is both, and it is what lets independent teams deploy in any order. See [Compatibility Directions](#compatibility-directions).
+</details>
+
+**What is a tolerant reader, and why shouldn't you make `System.Text.Json` stricter?**
+
+<details>
+<summary>Answer</summary>
+
+A consumer that reads only the fields it uses and ignores the rest, including extra fields and unknown enum members. `System.Text.Json` ignores unknown properties by default; turning on `JsonUnmappedMemberHandling.Disallow` makes every additive change by the provider a breaking release for you. When you must round-trip a payload, keep what you didn't model with `[JsonExtensionData]`. See [Unknown Fields and the Tolerant Reader](#unknown-fields-and-the-tolerant-reader).
+</details>
+
+**How do you rename a field in a public API without a v2?**
+
+<details>
+<summary>Answer</summary>
+
+Expand and contract. Release one version that emits both names and accepts either; watch, per consumer, which one is read; drop the old name once nobody reads it after an announced date. A new version is for what that can't absorb: a restructured resource, a different auth scheme, a workflow whose steps changed. See [Expand and contract](#expand-and-contract-how-to-not-need-a-new-version).
+</details>
+
+**URL path or header versioning, and what does a CDN have to do with it?**
+
+<details>
+<summary>Answer</summary>
+
+URL path for public APIs: the version is visible in logs and `curl`, a proxy can route versions to different deployments, and the version is part of the cache key for free. A version in a header or a media type is invisible to a shared cache unless responses send `Vary` on it, so without `Vary` a CDN can serve a v1 body to a v2 request. See [Versioning Strategies for REST APIs](#versioning-strategies-for-rest-apis).
+</details>
+
+**How do you know it is safe to delete v1?**
+
+<details>
+<summary>Answer</summary>
+
+From telemetry that records the resolved version and a consumer identity on each request, collected from the day v2 ships: it tells you who still calls v1, how often, and for what, and it can't be reconstructed afterwards. With many consumers, put the identity on logs or spans rather than metric tags, because unbounded tag values wreck a metrics backend. See [Retiring a version](#retiring-a-version).
+</details>
+
+**What is upcasting, and why not migrate the stored events instead?**
+
+<details>
+<summary>Answer</summary>
+
+Transforming an old event version into the current shape on read, before it reaches domain code, with one small upcaster per version step. In event sourcing the stored events are the source of truth and are kept for years, so rewriting them is risky and destroys the record of what was written; upcasting leaves them untouched and keeps the domain handling one version. See [Upcasting in Event Sourcing](#upcasting-in-event-sourcing).
+</details>
+
+**SignalR runs on three instances, and some users never receive their notifications. Why?**
+
+<details>
+<summary>Answer</summary>
+
+A SignalR connection lives on one server, so an instance can push only to its own connections; a message sent on server 2 for a user connected to server 1 goes nowhere. A backplane (Redis pub/sub) republishes every message to all servers, or Azure SignalR Service holds the connections for you. Unless the transport is restricted to WebSockets, the fallback transports also need sticky sessions. See [SignalR](#signalr).
+</details>
+
 ## Sources & Further Reading
 
 - **Microsoft Learn — System.Text.Json:** "How to serialize and deserialize JSON in .NET," "How to use source generation in System.Text.Json," and the migration guidance from Newtonsoft.Json. https://learn.microsoft.com/dotnet/standard/serialization/system-text-json/

@@ -467,6 +467,84 @@ Pair it with an `aria-live` region that announces the new page title, so users w
 
 Also: `NavLink` renders an `<a>`, which is correct — but a `NavLink` styled as a button, or an `<a>` with no `href` used as a click target, reintroduces the `div`-as-button problem in Razor syntax. And component libraries vary enormously in accessibility quality; check the one you adopt against a keyboard pass before it is load-bearing across forty screens.
 
+## Practice
+
+**1. Measure the Core Web Vitals and fix one (2 h 30 min).** Use a site or app you own, or build a small Vite + React app with a hero image, a few web fonts and a product table of 5,000 rows. Then, in this order:
+
+- *Field data first.* Report LCP, INP and CLS with the `web-vitals` snippet from [Measuring](#measuring) to a small ASP.NET Core endpoint, generate real visits on a phone as well as a desktop, and compute the 75th percentile per page and device class.
+- *Find the cause in the lab.* Run Lighthouse and record a DevTools Performance trace of the worst page; name the LCP element, the element that shifts, or the long task behind the slow interaction.
+- *Make one change* from this chapter's list: `fetchpriority="high"` and no `loading="lazy"` on the LCP image, dimensions on the images that shift ([Images, Fonts and Caching](#images-fonts-and-caching)), virtualisation or `startTransition` for the slow interaction ([Fixing INP](#fixing-inp)). Measure again, under the same conditions, and keep the before-and-after.
+
+**2. A bundle budget (45 min).** Open the bundle in a visualiser, find the largest dependency the first page doesn't need, and move it behind a route-level `lazy` import ([Code Splitting](#code-splitting)). Add a size limit for the entry chunk to CI and prove it fails a pull request that adds a large library.
+
+**3. A strict CSP, in report-only mode first (1 h).** Serve `index.html` through ASP.NET Core with a per-response nonce and `'strict-dynamic'`, as [Content Security Policy](#content-security-policy) shows, but send it as `Content-Security-Policy-Report-Only`. Use the app, list every violation, fix each at its source (move the inline script into a file, give it the nonce), then switch the same policy to enforcing. Finish by adding an inline `onclick="alert(1)"` handler to an element on a test page, the shape of a typical injected payload, and confirm that the browser refuses to run it and reports the violation.
+
+**Evidence to keep**, in your own public portfolio repo, not in this one: the field numbers before and after with device class and page, the Lighthouse report and the trace that showed the cause, the bundle visualisation before and after, the CI run that failed on size, and the policy with its violation list. Numbers from a real employer's product stay private.
+
+Later, if you need it: [Chapter 25: Accessibility checks in the same run](#accessibility-checks-in-the-same-run) to add axe-core to the same pipeline.
+
+## Three questions
+
+**1.** A product page shows "Updated at" with the current time. After moving the page to SSR, the console reports a hydration error, the timestamp flickers on load, and the page costs more CPU than before on both server and client. Why does one `new Date()` cause all three?
+
+<details>
+<summary>Answer</summary>
+
+- **Hydration requires the client's first render to match the server's HTML exactly.** The server rendered 10:00:00; the browser hydrates two seconds later and renders 10:00:02. React reports a mismatch, discards the server's HTML for that part and renders it again on the client ([Rendering Strategies](#rendering-strategies-csr-ssr-ssg-streaming-and-hydration)).
+- **So you pay twice and the user sees it change:** the server render, then a client render of the same part, with the text replaced in front of the user.
+- **The fix is to render the same thing in both places:** pass the server's timestamp down as data, or render the environment-specific part only after hydration, in an effect. `suppressHydrationWarning` silences one unavoidable case, and React then keeps the server's text. The same rule covers random IDs, time zones, locale formatting and `window` checks during render.
+</details>
+
+**2.** After a release, some users run the old version of the SPA for hours, and others get a blank screen with a failed chunk load when they open the Reports page. Both come from caching. What is each mechanism, and what are the right headers?
+
+<details>
+<summary>Answer</summary>
+
+- **The old app for hours:** `index.html` was cached with a long lifetime. It is the one file that names the current asset hashes, so while the browser or CDN serves the old copy, users load the old bundle. `index.html` must be revalidated on every load, and the hashed assets can be cached for a year as `immutable`, because their URLs change when their content does ([Images, Fonts and Caching](#images-fonts-and-caching)).
+- **The failed chunk:** a user who loaded the app before the release still holds the old `index.html` and the old entry bundle, which reference the old file name of the lazily loaded `ReportsPage` chunk ([Code Splitting](#code-splitting)). If the deployment deleted the previous release's assets, that `import()` fails when they navigate.
+- **The fix for both:** correct `Cache-Control` per file type, keep the previous release's hashed assets available for a while after each deployment, and handle a failed chunk import by reloading the page once.
+</details>
+
+**3.** To stop a page from breaking, a team set `Content-Security-Policy: script-src 'self' https://cdn.jsdelivr.net 'unsafe-inline'`. A security review says it protects almost nothing against XSS. Why, and what would?
+
+<details>
+<summary>Answer</summary>
+
+- **`'unsafe-inline'` allows exactly what most XSS payloads are:** injected `<script>` blocks, `onclick` attributes and `javascript:` URLs. With it, the policy no longer stops them ([Content Security Policy](#content-security-policy)).
+- **The host allowlist is bypassable on its own.** A public CDN serves thousands of libraries, including old ones with known gadgets, so "scripts from this CDN" lets an attacker load something useful from it.
+- **What works:** a strict CSP that trusts scripts by a per-response nonce, with `'strict-dynamic'` so the bundler's chunks load, plus `object-src 'none'` and `base-uri 'none'`; rolled out in report-only mode first, with each violation fixed at its source rather than with `'unsafe-inline'`. Trusted Types then cover DOM XSS in your own code where the browser supports them.
+</details>
+
+## Decide
+
+A team of five C# developers and one frontend developer will rebuild an internal line-of-business app: about 300 users on the corporate network, mostly forms and dashboards, plus one complex editable data grid used all day by a dozen people. Three proposals:
+
+1. A React SPA with TanStack Query, behind an ASP.NET Core BFF.
+2. A Blazor Web App: Static SSR by default, with Interactive Server for the forms and the grid.
+3. A standalone Blazor WebAssembly app calling the existing API.
+
+<details>
+<summary>How a senior engineer weighs it</summary>
+
+**What each costs.**
+
+- *React SPA:* the deepest ecosystem of grids and components, and the strongest hiring market, but five of six developers work in a language they don't know well, the DTOs and validation rules are written twice, and the one frontend developer becomes the reviewer of everything ([When Blazor Fits](#when-blazor-fits-and-when-a-js-spa-is-better)).
+- *Blazor Web App:* one language, shared models and validation, and most pages are plain server-rendered HTML ([.NET 8+ Unified Render Modes](#net-8-unified-render-modes)). Interactive Server means every interaction is a round-trip and every user holds a circuit with server memory; on a corporate network with 300 users, both are modest. The risk is the grid: the component library has to be good enough, and accessible.
+- *Blazor WebAssembly:* static hosting and no per-user server state, at the cost of the runtime download on first load and calling the API like any SPA. It answers needs the app doesn't have (offline use, offloading work to the client).
+
+**What decides it here:** the team is C#-heavy, the users are internal and few, and the app is mostly display and forms. That is Blazor's home ground. The one place it could fail is the grid.
+
+**The choice.** Option 2, after prototyping the grid first, as the chapter advises: the worst interaction, on a realistic network, with a keyboard-only pass over the component library ([Blazor-Specific Pitfalls](#blazor-specific-pitfalls)).
+
+**What would change it.** A grid the Blazor libraries can't deliver, or users on high-latency links abroad, where Interactive Server's round-trips hurt (switch that component to WebAssembly or Auto). A plan to open the app to customers on the public internet, where bundle size, first paint and the JS ecosystem weigh more. A team expected to grow mostly with frontend hires.
+</details>
+
+## Check at work
+
+**Inspect.** What `Cache-Control` does your `index.html` get, and what do the hashed assets get? Is the LCP image lazy-loaded, and do the images that shift have dimensions? Is there a size budget for the entry chunk in CI? Does your CSP exist, and does it contain `'unsafe-inline'` or a public CDN? Where does the SPA keep tokens? What does `staleTime` default to in your data-fetching setup? After a route change, where does keyboard focus go?
+
+**Measure.** The 75th-percentile LCP, INP and CLS per page and device class from field data. The uncompressed JavaScript loaded by the first page. API requests per page view, which shows a refetch storm. The number of axe-core violations on your key pages.
+
 ## Sources & Further Reading
 
 - **React documentation** (react.dev): `hydrateRoot` and hydration mismatches, `lazy` and `Suspense`, `startTransition`, Server Components.

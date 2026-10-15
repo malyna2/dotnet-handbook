@@ -1,0 +1,10 @@
+# Environment: Intel(R) Xeon(R) Processor @ 2.80GHz, 4 vCPU, 16 GB RAM, Ubuntu 24.04.5 LTS, .NET runtime 10.0.12, SDK 10.0.112
+# Captured: 2026-10-14 22:30 UTC by capture.sh
+# Program: GcGenerations, Release build
+
+a live object:       gen 0 -> gen 1 -> gen 2  (one step per collection it survives)
+after 1 collection:  plain alive False, with finalizer alive True
+finalizer has run:   True
+after 2 collections: plain alive False, with finalizer alive False
+[process time: wall 0.084 s, user CPU 0.025 s, system CPU 0.024 s]
+[exit code 0]

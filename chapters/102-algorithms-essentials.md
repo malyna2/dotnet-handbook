@@ -365,6 +365,101 @@ When a task lands on your desk, resist jumping to code. Frame it first:
 
 The through-line is one habit: **reason about cost before you commit to code.** Pick the collection whose Big-O matches your access pattern and your realistic `n`, know which internal mechanism (contiguous array, hash buckets, balanced tree, binary heap) produces that cost and what breaks it (a bad hash, a mutated key, unsorted input to a binary search), and recognize the handful of algorithmic patterns most problems reduce to. Strong engineers are not the ones who memorized the most algorithms; they are the ones who reliably ask "how does this behave as it grows?" and have the vocabulary to answer.
 
+## Prove it
+
+One program shows three mechanisms from this chapter: the list's doubling array, a scan against a hash lookup, and what a mutated key does to a hash set. `Key` counts its `Equals` calls, so each cost shows as a count rather than a timing that changes from run to run. Predict the counts before you run it.
+
+`verify/path/CollectionCosts/Program.cs` · run it from `verify/path` with `dotnet run --project CollectionCosts`:
+
+```csharp
+// Prove it: a List<T> doubles its array as it grows; a hash set finds a key by its hash and loses a key whose hash changed.
+var list = new List<Key>();
+var capacities = new List<int>();
+for (int i = 0; i < 10_000; i++)
+{
+    list.Add(new Key(i));
+    if (capacities.Count == 0 || capacities[^1] != list.Capacity) capacities.Add(list.Capacity);
+}
+Console.WriteLine($"capacities while adding 10,000: {string.Join(" ", capacities)}");
+
+var set = new HashSet<Key>(list);
+var probe = new Key(9_999);
+Key.EqualsCalls = 0; list.Contains(probe);
+Console.WriteLine($"list.Contains(9999): {Key.EqualsCalls} Equals calls (a scan)");
+Key.EqualsCalls = 0; set.Contains(probe);
+Console.WriteLine($"set.Contains(9999):  {Key.EqualsCalls} Equals call (hash, bucket, one compare)");
+
+Key stored = list[42];
+stored.Id = 1_000_042;                       // mutate a key while it is in the set
+Console.WriteLine($"after mutating key 42: set.Contains(it) {set.Contains(stored)}, set.Count {set.Count}, " +
+                  $"still there by reference: {set.Any(k => ReferenceEquals(k, stored))}");
+
+sealed class Key(int id)
+{
+    public static int EqualsCalls;
+    public int Id = id;
+    public override bool Equals(object? obj) { EqualsCalls++; return obj is Key other && other.Id == Id; }
+    public override int GetHashCode() => Id;
+}
+```
+
+```text
+capacities while adding 10,000: 4 8 16 32 64 128 256 512 1024 2048 4096 8192 16384
+list.Contains(9999): 10000 Equals calls (a scan)
+set.Contains(9999):  1 Equals call (hash, bucket, one compare)
+after mutating key 42: set.Contains(it) False, set.Count 10000, still there by reference: True
+```
+
+What to notice:
+
+- **The capacity starts at 4 and doubles.** Thirteen arrays for 10,000 items. The twelve copies moved 4 + 8 + … + 8,192 = 16,380 elements in all, fewer than two per item added: that bounded total is the amortized O(1) of `Add`. The last array has 16,384 slots for 10,000 items; the 6,384 empty ones are what doubling costs in memory, and a capacity passed to the constructor avoids both the copies and the slack.
+- **The scan compared every item.** `List<T>.Contains` calls `Equals` on each element in turn, and 9,999 is the last one: 10,000 calls. The set computed the probe's hash, went to one bucket and called `Equals` once. At 10,000 items the gap is four orders of magnitude, and it grows with `n`.
+- **The mutated key is still in the set, and lookups can't find it.** The set filed the object under hash 42 and stored that hash in the entry. `Contains` hashes the new `Id`, 1,000,042, and searches that hash's bucket; even in the same bucket, it compares the stored hash before it calls `Equals`, and 42 doesn't match. `Count` still says 10,000 and enumeration still yields the object: the entry is lost to `Contains` and `Remove`, not removed. A `Dictionary` loses a mutated key the same way.
+
+## Three questions
+
+**1.** An `Order` class overrides `Equals` to compare `Id`, but not `GetHashCode`. `orders.Distinct()` returns orders with the same `Id` twice, and `dictionary[order]` throws `KeyNotFoundException` for an order equal to the one stored. Why doesn't `Distinct`, which "removes equal items", use your `Equals`?
+
+<details>
+<summary>Answer</summary>
+
+- **It never gets that far.** `Distinct` builds a hash set as it goes, and a hash set compares only items whose hash codes match ([the hash table](#dictionarykv-and-hashsett-the-hash-table) above). `Equals` is the last check, not the first.
+- **The inherited `GetHashCode` is per object.** `object.GetHashCode` is tied to the instance, not to its fields, so two separate orders with the same `Id` almost always get different hash codes, land in different buckets, and are never compared. The dictionary lookup fails for the same reason.
+- **The contract the class broke:** equal objects must return equal hash codes. The compiler warns about it (CS0659 when a class overrides `Equals` without `GetHashCode`); a project that suppresses the warning ships the bug.
+
+Fix: override `GetHashCode` from the same fields as `Equals` (`HashCode.Combine(Id)` for one field), make those fields immutable, or use a `record`, which generates both from the same members. For a one-off comparison, pass an `IEqualityComparer<Order>` to `Distinct` or to the dictionary's constructor.
+</details>
+
+**2.** A request handler builds a `List<OrderLine>` with two million `Add` calls. Each `Add` is O(1), yet the handler allocates about twice the memory its final list holds, and Gen 2 collections climb under load. Why?
+
+<details>
+<summary>Answer</summary>
+
+- **Every growth allocates a new array and abandons the old one.** The capacity goes 4, 8, 16 … 2,097,152: about twenty arrays, and their sizes add up to roughly twice the last one. With 8-byte references, the last array is 16 MB, and the handler allocated about 32 MB to get there. The final array alone is the list's memory; each earlier one is garbage the moment the next one replaces it.
+- **The big arrays skip Gen 0.** An array of 85,000 bytes or more is allocated on the Large Object Heap, which is collected only with Gen 2 ([Chapter 3](#generations-0-1-and-2)). With 8-byte references that is every array from capacity 16,384 up: eight per request, seven of them dead before the handler returns, and each one waits for a full collection.
+- **Amortized O(1) speaks about time, not allocation.** The total copy work is O(n), as promised; the memory the copies leave behind is the part the Big-O doesn't show.
+
+Fix: pass the expected count as the capacity, which allocates one array of the right size and copies nothing. Better still, ask whether the handler needs all two million items at once: streaming them (`IAsyncEnumerable<T>`, paging, a database cursor) keeps memory flat. [Chapter 17](#the-large-object-heap-loh) covers what the Large Object Heap does under load.
+</details>
+
+**3.** `List<T>.BinarySearch` on an unsorted list returns a wrong index instead of throwing. Why doesn't .NET check that the list is sorted, and what else makes a binary search wrong on a sorted list?
+
+<details>
+<summary>Answer</summary>
+
+- **The check would cost more than the search.** Proving a list is sorted means reading every element, O(n); the search reads about log₂ n of them, 14 for 10,000 items. A check would turn the O(log n) operation into an O(n) one, so sortedness is a precondition the caller guarantees, not something the method verifies ([Binary Search](#binary-search)).
+- **On unsorted data, each halving discards the wrong half.** The search compares the middle element and throws away the half that "can't" hold the value; when the order is wrong, that half may hold it, and the search ends on a negative result or a wrong position without any error.
+- **The second trap: a different comparer.** A list sorted with `StringComparer.OrdinalIgnoreCase` is not sorted for the default comparer, which orders by culture and case. Searching it with the default comparer breaks the same precondition with the same silence.
+
+Fix: sort and search with the same comparer (`list.Sort(comparer)`, then `list.BinarySearch(item, comparer)`), and keep the list sorted on every insert, at the position `~result` returns. If the data changes often, a `SortedSet<T>` or a `Dictionary` usually costs less than keeping a list sorted by hand.
+</details>
+
+## Check at work
+
+**Inspect.** Search for lookups by key inside loops and lambdas: `.Contains(`, `.Any(`, `.First(` and `.FirstOrDefault(` on a `List<T>`, each called once per element of another collection. Each is a scan per element, and a `HashSet<T>` or `Dictionary<TKey,TValue>` built once before the loop removes it. Then search for `Insert(0,` and `RemoveAt(0)` in loops, classes that override `Equals` without `GetHashCode` (search the build for a suppressed CS0659), mutable properties read by a `GetHashCode`, and hash codes written to a database or a cache key.
+
+**Measure.** For one hot endpoint, find the largest collection it builds per request and its realistic `n` in production, from logs or a row count. If a lookup runs inside a loop over it, time both versions with [BenchmarkDotNet](#benchmarking-with-benchmarkdotnet) at that `n`, and write down where the plain list stops winning.
+
 ## Interview Questions
 
 Algorithm questions reward the same order every time: restate the problem and its edge cases, give the brute-force solution and its complexity, then improve it by naming the structure or pattern that removes the repeated work, and finish by testing it aloud on a small input. The general approach to an interview is in [Chapter 36: Senior Behaviours, Career and Interviews](#chapter-36-senior-behaviours-career-and-interviews).

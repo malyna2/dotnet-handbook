@@ -495,6 +495,150 @@ Forty microservices means forty runtime upgrades, forty base images, forty depen
 
 The question to ask when adopting anything new is not only "does this solve our problem?" but "**who will upgrade this in three years, and will they know why we chose it?**" A team that asks this consistently ends up with fewer, better-understood technologies — and considerably less of the legacy this chapter is about.
 
+## Practice
+
+**1. Characterize, refactor, then change (2 h).** Clone the C# version of Emily Bache's *Gilded Rose* refactoring kata (`emilybache/GildedRose-Refactoring-Kata` on GitHub), a public legacy-code exercise: one long `UpdateQuality` method of nested conditions, and a requirement to add "Conjured" items. Do it in three separate commits, in this order:
+
+- *Characterize.* Pin what `UpdateQuality` does today, with [the deliberately wrong assertion](#characterization-tests-pinning-down-behavior) or a snapshot of many items over many days ([Chapter 25: Snapshot Testing with Verify](#snapshot-testing-with-verify)). Then run Stryker.NET ([Chapter 25: Mutation Testing](#mutation-testing-testing-your-tests)) and add cases until the surviving mutants are ones you can explain. Coverage alone won't tell you the net is tight; surviving mutants will.
+- *Refactor* under the green suite, without changing a single pinned value.
+- *Change.* Add Conjured items with a normal test written first, [sprouting](#sprout-method-and-sprout-class) the new rule beside the old code if the method still resists.
+
+**2. Make a seam two ways (45 min).** Copy the `OrderProcessor` from [Seams](#seams-places-to-change-behavior-without-editing) into a project and get its "too early" guard under test twice: once with [Extract and Override Call](#dependency-breaking-technique-2-wrap-the-dependency) and a testing subclass, once with an injected `TimeProvider` ([Chapter 8: Fake time with TimeProvider](#fake-time-with-timeprovider-net-8)) in the place of the chapter's hand-rolled `IClock`. Compare the two diffs: how many lines and how many callers each touched.
+
+**3. An EOL inventory (45 min).** For a public repository you contribute to, or one you choose, list every deployable with its target framework, its base image and the database engine it needs, with the end-of-support date of each, as [Budget it as a standing cost](#budget-it-as-a-standing-cost-not-a-project) describes. Mark the earliest date, and add a CI leg that builds against the next .NET version.
+
+**Evidence to keep**, in your own public portfolio repo, not in this one: the kata with its three commits and the mutation report before and after, the two seam diffs with your comparison, and the inventory. Legacy code from a real employer stays private, and so does its inventory: it is a map of what is unpatched.
+
+Later, if you need it: [Chapter 41: A Worked Example: The .NET Framework 4.8 Monolith](#a-worked-example-the-net-framework-48-monolith) for the system-level options written up as a recommendation.
+
+## Three questions
+
+**1.** Your characterization test pinned an invoice total of `142.87m`. A finance expert says the correct total is `142.88m`, because the code rounds each line instead of the sum. You are in the middle of a refactor. Do you fix it now, and why does the order matter?
+
+<details>
+<summary>Answer</summary>
+
+- **Not in the refactor.** A characterization test is a change detector, not a specification ([Characterization Tests](#characterization-tests-pinning-down-behavior)). During the refactor its job is to prove that nothing changed; a bug fix mixed into the same commits turns a red test into "was that the fix or a mistake?" and the net stops working.
+- **Fix it as its own change, afterwards.** Change the rounding in a separate commit that updates the pinned value deliberately, with a normal test that states the rule. The diff then shows exactly one behaviour change, reviewed as one.
+- **Then ask who depends on the wrong value.** Invoices already issued, reconciliation jobs and partners may all expect the old rounding. A behaviour that has run in production for years is a contract, whether or not anyone wrote it down, so the fix may need a cut-over date or a feature flag, not just a merge.
+</details>
+
+**2.** `Process` calls `DateTime.Now` and `SqlGateway.Save` directly, and a colleague says it can't be unit tested without a rewrite. Why does making those two calls `protected virtual` methods change that, and what does it leave unsolved?
+
+<details>
+<summary>Answer</summary>
+
+- **It creates an object seam.** A call to a virtual method is dispatched at run time to the most derived override, so a testing subclass can replace `CurrentTime()` and `Save()` without editing `Process` itself. That is what a seam is: a place where behaviour changes without an edit in that place ([Seams](#seams-places-to-change-behavior-without-editing), [Dependency-Breaking Technique 2](#dependency-breaking-technique-2-wrap-the-dependency)).
+- **Why it is the first move.** The edit is tiny and mechanical, every existing caller is untouched, and the code is under test today, which makes the bigger refactor safe.
+- **What it leaves.** Production code still creates the real collaborators, the class can't be `sealed`, and the dependencies stay hidden from anyone reading the constructor. Once the tests are in place, move to injected dependencies ([Extract Interface](#dependency-breaking-technique-1-extract-interface), or `TimeProvider` for time), and delete the virtual hooks.
+</details>
+
+**3.** Orders moved from the monolith to a new service behind the strangler facade six months ago. The new service still breaks every time the legacy team ships. Both read and write the same `Orders` tables. Why didn't the strangler isolate them, and what do you change?
+
+<details>
+<summary>Answer</summary>
+
+- **The facade separated the traffic, not the data.** The router decides which code answers a request ([The Strangler Fig Pattern](#the-strangler-fig-pattern)), but both systems still couple through the schema: a column the legacy team renames, a status value it adds or a trigger it changes reaches the new service with no API in between.
+- **Give the data one owner.** Decide which system owns the tables now. The other reads them through a translation (an [anti-corruption layer](#anti-corruption-layers-at-the-boundary) over the shared schema, or a view) and never writes them directly.
+- **Change the shared schema with expand and contract** ([Data, Downtime, and Measuring Progress](#data-downtime-and-measuring-progress)), so each step keeps both systems working, and move the data into the new service's own store as part of the slice: a migrated slice is only independent when its data is.
+</details>
+
+## Decide
+
+It is October 2026. Your team owns fourteen services: nine on .NET 8, three on .NET 6, and two on .NET Framework 4.8. .NET 8 reaches end of support on November 10, 2026, and .NET 6 is already past it ([The current, dated example](#the-current-dated-example)). Five of the services face the internet. Three proposals:
+
+1. A one-month feature freeze in which the whole team moves the twelve modern services to .NET 10 together.
+2. Rolling upgrades with a standing allocation: start with one low-risk service to learn what the upgrade involves, then go in order of exposure.
+3. Upgrade the five internet-facing services now, and accept the risk for the internal ones on paper until next quarter.
+
+<details>
+<summary>How a senior engineer weighs it</summary>
+
+**What each costs.**
+
+- *The freeze:* a month without features, and every service hits the same unknown breaking changes in parallel, so what one engineer learns on Monday isn't reused on Tuesday. It covers everything before the deadline, and it teaches the organization nothing about doing it next time.
+- *Rolling upgrades:* the first service is slow, because it writes the runbook; the rest go faster with it. On its own the order is wrong for this deadline, since three services are already unpatched today and "boring first" could leave an internet-facing one for last.
+- *Internet-facing only:* the cheapest now, and it covers the obvious attack path. But internal services are reachable from anything that gets inside ([Chapter 27: Zero Trust](#zero-trust-and-workload-identity)), an audit or a customer questionnaire asks about all of them, and "accepted on paper" is a decision someone with the authority to accept that risk must sign, not the team by default.
+
+**What decides it here:** the deadline is four weeks away and three services are already past theirs. Exposure has to set the order; the runbook has to come from somewhere.
+
+**The choice.** A short pilot on one low-risk .NET 8 service in the first days, then the three .NET 6 services and the internet-facing ones, then the rest, with the pilot's runbook. Alongside it, the standing allocation, the dated inventory and a CI leg against the next runtime ([Budget it as a standing cost](#budget-it-as-a-standing-cost-not-a-project)), so the next end-of-support date is a task, not a program. The two .NET Framework services are a separate decision with their own blockers ([The Common Blockers](#the-common-blockers)).
+
+**What would change it.** A service to be retired within months is worth isolating and documenting rather than upgrading. A dependency with no supported version for .NET 10 turns that dependency into the project. An audit date before the deadline would pull the internal services forward.
+</details>
+
+## Check at work
+
+**Inspect.** In your top hotspot files: how many ambient statics (`DateTime.Now`, `ConfigurationManager`, `HttpContext.Current`, static gateways) stand between the code and a test? Which `HACK` and `TODO` comments have no ticket or reason? For each deployable: its runtime and base image, with their end-of-support dates, and whether that list is generated from what is deployed or kept by hand. Is there a CI leg that builds against the next .NET version?
+
+**Measure.** The days until the earliest end-of-support date across your runtimes and base images. For a modernization in progress: the share of traffic served by the new path, the legacy endpoints retired this quarter, and, if you run a shadow comparison, its mismatch rate over a week.
+
+## Interview Questions
+
+**What is legacy code, and why does the definition matter?**
+
+<details>
+<summary>Answer</summary>
+
+Feathers' definition: code without tests. It matters because it names the actual problem, which is that you can't tell quickly whether a change broke something, so every change is made in fear and patched around rather than improved. It also makes legacy a property of changeability rather than age: last month's untested service qualifies. See [What "Legacy" Actually Means](#what-legacy-actually-means).
+</details>
+
+**What is a characterization test, and how is it different from a unit test?**
+
+<details>
+<summary>Answer</summary>
+
+A unit test asserts what the code should do; a characterization test asserts what it does now, right or wrong, found by writing a deliberately wrong assertion and reading the real value from the failure. It is a net that catches any change during a refactor; correcting the behaviour comes later, as a separate change. See [Characterization Tests](#characterization-tests-pinning-down-behavior).
+</details>
+
+**Sprout method or wrap method: when do you use each?**
+
+<details>
+<summary>Answer</summary>
+
+Sprout when you add new logic inside an untested method: write it test-first in a new method or class and call it with one line. Wrap when new behaviour must run every time an existing method runs: rename the original and give its old name to a method that calls both. Both follow "add, don't modify". See [Sprout Method and Sprout Class](#sprout-method-and-sprout-class) and [Wrap Method](#wrap-method).
+</details>
+
+**Why do big-bang rewrites fail, and what does the strangler fig change?**
+
+<details>
+<summary>Answer</summary>
+
+A rewrite loses the edge cases encoded only in the old code, chases a target that keeps moving, delivers value only at the end, and cuts over all at once. The strangler fig puts a router in front of the old system and moves one business capability at a time, so value ships continuously, a misbehaving slice is routed back, and you can stop at any point with a working system. See [Why Big-Bang Rewrites Usually Fail](#why-big-bang-rewrites-usually-fail) and [The Strangler Fig Pattern](#the-strangler-fig-pattern).
+</details>
+
+**What is an anti-corruption layer?**
+
+<details>
+<summary>Answer</summary>
+
+A translation layer between the legacy model and the new domain, speaking each side's language, so legacy names and codes (`CUST_FNM`, `LYLTY_CD`) never leak into the new code. When the legacy system goes, one class changes and the domain doesn't. See [Anti-Corruption Layers at the Boundary](#anti-corruption-layers-at-the-boundary).
+</details>
+
+**How do you move a shared library to modern .NET while legacy hosts still use it?**
+
+<details>
+<summary>Answer</summary>
+
+Multi-target it (`<TargetFrameworks>net48;net8.0</TargetFrameworks>`), guard the differences with `#if`, or target .NET Standard 2.0 where the code allows, so one project serves both hosts while they migrate around it. See [Multi-Targeting During the Transition](#multi-targeting-during-the-transition).
+</details>
+
+**What is a parallel run, and why serve the old result?**
+
+<details>
+<summary>Answer</summary>
+
+Running the new implementation next to the old one on real traffic and comparing their results in the background. The old result is served because it is the one you trust; each mismatch is a case the new code doesn't handle yet, found without any user seeing it. Cut over when mismatches stop. See [Data, Downtime, and Measuring Progress](#data-downtime-and-measuring-progress).
+</details>
+
+**Why is upgrading every year cheaper than every four years?**
+
+<details>
+<summary>Answer</summary>
+
+Because the cost isn't linear. Consecutive versions have a documented path; four versions combine four sets of breaking changes, packages drop old targets so every dependency moves at once, tooling and answers target recent versions, and the people who knew why things are the way they are have left. A yearly upgrade is a task; a four-yearly one is a project. See [Why frequent is cheaper than infrequent](#why-frequent-is-cheaper-than-infrequent).
+</details>
+
 ## Sources & Further Reading
 
 - **Michael Feathers, *Working Effectively with Legacy Code*** — the definitive treatment of characterization tests, seams, dependency-breaking techniques, and Sprout/Wrap Method/Class. The single most important book on this topic.

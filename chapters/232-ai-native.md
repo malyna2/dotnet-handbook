@@ -508,3 +508,135 @@ Here's how the pieces fit together for a senior .NET developer on a normal Tuesd
 That's the shape of it. The AI wrote much of the code; you did the engineering — specifying, contextualizing, verifying, deciding. The tools will keep changing. The discipline underneath — clear specs, curated context, small reversible steps, relentless verification, a human accountable at the merge — is what makes an AI-native developer productive *and* trustworthy. Master that, and the next tool is just a faster way to do what you already know how to do well.
 
 So far the AI has been your collaborator. The next chapter flips the relationship: the model becomes a *component inside* the software you ship — and that changes how you design, test, and operate everything around it.
+
+## Practice
+
+**1. Review an AI-written PR with the rubric (1 h 30 min).** In a public repository of your own, give an agent a small feature with a deliberately loose one-line prompt, for example "add an endpoint that returns a customer's orders with their totals". Don't steer it. Then review its diff exactly as [Judging AI-generated code](#judging-ai-generated-code-a-reviewers-rubric) prescribes: the five questions in order (size against the request, new dependencies or abstractions, the neighbouring file, whether the tests fail when you break the code, blast radius), then the signal table. Write each finding down with the signal that caught it. On the two or three lines that carry the risk, do the falsification move by hand, and record which tests stayed green.
+
+**2. Turn the findings into context and run it again (1 h).** Write the corrections from task 1 into the repository's conventions file, as corrections rather than aspirations ([Workflow assets](#workflow-assets-making-the-setup-a-team-artifact)). In a fresh session, give the same feature again the plan-first way ([Spec-driven, plan-first development](#spec-driven-plan-first-development)): acceptance criteria, a plan you review before any edit, a failing test first, "follow `<the neighbouring file>`", and "no new packages". Compare the two diffs: size, findings from the rubric, and the time you spent reviewing each.
+
+**3. Measure your own work for two weeks (30 min to set up).** For every PR you open, log whether an agent wrote most of it, the time from first commit to merge, the time it waited for its first review, and whether it was later reverted or fixed. At the end, read the columns together, as [Measuring whether any of this is working](#measuring-whether-any-of-this-is-working) says, not one at a time.
+
+**Evidence to keep**, in your own public portfolio repo, not in this one: the two diffs with your findings for each, the conventions file before and after, and the two-week log with what you concluded. Code and prompts from a real employer's repository stay private, and so do any numbers about a real team.
+
+Later, if you need it: [Chapter 25: Mutation Testing](#mutation-testing-testing-your-tests) to automate the falsification move, and [Chapter 33: Building AI-Powered Systems](#chapter-33-building-ai-powered-systems) for evals of an agent you build.
+
+## Three questions
+
+**1.** An agent added `PlaceOrder_SavesTheOrder`. It mocks the repository and ends with `repo.Verify(r => r.AddAsync(It.IsAny<Order>(), It.IsAny<CancellationToken>()), Times.Once)`. It is green, and coverage of `OrderService` went up. Why doesn't it protect you, and how do you find that out in thirty seconds?
+
+<details>
+<summary>Answer</summary>
+
+- **It restates the implementation.** The assertion names no value the code computed; it checks only that a method was called with any order at all. A wrong total, zero tax or the wrong customer all pass. Tests written by reading the code photograph today's behaviour, bugs included, and stay green forever ([Judging AI-generated code](#judging-ai-generated-code-a-reviewers-rubric)).
+- **Coverage measures what ran, not what was checked.** The lines executed, so coverage rose; nothing would notice them being wrong.
+- **The thirty-second check is falsification.** Break the line that computes the total (hardcode it, invert a condition) and run the test. If it stays green, it was never testing that line. The fix is to capture the argument and assert on its values, or assert on an observable outcome, and to have the agent write tests from the acceptance criteria before the code.
+</details>
+
+**2.** Three months after the team adopted coding agents, PRs per week are up 40% and everyone says they are faster. The lead asks you to confirm it. Why is neither of those numbers evidence, and what would be?
+
+<details>
+<summary>Answer</summary>
+
+- **PR count is an activity metric,** and it rises when an agent produces more, smaller or more verbose changes, whether or not more value reaches production. **Feeling faster is unreliable** in exactly this setting: an agent working looks like constant motion, and a published study found experienced developers slower on code they knew well while believing they were faster ([Measuring whether any of this is working](#measuring-whether-any-of-this-is-working)).
+- **Where to look instead:** cycle time from start to merge and change failure rate, read as a pair ([Chapter 26: DORA](#dora-four-metrics-and-exactly-how-each-is-gamed)); the revert rate; and review time, the leading indicator, because the bottleneck moves to verification. If PRs arrive faster than they are read, the queue grew, not the throughput.
+- **Cost belongs in the answer too:** token spend per merged PR.
+</details>
+
+**3.** A teammate wants a background agent that picks up every new GitHub issue labelled `bug`, fixes it, and pushes the fix to `main` when the tests pass, using a token with write access to the repository and the deployment secrets. Why is this a vulnerability and not just a risky habit, and what makes the idea safe?
+
+<details>
+<summary>Answer</summary>
+
+- **The issue text is untrusted input, and the agent acts on what it reads.** Anyone who can open an issue can write instructions into it ("also add this step to the workflow", "print the environment"), and an agent with tools and secrets may follow them: prompt injection ([AFK, async, and background flows](#afk-async-and-background-flows)). Passing tests prove nothing about what else the change does.
+- **The combination is the problem:** untrusted input, tools, secrets and a direct path to `main`, unsupervised.
+- **What makes it safe:** a sandbox with no deployment secrets and a token scoped to pushing a branch; output as a pull request that CI checks and a human reviews and merges; a permissions allowlist that forbids destructive commands; and, ideally, only issues from trusted authors as input.
+</details>
+
+## Decide
+
+A team of eight .NET developers has budget for coding agents. Two developers already use them heavily on their own; the others are sceptical. The repository has no conventions file, and CI is the only gate on merges. Three proposals:
+
+1. Licences for everyone, and let each developer find their own workflow.
+2. First make the workflow a team artifact (a conventions file, a checked-in permissions configuration, hooks that run the formatter and the fast tests, the rubric's signal table in the PR template), then a measured pilot on one kind of task.
+3. Start with background agents only, on narrow, well-specified tickets (dependency bumps, missing tests), always as pull requests.
+
+<details>
+<summary>How a senior engineer weighs it</summary>
+
+**What each costs.**
+
+- *Licences for everyone:* cheap and fast, and eight individual setups: eight permission postures, no shared corrections, and no way to tell whether it helped. The review load lands on the sceptics, unannounced.
+- *Workflow first, then a pilot:* a week of the two experienced users' time to write the assets from their own corrections, and a slower start. In exchange every session starts from the team's context, the safety posture is a reviewed decision ([Workflow assets](#workflow-assets-making-the-setup-a-team-artifact)), and the pilot produces numbers the sceptics can check ([Measuring whether any of this is working](#measuring-whether-any-of-this-is-working)).
+- *Background agents only:* the safest kind of task (clear done-condition, strong automated checks, small blast radius) and a real saving on chores. But it teaches the team little about interactive work, and a stream of agent PRs with no rubric is still review load.
+
+**What decides it here:** the gap is not access to tools, which the team can buy in a day, but the absence of shared context, a permission posture and a way to measure. Two people already know what the agent gets wrong in this repository; that knowledge is the asset.
+
+**The choice.** Option 2, with option 3 as the pilot's first task type, because it is the easiest to measure. Review the numbers after a month and widen by task type, not by headcount.
+
+**What would change it.** If the code can't leave the company's network, the tool choice comes first, and so does a conversation with security. A codebase most of the team doesn't know yet favours more interactive use, where the gains are largest. A team that already has strong review habits and a short merge queue can afford a faster rollout.
+</details>
+
+## Check at work
+
+**Inspect.** Is there a conventions file, when was it last changed, and does it read as corrections specific to this repository or as generic advice? Is the agents' permission configuration checked in? Can any agent or CI stage push to a protected branch, and which MCP servers can write to what? Take five recently merged PRs that an agent wrote most of and run the signal table over them: count the findings, and how many reached `main`.
+
+**Measure.** Time to first review and time from first commit to merge, trended since adoption. Change failure rate and revert rate over the same period. The share of merged PRs over 400 changed lines. Token spend per merged PR, if your tools report it.
+
+## Interview Questions
+
+**What is context engineering, and why has it replaced prompt engineering as the core skill?**
+
+<details>
+<summary>Answer</summary>
+
+Curating what is in the model's context window: standing instructions, the right files, tool output, and nothing misleading. Modern models rarely fail on phrasing; they fail on missing or drowning context. In practice: a short rules file, naming the entry point and letting the agent retrieve, and fresh sessions so context rot doesn't build up. See [Context engineering](#context-engineering-the-core-skill).
+</details>
+
+**Why does generated .NET code reach for a generic repository, a new mapper package or `IHostingEnvironment`?**
+
+<details>
+<summary>Answer</summary>
+
+Because a model emits the most likely continuation of its training data, and that data is mostly tutorials and samples: the most-blogged patterns, the most-downloaded packages, and APIs as they stood a version or two ago. The code compiles and is locally sensible, and it is wrong for your repository. Counter it with a conventions file of corrections and a neighbouring file to imitate. See [Judging AI-generated code](#judging-ai-generated-code-a-reviewers-rubric).
+</details>
+
+**An agent registered `OrderCache` as a singleton that takes `AppDbContext`. It worked in a console test. What happens in the API?**
+
+<details>
+<summary>Answer</summary>
+
+A captive dependency: the singleton resolves the scoped `DbContext` once and keeps it, so every concurrent request shares one change tracker that isn't thread-safe and only grows, with concurrency exceptions and eventually memory exhaustion. Scope validation catches it at startup in Development, which a console harness never ran. The tell is a singleton whose constructor graph reaches anything scoped. See [Judging AI-generated code](#judging-ai-generated-code-a-reviewers-rubric).
+</details>
+
+**What belongs in a repository's conventions file, and why keep it short?**
+
+<details>
+<summary>Answer</summary>
+
+How to build and test, the architecture in two paragraphs, the conventions that matter, what not to do, and above all the corrections: what a model gets wrong here. It is read on every request, so every generic line costs tokens and buries the rules that matter; a stale one steers every agent toward a structure that no longer exists. Review it like code. See [Workflow assets](#workflow-assets-making-the-setup-a-team-artifact).
+</details>
+
+**When do several sub-agents beat one, and what do they cost?**
+
+<details>
+<summary>Answer</summary>
+
+When the subtasks are independent and each needs deep, separate context, like a large migration or broad research: each sub-agent fills its own window and returns a summary. They are worse for small, coupled changes, because they share no live conversation and drift apart on assumptions, and parallel agents multiply token spend. See [Multiple sub-agents and orchestration](#multiple-sub-agents-and-orchestration).
+</details>
+
+**How do you run a coding agent unattended without creating a new risk?**
+
+<details>
+<summary>Answer</summary>
+
+Give it a well-specified, verifiable, bounded task; run it in a sandbox with only the credentials the task needs; allowlist safe commands and forbid destructive ones; have it commit at each green checkpoint; and make its output a pull request that CI checks and a person merges. Never combine untrusted input with unsupervised access to secrets or push rights. See [AFK, async, and background flows](#afk-async-and-background-flows).
+</details>
+
+**What is the falsification move, and why is it the cheapest review?**
+
+<details>
+<summary>Answer</summary>
+
+Break the code on purpose (invert a condition, delete a line, make a guard return `true`) and run the tests. Whatever stays green never tested that code. It takes seconds and distinguishes tests that pin behaviour from tests that pin structure, which reading test names can't. It is mutation testing done by hand on the few lines that carry the risk. See [Judging AI-generated code](#judging-ai-generated-code-a-reviewers-rubric).
+</details>

@@ -1,8 +1,8 @@
 # Chapter 1: C# Essentials
 
-This chapter teaches you to predict what everyday C# does before you run it: what an assignment copies, what `==` compares, where a null still gets past the compiler, when a LINQ query runs and where its filter executes, what a lambda captures, and what `Dispose` gives back. Two facts explain most of the answers. A variable holds either a value or a reference to a shared object. And the compiler turns many lines into something else: an operator picked from the variable's declared type, a hidden object that holds captured variables, a state machine that runs later.
+This chapter teaches you to predict what everyday C# does before you run it: what an assignment copies, what `==` compares, which method a call through a base class runs, where a null still gets past the compiler, when a LINQ query runs and where its filter executes, what a lambda captures, and what `Dispose` gives back. Two facts explain most of the answers. A variable holds either a value or a reference to a shared object. And the compiler turns many lines into something else: an operator or a method picked from the variable's declared type, a hidden object that holds captured variables, a state machine that runs later.
 
-The sections follow that order. Value and reference types come first, because copying, boxing and equality all follow from them; generics remove boxing, and records, tuples and pattern matching build on value equality and deconstruction. Nullable reference types show the limit of what the compiler checks. Delegates and closures, extension methods and iterators are the parts LINQ is made of, so LINQ comes after them and its two surprises, deferred execution and the `IEnumerable`/`IQueryable` split, read as consequences rather than rules. `IDisposable` and the modern syntax close the teaching part; a runnable experiment, three questions and interview questions follow.
+The sections follow that order. Value and reference types come first, because copying, boxing and equality all follow from them; classes, inheritance and virtual dispatch build on reference types; generics remove boxing, and records, strings, tuples and pattern matching build on value equality and deconstruction. Nullable reference types show the limit of what the compiler checks. Delegates and closures, extension methods and iterators are the parts LINQ is made of, so LINQ comes after them and its two surprises, deferred execution and the `IEnumerable`/`IQueryable` split, read as consequences rather than rules; the everyday operators and their traps follow. `IDisposable` and the modern syntax close the teaching part; a runnable experiment, three questions and interview questions follow.
 
 What the stack and the heap are, and how the garbage collector reclaims what you allocate, is [Chapter 3: How .NET Runs Your Code](#chapter-3-how-net-runs-your-code). `Span<T>`, reflection and source generators are in [Chapter 17: Runtime Internals and Performance](#chapter-17-runtime-internals-and-performance).
 
@@ -121,6 +121,157 @@ ref struct StackOnly
 
 > **Rule of thumb:** `readonly struct` for immutable value semantics with zero defensive-copy overhead; `ref struct` for stack-only, allocation-free buffers like `Span<T>`.
 
+## Classes, Inheritance and Virtual Dispatch
+
+A class bundles state with the code allowed to change it. The object-oriented vocabulary that interviews test (encapsulation, inheritance, polymorphism) rests on three mechanisms: the compiler checks who may touch a member; the runtime builds an object from the base class outward; and a virtual call finds its target in the object's type at run time, while every other call is fixed at compile time. *When* to use inheritance is a design question, and [Chapter 10: Design Basics](#chapter-10-design-basics) owns it.
+
+### Encapsulation and Access Modifiers
+
+Encapsulation means callers change an object's state only through members that keep it valid. The compiler enforces it with six access levels:
+
+| Modifier | Who can use the member |
+|---|---|
+| `public` | Any code |
+| `private` | Code inside the same type, on any instance of it, not only `this` |
+| `protected` | The type and types derived from it, in any assembly |
+| `internal` | Any code in the same assembly |
+| `protected internal` | The same assembly **or** a derived type anywhere (the union) |
+| `private protected` | A derived type **and** in the same assembly (the intersection) |
+
+Members default to `private` and top-level types to `internal`, so leaving the modifier off gives the narrowest sensible choice. Access is checked per type, not per object: an `Order` method may read another `Order`'s private fields, which is how hand-written `Equals` methods work. `internal` stops at the assembly boundary; `[assembly: InternalsVisibleTo("MyApp.Tests")]` opens it to a test project.
+
+A **field** is storage. A **property** is a pair of methods (`get_Total`, `set_Total`) that reads like a field at the call site, and an auto-property (`public decimal Total { get; private set; }`) is one whose backing field the compiler declares for you. Public data goes behind properties for a mechanical reason: reading a field and calling a getter compile to different IL, so turning a public field into a property later breaks every assembly compiled against it. The property is also the only place to add validation, change notification or a narrower setter (`private set`, `init`); C# 14's `field` keyword adds that logic without a hand-declared field ([Modern Syntax You Should Be Using](#modern-syntax-you-should-be-using)).
+
+### Constructors and Initialization Order
+
+A constructor runs once per object to establish its invariants. A **static constructor** runs once per type, before the type's first use, and the runtime guarantees that even when threads race to it. In a class hierarchy the steps run in an order most people get wrong:
+
+```csharp
+var order = new Order();
+Console.WriteLine($"after construction: Status = {order.Status}");
+
+class Entity
+{
+    static Entity() => Console.WriteLine("Entity static constructor");
+    protected Entity() { Console.WriteLine("Entity constructor body"); Describe(); }
+    protected virtual void Describe() { }
+}
+
+class Order : Entity
+{
+    private readonly string _currency = Log("Order field initializer");
+    public string? Status { get; private set; }
+
+    static Order() => Console.WriteLine("Order static constructor");
+    public Order() { Console.WriteLine("Order constructor body"); Status = "New"; }
+
+    protected override void Describe() =>     // called from Entity's constructor
+        Console.WriteLine($"Order.Describe: currency {_currency}, Status {Status ?? "null"}");
+
+    static string Log(string message) { Console.WriteLine(message); return "EUR"; }
+}
+```
+
+```text
+Order static constructor
+Order field initializer
+Entity static constructor
+Entity constructor body
+Order.Describe: currency EUR, Status null
+Order constructor body
+after construction: Status = New
+```
+
+- **`new Order()` touches `Order` first**, so its static constructor runs first; `Entity`'s runs only when `Entity`'s constructor is about to be called.
+- **The derived class's field initializers run before the base constructor.** The compiler places them at the top of `Order`'s constructor, ahead of the call to `base()`; then the base constructor runs, then the rest of `Order`'s body.
+- **The object is an `Order` from its first instruction**, so the virtual call in the base constructor already runs `Order.Describe`. It sees the field initializer's value, but not the `Status` that `Order`'s constructor body hasn't assigned yet.
+
+> **Pitfall.** A virtual call from a constructor hands a half-built object to a derived class (analyzer CA2214 flags it); keep constructors to checking arguments and assigning fields. A static constructor that throws is worse: the runtime records the failure, and every later use of the type in that process throws `TypeInitializationException` with the original exception inside, so the type stays broken until the process restarts.
+
+### Inheritance and Virtual Dispatch
+
+A derived class inherits its base class's members and can be used wherever the base is expected. A class has exactly one base class (`object` if you name none); several contracts come from interfaces. Four keywords decide what a call through a base-typed variable runs:
+
+- **`virtual`** lets derived classes replace a method, and **`override`** replaces it. **`abstract`** is `virtual` without a body, which every non-abstract derived class must override.
+- **`new`** declares a *different* method that happens to share the name. It hides the base method instead of replacing it; without the keyword the compiler warns (CS0108) and hides anyway.
+- **`sealed`** on a class forbids deriving from it; on an `override` it stops further overriding.
+
+```csharp
+Dog dog = new();
+Animal animal = dog;                    // the same object, declared as the base type
+
+Console.WriteLine(dog.Speak());         // Woof
+Console.WriteLine(animal.Speak());      // Woof: the override replaced the slot; the object decides
+Console.WriteLine(dog.Kind());          // dog
+Console.WriteLine(animal.Kind());       // animal: `new` added a second method; the declared type decides
+
+class Animal
+{
+    public virtual string Speak() => "...";
+    public string Kind() => "animal";
+}
+
+class Dog : Animal
+{
+    public override string Speak() => "Woof";
+    public new string Kind() => "dog";  // hides Animal.Kind; without `new`, warning CS0108
+}
+```
+
+The mechanism is the **method table**. Every object on the heap starts with a pointer to its type's method table, which holds one slot per virtual method. A derived type's table starts as a copy of its base's, and `override` writes the derived method into the inherited slot. A virtual call compiles to "call slot N of this object's table", so it runs whatever the *object's* type put there: `Dog.Speak`. A non-virtual call is bound by the compiler to the member of the variable's *declared* type and cannot change at run time, and a `new` method is just another method: through `Animal`, the call is `Animal.Kind`. `sealed` helps the JIT here too: when it knows no subclass can override a method, it can call it directly and inline it, and analyzer CA1852 suggests sealing internal types that nothing derives from.
+
+> **Pay attention.** **`override` replaces, `new` hides: what a call through the base type runs.**
+>
+> An overridden method is found at run time in the object's method table, so the override runs whatever the variable's declared type. A `new` method takes no slot of the base type: the compiler binds each call by the declared type, so `animal.Kind()` runs `Animal.Kind` although the object is a `Dog`. The bug shows when a framework, a `List<Animal>` or any method that takes the base type calls the member: your `new` method silently never runs. Static methods and operators follow the same rule, which is why `==` on two `object` variables compares references ([Records, Value Equality, and with Expressions](#records-value-equality-and-with-expressions)).
+>
+> Fix: to change behaviour, make the base member `virtual` or `abstract` and `override` it. Treat warning CS0108 as an error, and write `new` only to shadow on purpose a member you can't change, such as one a library later added to its base class.
+
+### Abstract Classes vs Interfaces
+
+| | Abstract class | Interface |
+|---|---|---|
+| Instance fields and constructors | Yes | No (static fields only) |
+| How many a type can have | One base class | Any number |
+| Member bodies | Any member, `virtual` or not | Default implementations (C# 8), reachable only through the interface |
+| Static members a type must supply | No | `static abstract` members (C# 11) |
+| Adding a member later | A `virtual` member with a body breaks no one | Breaks every implementer, unless it has a default body |
+| Typical use | A family of types that share state and code | A capability that unrelated types offer; a seam for dependency injection and test doubles |
+
+A default implementation stays with the interface; the class does not inherit it:
+
+```csharp
+public interface INotifier
+{
+    void Send(string message);
+    void SendAll(IEnumerable<string> messages)      // default implementation (C# 8)
+    {
+        foreach (var m in messages) Send(m);
+    }
+}
+
+public class EmailNotifier : INotifier
+{
+    public void Send(string message) => Console.WriteLine($"email: {message}");
+}
+
+var email = new EmailNotifier();
+// email.SendAll(["a", "b"]);         // CS1061: the class does not inherit the default body
+INotifier notifier = email;
+notifier.SendAll(["a", "b"]);         // the interface's body, calling EmailNotifier.Send
+```
+
+Static abstract members are what make generic math possible; [Generic Math and Static Abstract Members](#generic-math-and-static-abstract-members) shows them.
+
+**Composition over inheritance.** Inheritance couples a derived class to its base's details: it receives every member whether it fits or not, and a change inside the base, such as a method that starts calling a virtual method the subclass overrides, can break subclasses nobody looked at (the *fragile base class* problem). Composition keeps the collaborator in a field, usually behind an interface, calls only what it needs, and lets a test or the container swap it. Inherit for a real "is-a" from a base designed for it, and seal the rest; [Chapter 10](#chapter-10-design-basics) builds its patterns on composition.
+
+### Static Classes and Members
+
+A `static` member belongs to the type, not to an instance: one copy per process, shared by every thread. A `static class` holds only static members; the compiler emits it as `abstract sealed`, so it can be neither instantiated nor derived from. Three consequences follow from "one copy per type":
+
+- **Mutable static state is shared by every request.** A `static` dictionary used as a cache needs the same care as any shared state ([Thread Safety: Sharing State Correctly](#thread-safety-sharing-state-correctly) in Chapter 4).
+- **Each closed generic type is a separate type**, so `Cache<int>.Count` and `Cache<string>.Count` are two different fields.
+- **A static dependency can't be replaced in a test.** Code that calls `DateTime.UtcNow` or a static `Db.Save` directly is welded to them; an injected interface or `TimeProvider` ([Chapter 15](#timeprovider-testable-time-net-8)) can be swapped.
+
 ## Generics: Type-Safe Reuse Without Boxing
 
 Generics let you write algorithms and data structures parameterized by type, resolved at compile time with no boxing and full type safety. The CLR is generics-aware at the runtime level: for reference-type arguments it shares a single JIT-compiled implementation (all references are the same size), but for each value-type argument it produces a specialized version so `List<int>` truly stores `int`s inline.
@@ -217,6 +368,37 @@ public readonly record struct Coordinate(double Lat, double Lng);
 > - **`with` is a shallow copy.** The copy shares every reference-type member with the original: adding to the copy's list changes the original's.
 >
 > Fix: compare through the type you mean (`string`, not `object`), and keep records to values such as numbers, strings and nested records, or write `Equals(R? other)` and `GetHashCode` yourself, comparing collections with `SequenceEqual`.
+
+## Strings: Immutable, Built, Interned, Compared
+
+`string` is a reference type that behaves like a value. Its characters live inside the string object (a length, then UTF-16 code units), no method changes them after construction, and `==` and `Equals` are overloaded to compare the characters. Immutability is what makes a string safe to share between threads, to return without a defensive copy and to use as a dictionary key, whose hash code must never change. The price: every method that seems to modify a string (`Replace`, `Trim`, `ToUpper`, `+`) allocates a new one.
+
+**Building.** `s += x` allocates a string of length `s.Length + x.Length` and copies both into it, so in a loop each iteration copies everything built so far. Appending one character n times copies 1 + 2 + … + n, about n²/2 characters: 10,000 appends copy some 50 million characters and leave 9,999 dead strings for the GC. `StringBuilder` appends into a growable buffer and copies once, in `ToString()`, so the work is linear. It doesn't help when the number of pieces is fixed: `a + b + c` compiles to one `string.Concat(a, b, c)` call that adds up the lengths and allocates once, and a `StringBuilder` there only adds an allocation. For a collection, `string.Join` does the same single allocation. [Chapter 17](#stringbuilder-and-string-mechanics) benchmarks the difference.
+
+**Interpolation.** Since C# 10, `$"Order {id}: {total}"` assigned to a `string` compiles to a `DefaultInterpolatedStringHandler`: it writes each piece into a pooled buffer, formats value-type holes without boxing, and allocates only the final string. Each hole is formatted with the **current culture**, which suits text a person reads and breaks text a program reads (CSV, URLs, cache keys): on a server running as `de-DE`, `1234.5m` becomes `1234,5`. Pass the culture with `string.Create(CultureInfo.InvariantCulture, $"...")` or `FormattableString.Invariant($"...")`. When the final length is known up front, the other overload, `string.Create(length, state, (span, state) => ...)`, writes the characters straight into the new string's memory, with no buffer at all. In log calls, use message templates instead ([Chapter 9](#chapter-9-exceptions-logging-and-first-diagnosis) shows why).
+
+**Interning.** The runtime keeps an *intern pool* with one object per distinct value. String literals usually go into it (the documentation doesn't guarantee it), so equal literals are typically one object, while a string built at run time is a new object. That is why string equality must compare characters, and why `==` on two `object` variables, a reference comparison, can say `true` for two literals and `false` for a literal and an equal built string. `string.Intern(s)` returns the pooled object, but the pool generally keeps its strings until the process ends, so never intern unbounded input such as user data.
+
+**Comparing.** `==`, `Equals` and `Contains` compare ordinally, code unit by code unit. `StartsWith(string)`, `IndexOf(string)`, `CompareTo`, `ToUpper()` and sorting use the current culture unless you pass a `StringComparison`. Pass one every time; [Chapter 15: Dates, Money and Strings](#chapter-15-dates-money-and-strings) explains the culture rules and the bugs they cause.
+
+```csharp
+string literal = "order-42";
+string built = "order-" + 42.ToString();                       // created at run time
+Console.WriteLine(literal == built);                           // True: string's == compares characters
+Console.WriteLine(ReferenceEquals(literal, built));            // False: two objects; only literals are interned
+Console.WriteLine(ReferenceEquals(literal, string.Intern(built)));   // True: the pool hands back the literal
+
+string s = "";
+for (int i = 0; i < 5; i++) s += i;          // each += allocates a new string and copies everything so far
+var sb = new StringBuilder();
+for (int i = 0; i < 5; i++) sb.Append(i);    // writes into a growable buffer; one string at ToString()
+Console.WriteLine(s == sb.ToString());       // True, "01234" both ways
+
+CultureInfo.CurrentCulture = new CultureInfo("de-DE");
+decimal price = 1234.5m;
+Console.WriteLine($"{price}");                                          // 1234,5: the current culture
+Console.WriteLine(string.Create(CultureInfo.InvariantCulture, $"{price}"));   // 1234.5: the culture you pass
+```
 
 ## Tuples and Deconstruction
 
@@ -491,6 +673,49 @@ Console.WriteLine(compiled(10));       // True
 
 The key mental model: `Func<int,bool> f = x => x > 5;` gives you *executable code*, while `Expression<Func<int,bool>> e = x => x > 5;` gives you *a description of that code* that another system can read, transform, or translate.
 
+## LINQ Operators in Practice
+
+Each LINQ to Objects operator is a loop with a name, so each trap below is a property of the loop behind it. The SQL notes are what EF Core sends for the same operator.
+
+| You want | Use | The trap, and why |
+|---|---|---|
+| To project or filter | `Select`, `Where` | Both run again on every enumeration, side effects included ([Deferred vs Immediate Execution](#deferred-vs-immediate-execution)) |
+| To flatten children | `SelectMany(o => o.Lines)` | `Select` would give a sequence of sequences |
+| "Is there any?" | `Any()` | `Count() > 0` walks every element of a plain sequence (only an `ICollection<T>` answers from its `Count` property); EF Core sends `COUNT(*)` where `Any()` sends `EXISTS` |
+| The first match | `First`, `FirstOrDefault` | `First` throws on an empty sequence; `FirstOrDefault` returns `default(T)`, and for `int` that `0` may be a real element: pass your own default, `FirstOrDefault(-1)` |
+| Exactly one | `Single`, `SingleOrDefault` | They read past the match to prove there is no second: the whole sequence in memory, two rows from the database. `SingleOrDefault` still throws on two |
+| To sort | `OrderBy(...).ThenBy(...)` | The sort is stable: ties keep source order. A second `OrderBy` sorts everything again, and EF Core keeps only the last one in `ORDER BY` |
+| To group, then iterate once | `GroupBy` | Deferred: each enumeration regroups the whole source |
+| To group, then look up by key | `ToLookup` | Runs immediately; a missing key gives an empty group, not an exception |
+| To remove duplicates | `Distinct`, `DistinctBy` | `Distinct` uses `Equals` and `GetHashCode`, so a class without them compares references and keeps every object |
+| To match two sequences | `Join`, `GroupJoin`, `LeftJoin` (.NET 10) | `Join` is an inner join and drops unmatched rows. It hashes the inner sequence once, O(n + m), where a `Where` inside a `Select` is O(n·m) |
+| Batches | `Chunk(100)` | The last batch is shorter; each batch is a new array |
+| One value from many | `Sum`, `Max`, `CountBy`, `Aggregate` | `Max`, and `Aggregate` without a seed, throw on an empty sequence; `Sum` returns 0 |
+
+```csharp
+Order[] orders = [new(1, "ann", 30m), new(2, "bob", 10m), new(3, "ann", 20m), new(4, "cid", 10m)];
+int[] none = [];
+
+Console.WriteLine(none.FirstOrDefault());                              // 0: no element, or the element 0?
+Console.WriteLine(string.Join(" ", orders.OrderBy(o => o.Total).Select(o => o.Id)));   // 2 4 3 1: ties keep source order
+
+var byCustomer = orders.ToLookup(o => o.Customer);                     // built once, here
+Console.WriteLine(byCustomer["ann"].Sum(o => o.Total));                // 50
+Console.WriteLine(byCustomer["zoe"].Count());                          // 0: a missing key is an empty group
+
+Console.WriteLine(orders.Select(o => new Person(o.Customer)).Distinct().Count());   // 4: a class compares references
+Console.WriteLine(orders.DistinctBy(o => o.Customer).Count());                      // 3: compare by a key instead
+
+string[] vips = ["ann"];
+var tagged = orders.LeftJoin(vips, o => o.Customer, v => v, (o, v) => $"{o.Id}:{v ?? "-"}");   // .NET 10
+Console.WriteLine(string.Join(" ", tagged));                                       // 1:ann 2:- 3:ann 4:-
+
+record Order(int Id, string Customer, decimal Total);
+class Person(string name) { public string Name { get; } = name; }
+```
+
+Multiple enumeration is the trap that crosses all of them: an operator that returns `IEnumerable<T>` hands back a recipe, so two terminal calls on it run the whole pipeline twice, as the earlier section showed.
+
 ## IDisposable, IAsyncDisposable, and the Dispose Pattern
 
 The GC reclaims *managed memory*, but knows nothing about file handles, sockets, database connections or native memory. `IDisposable` is the contract for releasing those deterministically, and `using` compiles to a `try/finally` that calls `Dispose`.
@@ -576,11 +801,34 @@ string json = """
 
 The triple-quote (or more) delimiters mean embedded `"` need no escaping, and the closing quotes' indentation sets the baseline that's stripped from every line — so your literal stays visually aligned with your code.
 
-> **Where the language is heading.** C# 13 (.NET 9) added **params collections** (`params` accepts `Span<T>`, `ReadOnlySpan<T>` and other collection types, not just arrays) and `lock` support for .NET 9's dedicated `System.Threading.Lock` type. C# 14, which ships with .NET 10, the current LTS, brings the `field` keyword (auto-property accessors can reference their own backing field, so a property can add validation without hand-declaring one), **extension members**, which generalize extension methods to extension properties and static extension members, and null-conditional assignment (`order?.Status = ...`). C# 15 is in preview with .NET 11; its features include union types and closed hierarchies, and they can still change before release. [The appendix](#appendix-net-version-comparison-cheat-sheet) has the full version timeline.
+**The `field` keyword** (C# 14) gives a property accessor the compiler's backing field, so a property can normalize or validate its value without a hand-declared field:
+
+```csharp
+public class Customer
+{
+    public string Email
+    {
+        get;
+        set => field = value.Trim().ToLowerInvariant();   // `field` is the compiler's backing field
+    } = "";
+}
+```
+
+In a type that already has a member named `field`, the word inside an accessor now means the keyword; write `@field` or `this.field` for the member.
+
+**Null-conditional assignment** (C# 14) allows `?.` on the left of `=`. The assignment, right-hand side included, runs only when the target isn't null:
+
+```csharp
+customer?.Email = LoadEmail();   // when customer is null, LoadEmail() is never called
+```
+
+Compound assignment such as `+=` works the same way; `++` and `--` don't.
+
+> **Where the language is heading.** C# 13 (.NET 9) added **params collections** (`params` accepts `Span<T>`, `ReadOnlySpan<T>` and other collection types, not just arrays) and `lock` support for .NET 9's dedicated `System.Threading.Lock` type. C# 14 ships with .NET 10, the current LTS. Besides `field`, **extension members** and null-conditional assignment, it brings implicit conversions between arrays, `Span<T>` and `ReadOnlySpan<T>`, `nameof` on unbound generic types (`nameof(List<>)`), modifiers such as `out` on lambda parameters without declared types, partial constructors and events, and user-defined compound assignment operators. C# 15 ships with .NET 11, an STS release at release candidate 2 since October 13, 2026 and supported from November 10, 2026. Its documentation lists union types, `closed` class hierarchies (a `switch` that handles every derived type needs no default arm), extension indexers, arguments in collection expressions (`[with(capacity: 100), ..items]`), labeled `break` and `continue`, and the first step of new memory-safety rules for unsafe code. [The appendix](#appendix-net-version-comparison-cheat-sheet) has the full version timeline.
 
 ## Bringing It Together
 
-C#'s surface features rest on a small number of mechanisms. The value/reference divide governs copying, boxing and equality; generics give reuse without boxing; records generate the equality a class doesn't have; nullable annotations are checked only where the compiler can see. Delegates, closures, extension methods and iterators combine into LINQ, which is lazy because its operators are iterators and translatable because `IQueryable<T>` takes expression trees. `Dispose` exists because the GC manages memory and nothing else. The modern syntax layered on top (records, patterns, primary constructors, collection expressions) is not cosmetic: each one states an intent, such as immutability or exhaustiveness, that the compiler can check.
+C#'s surface features rest on a small number of mechanisms. The value/reference divide governs copying, boxing and equality; a virtual call is resolved at run time through the object's method table, while a non-virtual call, an operator and an extension method are fixed at compile time by the declared type; generics give reuse without boxing; records generate the equality a class doesn't have; nullable annotations are checked only where the compiler can see. Delegates, closures, extension methods and iterators combine into LINQ, which is lazy because its operators are iterators and translatable because `IQueryable<T>` takes expression trees. `Dispose` exists because the GC manages memory and nothing else. The modern syntax layered on top (records, patterns, primary constructors, collection expressions) is not cosmetic: each one states an intent, such as immutability or exhaustiveness, that the compiler can check.
 
 With these mechanisms you stop guessing: you know, before you run the profiler, which line boxes, which query hits the database twice and which struct is copied defensively. The rest of the book builds on that.
 
@@ -680,8 +928,25 @@ Value types (`struct`, `int`, `enum`) hold their data inline and are copied on a
 **What is boxing and why does it cost?**
 Boxing wraps a value type in a heap object so it can be treated as `object` or an interface reference; unboxing extracts it back. It costs a heap allocation plus a copy, and adds GC pressure in hot paths. Generics and `Span<T>` largely eliminate the need; [Chapter 17](#chapter-17-runtime-internals-and-performance) shows how to measure allocations.
 
-**Why are strings immutable, and what's the consequence?**
-A `string`'s contents never change; "modifying" one produces a new string. This makes strings safe to share and hash, and safe as dictionary keys, but naive concatenation in a loop allocates repeatedly — use `StringBuilder` or `string.Create`/interpolation for hot paths ([Chapter 17](#chapter-17-runtime-internals-and-performance) has the mechanics).
+**`virtual`/`override` vs `new`: what does a call through a base-class variable run?**
+With `override`, the derived method: a virtual call looks up its slot in the object's method table at run time, and the override has replaced that slot. With `new`, the base method: `new` declares a separate method that takes no slot of the base type, so the compiler binds the call by the variable's declared type. Code that handles objects as the base type never sees a `new` method.
+
+**Red flag:** "`new` and `override` both override the method" — only `override` changes what a base-typed call runs.
+
+**Abstract class or interface?**
+An abstract class carries instance state, constructors and shared code, and a type can have only one base class. An interface is a contract a type can implement many of; since C# 8 it can carry default method bodies, reachable only through the interface, and since C# 11 `static abstract` members. Use an interface for a capability or a seam for dependency injection and tests, and an abstract class when a family of types genuinely shares state and code.
+
+**What do `protected internal` and `private protected` allow?**
+`protected internal` is the union: any code in the same assembly, plus derived types in any assembly. `private protected` is the intersection: only derived types, and only inside the same assembly. Members default to `private`, top-level types to `internal`.
+
+**In what order is an object constructed, and why not call a virtual method from a constructor?**
+The derived class's field initializers run first, then the base constructor, then the derived constructor body; static constructors run once per type before its first use. The object already has its final type during the base constructor, so a virtual call there runs the derived override on an object whose constructor body hasn't run yet, and it sees unassigned fields.
+
+**Why are strings immutable, and when does `StringBuilder` help?**
+A string's characters live inside the object and never change, which makes strings safe to share between threads and to use as dictionary keys; every "modification" allocates a new string. So `+=` in a loop copies everything built so far on each iteration, O(n²) characters, and `StringBuilder` makes it linear by appending into a buffer and copying once. For a fixed expression such as `a + b + c` it doesn't help: the compiler emits one `string.Concat` call that allocates once.
+
+**What is string interning, and why doesn't `==` rely on it?**
+The runtime keeps a pool with one object per distinct value, which usually holds the literals and always holds strings passed to `string.Intern`. Strings built at run time are separate objects, so equal strings are often different references; `string`'s `==` therefore compares characters. Interned strings generally live until the process ends, so interning unbounded input leaks memory.
 
 **`ref` vs `out`?**
 Both pass by reference. `ref` requires the variable to be initialized *before* the call and the method may read it; `out` requires the method to assign it before returning and the caller need not initialize it. Use `out` for "return extra values" (`TryParse`), `ref` for "read and modify in place."
@@ -691,6 +956,15 @@ Both pass by reference. `ref` requires the variable to be initialized *before* t
 
 **What is deferred execution?**
 LINQ query operators don't run when defined — they run when enumerated (`foreach`, `ToList`, `Count`). The query captures variables by reference, so results reflect state at *enumeration* time, and enumerating twice runs it twice. Materialize with `ToList()` when you need a stable snapshot or to avoid re-querying.
+
+**`First`, `FirstOrDefault` or `Single`?**
+`First` when any match will do and there must be one: it stops at the first and throws on none. `FirstOrDefault` when none is a normal case, remembering that `default(T)` for a value type is a real-looking `0`. `Single` when more than one is a bug you want caught: it reads past the match to prove there is no second, the whole sequence in memory or two rows from the database, and throws on two (`SingleOrDefault` too).
+
+**`Any()` or `Count() > 0`?**
+`Any()`: it stops at the first element, and EF Core translates it to `EXISTS`. `Count()` walks the whole sequence unless the source is an `ICollection<T>`, and becomes `COUNT(*)` in SQL.
+
+**`GroupBy` or `ToLookup`?**
+`GroupBy` is deferred and regroups the source on every enumeration; use it when you iterate the groups once. `ToLookup` groups immediately into a structure you can index by key many times, and a missing key returns an empty group instead of throwing.
 
 **Delegates vs events?**
 A delegate is a type-safe function pointer you can invoke and reassign. An `event` is a restricted wrapper over a delegate that only lets external code subscribe (`+=`) and unsubscribe (`-=`) — they can't invoke it or clear other subscribers. Events are the safe public surface for the observer pattern.

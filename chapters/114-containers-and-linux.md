@@ -237,7 +237,7 @@ kill -TERM 4321    # explicit SIGTERM
 pkill dotnet       # kill by name
 ```
 
-This ties directly into containers. When Kubernetes or `docker stop` shuts down your app, it sends **SIGTERM**, waits a grace period (default 30s in Docker, `terminationGracePeriodSeconds` in K8s), and only then sends **SIGKILL**. ASP.NET Core's generic host listens for SIGTERM and triggers `IHostApplicationLifetime.ApplicationStopping`, runs your `IHostedService.StopAsync`, and drains requests. If your app ignores SIGTERM or takes too long, it gets SIGKILL'd mid-request. [Chapter 11: Graceful shutdown and the `CancellationToken`](#graceful-shutdown-and-the-cancellationtoken) covers the application's side: the shutdown timeout and the token every worker must observe.
+This ties directly into containers. When Kubernetes or `docker stop` shuts down your app, it sends **SIGTERM**, waits a grace period (10 seconds by default for `docker stop`, set with `-t`; `terminationGracePeriodSeconds` in Kubernetes, 30 by default), and only then sends **SIGKILL**. ASP.NET Core's generic host listens for SIGTERM and triggers `IHostApplicationLifetime.ApplicationStopping`, runs your `IHostedService.StopAsync`, and drains requests. If your app ignores SIGTERM or takes too long, it gets SIGKILL'd mid-request. [Chapter 11: Graceful shutdown and the `CancellationToken`](#graceful-shutdown-and-the-cancellationtoken) covers the application's side: the shutdown timeout and the token every worker must observe.
 
 > **Best practice:** Make sure .NET actually *receives* SIGTERM. Use the **exec form** of `ENTRYPOINT` (`ENTRYPOINT ["dotnet", "MyApp.dll"]`), not the shell form (`ENTRYPOINT dotnet MyApp.dll`). The shell form runs your app as a child of `/bin/sh`, which is PID 1 and does not forward signals — so SIGTERM never reaches .NET and every shutdown is a hard kill.
 
@@ -650,3 +650,120 @@ Practice by doing: spin up an Ubuntu container (`docker run -it ubuntu bash`), p
 - **"The Linux Command Line" by William Shotts** — an excellent, free, book-length introduction to the shell, filesystem, permissions, and scripting. https://linuxcommand.org/tlcl.php
 - **systemd documentation (`man systemd.service`, `man journalctl`)** — reference for unit-file directives and journal querying.
 - **Docker documentation: stop, signals, and PID 1** — explains SIGTERM/SIGKILL behavior and the exec-vs-shell ENTRYPOINT distinction.
+
+## Three questions
+
+**1.** Every deployment of a service takes exactly the grace period to stop its old containers (10 seconds under `docker stop`, 30 in Kubernetes), requests in flight at that moment fail, and the stopped container's exit code is 137. The Dockerfile ends with `ENTRYPOINT dotnet MyApi.dll`. What is happening?
+
+<details>
+<summary>Answer</summary>
+
+- **The shell form makes the shell PID 1.** `ENTRYPOINT dotnet MyApi.dll` is stored as `["/bin/sh", "-c", "dotnet MyApi.dll"]`, and on the Debian-based images the shell (dash) starts `dotnet` as its child instead of replacing itself with it ([Processes & Signals](#processes-signals-graceful-shutdown)).
+- **SIGTERM goes to PID 1, and this PID 1 ignores it.** The runtime signals only the container's PID 1. The kernel doesn't apply a signal's default action to the PID 1 of a namespace, so a process that installed no handler, as the shell didn't, simply doesn't react, and it doesn't pass the signal on to its child. .NET, which would have started a graceful shutdown, never hears about it.
+- **So the grace period always runs out.** After it, the runtime sends SIGKILL, which can't be ignored, and kills everything at once, mid-request. 137 is 128 + 9: terminated by signal 9, SIGKILL. A `docker stop` against a container whose PID 1 was `sh -c` with a child process took 10.2 seconds and exited with 137.
+
+Fix: use the exec form, `ENTRYPOINT ["dotnet", "MyApi.dll"]`, so `dotnet` is PID 1 and the Generic Host receives SIGTERM. If a script must run first, end it with `exec dotnet MyApi.dll`, or run the container with `--init`, which puts a small init process at PID 1 to forward signals. Then check that the application's own shutdown timeout fits inside the orchestrator's grace period.
+</details>
+
+**2.** The container is isolated from the host, so why does it matter that its process runs as root?
+
+<details>
+<summary>Answer</summary>
+
+- **The isolation is the kernel's, and the kernel is shared.** A container is an ordinary process in namespaces ([The two kernel features that make it work](#the-two-kernel-features-that-make-it-work)). Unless user namespaces are configured, which Docker doesn't do by default, UID 0 inside the container is UID 0 to the host kernel.
+- **Every boundary is then one mistake away from the host.** A kernel vulnerability that lets a process escape its namespaces gives the attacker root on the host. So does a configuration slip: a mounted Docker socket, a host-path volume, a container started `--privileged`. Inside the container, root also lets an attacker install tools, rewrite the application's files and read every secret on disk.
+- **Bind mounts carry ownership out.** Files a root process writes into a mounted host directory are owned by root on the host.
+
+Fix: run as an unprivileged user, the `app` user (UID 1654) that Microsoft's .NET images ship, or a chiseled image, which defaults to it. Give that user ownership of the few directories it writes to, and add a read-only root filesystem and dropped capabilities ([Running as non-root](#running-as-non-root)).
+</details>
+
+**3.** An image's Dockerfile copies the source, builds, and ends with `RUN rm -rf /src /root/.nuget`. The image is still several hundred megabytes larger than the published application. Why didn't the `rm` help?
+
+<details>
+<summary>Answer</summary>
+
+- **Layers are immutable, and each one is a diff.** The `COPY` and the build each produced a layer containing those files. The `rm` produces a new layer that records "these paths are deleted" (a whiteout); the earlier layers, and every byte in them, remain part of the image, pulled and stored with it ([Layers and layer caching](#layers-and-layer-caching)).
+- **The files are invisible, not gone.** In a running container the deleted paths don't exist, which is what makes the cleanup look as if it worked. `docker history <image>` shows the truth: one layer per instruction with its size, and the large layers below the small `rm`. A test image that wrote a 50 MB file in one `RUN` and deleted it in the next showed a 50 MB layer followed by a 4.1 kB one.
+- **The base image counts too.** Building on the SDK image ships the whole SDK, whatever you delete afterwards.
+
+Fix: a multi-stage build ([Multi-stage builds](#multi-stage-builds)). Build and publish in an SDK stage, then copy only the published output into a fresh runtime (or chiseled) stage; nothing from the build stage reaches the final image. Where a single `RUN` creates temporary files, delete them in the same `RUN`.
+</details>
+
+## Check at work
+
+**Inspect.** In each Dockerfile your team ships:
+
+- the `ENTRYPOINT` and `CMD`: the exec form (`["dotnet", "App.dll"]`), or a script that ends with `exec`;
+- a `USER` instruction, or a chiseled base image; without either the process runs as root;
+- a multi-stage build whose final `FROM` is a runtime image, and a `.dockerignore` next to the Dockerfile;
+- base images pinned to a version (`aspnet:10.0`, or a digest), not `latest`, and no secrets in `ENV` or `ARG`.
+
+Then compare the orchestrator's grace period (`terminationGracePeriodSeconds`) with the application's `HostOptions.ShutdownTimeout`: the application must finish inside the orchestrator's window.
+
+**Measure.** For the production image: its size (`docker image ls`), its largest layers (`docker history <image>`), and the user it runs as (`docker inspect --format '{{.Config.User}}' <image>`; empty means root). Then start a container, send it a request, run `docker stop` and time it: a stop that takes the whole timeout and an exit code of 137 mean SIGTERM never reached .NET.
+
+## Interview Questions
+
+**What is the difference between a container and a virtual machine?**
+
+<details>
+<summary>Answer</summary>
+
+A virtual machine virtualizes hardware and runs a complete guest operating system with its own kernel. A container is a process on the host's kernel, isolated by namespaces and limited by cgroups; there is no second kernel to boot, which is why containers start in milliseconds and cost little at idle. The flip side is a weaker boundary: a kernel bug is shared by every container on the host ([What a Container Actually Is](#what-a-container-actually-is)).
+</details>
+
+**What do namespaces and cgroups each do?**
+
+<details>
+<summary>Answer</summary>
+
+Namespaces decide what a process can see: its own process tree with itself as PID 1, its own network stack and ports, its own filesystem root and hostname. Cgroups decide what it can consume: CPU, memory and I/O. A Kubernetes memory limit is a cgroup limit, and a process that exceeds it is killed by the kernel's out-of-memory killer ([The two kernel features that make it work](#the-two-kernel-features-that-make-it-work)).
+</details>
+
+**An image and a container: what is the difference, and where does a file written inside a container go?**
+
+<details>
+<summary>Answer</summary>
+
+An image is a read-only stack of layers plus metadata; a container is a running instance of it with a thin writable layer on top. A write lands in that writable layer through copy-on-write and disappears with the container, so anything that must survive goes to a volume or an external store ([Images vs. Containers](#images-vs-containers)).
+</details>
+
+**How do you order a Dockerfile for fast builds, and why does the order matter?**
+
+<details>
+<summary>Answer</summary>
+
+Each instruction produces a layer, and the cache reuses a layer only while its instruction and inputs are unchanged; the first change invalidates that layer and every one after it. So copy the project files and run `dotnet restore` first, then copy the rest of the source: editing a `.cs` file then rebuilds only the layers after the restore ([Layers and layer caching](#layers-and-layer-caching)).
+</details>
+
+**What does a multi-stage build give you?**
+
+<details>
+<summary>Answer</summary>
+
+A build stage based on the SDK image compiles and publishes, and the final stage starts from the much smaller runtime (or chiseled) image and copies in only the published output. The SDK, the source and the NuGet cache never reach the final image, which makes it smaller to pull and gives an attacker less to work with ([Multi-stage builds](#multi-stage-builds)).
+</details>
+
+**SIGTERM or SIGKILL: what happens to a .NET app in each case?**
+
+<details>
+<summary>Answer</summary>
+
+SIGTERM can be handled: the Generic Host catches it, signals `ApplicationStopping`, stops hosted services and drains requests in flight. SIGKILL can't be caught; the kernel ends the process immediately, mid-request. Orchestrators send SIGTERM, wait the grace period, then send SIGKILL, so the app must actually receive SIGTERM (exec-form `ENTRYPOINT`) and finish within the period ([Processes & Signals](#processes-signals-graceful-shutdown)).
+</details>
+
+**A containerized app running as a non-root user throws `UnauthorizedAccessException` writing to `/app/data`. Why, and what is the right fix?**
+
+<details>
+<summary>Answer</summary>
+
+The directory was created during the build as root with mode `755`, so only root may create files in it, and the process runs as UID 1654. The fix is to give the runtime user the directory (`RUN mkdir -p /app/data && chown -R app:app /app/data` before `USER app`), or, for a mounted volume, to match its ownership; switching back to root trades a permission error for a security hole ([Permissions](#permissions-why-your-container-app-cant-write-that-file)).
+</details>
+
+**The app works with `curl` inside the container but is unreachable from outside. What do you check first?**
+
+<details>
+<summary>Answer</summary>
+
+What it listens on. `ss -tlnp` inside the container shows the bound address: an app bound to `127.0.0.1` accepts connections only from inside its own network namespace. Bind to all interfaces (`ASPNETCORE_URLS=http://+:8080`, or `ASPNETCORE_HTTP_PORTS`, which the .NET 8+ images set to 8080), then check the port mapping and the firewall ([Networking Tools](#networking-tools)).
+</details>
