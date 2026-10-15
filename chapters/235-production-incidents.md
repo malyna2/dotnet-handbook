@@ -979,6 +979,144 @@ Traffic is up roughly 4×. Signups are flat.
 
 ---
 
+## Practice
+
+**1. A game day on Scenario 4 (3 h, including setup).** Run [the broker-down scenario](#scenario-4-the-broker-is-down-a-critical-dependency-has-failed) on your own machine, the way [Chapter 20's chaos engineering](#verifying-resilience-chaos-engineering-in-practice) runs an experiment:
+
+- *Build the system:* a small ASP.NET Core order API that saves an order and publishes it to RabbitMQ, a consumer that records what it receives, and a database, in Docker Compose. Put a constant load on the API with k6, with an endpoint that never touches the broker in the mix.
+- *Write the hypothesis before you inject anything,* with numbers: "with the broker gone, the API keeps accepting orders, the broker-free endpoint keeps its p95, and after recovery every accepted order has been consumed exactly once."
+- *Inject two ways,* one at a time: `docker stop` on the broker (connections are refused) and `docker pause` (the process is frozen, so calls hang). Watch p95, error rate and the thread-pool queue length with `dotnet-counters`, and write down what happened to the endpoint that never touches the broker.
+- *Fix and rerun:* a timeout and a circuit breaker on the publish, a bulkhead for the broker path, then the outbox. Rerun both injections after each fix.
+- *Recover and reconcile:* bring the broker back, then count accepted orders against consumed messages, and duplicates against the consumer's deduplication.
+
+Finish with a one-page blameless review: what you expected, what happened, what you changed, and what you would alert on.
+
+**2. A restore drill (1 h 30 min).** In a PostgreSQL container, set up a base backup and continuous WAL archiving, as [Scenario 5](#scenario-5-disaster-the-database-is-gone-how-backups-should-really-be-done) describes. Write data for a while, run a `DELETE` without a `WHERE`, and restore to a new instance at one second before it. Time the whole procedure from "we noticed" to "rows back in production", and write down your measured RPO and RTO next to the ones you would have guessed.
+
+**3. Your own cheat-card row (30 min).** For the failure you fear most in a system you know, write one row in the shape of [the incident cheat-card](#the-incident-cheat-card): the symptom as the dashboard shows it, the scarcest resource at that moment, and the first three actions, each something you can actually do with the access you have.
+
+**Evidence to keep**, in your own public portfolio repo, not in this one: the Compose file and the code, the hypothesis, the before-and-after numbers for each injection, the reconciliation counts, the review, and the restore drill's timings. Incidents from a real employer stay private; the game day is the story you can tell in public.
+
+## Three questions
+
+**1.** The message broker became unreachable, and within minutes the whole order API was failing, including the product search endpoint, which never touches the broker. Why did a failure in one dependency take down endpoints that don't use it, and what contains it?
+
+<details>
+<summary>Answer</summary>
+
+- **The publish calls hung instead of failing.** Each request blocked a thread-pool thread while it waited on the dead broker; the pool injects new threads slowly, so threads ran out, and every request, search included, queued behind them. A hang is worse than a refusal: a refused connection fails fast, a hung one holds its thread until the timeout ([Scenario 4](#scenario-4-the-broker-is-down-a-critical-dependency-has-failed)).
+- **Retries and probes made it worse:** synchronized retries stormed the broker, and readiness probes that depended on it pulled serviceable pods out of rotation.
+- **What contains it:** a timeout on every call and a circuit breaker that fails fast once the broker is known to be down; a bulkhead that caps how much concurrency the broker path can take, so search keeps its share; the outbox, so the order is written to your own database and publishing becomes a delay, not a blocked request; backoff with jitter; and readiness that reports degraded, not dead, for an optional dependency.
+</details>
+
+**2.** Customers have confirmation screens for orders that don't exist. The endpoint saves the order and then publishes `OrderPlaced`. A colleague proposes wrapping the publish in a retry. Why doesn't that fix it, and what does?
+
+<details>
+<summary>Answer</summary>
+
+- **It is a dual write.** The database and the broker share no transaction, so a crash, a timeout or an exception between the two writes leaves them disagreeing, and a retry inside the same process dies with that process ([Scenario 2](#scenario-2-the-lost-write-the-user-got-200-but-the-data-never-saved)). If the work happens after the `200` is returned, the same crash loses an order the user was told was saved.
+- **The fix is the transactional outbox:** write the order and an outbox row in one database transaction, and let a relay publish from the outbox. The publish becomes at-least-once, so consumers deduplicate by message id; together that is effectively-once processing.
+- **And make `200` mean durably committed.** If the work must be asynchronous, return `202` with a status resource, backed by the outbox, not a fire-and-forget task. Then run a reconciliation query to enumerate the orders already lost, and recover them from the payment records.
+</details>
+
+**3.** A service is OOM-killed every six hours, regardless of traffic. The team raised the memory limit from 1 GB to 2 GB, and now it dies every twelve hours. Why isn't that a fix, and how do you tell a leak from a limit that is simply too low?
+
+<details>
+<summary>Answer</summary>
+
+- **Time, not load, is killing it.** Memory grows without bound until the kernel kills the container (exit code 137, SIGKILL, so there are no shutdown lines in the log); doubling the limit doubles the interval ([Scenario 7](#scenario-7-the-slow-leak-memory-keeps-growing-until-the-pod-is-oom-killed)). A managed leak is a reference that something keeps by mistake, typically an unbounded static cache, an event subscription never removed, or a captive dependency.
+- **Leak or limit:** a service that climbs and then plateaus has found its working set, and the fix is a limit above it; one that climbs until it dies is leaking. Read the runtime view against the OS view ([Live-Container Triage](#live-container-triage-a-walkthrough)): a flat GC heap with a climbing working set points to native memory or buffers; Gen 2 and the LOH climbing together point to a managed leak.
+- **How to find it:** two `dotnet-gcdump` snapshots an hour apart under steady load, diffed; the type whose count grew, followed along its retention path, names the field that holds it. The raised limit stays only as time bought for that search.
+</details>
+
+## Decide
+
+A self-hosted PostgreSQL database backs a B2B product whose contracts promise an RPO of 15 minutes and an RTO of one hour. Today there is a nightly `pg_dump` to a bucket in the same region. A restore drill took four hours, and the data would have been up to 24 hours old. Three proposals:
+
+1. Add a streaming replica in a second region and treat it as the disaster-recovery plan.
+2. Switch to physical base backups with continuous WAL archiving to immutable storage in another region, with an automated monthly restore drill timed against the RTO.
+3. Move to a managed PostgreSQL service with point-in-time recovery.
+
+<details>
+<summary>How a senior engineer weighs it</summary>
+
+**What each costs.**
+
+- *A replica:* quick to add, and the fastest recovery from losing a node or a region. But replication copies a bad `DELETE`, a corrupt page or a ransomware encryption to the replica within seconds, so for those incidents the RPO is still the last nightly dump ([Scenario 5](#scenario-5-disaster-the-database-is-gone-how-backups-should-really-be-done): replication is not a backup).
+- *Base backups and WAL archiving:* point-in-time recovery to the second, an RPO set by how often WAL segments are archived, and an RTO you know because the drill measures it. The cost is operating it: archiving, retention, immutability, monitoring for stale backups, and the drill itself.
+- *A managed service:* the provider runs the backup chain and PITR, with retention you configure. You still own the drill and the retention policy, and the move is a migration project of its own.
+
+**What decides it here:** the contract's 15-minute RPO is impossible with nightly dumps, and the drill showed the restore path, not the backup, is the bottleneck. Only continuous log backups meet the RPO, and only a timed drill proves the RTO.
+
+**The choice.** Option 2 now, or option 3 if the team is already moving to the cloud this quarter, with the drill either way. Add the replica afterwards for fast failover from hardware or region loss: it complements backups, it doesn't replace them.
+
+**What would change it.** An RTO of minutes needs a warm standby in addition to backups. A team that can't staff the operation of option 2 should buy option 3. A retention requirement of years needs long-term retention configured deliberately, whichever option you choose.
+</details>
+
+## Check at work
+
+**Inspect.** For each dependency your service calls: is there a timeout, a circuit breaker and a bulkhead, and does a readiness probe fail when an optional one is down? Does any write path publish to a broker outside the database transaction? When was the last restore performed on purpose, where do the backups live, and could an admin credential delete them? Can you reach the incident runbook if the wiki is down? For each row of the cheat-card, could you take the first three actions today with the access you have?
+
+**Measure.** The RTO measured by your last restore drill against the target. The age of the latest restorable backup, which is your real RPO right now. Time to detect and time to mitigate for the last three incidents. The working-set trend of your busiest service over 24 hours, and its thread-pool queue length at peak.
+
+## Interview Questions
+
+**A payment request timed out. Was the customer charged?**
+
+<details>
+<summary>Answer</summary>
+
+You can't tell: a timeout says nothing about whether the call landed. So the call must be safe to repeat: send an idempotency key with it, and have the server store and replay the original result for a repeated key. Then a retry after a timeout charges at most once. See [The Debugging Map](#the-debugging-map-symptom-theory-mitigation).
+</details>
+
+**Why isn't replication a backup?**
+
+<details>
+<summary>Answer</summary>
+
+Replication protects against losing a node: it copies every change to the replicas, including a bad `DELETE`, a corrupt page or ransomware, within seconds. Backups protect against time: they let you return to a point before the mistake, and with log backups, to the second before it. See [Scenario 5](#scenario-5-disaster-the-database-is-gone-how-backups-should-really-be-done).
+</details>
+
+**What are RPO and RTO, and what sets each?**
+
+<details>
+<summary>Answer</summary>
+
+RPO is how much data you can lose, measured in time, and it is set by backup cadence: log backups every 5 minutes give an RPO of about 5 minutes. RTO is how long you can be down, and it is set by how fast you can fetch, restore, replay and validate, which only a timed restore drill measures. See [Scenario 5](#scenario-5-disaster-the-database-is-gone-how-backups-should-really-be-done).
+</details>
+
+**Why does exponential backoff need jitter?**
+
+<details>
+<summary>Answer</summary>
+
+Because instances that failed together retry together: with the same backoff schedule they hit the recovering dependency in synchronized waves and knock it down again, a thundering herd. Jitter randomizes each delay so the retries spread out. Retry only idempotent calls, and bound the attempts. See [Scenario 4](#scenario-4-the-broker-is-down-a-critical-dependency-has-failed).
+</details>
+
+**Can a message broker deliver exactly once?**
+
+<details>
+<summary>Answer</summary>
+
+Not over an unreliable network: a sender that gets no acknowledgement must resend, so delivery is at least once. What you can build is exactly-once effect: at-least-once delivery, with each consumer recording processed message ids under a unique index and skipping duplicates. Products advertising exactly-once do this deduplication for you. See [Scenario 2](#scenario-2-the-lost-write-the-user-got-200-but-the-data-never-saved).
+</details>
+
+**p99 spikes every few seconds while p50 stays flat. How do you decide whether GC is the cause?**
+
+<details>
+<summary>Answer</summary>
+
+Measure before tuning: watch GC pause time, the Gen 2 collection rate, LOH size and allocation rate with `dotnet-counters`. If pause time is low, the spikes are something else (thread-pool starvation from sync-over-async, lock contention, CPU throttling). If it is GC, run Server GC with background collection, and then cut allocations on the hot paths, since that removes the cause rather than capping it. See [Scenario 3](#scenario-3-stop-the-world-garbage-collector-pauses-are-causing-latency-spikes).
+</details>
+
+**What is a memory leak in a garbage-collected runtime?**
+
+<details>
+<summary>Answer</summary>
+
+A reference kept by mistake: the GC frees only unreachable objects, so anything still reachable from a root stays, such as an unbounded static cache, an event handler never unsubscribed, or a singleton holding a scoped service. Find it by diffing two heap snapshots taken an hour apart and following the growing type's retention path. See [Scenario 7](#scenario-7-the-slow-leak-memory-keeps-growing-until-the-pod-is-oom-killed).
+</details>
+
 ## Sources & Further Reading
 
 *A note on Scenario 9:* the material on GDPR/CCPA/HIPAA is engineering guidance, **not legal advice** — consult your legal/privacy team for how these frameworks apply to your product.
