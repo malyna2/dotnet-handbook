@@ -18,6 +18,7 @@
       <div id="searchResults" class="search-results" hidden></div>
     </div>
     <div class="top-actions">
+      <button id="outlineBtn" class="icon-btn" aria-label="On this page" title="On this page" aria-expanded="false" aria-controls="outline" hidden>§</button>
       <label class="switch" id="languageSwitch" title="Switch site language">
         <input type="checkbox" id="languageToggle" role="switch" aria-label="Ukrainian site language">
         <span class="switch-track"><span class="switch-thumb"></span></span>
@@ -32,10 +33,10 @@
   <!-- Sidebar navigation -->
   <nav id="sidebar" aria-label="Table of contents">
     <div id="nav"></div>
-    <!-- In-chapter section outline. Fixed to the right rail on wide screens; below the
-         chapter list inside this drawer once the rail no longer fits. -->
-    <div id="outline" role="navigation" aria-label="On this page"></div>
   </nav>
+  <!-- In-chapter section outline. A fixed right rail on wide screens; a right-hand drawer
+       (the § button, or a right-to-left swipe) once the rail no longer fits. -->
+  <div id="outline" role="navigation" aria-label="On this page"></div>
   <div id="scrim"></div>
 
   <!-- Main content -->

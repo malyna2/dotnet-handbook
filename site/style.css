@@ -84,6 +84,7 @@ mark.find-hit{background:var(--accent);color:var(--accent-fg);border-radius:3px;
 .switch-lbl{font-size:13px;color:var(--fg-muted);white-space:nowrap}
 @media (max-width:620px){.switch{gap:4px}.switch-lbl{font-size:11px}}
 #menuBtn{display:none}
+#outlineBtn{display:none;font-weight:700}
 
 /* Headings reached by an in-page link or the outline land below both sticky bars. */
 #content h1,#content h2,#content h3,#content h4{scroll-margin-top:calc(var(--bars) + 14px)}
@@ -244,12 +245,16 @@ mark.find-hit{background:var(--accent);color:var(--accent-fg);border-radius:3px;
 
 /* ---------- Responsive ---------- */
 @media (max-width:1100px){
-  /* No room for the right rail, so the section list flows into the sidebar under the
-     chapter list — in-chapter navigation stays available on tablets and phones. */
-  #outline{position:static;width:auto;max-height:none;overflow:visible;
-    margin:18px 4px 0;padding:12px 10px 0;border-top:1px solid var(--border)}
-  #outline:empty{display:none}
-  #outline a{padding:7px 8px}          /* roomier tap targets */
+  /* No room for the right rail: the section outline becomes a right-hand drawer, opened by the
+     § button or a right-to-left swipe (app.js). */
+  #outline{top:var(--bars);bottom:0;width:min(340px,86vw);max-height:none;
+    background:var(--bg-alt);border-left:1px solid var(--border);padding:14px 12px 40px;z-index:30;
+    font-size:14px;box-shadow:var(--shadow);transform:translateX(100%);visibility:hidden;
+    transition:transform .22s ease,visibility 0s linear .22s}
+  #outline.open{transform:none;visibility:visible;transition:transform .22s ease}
+  #outline a{padding:8px 10px}          /* roomier tap targets */
+  #outlineBtn:not([hidden]){display:inline-block}
+  #scrim.show{display:block;position:fixed;inset:var(--bars) 0 0 0;background:rgba(0,0,0,.4);z-index:25}
   #main{margin-right:0}
 }
 @media (max-width:820px){
@@ -260,7 +265,6 @@ mark.find-hit{background:var(--accent);color:var(--accent-fg);border-radius:3px;
   #sidebar.open{transform:none}
   #main{margin-left:0;padding:0 18px 70px}
   #reading-progress{left:0}
-  #scrim.show{display:block;position:fixed;inset:var(--bars) 0 0 0;background:rgba(0,0,0,.4);z-index:25}
   .search-wrap{max-width:none}
   .pager{flex-direction:column}
 }

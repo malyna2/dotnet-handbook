@@ -32399,6 +32399,7 @@ This page is the handbook's changelog. When a new release lands, a popup announc
 
 - Accessibility: stronger contrast for code comments and the active chapter in the dark theme, underlined links in text, and keyboard-scrollable code blocks.
 - A stale copy of the page that was published alongside the site has been removed.
+- On phones and tablets, swipe right to open the chapter list and left to open the sections of the page you're reading; the new § button in the top bar opens the same section list. Desktop is unchanged.
 
 **📖 Content updates**
 
