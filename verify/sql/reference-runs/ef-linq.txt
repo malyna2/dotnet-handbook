@@ -1,0 +1,176 @@
+# Environment: Intel(R) Xeon(R) Processor @ 2.80GHz, 4 vCPU, 16 GB RAM, Docker 29.8.2
+# Engines: PostgreSQL 17.11 (Debian 17.11-1.pgdg13+2); SQL Server 16.0.4295.3 CU27, collation SQL_Latin1_General_CP1_CI_AS
+# Data: schema.sql (4 customers, 8 orders, 10 order lines, 4 categories), loaded fresh before the run
+# Captured: 2026-10-15 08:13 UTC by verify.sh
+# Program: EfLinq, Release build, .NET runtime 10.0.12
+
+===== SQL Server
+--- != on a nullable column
+SELECT [c].[Name]
+FROM [Customers] AS [c]
+WHERE [c].[City] <> 'Kyiv' OR [c].[City] IS NULL
+  Ben
+  Cleo
+--- !Any()
+SELECT [c].[Name]
+FROM [Customers] AS [c]
+WHERE NOT EXISTS (
+    SELECT 1
+    FROM [Orders] AS [o]
+    WHERE [c].[Id] = [o].[CustomerId])
+  Dan
+--- !Contains over a subquery
+SELECT [c].[Name]
+FROM [Customers] AS [c]
+WHERE NOT EXISTS (
+    SELECT 1
+    FROM [Orders] AS [o]
+    WHERE [o].[CustomerId] = [c].[Id])
+  Dan
+--- Count and Sum per parent
+SELECT [c].[Name], (
+    SELECT COUNT(*)
+    FROM [Orders] AS [o]
+    WHERE [c].[Id] = [o].[CustomerId]) AS [Orders], (
+    SELECT COALESCE(SUM([o0].[Total]), 0.0)
+    FROM [Orders] AS [o0]
+    WHERE [c].[Id] = [o0].[CustomerId]) AS [Revenue]
+FROM [Customers] AS [c]
+  { Name = Ada, Orders = 4, Revenue = 230.00 }
+  { Name = Ben, Orders = 2, Revenue = 100.00 }
+  { Name = Cleo, Orders = 1, Revenue = 70.00 }
+  { Name = Dan, Orders = 0, Revenue = 0.00 }
+--- GroupBy, then Where
+SELECT [o].[CustomerId] AS [Key], COUNT(*) AS [Count], COALESCE(SUM([o].[Total]), 0.0) AS [Paid]
+FROM [Orders] AS [o]
+WHERE [o].[Status] = 'Paid'
+GROUP BY [o].[CustomerId]
+HAVING COUNT(*) > 1
+  { Key = 1, Count = 3, Paid = 180.00 }
+--- LeftJoin
+SELECT [c].[Name], [o].[Id] AS [OrderId]
+FROM [Customers] AS [c]
+LEFT JOIN [Orders] AS [o] ON [c].[Id] = [o].[CustomerId]
+  { Name = Ada, OrderId = 10 }
+  { Name = Ada, OrderId = 11 }
+  { Name = Ada, OrderId = 12 }
+  { Name = Ada, OrderId = 17 }
+  { Name = Ben, OrderId = 13 }
+  { Name = Ben, OrderId = 14 }
+  { Name = Cleo, OrderId = 15 }
+  { Name = Dan, OrderId =  }
+--- filtered navigation as the outer side
+SELECT [c].[Name], [o0].[Id] AS [OrderId]
+FROM [Customers] AS [c]
+LEFT JOIN (
+    SELECT [o].[Id], [o].[CustomerId]
+    FROM [Orders] AS [o]
+    WHERE [o].[Status] = 'Paid'
+) AS [o0] ON [c].[Id] = [o0].[CustomerId]
+  { Name = Ada, OrderId = 10 }
+  { Name = Ada, OrderId = 11 }
+  { Name = Ada, OrderId = 17 }
+  { Name = Ben, OrderId = 13 }
+  { Name = Cleo, OrderId = 15 }
+  { Name = Dan, OrderId =  }
+--- top 2 per customer
+SELECT [c].[Name], [c].[Id], [o1].[Id], [o1].[CreatedAt], [o1].[CustomerId], [o1].[Status], [o1].[Total]
+FROM [Customers] AS [c]
+LEFT JOIN (
+    SELECT [o0].[Id], [o0].[CreatedAt], [o0].[CustomerId], [o0].[Status], [o0].[Total]
+    FROM (
+        SELECT [o].[Id], [o].[CreatedAt], [o].[CustomerId], [o].[Status], [o].[Total], ROW_NUMBER() OVER(PARTITION BY [o].[CustomerId] ORDER BY [o].[Total] DESC, [o].[Id]) AS [row]
+        FROM [Orders] AS [o]
+    ) AS [o0]
+    WHERE [o0].[row] <= 2
+) AS [o1] ON [c].[Id] = [o1].[CustomerId]
+ORDER BY [c].[Id], [o1].[CustomerId], [o1].[Total] DESC, [o1].[Id]
+  Ada: 10, 11
+  Ben: 13, 14
+  Cleo: 15
+  Dan: 
+===== PostgreSQL
+--- != on a nullable column
+SELECT c.name
+FROM customers AS c
+WHERE c.city <> 'Kyiv' OR c.city IS NULL
+  Ben
+  Cleo
+--- !Any()
+SELECT c.name
+FROM customers AS c
+WHERE NOT EXISTS (
+    SELECT 1
+    FROM orders AS o
+    WHERE c.id = o.customerid)
+  Dan
+--- !Contains over a subquery
+SELECT c.name
+FROM customers AS c
+WHERE NOT (COALESCE(c.id IN (
+    SELECT o.customerid
+    FROM orders AS o
+), FALSE))
+  Dan
+--- Count and Sum per parent
+SELECT c.name AS "Name", (
+    SELECT count(*)::int
+    FROM orders AS o
+    WHERE c.id = o.customerid) AS "Orders", (
+    SELECT COALESCE(sum(o0.total), 0.0)
+    FROM orders AS o0
+    WHERE c.id = o0.customerid) AS "Revenue"
+FROM customers AS c
+  { Name = Ada, Orders = 4, Revenue = 230.00 }
+  { Name = Ben, Orders = 2, Revenue = 100.00 }
+  { Name = Cleo, Orders = 1, Revenue = 70.00 }
+  { Name = Dan, Orders = 0, Revenue = 0.0 }
+--- GroupBy, then Where
+SELECT o.customerid AS "Key", count(*)::int AS "Count", COALESCE(sum(o.total), 0.0) AS "Paid"
+FROM orders AS o
+WHERE o.status = 'Paid'
+GROUP BY o.customerid
+HAVING count(*)::int > 1
+  { Key = 1, Count = 3, Paid = 180.00 }
+--- LeftJoin
+SELECT c.name AS "Name", o.id AS "OrderId"
+FROM customers AS c
+LEFT JOIN orders AS o ON c.id = o.customerid
+  { Name = Ada, OrderId = 10 }
+  { Name = Ada, OrderId = 11 }
+  { Name = Ada, OrderId = 12 }
+  { Name = Ben, OrderId = 13 }
+  { Name = Ben, OrderId = 14 }
+  { Name = Cleo, OrderId = 15 }
+  { Name = Ada, OrderId = 17 }
+  { Name = Dan, OrderId =  }
+--- filtered navigation as the outer side
+SELECT c.name AS "Name", o0.id AS "OrderId"
+FROM customers AS c
+LEFT JOIN (
+    SELECT o.id, o.customerid
+    FROM orders AS o
+    WHERE o.status = 'Paid'
+) AS o0 ON c.id = o0.customerid
+  { Name = Ada, OrderId = 17 }
+  { Name = Ada, OrderId = 11 }
+  { Name = Ada, OrderId = 10 }
+  { Name = Ben, OrderId = 13 }
+  { Name = Cleo, OrderId = 15 }
+  { Name = Dan, OrderId =  }
+--- top 2 per customer
+SELECT c.name, c.id, o1.id, o1.createdat, o1.customerid, o1.status, o1.total
+FROM customers AS c
+LEFT JOIN (
+    SELECT o0.id, o0.createdat, o0.customerid, o0.status, o0.total
+    FROM (
+        SELECT o.id, o.createdat, o.customerid, o.status, o.total, ROW_NUMBER() OVER(PARTITION BY o.customerid ORDER BY o.total DESC, o.id) AS row
+        FROM orders AS o
+    ) AS o0
+    WHERE o0.row <= 2
+) AS o1 ON c.id = o1.customerid
+ORDER BY c.id, o1.customerid, o1.total DESC, o1.id
+  Ada: 10, 11
+  Ben: 13, 14
+  Cleo: 15
+  Dan: 

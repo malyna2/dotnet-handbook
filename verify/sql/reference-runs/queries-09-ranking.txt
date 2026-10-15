@@ -1,0 +1,23 @@
+# Environment: Intel(R) Xeon(R) Processor @ 2.80GHz, 4 vCPU, 16 GB RAM, Docker 29.8.2
+# Engines: PostgreSQL 17.11 (Debian 17.11-1.pgdg13+2); SQL Server 16.0.4295.3 CU27, collation SQL_Latin1_General_CP1_CI_AS
+# Data: schema.sql (4 customers, 8 orders, 10 order lines, 4 categories), loaded fresh before the run
+# Captured: 2026-10-15 08:13 UTC by verify.sh
+# File: verify/sql/queries/09-ranking.sql
+
+-- PostgreSQL (exit code 0)
+id|total|rownumber|rank|denserank
+10|100.00|1|1|1
+11|50.00|2|2|2
+12|50.00|3|2|2
+17|30.00|4|4|3
+(4 rows)
+
+-- SQL Server (exit code 0)
+Id|Total|RowNumber|Rank|DenseRank
+--|-----|---------|----|---------
+10|100.00|1|1|1
+11|50.00|2|2|2
+12|50.00|3|2|2
+17|30.00|4|4|3
+
+(4 rows affected)

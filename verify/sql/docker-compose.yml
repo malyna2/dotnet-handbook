@@ -1,0 +1,19 @@
+# The two engines Chapter 7's SQL querying examples run against. Development and test only.
+# ACCEPT_EULA=Y accepts the SQL Server EULA (verify.sh sets it; set it yourself if you run compose by hand).
+name: handbook-sql
+
+services:
+  postgres:
+    image: postgres:17.11
+    environment:
+      POSTGRES_PASSWORD: "local-only"
+    ports:
+      - "54317:5432"           # unusual ports, so they don't collide with engines you already run
+
+  mssql:
+    image: mcr.microsoft.com/mssql/server:2022-CU27-ubuntu-22.04
+    environment:
+      ACCEPT_EULA: ${ACCEPT_EULA:?set ACCEPT_EULA=Y to accept the SQL Server EULA}
+      MSSQL_SA_PASSWORD: "Local-Only-Passw0rd!"
+    ports:
+      - "14317:1433"

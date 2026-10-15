@@ -1,0 +1,48 @@
+# Environment: Intel(R) Xeon(R) Processor @ 2.80GHz, 4 vCPU, 16 GB RAM, Docker 29.8.2
+# Engines: PostgreSQL 17.11 (Debian 17.11-1.pgdg13+2); SQL Server 16.0.4295.3 CU27, collation SQL_Latin1_General_CP1_CI_AS
+# Data: schema.sql (4 customers, 8 orders, 10 order lines, 4 categories), loaded fresh before the run
+# Captured: 2026-10-15 08:13 UTC by verify.sh
+# File: verify/sql/claims/semi-join-plan-pg.sql
+
+-- PostgreSQL (exit code 0)
+QUERY PLAN
+Hash Join
+  Hash Cond: (c.id = o.customerid)
+  ->  Seq Scan on customers c
+  ->  Hash
+        ->  HashAggregate
+              Group Key: o.customerid
+              ->  Seq Scan on orders o
+(7 rows)
+QUERY PLAN
+Hash Join
+  Hash Cond: (c.id = o.customerid)
+  ->  Seq Scan on customers c
+  ->  Hash
+        ->  HashAggregate
+              Group Key: o.customerid
+              ->  Seq Scan on orders o
+(7 rows)
+QUERY PLAN
+Hash Right Anti Join
+  Hash Cond: (o.customerid = c.id)
+  ->  Seq Scan on orders o
+  ->  Hash
+        ->  Seq Scan on customers c
+(5 rows)
+QUERY PLAN
+Seq Scan on customers c
+  Filter: (NOT (ANY (id = (hashed SubPlan 1).col1)))
+  SubPlan 1
+    ->  Seq Scan on orders o
+(4 rows)
+
+-- SQL Server (exit code 1)
+Msg 102, Level 15, State 1, Server b088a8badf26, Line 2
+Incorrect syntax near 'COSTS'.
+Msg 102, Level 15, State 1, Server b088a8badf26, Line 3
+Incorrect syntax near 'EXPLAIN'.
+Msg 102, Level 15, State 1, Server b088a8badf26, Line 4
+Incorrect syntax near 'EXPLAIN'.
+Msg 102, Level 15, State 1, Server b088a8badf26, Line 5
+Incorrect syntax near 'EXPLAIN'.
