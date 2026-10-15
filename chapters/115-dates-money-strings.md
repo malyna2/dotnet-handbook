@@ -441,3 +441,69 @@ The output is from `verify/path/reference-runs/money-and-rounding.txt` (.NET 10.
 **Inspect.** Search your service for `DateTime.Now`, `DateTime.Parse(` and `ToString(` without a culture or format, `double` or `float` on any amount, `Math.Round(` without a `MidpointRounding`, and `.ToLower()` / `.ToUpper()` / `string.Compare(` in comparisons. In the database, look for money in `float` columns and for instants in `datetime`/`datetime2` columns whose zone nobody wrote down.
 
 **Measure.** Run your test suite with another zone and culture: `TZ=Pacific/Chatham dotnet test` on Linux (UTC+12:45 in winter, +13:45 in summer), and one test fixture that sets `CultureInfo.CurrentCulture = new CultureInfo("tr-TR")`. Every new failure is a place where the machine's context leaked into a result.
+
+## Interview Questions
+
+**`DateTime`, `DateTimeOffset`, `DateOnly`: which one for what?**
+
+<details>
+<summary>Answer</summary>
+
+`DateTimeOffset` for an instant, such as when an order was placed: it carries its offset from UTC, so it identifies one point on the timeline. `DateOnly` for a calendar date with no time, such as a birthday or an invoice date, which a time component would shift across days in a zone conversion. `DateTime` carries only a `Kind` flag, `Unspecified` by default, so a stored `DateTime` usually doesn't say which zone it was in ([The four types, and what each one means](#the-four-types-and-what-each-one-means)).
+</details>
+
+**Why is `DateTime.Now` a bug in server code?**
+
+<details>
+<summary>Answer</summary>
+
+It reads the server's local clock and zone, so the same code gives different results in a container set to UTC, a server in another region, or after a migration. Intervals between local times are also wrong across a DST change, because a local day can be 23 or 25 hours. Capture `DateTimeOffset.UtcNow` (through `TimeProvider`), store and compute in UTC, and convert to the user's zone only for display ([Store and compute in UTC. Always.](#store-and-compute-in-utc-always)).
+</details>
+
+**A nightly job is scheduled for 02:30 local time. What happens on the DST nights?**
+
+<details>
+<summary>Answer</summary>
+
+In spring, 02:30 doesn't exist in zones that jump from 02:00 to 03:00, so the job doesn't run (and `TimeZoneInfo.ConvertTimeToUtc` throws for that time). In autumn, 02:30 happens twice, so a scheduler on local time can run it twice, while .NET's conversion silently picks the standard-time instant. Schedule on UTC, or decide explicitly what the job does in the gap and the overlap ([Daylight Saving Time: gaps and overlaps](#daylight-saving-time-gaps-and-overlaps)).
+</details>
+
+**How do you test code that depends on the current time?**
+
+<details>
+<summary>Answer</summary>
+
+Inject `TimeProvider` (.NET 8+) instead of reading `DateTimeOffset.UtcNow`: production registers `TimeProvider.System`, and tests use `FakeTimeProvider`, set to a chosen instant and moved with `Advance`. Because `TimeProvider` also creates timers and drives `Task.Delay`, timeouts and retries can be tested without waiting ([`TimeProvider`: testable time (.NET 8+)](#timeprovider-testable-time-net-8)).
+</details>
+
+**Why `decimal` and not `double` for money?**
+
+<details>
+<summary>Answer</summary>
+
+`double` is binary floating point and can't represent most decimal fractions: `0.1 + 0.2` is `0.30000000000000004`, and `1.005` is stored as `1.00499999999999989342`, so it rounds to `1.00`. `decimal` is base 10 and represents those values exactly, so sums and roundings come out as an accountant computes them. Keep `double` for measurements, where relative precision matters ([Never use `double` (or `float`) for money](#never-use-double-or-float-for-money)).
+</details>
+
+**What does `Math.Round(2.5m)` return, and why?**
+
+<details>
+<summary>Answer</summary>
+
+`2`. The default midpoint rule is round half to even (banker's rounding), which avoids a systematic upward bias when many values are rounded; `Math.Round(3.5m)` is `4`. For "school" rounding pass `MidpointRounding.AwayFromZero`. Beware that `ToString("F2")` rounds half away from zero, so format the value you already rounded, with an explicit mode, at one defined point ([Rounding, and the surprise of banker's rounding](#rounding-and-the-surprise-of-bankers-rounding)).
+</details>
+
+**How do you store a monetary amount?**
+
+<details>
+<summary>Answer</summary>
+
+Always with its currency, since the number of decimal places depends on it (none for JPY, two for USD, three for BHD). Either as an integer of minor units (`1999` cents and `USD`), as payment providers do, or as a `decimal` with an explicit precision plus the currency code. And when an amount is split, an allocation rule decides where the remainder goes: 100.00 split three ways is 33.33 + 33.33 + 33.34 ([Store money as minor units, and always with its currency](#store-money-as-minor-units-and-always-with-its-currency)).
+</details>
+
+**Why does `"file".ToUpper() == "FILE"` fail on some machines, and how do you compare identifiers?**
+
+<details>
+<summary>Answer</summary>
+
+`ToUpper()` uses the current culture, and in Turkish the uppercase of `i` is the dotted `İ`. Anything a program compares internally (extensions, header names, keys, tokens) should use `StringComparison.Ordinal` or `OrdinalIgnoreCase`, which compare code units and ignore culture; culture-aware comparison is for sorting text a human reads. Analyzers CA1304, CA1305, CA1307 and CA1310 find the implicit calls ([String comparison and sorting: the quiet catastrophe](#string-comparison-and-sorting-the-quiet-catastrophe)).
+</details>
