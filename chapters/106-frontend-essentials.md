@@ -486,7 +486,7 @@ console.log(isOrder(fromServer));    // false
 
 `as` is not a C# cast: it converts and checks nothing. `any` switches checking off; `unknown` is the safe counterpart you must narrow. A function returning `value is Order` is a *type guard*, a runtime check the compiler trusts. Validate at the boundary with a schema library (Zod is common), or use a client generated from your OpenAPI document so at least the types match the contract.
 
-| | C# | TypeScript |
+| Aspect | C# | TypeScript |
 |---|---|---|
 | Compatibility | Nominal: declared inheritance | Structural: matching shape |
 | At run time | Types exist (reflection, `is`, `typeof(T)`) | Erased; plain JavaScript runs |
@@ -579,7 +579,7 @@ A **session** keeps an opaque ID in the cookie and the state in a *shared* serve
 
 ### Cookies, localStorage and sessionStorage: Where Browser State Lives
 
-| | Cookie | `localStorage` | `sessionStorage` |
+| Aspect | Cookie | `localStorage` | `sessionStorage` |
 |---|---|---|---|
 | Sent to the server | Automatically | No | No |
 | Readable by any script on the origin | Not if `HttpOnly` | Yes | Yes |
@@ -1015,6 +1015,44 @@ A short decision guide:
 - **React** (react.dev): state as a snapshot, rules of hooks, synchronizing with effects, rendering lists. **Angular** (angular.dev): DI, signals, zoneless, security. **RxJS** (rxjs.dev).
 - **TypeScript Handbook** (typescriptlang.org); **Vite** (vite.dev); **npm** (docs.npmjs.com): `package-lock.json`, `npm ci`.
 - **web.dev** and the **`web-vitals` README** (GitHub `GoogleChrome/web-vitals`); **WCAG 2.2** and the **ARIA Authoring Practices Guide** (w3.org).
+
+## Three questions
+
+**1.** A clock component calls `setInterval(() => setSeconds(seconds + 1), 1000)` inside `useEffect(..., [])`. The display goes from 0 to 1 and stays at 1, although the interval keeps firing every second. Why, and why is adding `seconds` to the dependency array a worse fix than it looks?
+
+<details>
+<summary>Answer</summary>
+
+- **The callback belongs to the first render.** The effect ran once, after the first render, and the arrow function it gave `setInterval` closed over that render's `seconds`, a constant 0 ([State and Re-rendering](#state-and-re-rendering)). Every tick computes `0 + 1`.
+- **Then React stops listening.** From the second tick on, the setter receives 1 while the state is already 1. React compares with `Object.is`, finds nothing changed, and skips the re-render, so nothing on screen moves although the timer runs.
+- **`[seconds]` works by tearing the timer down every second.** Each change re-runs the effect: the cleanup clears the old interval (if there is a cleanup; without one, intervals pile up) and a new one starts, so the tick drifts by however long each render takes. The effect now restarts on every state change it causes ([Effects and Their Dependency Arrays](#effects-and-their-dependency-arrays)).
+
+Fix: keep `[]` and stop reading the snapshot: `setSeconds((s) => s + 1)` receives the current value from React on every tick. Return `() => clearInterval(id)` as the cleanup, which `<StrictMode>`'s setup, cleanup, setup in development will exercise.
+</details>
+
+**2.** A design system styles buttons with `#app .btn { background: gray; }`. Your `.btn-primary { background: blue; }` comes later in the stylesheet and doesn't apply. `!important` makes it work, and two weeks later another team's `!important` beats yours. Why doesn't the later rule win, and what ends the escalation?
+
+<details>
+<summary>Answer</summary>
+
+- **Order is the last tie-breaker, not the first.** The cascade compares origin and importance, then layers, then specificity, and only then order ([The Cascade and Specificity](#the-cascade-and-specificity)). `#app .btn` scores (1, 1, 0) against `.btn-primary`'s (0, 1, 0): the ID decides, and order is never consulted.
+- **`!important` moves the fight, it doesn't end it.** An important declaration beats every normal one, but among important declarations the same comparison runs again: layers, specificity, order. The next team's `!important` with a longer selector wins the same way the ID did.
+- **The cause is the design system's selector.** An ID in a shared component style makes every override need an ID or `!important`.
+
+Fix: lower the specificity at the source. Put the design system's styles in an `@layer`, so any unlayered rule beats them whatever its selector, or write them inside `:where()`, which counts as zero specificity. In your own code, rely on scoped styles (CSS Modules, component styles) so you never compete with global selectors at all.
+</details>
+
+**3.** The SPA on `app.example.com` calls the API on `api.example.com` with a session cookie set `SameSite=Lax`, and it works. The API moves to `example-api.net`; CORS allows the SPA's origin with credentials, the SPA sends `credentials: "include"`, and yet every call after login answers `401`: the session cookie never comes back. Why?
+
+<details>
+<summary>Answer</summary>
+
+- **`SameSite` compares sites, not origins.** A site is the scheme plus the registrable domain. `app.example.com` and `api.example.com` are two origins of one site, so the browser treated the calls as same-site and sent the `Lax` cookie ([Cookies and Sessions](#cookies-and-sessions)).
+- **`example-api.net` is another site.** A `Lax` cookie goes cross-site only on top-level navigations with safe methods. A `fetch` from the page is neither, so the browser leaves the cookie out, whatever CORS says: CORS decides whether the script may *read* the response, not which cookies the request carries.
+- **`SameSite=None; Secure` is not a reliable way back.** It allows the cookie cross-site, but it is now a third-party cookie, and browsers that block those by default, Safari among them, still withhold it.
+
+Fix: keep the SPA and the API on one site (`api.example.com`), or serve both from one origin, for example through a BFF that holds the session ([Chapter 34](#chapter-34-frontend-and-full-stack-in-depth) covers the BFF). Then the cookie is first-party and `Lax` (or `Strict`) keeps its CSRF protection.
+</details>
 
 ## Exercises
 
