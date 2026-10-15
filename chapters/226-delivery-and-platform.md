@@ -1081,3 +1081,148 @@ Where the time usually goes, in rough order of payoff:
 - **Measure it.** Track p50 and p95 pipeline duration as a metric your team actually looks at, the same way you'd track service latency. Slow CI degrades continuously and silently until someone charts it.
 
 **Monorepo or many repos** shapes all of this. A monorepo gives atomic cross-service changes, one dependency version, and trivially consistent tooling, at the cost of needing affected-target selection and good ownership boundaries to stay fast. Many repositories give independence and simple CI at the cost of coordinating changes that cross boundaries, and of versioning your internal libraries as if they were public. Both work at scale; what does not work is a monorepo without build-graph tooling, or polyrepo without a way to propagate a change across forty repositories. Pick the failure mode you can afford to engineer around.
+
+## Practice
+
+**1. A zero-downtime deployment rehearsal (2 h 30 min).** Create a local cluster with `kind` (Kubernetes in Docker), load an image of a small ASP.NET Core API into it, and apply the chapter's manifests from [Kubernetes YAML for a .NET Deployment](#kubernetes-yaml-for-a-net-deployment): three replicas, separate liveness and readiness endpoints, requests and limits. Put a constant load on the Service with k6 ([Chapter 25: Load Testing](#load-testing-proving-it-under-pressure)) and count every response that isn't a `2xx`. Then, under that load:
+
+- *Roll out* a new image tag with `kubectl set image` and watch `kubectl rollout status`. Record the failed requests.
+- *Break it, one change at a time,* and record the failures for each: remove the readiness probe and add a ten-second delay to startup; switch the Dockerfile to the shell form of `ENTRYPOINT`, so `SIGTERM` never reaches .NET ([Chapter 14: Processes, Signals, Graceful Shutdown](#processes-signals-graceful-shutdown)).
+- *Find the last few errors.* With both fixed, a handful of failures can remain at the moment old pods stop. Kubernetes sends `SIGTERM` and removes the pod from the Service's endpoints at the same time, not one after the other, so for a moment traffic still arrives at a pod that is shutting down. Add a `preStop` hook with the `sleep` action (the kubelet runs it, so it works in an image without a shell) for a few seconds, keep `terminationGracePeriodSeconds` above the sleep plus the app's own shutdown time, and roll out again.
+- *Roll back* with `kubectl rollout undo` and time it, from the command to the old version serving every request.
+
+**2. Release behind a flag (45 min).** Put a changed code path behind `Microsoft.FeatureManagement` ([Feature Flags](#feature-flags)) with a percentage filter, enable it for 10% of requests, then turn it off again without a deployment. Finish the job the pitfall describes: delete the flag and the losing path in a final commit.
+
+**3. Your pipeline's numbers (30 min).** From the CI history of a repository you own, compute the p50 and p95 pipeline duration over the last month and the share of runs that failed, and name the step that takes the most time ([Feedback loop time](#feedback-loop-time-is-a-first-class-engineering-problem)).
+
+**Evidence to keep**, in your own public portfolio repo, not in this one: the manifests, the k6 script, a table of failed requests for each experiment with the cluster's Kubernetes version, the rollback time, and the flag's three commits. Deployment details of a real employer's system stay private.
+
+Later, if you need it: [Chapter 18: Migrations at Scale](#migrations-at-scale-zero-downtime) for the schema half of a zero-downtime release, and [Chapter 11: Graceful shutdown and the `CancellationToken`](#graceful-shutdown-and-the-cancellationtoken) for the application's half of shutdown.
+
+## Three questions
+
+**1.** The database had a 40-second failover. Afterwards every pod of the API had restarted at the same moment, and the outage lasted four minutes instead of 40 seconds. Why did Kubernetes restart healthy processes, and what do you change?
+
+<details>
+<summary>Answer</summary>
+
+- **The liveness probe checked the database.** A failing liveness probe means "this process is wedged", and the kubelet's answer is to kill and restart the container. When the database blipped, every pod's liveness probe failed together, so every pod restarted together, and then all of them paid their startup cost and refilled their connection pools against a database that had just come back ([Health probes](#health-probes-liveness-readiness-startup)).
+- **What liveness should check:** only that the process itself is responsive, cheaply. Dependency health belongs in readiness, whose failure removes the pod from the Service without killing it, so traffic returns the moment the database does.
+- **The general rule:** a probe's action has to match what its failure means. Restarting a process can't fix a dependency, so no probe that restarts should depend on one.
+</details>
+
+**2.** You configured ASP.NET Core's rate limiter for 100 requests per minute per client. During a scraping incident one client made close to 1,000 requests a minute, and got a fresh allowance each time a pod was replaced. Why?
+
+<details>
+<summary>Answer</summary>
+
+- **The built-in limiter keeps its counters in the process.** With ten replicas behind the load balancer, each one counts only the requests it sees, so the real limit is up to ten times the configured one, and a new pod starts with empty counters ([Rate limiting against someone who is trying](#rate-limiting-against-someone-who-is-trying)).
+- **What it is good for:** self-protection, so one instance isn't overwhelmed. It is not a system-wide policy.
+- **The fix:** keep the in-process limiter as a backstop, and put the real policy where the counter is shared: Redis, the API gateway or the CDN, as far out as possible, so the requests you reject never reach anything you pay for. Choose the key with care, too: per account or tenant for authenticated traffic, and per /64 prefix for IPv6.
+</details>
+
+**3.** A blue-green release went wrong, and the team flipped the router back to blue within a minute, as designed. Blue then failed on every write. Why wasn't the rollback instant, and what makes it so?
+
+<details>
+<summary>Answer</summary>
+
+- **Blue-green swaps the code, not the data.** Green's release had run a migration that renamed a column. The database is shared by both colours, so blue came back to a schema it no longer understood ([Deployment Strategies](#deployment-strategies)).
+- **Rollback is instant only for what the switch covers.** Rolling deployments, blue-green and canaries all run old and new code against the same database at some point, so every schema change has to be one both versions tolerate.
+- **The fix is expand and contract** ([Chapter 18: Migrations at Scale](#migrations-at-scale-zero-downtime)): add the new column and write both in one release, move reads in the next, and drop the old column only when no version that might be rolled back to still reads it. Then the router flip really is the whole rollback.
+</details>
+
+## Decide
+
+A team of six runs one ASP.NET Core service on Kubernetes and deploys three times a week with the default rolling update. Last month a release returned `500` for orders in one currency, about 2% of traffic. A customer reported it after 20 minutes, and the rollback took another 15, because the pipeline rebuilt the previous version from source. Three proposals:
+
+1. Move to blue-green deployments.
+2. Move to canary releases: send 5% of traffic to the new version, compare its error rate with the stable version, and promote or roll back automatically.
+3. Keep rolling updates, make rollback a redeploy of the previous image, alert on the `5xx` rate, and put risky behaviour changes behind feature flags.
+
+<details>
+<summary>How a senior engineer weighs it</summary>
+
+**What each costs.**
+
+- *Blue-green:* double capacity during each switch, and a rollback that is one router flip. But the flip sends everyone to green at once, so a bug that hits 2% of requests is still exposed to all users until someone notices, and the detection problem is untouched.
+- *Canary:* traffic splitting at the ingress or a mesh, and automated analysis that compares the two versions. It limits exposure, but at 5% of traffic a bug that hits 2% of requests is 0.1% of the total, which the analysis catches only if the service has enough volume and the metric is the right one. It is the most infrastructure of the three.
+- *Fix rollback, detection and release:* days. Redeploying the image that was running before takes seconds, because it was built once and is still in the registry ([Deployment Strategies](#deployment-strategies)). An alert on the `5xx` rate catches the next one in minutes instead of a customer email. A flag would have let the currency change ship dark and then be enabled for internal users first ([Feature Flags](#feature-flags)).
+
+**What decides it here:** the 35 minutes went to detection (20) and to a rollback that rebuilt from source (15). Neither is about how traffic moves to the new version.
+
+**The choice.** Option 3 now. Revisit canaries once the alerting is trusted and traffic is high enough for a 5% slice to show a small error rate within minutes; then the analysis has a signal to work with.
+
+**What would change it.** A strict SLO with heavy traffic makes canaries pay. Long-lived connections (SignalR, gRPC streams) that should drain on their own schedule favour blue-green. A change that can't be flagged, such as a runtime upgrade, is where a canary earns its cost first.
+</details>
+
+## Check at work
+
+**Inspect.** Does any liveness endpoint call a database, a cache or another service? Is the `ENTRYPOINT` in exec form, and is `terminationGracePeriodSeconds` longer than the app's shutdown timeout plus any `preStop` sleep? Does every container set requests and limits? Is the artifact that reaches production the one that passed staging, or is it rebuilt per environment? Which feature flags are older than three months? Where are your rate limits enforced: in the process only, or at a gateway or CDN with a shared counter?
+
+**Measure.** Non-`2xx` responses during your last deployment window, against the same window a day earlier. Time from a rollback decision to the previous version serving all traffic. Deployment frequency and change failure rate over the last quarter, read together. The p50 and p95 duration of your main pipeline.
+
+## Interview Questions
+
+**Liveness, readiness and startup probes: what does each do when it fails?**
+
+<details>
+<summary>Answer</summary>
+
+A failing liveness probe gets the container killed and restarted, so it should check only that the process is responsive. A failing readiness probe removes the pod from the Service's endpoints without restarting it, which is where dependency health belongs. A startup probe holds off the other two until the app has started, so a slow starter isn't killed by liveness. See [Health probes](#health-probes-liveness-readiness-startup).
+</details>
+
+**What happens when a container exceeds its CPU limit, and its memory limit?**
+
+<details>
+<summary>Answer</summary>
+
+CPU is compressible: past the limit the container is throttled, so it gets slower, but it isn't killed. Memory isn't: past the limit the kernel OOM-kills the container. Requests are different again: they are the guaranteed share the scheduler uses to place the pod. See [Resource requests and limits](#resource-requests-and-limits).
+</details>
+
+**The HPA targets 70% CPU utilization. 70% of what, and why does it matter?**
+
+<details>
+<summary>Answer</summary>
+
+Of each pod's CPU request, not of its limit or the node. A request set too low makes utilization read high and scales out early; set too high, it scales out late. The HPA also needs the metrics-server to supply the numbers. See [Horizontal Pod Autoscaler](#horizontal-pod-autoscaler-hpa).
+</details>
+
+**Rolling, blue-green or canary: what does each cost and buy?**
+
+<details>
+<summary>Answer</summary>
+
+Rolling needs no extra capacity, but old and new versions serve traffic side by side for a while. Blue-green doubles the infrastructure during the switch and gives an instant rollback by flipping the router. A canary exposes a small share of traffic first and widens it while the metrics stay healthy, at the cost of traffic splitting and good observability. In all three the database must tolerate both versions. See [Deployment Strategies](#deployment-strategies).
+</details>
+
+**Why build an artifact once and promote it, instead of building per environment?**
+
+<details>
+<summary>Answer</summary>
+
+Because a rebuild is a different artifact: dependencies may resolve differently and the build environment may have changed, so what passed staging is not what reaches production. One immutable artifact, tagged by commit SHA or version and promoted through environments, means you know exactly what runs, and a rollback is a redeploy of something that already exists. See [Deployment Strategies](#deployment-strategies).
+</details>
+
+**L4 or L7 load balancer: what can each see, and when does it matter?**
+
+<details>
+<summary>Answer</summary>
+
+An L4 balancer routes by IP address and port and never sees HTTP, so it balances connections. An L7 balancer reads the HTTP request, so it can route by path, host, header or cookie, terminate TLS, and balance individual requests. It matters whenever one connection carries many requests, as with gRPC over HTTP/2. See [Load Balancers: L4 vs L7](#load-balancers-l4-vs-l7).
+</details>
+
+**Fixed window, sliding window or token bucket for an API rate limit?**
+
+<details>
+<summary>Answer</summary>
+
+A fixed window lets a client spend a full allowance at the end of one window and again at the start of the next, twice the intended rate at the boundary. A sliding window fixes that with more state. A token bucket is usually the right default for APIs because it allows a bounded burst, like a page load firing a dozen requests, and refills steadily. For expensive endpoints, a concurrency limit protects the resource better than any rate. See [Rate limiting against someone who is trying](#rate-limiting-against-someone-who-is-trying).
+</details>
+
+**What are the DORA metrics, and why read deployment frequency and change failure rate together?**
+
+<details>
+<summary>Answer</summary>
+
+Deployment frequency, lead time for changes, change failure rate and failed deployment recovery time. They measure throughput and stability, not value. Each can be gamed alone: frequency rises with reckless shipping, and failure rate falls with paralysis, so only the pair shows improvement. Use them as a team's own trend, never to compare teams or people. See [DORA](#dora-four-metrics-and-exactly-how-each-is-gamed).
+</details>
