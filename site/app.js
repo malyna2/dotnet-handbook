@@ -36,6 +36,7 @@ var UI = {
     resume:"Continue where you got to", readOrder:"Read it in order", browse:"Browse chapters",
     chapters:"chapters", chapter:"Chapter", appendix:"Appendix", previous:"← Previous",
     next:"Next →", noResults:"No results", themeToast:"Theme: ",
+    swipeHint:"Tip: swipe right for chapters, left for the sections of this page.",
     dark:"dark", light:"light", auto:"auto"
   },
   uk: {
@@ -48,14 +49,15 @@ var UI = {
     resume:"Продовжити з місця, де зупинилися", readOrder:"Читайте послідовно", browse:"Усі розділи",
     chapters:"розділів", chapter:"Розділ", appendix:"Додаток", previous:"← Назад",
     next:"Далі →", noResults:"Нічого не знайдено", themeToast:"Тема: ",
+    swipeHint:"Порада: проведіть праворуч, щоб побачити розділи, і ліворуч — щоб побачити зміст цієї сторінки.",
     dark:"темна", light:"світла", auto:"автоматична"
   }
 };
 function ui(key){ return UI[language][key]; }
 function localizeShell(){
   document.documentElement.lang=language;
-  ["menuBtn", "themeBtn"].forEach(function(id){
-    var el=document.getElementById(id), label=ui(id==="menuBtn"?"menu":"theme");
+  ["menuBtn", "themeBtn", "outlineBtn"].forEach(function(id){
+    var el=document.getElementById(id), label=ui(id==="menuBtn"?"menu":id==="themeBtn"?"theme":"outline");
     el.title=label; el.setAttribute("aria-label",label);
   });
   document.getElementById("brandHome").textContent=ui("brand");
@@ -492,6 +494,7 @@ function postProcess(c){
 }
 function buildOutline(c){
   var hs=content.querySelectorAll("h2, h3");
+  var ob=document.getElementById("outlineBtn"); if(ob) ob.hidden=!hs.length;
   if(!hs.length){ outlineEl.innerHTML=""; return; }
   var html='<div class="ol-title">'+ui("outline")+'</div>';
   hs.forEach(function(h){ if(!h.id)h.id=Math.random().toString(36).slice(2);
@@ -500,7 +503,7 @@ function buildOutline(c){
   outlineEl.innerHTML=html;
   outlineEl.querySelectorAll("a").forEach(function(a){
     a.addEventListener("click",function(ev){ev.preventDefault();
-      closeSidebar();          // on mobile the outline lives in the drawer — get out of the way
+      closeSidebar();          // on smaller screens the outline is a drawer — get out of the way
       var t=document.getElementById(a.dataset.id); if(t)t.scrollIntoView();});
   });
 }
@@ -622,13 +625,64 @@ document.getElementById("languageToggle").addEventListener("change",function(){
   switchLanguage(this.checked?"uk":"en");
 });
 
-/* ---------------- Sidebar (mobile) ---------------- */
+/* ---------------- Drawers (tablet and phone) ----------------
+   Two drawers share one scrim: the chapter list slides in from the left (phones; on tablets the
+   sidebar is always visible), the outline of the current page from the right (phones and
+   tablets; wide screens keep it as a fixed right rail). The ☰ and § buttons open them, and so
+   does a horizontal swipe: left-to-right for chapters, right-to-left for this page's sections.
+   A swipe the other way closes the open drawer. Desktop layouts are unchanged. */
 var sidebar=document.getElementById("sidebar"), scrim=document.getElementById("scrim");
-document.getElementById("menuBtn").addEventListener("click",function(){
-  sidebar.classList.toggle("open"); scrim.classList.toggle("show");
-});
-function closeSidebar(){sidebar.classList.remove("open");scrim.classList.remove("show");}
+var menuBtn=document.getElementById("menuBtn"), outlineBtn=document.getElementById("outlineBtn");
+var drawer=null;                       // null | "nav" | "outline"
+function setDrawer(which){
+  drawer=which;
+  sidebar.classList.toggle("open",which==="nav");
+  outlineEl.classList.toggle("open",which==="outline");
+  scrim.classList.toggle("show",!!which);
+  menuBtn.setAttribute("aria-expanded",which==="nav"?"true":"false");
+  outlineBtn.setAttribute("aria-expanded",which==="outline"?"true":"false");
+}
+function closeSidebar(){ setDrawer(null); }
+function viewportWidth(){ return window.innerWidth||document.documentElement.clientWidth||9999; }
+function canOpen(which){            // the same breakpoints as style.css
+  if(which==="nav") return viewportWidth()<=820;
+  return viewportWidth()<=1100 && !outlineBtn.hidden;
+}
+menuBtn.addEventListener("click",function(){ setDrawer(drawer==="nav"?null:"nav"); });
+outlineBtn.addEventListener("click",function(){ setDrawer(drawer==="outline"?null:"outline"); });
 scrim.addEventListener("click",closeSidebar);
+document.addEventListener("keydown",function(ev){ if(ev.key==="Escape" && drawer) closeSidebar(); });
+// A swipe is one finger, mostly horizontal, at least 60px, within 700ms. It is ignored where a
+// horizontal drag means something else: code blocks and tables that scroll sideways, inputs, the
+// search results and the What's New popup, and while text is being selected.
+var swipe=null;
+document.addEventListener("touchstart",function(ev){
+  swipe=null;
+  if(!ev.touches || ev.touches.length!==1) return;
+  var t=ev.target;
+  if(t && t.closest && t.closest("pre,.table-wrap,input,textarea,.search-results,.modal")) return;
+  swipe={x:ev.touches[0].clientX, y:ev.touches[0].clientY, t:Date.now()};
+},{passive:true});
+document.addEventListener("touchend",function(ev){
+  if(!swipe || !ev.changedTouches || !ev.changedTouches.length) return;
+  var p=ev.changedTouches[0], dx=p.clientX-swipe.x, dy=p.clientY-swipe.y, dt=Date.now()-swipe.t;
+  swipe=null;
+  if(dt>700 || Math.abs(dx)<60 || Math.abs(dy)>Math.abs(dx)*0.6) return;
+  var sel=window.getSelection && window.getSelection(); if(sel && String(sel).length) return;
+  if(dx>0){                          // left → right
+    if(drawer==="outline") closeSidebar();
+    else if(!drawer && canOpen("nav")) setDrawer("nav");
+  } else {                           // right → left
+    if(drawer==="nav") closeSidebar();
+    else if(!drawer && canOpen("outline")) setDrawer("outline");
+  }
+},{passive:true});
+// Tell touch readers about the gestures once.
+function swipeHintOnce(){
+  if(!("ontouchstart" in window) || viewportWidth()>1100) return;
+  try{ if(localStorage.getItem("swipeHint")) return; localStorage.setItem("swipeHint","1"); }catch(e){ return; }
+  toast(ui("swipeHint"),6000);
+}
 document.getElementById("brandHome").addEventListener("click",function(){navigate(BOOK[0].slug);});
 
 /* ---------------- Reading progress + scrollspy ---------------- */
@@ -764,5 +818,6 @@ loadEdition(wantedLanguage,function(){
   go(currentSlug()||BOOK[0].slug,false);
   try{ localStorage.removeItem("last"); }catch(e){}   // no longer used
   wnMaybeShow();
+  swipeHintOnce();
 });
 })();
