@@ -16,16 +16,12 @@ Every discussion of architecture eventually reduces to two words: **coupling** a
 
 > **The golden rule: aim for high cohesion and low coupling.** Related things live together; unrelated things can change independently. Almost every architectural pattern in this chapter is a specific technique for achieving that one goal.
 
-An analogy: think of a well-organized kitchen. The knives are together (cohesion), and rearranging the spice rack doesn't require moving the refrigerator (low coupling). A badly organized kitchen has forks in three drawers and requires you to empty the pantry to reach the salt. Software rots the same way — one careless dependency at a time.
-
 Coupling isn't binary; it comes in flavors, roughly from worst to least harmful:
 
 - **Content coupling** — one module reaches into another's private data. Avoid entirely.
 - **Common coupling** — modules share global mutable state. Fragile.
 - **Control coupling** — one module passes a flag that dictates another's control flow (`DoThing(isPreview: true)`).
 - **Data coupling** — modules communicate only through simple parameters. This is the goal.
-
-The cost of getting this wrong compounds. Cheap-to-change software wins in the long run not because it's elegant but because businesses change their minds, and the system that bends survives.
 
 ## Domain-Driven Design
 
