@@ -1,11 +1,11 @@
 {
   "00-frontmatter": {
-    "source": "0fe06205bedde9ac537006a464279fc205619cc7e1e871d3e94acc0ccd1266ab",
-    "translation": "a459314264f30b6ebabba6f390cf822724c0239c49a2d59cb3f220105eed4abf"
+    "source": "27685e4f322cc5bb353df4c4fa291c12279103a910441444598646bc77e17d00",
+    "translation": "35afbdd3c457371e30eb0c676d457f9451d1b06aaaf363a3ff085ed3e7182ec6"
   },
   "100-part-1": {
-    "source": "503b0a03aee5817fec5c4e0c80bfa46fc90763422f4aa89a7e84716447ee8363",
-    "translation": "66f1b357e42e511bd3d5b5d475c19aebbb1e63c17013c071bfd46dd87ef14816"
+    "source": "72a3a2be413f731e3f1a847f5921fa8d0c149c6a8cba11306aa1a0511e1f2646",
+    "translation": "a59ca2e61c792f9d782ec2018412a7c489ac0ad7817b9ce11767ffb6f26fc84a"
   },
   "101-csharp-essentials": {
     "source": "2f74722c66eb61d1dd74fc06ee16ef9d71733103252c218cef81debb75cfa127",
@@ -76,8 +76,8 @@
     "translation": "cad192304a731d729acc0accec37f41697ebe3810ce8bb409c061c72c1e323fe"
   },
   "200-part-2": {
-    "source": "94781b01a6f3346bb6ef20df8e58666ff4356ca08d4c93c0dd98a9470f12027c",
-    "translation": "daa6a134afd001830ad9e040a8187e19ec89b0a23d579480f59b82248136d946"
+    "source": "44d6d2ca8e127b7f398bbc55ce0795ede332842aa13d0284a11893134acae821",
+    "translation": "ae8cbcb010d04fa9bb8ccc6cac3c336380dd7da994fae6b24f7c9f08fc56a81d"
   },
   "217-runtime-internals-performance": {
     "source": "c426765722ae600ba7d9a875d744514635a484cd09ddb5d6607804850ee19c5a",

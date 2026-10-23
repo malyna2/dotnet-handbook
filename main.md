@@ -25,7 +25,7 @@ This book grew out of a simple roadmap — a checklist of "things a middle .NET 
 
 ## Contents
 
-> **Total study time: about 43 hours** — Part 1 about 16 hours, Part 2 about 27 hours (reading prose at ~200 wpm and every code sample at ~60 wpm, the pace behind each chapter's own estimate). A straight read (prose at ~250 wpm, code at ~100) is closer to **32 hours**; a quick skim (~300 and ~200 wpm), **24 hours**. Practice and labs come on top.
+> **Total study time: about 42 hours** — Part 1 about 16 hours, Part 2 about 26 hours (reading prose at ~200 wpm and every code sample at ~60 wpm, the pace behind each chapter's own estimate). A straight read (prose at ~250 wpm, code at ~100) is closer to **31 hours**; a quick skim (~300 and ~200 wpm), **24 hours**. Practice and labs come on top.
 
 Use the **sidebar** on the left (or the cards below) to jump to any chapter; the **Next →** button at the bottom of every page walks the book in reading order.
 
@@ -63,17 +63,17 @@ Before an interview, reread [Part 1 · Pay Attention To](#part-1-pay-attention-t
 | 2 | [Data Structures and Algorithms Essentials](#chapter-2-data-structures-and-algorithms-essentials) | 40 min |
 | 3 | [How .NET Runs Your Code](#chapter-3-how-net-runs-your-code) | 35 min |
 | 4 | [Async Essentials](#chapter-4-async-essentials) | 45 min |
-| 5 | [HTTP and Web APIs](#chapter-5-http-and-web-apis) | 1 h 10 min |
+| 5 | [HTTP and Web APIs](#chapter-5-http-and-web-apis) | 1 h 5 min |
 | 6 | [Frontend Essentials](#chapter-6-frontend-essentials) | 1 h 25 min |
 | 7 | [Data Access](#chapter-7-data-access) | 1 h 40 min |
 | 8 | [Testing](#chapter-8-testing) | 45 min |
 | 9 | [Exceptions, Logging and First Diagnosis](#chapter-9-exceptions-logging-and-first-diagnosis) | 1 h 10 min |
-| 10 | [Design Basics](#chapter-10-design-basics) | 1 h 20 min |
+| 10 | [Design Basics](#chapter-10-design-basics) | 1 h 15 min |
 | 11 | [Messaging and Background Work](#chapter-11-messaging-and-background-work) | 1 h |
 | 12 | [Security Essentials](#chapter-12-security-essentials) | 45 min |
 | 13 | [Git and CI/CD](#chapter-13-git-and-cicd) | 40 min |
-| 14 | [Containers and Linux](#chapter-14-containers-and-linux) | 55 min |
-| 15 | [Dates, Money and Strings](#chapter-15-dates-money-and-strings) | 40 min |
+| 14 | [Containers and Linux](#chapter-14-containers-and-linux) | 50 min |
+| 15 | [Dates, Money and Strings](#chapter-15-dates-money-and-strings) | 35 min |
 | 16 | [Working Like a Middle Developer](#chapter-16-working-like-a-middle-developer) | 50 min |
 
 
@@ -12906,7 +12906,7 @@ _⏱️ Estimated read time: ~10 min · 1579 words (study pace)_
 
 # Part 2: Middle → Senior
 
-_⏱️ Estimated read time: ~5 min · 622 words (study pace)_
+_⏱️ Estimated read time: ~5 min · 620 words (study pace)_
 
 > **What Part 2 makes you able to do.** Explain why the platform behaves the way it does under load, keep data and messages consistent across services and over time, choose an architecture and defend its trade-offs, run what you build in production and in the cloud, build with and around AI, and make the decisions a team trusts a senior with: what to build, what to defer, and what to write down.
 
@@ -12924,27 +12924,27 @@ Before an interview, reread [Part 2 · Pay Attention To](#part-2-pay-attention-t
 
 | Chapter | | Reading |
 |---|---|---|
-| 17 | [Runtime Internals and Performance](#chapter-17-runtime-internals-and-performance) | 1 h |
-| 18 | [Data in Depth](#chapter-18-data-in-depth) | 1 h |
+| 17 | [Runtime Internals and Performance](#chapter-17-runtime-internals-and-performance) | 55 min |
+| 18 | [Data in Depth](#chapter-18-data-in-depth) | 55 min |
 | 19 | [The Slow-Query Lab — Reading Execution Plans](#chapter-19-the-slow-query-lab-reading-execution-plans) | 40 min |
 | 20 | [Distributed Systems](#chapter-20-distributed-systems) | 1 h 15 min |
 | 21 | [Architecture](#chapter-21-architecture) | 30 min |
 | 22 | [API Evolution, Real-Time and Serialization](#chapter-22-api-evolution-real-time-and-serialization) | 1 h |
 | 23 | [System Design](#chapter-23-system-design) | 1 h |
-| 24 | [Working with Legacy & Brownfield Code](#chapter-24-working-with-legacy-brownfield-code) | 50 min |
-| 25 | [Observability and Testing at Scale](#chapter-25-observability-and-testing-at-scale) | 1 h 5 min |
-| 26 | [Delivery and Platform](#chapter-26-delivery-and-platform) | 1 h 30 min |
-| 27 | [Security in Depth and the Supply Chain](#chapter-27-security-in-depth-and-the-supply-chain) | 55 min |
+| 24 | [Working with Legacy & Brownfield Code](#chapter-24-working-with-legacy-brownfield-code) | 45 min |
+| 25 | [Observability and Testing at Scale](#chapter-25-observability-and-testing-at-scale) | 1 h |
+| 26 | [Delivery and Platform](#chapter-26-delivery-and-platform) | 1 h 25 min |
+| 27 | [Security in Depth and the Supply Chain](#chapter-27-security-in-depth-and-the-supply-chain) | 50 min |
 | 28 | [Cloud Fundamentals — AWS & Azure](#chapter-28-cloud-fundamentals-aws-azure) | 30 min |
 | 29 | [Azure in Depth for .NET Developers](#chapter-29-azure-in-depth-for-net-developers) | 1 h 35 min |
 | 30 | [The Azure Casebook — Real Incidents, Real Fixes](#chapter-30-the-azure-casebook-real-incidents-real-fixes) | 55 min |
 | 31 | [Compliance, Data Privacy & Cloud Cost (FinOps)](#chapter-31-compliance-data-privacy-cloud-cost-finops) | 30 min |
-| 32 | [The AI-Native Developer — Thriving in the AI Era](#chapter-32-the-ai-native-developer-thriving-in-the-ai-era) | 1 h 10 min |
+| 32 | [The AI-Native Developer — Thriving in the AI Era](#chapter-32-the-ai-native-developer-thriving-in-the-ai-era) | 1 h 5 min |
 | 33 | [Building AI-Powered Systems](#chapter-33-building-ai-powered-systems) | 1 h 25 min |
 | 34 | [Frontend and Full-Stack in Depth](#chapter-34-frontend-and-full-stack-in-depth) | 50 min |
 | 35 | [Production Incidents](#chapter-35-production-incidents) | 1 h 35 min |
-| 36 | [Senior Behaviours, Career and Interviews](#chapter-36-senior-behaviours-career-and-interviews) | 25 min |
-| 37 | [The Story Bank & Evidence Portfolio](#chapter-37-the-story-bank-evidence-portfolio) | 55 min |
+| 36 | [Senior Behaviours, Career and Interviews](#chapter-36-senior-behaviours-career-and-interviews) | 20 min |
+| 37 | [The Story Bank & Evidence Portfolio](#chapter-37-the-story-bank-evidence-portfolio) | 50 min |
 | 38 | [Having a Point of View](#chapter-38-having-a-point-of-view) | 1 h 5 min |
 | 39 | [Discovery and Diagnosis](#chapter-39-discovery-and-diagnosis) | 55 min |
 | 40 | [Lab — The .NET Health Check](#chapter-40-lab-the-net-health-check) | 35 min |
