@@ -16238,7 +16238,7 @@ Small teams, early-stage products, unclear domain boundaries, or when the operat
 
 # Chapter 22: API Evolution, Real-Time and Serialization
 
-_⏱️ Estimated read time: ~1 h · 9819 words (study pace)_
+_⏱️ Estimated read time: ~1 h · 9767 words (study pace)_
 
 Every non-trivial system eventually stops being a single process holding objects in memory. The moment your data crosses a boundary — a socket, a message broker, a file on disk, a cache, an HTTP response — those in-memory objects have to be flattened into a sequence of bytes and reconstructed on the other side. That flattening is *serialization*, and the reconstruction is *deserialization*. The decisions you make here quietly determine how fast your service is, how much you pay for network and storage, whether two teams can deploy independently, and whether a schema change ships smoothly on a Tuesday or triggers a 2 a.m. incident.
 
@@ -16262,8 +16262,6 @@ A useful mental model: the format is the *encoding*; the schema is the *contract
 **Text formats** (JSON, XML, CSV) encode data as human-readable characters. Their killer feature is that you can read them with your eyes, `curl` them, paste them into a bug report, and parse them in any language without a schema definition. Their costs are size (field names and delimiters repeated everywhere; numbers stored as digit strings) and speed (character-by-character parsing, escape handling, string allocation).
 
 **Binary formats** (Protobuf, MessagePack, Avro, and the built-in binary paths) encode data compactly using length prefixes, integer tags, and native numeric layouts. They're smaller and faster but opaque — you generally need the schema (or at least a decoder) to make sense of the bytes.
-
-The rule of thumb: **text at the edges where humans and heterogeneous clients live; binary in the interior where machines talk to machines at volume.**
 
 ## JSON in Modern .NET: `System.Text.Json`
 
@@ -16741,7 +16739,7 @@ message OrderPlaced {
 }
 ```
 
-Field 5 stayed 5. We never renumbered, never reused, never changed a type. Each step was independently deployable. That is what safe schema evolution looks like in practice: a sequence of additive changes, a deliberate deprecation window, and permanent reservations — never a big-bang rename.
+Field 5 stayed 5. We never renumbered, never reused, never changed a type. Each step was independently deployable.
 
 > **Contract testing** — verifying that a specific consumer and producer actually agree on the contract, using tools like **Pact** — is a complementary safety net to everything in this chapter so far. Schema compatibility rules prove your schemas *can* evolve safely; contract tests prove two concrete services *do* agree right now. [Chapter 25](#contract-testing-killing-the-integration-test-explosion) covers Pact and consumer-driven contract testing in depth.
 

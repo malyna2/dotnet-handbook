@@ -23,8 +23,6 @@ A useful mental model: the format is the *encoding*; the schema is the *contract
 
 **Binary formats** (Protobuf, MessagePack, Avro, and the built-in binary paths) encode data compactly using length prefixes, integer tags, and native numeric layouts. They're smaller and faster but opaque — you generally need the schema (or at least a decoder) to make sense of the bytes.
 
-The rule of thumb: **text at the edges where humans and heterogeneous clients live; binary in the interior where machines talk to machines at volume.**
-
 ## JSON in Modern .NET: `System.Text.Json`
 
 [Chapter 5](#chapter-5-http-and-web-apis) covers the basics of `System.Text.Json` (STJ); this section is the depth that matters at a boundary that has to last.
@@ -501,7 +499,7 @@ message OrderPlaced {
 }
 ```
 
-Field 5 stayed 5. We never renumbered, never reused, never changed a type. Each step was independently deployable. That is what safe schema evolution looks like in practice: a sequence of additive changes, a deliberate deprecation window, and permanent reservations — never a big-bang rename.
+Field 5 stayed 5. We never renumbered, never reused, never changed a type. Each step was independently deployable.
 
 > **Contract testing** — verifying that a specific consumer and producer actually agree on the contract, using tools like **Pact** — is a complementary safety net to everything in this chapter so far. Schema compatibility rules prove your schemas *can* evolve safely; contract tests prove two concrete services *do* agree right now. [Chapter 25](#contract-testing-killing-the-integration-test-explosion) covers Pact and consumer-driven contract testing in depth.
 
