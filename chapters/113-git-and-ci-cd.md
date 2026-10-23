@@ -195,8 +195,6 @@ The acronym conflates three distinct practices.
 
 **Continuous Deployment** removes even that final button. Every change that passes all automated gates goes to production automatically, with no human in the loop. This demands very high confidence in your test suite and safe deployment techniques (feature flags, canaries, fast rollback).
 
-> **The distinction that matters in interviews and in practice:** Continuous *Delivery* keeps a human gate before production; continuous *Deployment* does not. Both require the same rigorous automated pipeline underneath.
-
 ## Build Automation with the dotnet CLI
 
 Every pipeline in this chapter leans on the `dotnet` CLI, which is the same tool you use locally. Consistency between local and CI builds eliminates a whole class of "works on my machine" problems.
@@ -276,8 +274,6 @@ Several platforms implement these ideas. They differ in hosting model and syntax
 **GitLab CI/CD** is built into GitLab and configured with `.gitlab-ci.yml`. It uses `stages` and `jobs` with a runner model, and is known for a coherent single-application experience covering source, CI, registry, and deployment.
 
 **Jenkins** is the veteran open-source automation server. It is enormously flexible via its plugin ecosystem and `Jenkinsfile` pipelines, self-hosted, and still widespread in organizations with established infrastructure. The tradeoff is operational overhead: you run, patch, and secure the server and its agents yourself.
-
-The concepts—triggers, jobs, steps, artifacts, caching, secrets, environments—exist in all four.
 
 ## A Complete GitHub Actions Workflow for .NET
 
@@ -492,8 +488,6 @@ A typical quality-gate stage in the pipeline runs the Sonar scanner around the b
 **JetBrains Rider** is cross-platform and, for many, the day-to-day sweet spot. It combines ReSharper's analysis engine with a fast solution model, excellent refactoring, and strong support for EF Core, Docker, databases, and unit test runners in one product. Rider tends to feel snappier than VS on large solutions and works identically on macOS, Linux, and Windows.
 
 **VS Code + C# Dev Kit** is the lightweight, extensible option. Backed by the Roslyn language server, C# Dev Kit gives you a solution explorer, test integration, and IntelliSense that is now genuinely good for everyday work. It shines for microservices, polyglot repos (a .NET API next to a React front end), and remote/container development via Dev Containers and SSH.
-
-> **Tip:** Match the tool to the task, not to tribal loyalty. Many seniors keep VS Code open for quick edits and scripts, and reach for Rider or Visual Studio when they need heavy refactoring or serious debugging.
 
 ### API Testing
 
