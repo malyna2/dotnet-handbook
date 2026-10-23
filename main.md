@@ -14909,7 +14909,7 @@ SQL Server handles the OR form (script 4 of the SQL Server track). It is a genui
 
 # Chapter 20: Distributed Systems
 
-_⏱️ Estimated read time: ~1 h 15 min · 12142 words (study pace)_
+_⏱️ Estimated read time: ~1 h 15 min · 12023 words (study pace)_
 
 A single-process program lives in a comfortable universe. Memory reads are instantaneous, function calls always return, and if something crashes, the whole thing crashes together: you never have to reason about *half* your program being alive while the other half is dead. The moment you split that program across two machines connected by a network, you leave that universe for good. Messages get lost. Clocks disagree. One node thinks another is dead when it is merely slow. And **you can never tell the difference between a slow node and a dead one**; that single fact is the source of most of the pain in this chapter.
 
@@ -14927,8 +14927,6 @@ In the 1990s, engineers at Sun Microsystems (L. Peter Deutsch and colleagues) ca
 6. **There is one administrator.** In reality, the network team, the cloud provider, and three other squads all touch the path between your services.
 7. **Transport cost is zero.** Serialization, TLS handshakes, and marshaling all burn CPU and time.
 8. **The network is homogeneous.** Different protocols, MTUs, and hardware behave differently.
-
-> **Best practice.** Treat every remote call as a *fallible operation that can hang forever*, not as a method call that happens to be slow. This single mindset shift ("the call might never return") forces you toward timeouts, retries and circuit breakers instead of hopeful synchronous code.
 
 ## CAP and PACELC: The Physics of Distributed State
 
@@ -15119,8 +15117,6 @@ Two loose ends remain.
 ### The Same Mechanism on Every Transport
 
 The idempotency key is the HTTP-facing sibling of the **idempotent consumer** in [Chapter 11](#idempotent-consumers), which dedupes on a message ID with the same unique-index backstop, inside the same transaction as the effect. One mechanism (record the operation's identity atomically with its effect, *before* the effect), several transports. It is also what turns delivery guarantees into business guarantees: networks and brokers give you *at-least-once* delivery in practice ([Chapter 11](#chapter-11-messaging-and-background-work) explains why exactly-once delivery is largely a myth), so duplicates *will* happen, and idempotent handlers turn at-least-once delivery into the exactly-once *processing* you actually want. Stripe's API famously works this way.
-
-> **Best practice.** Make every message consumer and every mutating API endpoint idempotent. It is the single most impactful reliability pattern in a message-driven system, because it lets you retry aggressively without fear.
 
 The one place idempotency is not enough is ordering: a consumer that applies `OrderAmended` after `OrderCancelled` is idempotent and still wrong. This chapter's *Decide* exercise weighs the fixes (sessions, per-aggregate versions).
 
@@ -15520,8 +15516,6 @@ builder.Services.AddQuartzHostedService(o => o.WaitForJobsToComplete = true);
 ```
 
 Quartz's cron format is the six-field Quartz variant (note the leading seconds field and the `?` in a day-of-week/day-of-month slot). Its trigger model is richer than Hangfire's: misfire policies (what to do if the scheduler was down when a trigger should have fired), calendars to exclude holidays, and priority ordering. With `AddPersistentStore` (an ADO.NET job store), Quartz persists schedules and, crucially, uses database locks so that in a clustered deployment **a given trigger fires on exactly one node**.
-
-> Choose Quartz.NET when you need precise, complex scheduling semantics and are comfortable with more configuration. Choose Hangfire when you want fire-and-forget/delayed jobs plus a dashboard with minimal setup. They are not mutually exclusive - some systems run both.
 
 ### Hosted service vs Hangfire vs cloud scheduler
 
