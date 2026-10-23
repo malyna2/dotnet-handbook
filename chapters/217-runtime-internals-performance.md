@@ -202,8 +202,6 @@ Allocating a small object on the managed heap is itself cheap: it is basically a
 
 So the real cost of allocations is **GC pressure**: the more garbage you produce, the more often the GC runs, the more CPU it burns, and the more latency spikes ("pauses") your users feel. A hot path that allocates a temporary object per iteration can trigger thousands of Gen0 collections per second. The allocation was cheap; the aggregate collection cost is not.
 
-> **Mental model:** Every allocation is a small loan from the GC that must be repaid with interest at an unpredictable time. A little borrowing is fine. Borrowing millions of times per second means the collector is constantly working — and it does that work by stealing CPU cycles and occasionally freezing your threads.
-
 The goal in hot paths is therefore not "never allocate" but "**do not allocate needlessly and repeatedly**." One lever is the type itself: a small `struct` used inline costs no heap allocation, and boxing it costs one every time ([Chapter 1](#chapter-1-c-essentials) covers both). Here are the other tools .NET gives you.
 
 ### Span<T>, Memory<T>, and stackalloc: Slicing Without Copying

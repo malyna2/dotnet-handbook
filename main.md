@@ -12958,7 +12958,7 @@ Before an interview, reread [Part 2 · Pay Attention To](#part-2-pay-attention-t
 
 # Chapter 17: Runtime Internals and Performance
 
-_⏱️ Estimated read time: ~55 min · 8768 words (study pace)_
+_⏱️ Estimated read time: ~55 min · 8714 words (study pace)_
 
 Every request a .NET service handles shares two runtime resources: a small pool of threads and a generational heap. Both are tuned for short work. A thread held while it waits, or an object kept a little too long, becomes a delay for every other request.
 
@@ -13161,8 +13161,6 @@ The problem with Gen 2 collections is that scanning the whole heap can take a lo
 Allocating a small object on the managed heap is itself cheap: it is basically a pointer bump. The cost comes *later*, when the GC has to reclaim it, and a collection can pause your application threads (the generations are in [Chapter 3](#chapter-3-how-net-runs-your-code); the LOH, Server GC and DATAS in the section above).
 
 So the real cost of allocations is **GC pressure**: the more garbage you produce, the more often the GC runs, the more CPU it burns, and the more latency spikes ("pauses") your users feel. A hot path that allocates a temporary object per iteration can trigger thousands of Gen0 collections per second. The allocation was cheap; the aggregate collection cost is not.
-
-> **Mental model:** Every allocation is a small loan from the GC that must be repaid with interest at an unpredictable time. A little borrowing is fine. Borrowing millions of times per second means the collector is constantly working — and it does that work by stealing CPU cycles and occasionally freezing your threads.
 
 The goal in hot paths is therefore not "never allocate" but "**do not allocate needlessly and repeatedly**." One lever is the type itself: a small `struct` used inline costs no heap allocation, and boxing it costs one every time ([Chapter 1](#chapter-1-c-essentials) covers both). Here are the other tools .NET gives you.
 
@@ -24009,7 +24007,7 @@ Three consequences fall straight out of that formula, and they are not the ones 
 
 # Chapter 32: The AI-Native Developer — Thriving in the AI Era
 
-_⏱️ Estimated read time: ~1 h 5 min · 12711 words (study pace)_
+_⏱️ Estimated read time: ~1 h 5 min · 12651 words (study pace)_
 
 For most of your career the deal has been simple: you learn to write code, and in exchange the industry pays you well to write it. That deal is being renegotiated in real time. By 2025 and into 2026, a competent AI coding assistant can produce a working REST endpoint, a unit test suite, an EF Core migration, or a plausible refactor faster than you can open the file. The raw act of turning a clear specification into syntactically correct C# — the thing you spent years getting good at — has largely been commoditized.
 
@@ -24191,8 +24189,6 @@ The reliable way to get good agentic output is to stop firing off one-line reque
 
 **Let the agent write tests first.** Test-driven development turns out to be a superb fit for agents because tests are an executable specification the agent can iterate against. Have it write the failing tests from your acceptance criteria (review them — this is where you confirm it understood the requirement), then implement until green. The tests become both the target and the proof.
 
-> **Takeaway:** The quality of agentic output is capped by the quality of the spec. Ten minutes writing acceptance criteria and reviewing a plan routinely saves hours of reviewing wrong code.
-
 ### Multiple sub-agents and orchestration
 
 A single agent works one problem in one context window. For larger or parallelizable work, you can decompose the job across **multiple specialized sub-agents** coordinated by an orchestrator. The pattern is fan-out/fan-in: a lead agent breaks the task into pieces, spins up sub-agents that each work in *their own* context window, and integrates their results.
@@ -24285,8 +24281,6 @@ The most valuable practices aren't individual tricks; they're *systemic* — AI 
 - **Evals for internal agents.** As teams build their own agents (a support bot, a code-review bot), they treat them like software: a suite of test cases with expected outcomes, run in CI, so a prompt or model change that regresses quality is caught before it ships. If you build an internal agent, build its eval harness alongside it — untested agents rot silently.
 
 Leading engineering orgs, including Anthropic itself, have written publicly about running large fleets of coding agents internally, treating agent instructions and evals as first-class artifacts, and using agents heavily in their own development. The transferable lesson isn't any single proprietary detail; it's the *posture*: make AI a maintained part of your platform and process, with the same rigor — version control, review, testing, evals — you apply to code.
-
-> **Takeaway:** The biggest wins come from putting AI into shared infrastructure — review bots, CI, golden paths — not just individual laptops. That's where a team's productivity compounds.
 
 ### Measuring whether any of this is working
 
@@ -24629,7 +24623,7 @@ Break the code on purpose (invert a condition, delete a line, make a guard retur
 
 # Chapter 33: Building AI-Powered Systems
 
-_⏱️ Estimated read time: ~1 h 25 min · 15032 words (study pace)_
+_⏱️ Estimated read time: ~1 h 25 min · 14907 words (study pace)_
 
 [Chapter 32](#chapter-32-the-ai-native-developer-thriving-in-the-ai-era) was about *using* AI to write software. This chapter flips the relationship: now the AI model is a *component inside* the software you ship. This is a different discipline. When you use an assistant to write a function, you review the output once and move on. When you embed a model in a running system, that model produces fresh, non-deterministic output on every request, for every user, forever — and you own the consequences. That single fact reshapes how you design, test, and operate the application.
 
@@ -25083,8 +25077,6 @@ Minimally, the loop is just tool-calling run until completion — which is exact
 
 **When agents help vs. a workflow.** This is a judgment senior engineers must get right, because agents are seductive and often overkill. The previous section is the alternative: if the task fits any row above the last one in that decision table, build the workflow. Agents earn their complexity only when the path is *genuinely dynamic* — the number and order of steps depends on what's discovered along the way, and can't be enumerated in advance. The honest test is to try to write the workflow: if you can sketch the stages, you don't need an agent, and if you genuinely can't, you have your answer.
 
-> **Rule of thumb:** don't reach for an autonomous agent when a directed workflow will do. A hard-coded chain of three LLM calls is more reliable, cheaper, faster, and far easier to debug than a free-running loop. Add autonomy only where the branching genuinely can't be predetermined.
-
 **Reliability challenges.** Agents compound error: a 90%-reliable step run ten times in sequence is only ~35% reliable end to end. They can loop forever, thrash between the same two tools, or wander off task. Essential controls:
 
 - **Bounded iterations** — hard cap the number of loop steps and total cost/tokens per run.
@@ -25240,8 +25232,6 @@ You cannot improve — or safely change — what you don't measure. Build an **e
 - **Human review** — the gold standard for high-stakes features; sample production traffic for periodic human grading.
 
 Microsoft ships **Microsoft.Extensions.AI.Evaluation**, a .NET library for building exactly these eval suites in your test project — so LLM evals can live beside your unit tests and run in CI.
-
-> **Takeaway:** treat evals as the regression suite for your AI features. No eval set, no confident change. A model or prompt update without a re-run is a blind deploy.
 
 **Evals are not the whole test suite.** The temptation is to conclude that because the output is nondeterministic, the feature can only be evaluated. That's backwards: an AI feature is mostly ordinary code — prompt assembly, retrieval, chunking, tool implementations, schema validation, budget enforcement, control flow — and that code carries most of the bugs. Program against `IChatClient` and a fake client makes all of it unit-testable in the normal way: assert the prompt you built, the branch you took, the budget you enforced, the malformed tool argument you rejected. Save the eval suite for the one thing a unit test genuinely cannot pin, which is the quality of the generated text. [Chapter 25](#chapter-25-observability-and-testing-at-scale) covers the full portfolio — faking the model, gating CI on an aggregate pass rate rather than individual cases, and keeping the eval set growing from production failures.
 
@@ -25427,8 +25417,6 @@ A short review you can run in fifteen minutes:
 ### Responsible AI, briefly
 
 Distinct from security, but it lives in the same review. Be transparent that the user is talking to AI; provide a path to a human; watch for bias in outputs that affect people differently; and keep a named human accountable for consequential decisions. Do not let a model make the final call on credit, hiring, medical or safety outcomes unaided — quite apart from the ethics, the EU AI Act's risk tiers ([Chapter 31](#chapter-31-compliance-data-privacy-cloud-cost-finops)) attach real obligations to exactly those use cases.
-
-> **Takeaway:** you cannot make a model immune to being talked into things. You can make it so that being talked into things doesn't matter — by giving it less to reach, authorizing every reach in code, and putting a human in front of anything you cannot undo.
 
 ## Practice
 

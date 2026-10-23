@@ -180,8 +180,6 @@ The reliable way to get good agentic output is to stop firing off one-line reque
 
 **Let the agent write tests first.** Test-driven development turns out to be a superb fit for agents because tests are an executable specification the agent can iterate against. Have it write the failing tests from your acceptance criteria (review them — this is where you confirm it understood the requirement), then implement until green. The tests become both the target and the proof.
 
-> **Takeaway:** The quality of agentic output is capped by the quality of the spec. Ten minutes writing acceptance criteria and reviewing a plan routinely saves hours of reviewing wrong code.
-
 ### Multiple sub-agents and orchestration
 
 A single agent works one problem in one context window. For larger or parallelizable work, you can decompose the job across **multiple specialized sub-agents** coordinated by an orchestrator. The pattern is fan-out/fan-in: a lead agent breaks the task into pieces, spins up sub-agents that each work in *their own* context window, and integrates their results.
@@ -274,8 +272,6 @@ The most valuable practices aren't individual tricks; they're *systemic* — AI 
 - **Evals for internal agents.** As teams build their own agents (a support bot, a code-review bot), they treat them like software: a suite of test cases with expected outcomes, run in CI, so a prompt or model change that regresses quality is caught before it ships. If you build an internal agent, build its eval harness alongside it — untested agents rot silently.
 
 Leading engineering orgs, including Anthropic itself, have written publicly about running large fleets of coding agents internally, treating agent instructions and evals as first-class artifacts, and using agents heavily in their own development. The transferable lesson isn't any single proprietary detail; it's the *posture*: make AI a maintained part of your platform and process, with the same rigor — version control, review, testing, evals — you apply to code.
-
-> **Takeaway:** The biggest wins come from putting AI into shared infrastructure — review bots, CI, golden paths — not just individual laptops. That's where a team's productivity compounds.
 
 ### Measuring whether any of this is working
 
