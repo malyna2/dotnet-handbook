@@ -16399,11 +16399,9 @@ Small teams, early-stage products, unclear domain boundaries, or when the operat
 
 # Chapter 22: API Evolution, Real-Time and Serialization
 
-_⏱️ Estimated read time: ~1 h · 10243 words (study pace)_
+_⏱️ Estimated read time: ~1 h · 9819 words (study pace)_
 
-Every non-trivial system eventually stops being a single process holding objects in memory. The moment your data crosses a boundary — a socket, a message broker, a file on disk, a cache, an HTTP response — those in-memory objects have to be flattened into a sequence of bytes and reconstructed on the other side. That flattening is *serialization*, and the reconstruction is *deserialization*. It sounds mechanical, almost beneath a senior engineer's attention. It is not. The decisions you make here quietly determine how fast your service is, how much you pay for network and storage, whether two teams can deploy independently, and whether a schema change ships smoothly on a Tuesday or triggers a 2 a.m. incident.
-
-This chapter makes those decisions deliberate. It runs in three movements. First the **encodings** you will actually meet in .NET — JSON, XML, Protocol Buffers, MessagePack, Avro — and what each one uses as a field's identity, because that single property decides how the format evolves. Then the hard part that formats alone don't solve: **evolving a contract over time without breaking the systems that already depend on it** — the compatibility rules, the tolerant reader, versioning and retiring an HTTP API, and versioning events that live for years. Last, the **transports beyond request/response JSON**: gRPC for internal calls, and WebSockets, Server-Sent Events and SignalR for pushing data to clients.
+Every non-trivial system eventually stops being a single process holding objects in memory. The moment your data crosses a boundary — a socket, a message broker, a file on disk, a cache, an HTTP response — those in-memory objects have to be flattened into a sequence of bytes and reconstructed on the other side. That flattening is *serialization*, and the reconstruction is *deserialization*. The decisions you make here quietly determine how fast your service is, how much you pay for network and storage, whether two teams can deploy independently, and whether a schema change ships smoothly on a Tuesday or triggers a 2 a.m. incident.
 
 It builds on [Chapter 5: HTTP and Web APIs](#chapter-5-http-and-web-apis), which covers `System.Text.Json`, REST, status codes and OpenAPI, and leans on [Chapter 11: Messaging and Background Work](#chapter-11-messaging-and-background-work) for the messages whose schemas evolve here.
 
@@ -16430,7 +16428,7 @@ The rule of thumb: **text at the edges where humans and heterogeneous clients li
 
 ## JSON in Modern .NET: `System.Text.Json`
 
-[Chapter 5](#chapter-5-http-and-web-apis) covers the basics: what `System.Text.Json` (STJ) is, how it differs from Newtonsoft.Json, the options you set, custom converters, and the web defaults ASP.NET Core applies. This section is the depth that matters at a boundary that has to last: compiling the serializer ahead of time, the defaults that bite when you migrate, and polymorphic payloads, whose discriminators are contract like any field.
+[Chapter 5](#chapter-5-http-and-web-apis) covers the basics of `System.Text.Json` (STJ); this section is the depth that matters at a boundary that has to last.
 
 ### Source Generators: JSON Without Reflection
 
@@ -16580,11 +16578,9 @@ Don't over-index on any single microbenchmark — your data shape, object sizes,
 
 > **Best practice:** Measure with *your* payloads using BenchmarkDotNet ([Chapter 17](#benchmarking-with-benchmarkdotnet)) before you optimize. But as a default: JSON (source-generated) for public/edge APIs, Protobuf for gRPC and cross-language internal services, MessagePack for internal .NET-to-.NET RPC and caching, Avro for Kafka data pipelines with a schema registry.
 
-The format is the encoding; from here on the chapter is about the contract.
-
 ## The Core Topic: Schema and Contract Evolution
 
-Here's the situation that makes all of this hard. You deploy version 1 of a producer and version 1 of a consumer. They agree. Then you need to change the data. But you **cannot atomically upgrade every producer and consumer at once** — that's the whole point of a distributed system. During the rollout, and often for a long time after, old and new versions coexist. Old producers send data new consumers read; new producers send data old consumers read. Your job is to change the schema so that *every* combination keeps working.
+You deploy version 1 of a producer and version 1 of a consumer. They agree. Then you need to change the data. But you **cannot atomically upgrade every producer and consumer at once** — that's the whole point of a distributed system. During the rollout, and often for a long time after, old and new versions coexist. Old producers send data new consumers read; new producers send data old consumers read. Your job is to change the schema so that *every* combination keeps working.
 
 ### Compatibility Directions
 
@@ -16868,8 +16864,6 @@ Chain upcasters (V1→V2→V3) so each step is small and independently testable,
 
 ## A Concrete Example: Evolving an Order Event Safely
 
-Let's evolve a protobuf `OrderPlaced` event through three realistic changes and see the discipline in action.
-
 **Version 1** — the original:
 
 ```proto
@@ -16911,8 +16905,6 @@ message OrderPlaced {
 Field 5 stayed 5. We never renumbered, never reused, never changed a type. Each step was independently deployable. That is what safe schema evolution looks like in practice: a sequence of additive changes, a deliberate deprecation window, and permanent reservations — never a big-bang rename.
 
 > **Contract testing** — verifying that a specific consumer and producer actually agree on the contract, using tools like **Pact** — is a complementary safety net to everything in this chapter so far. Schema compatibility rules prove your schemas *can* evolve safely; contract tests prove two concrete services *do* agree right now. [Chapter 25](#contract-testing-killing-the-integration-test-explosion) covers Pact and consumer-driven contract testing in depth.
-
-So far the chapter has been about *what* goes over the wire and how it changes. The rest is about *how* it travels when request/response JSON is the wrong shape: high-volume internal calls, and data the server has to push.
 
 ## gRPC
 
@@ -17036,10 +17028,6 @@ Reach for SignalR for dashboards, chat, live collaboration, notifications, and p
 | Internal service-to-service calls, strict contract, performance, streaming | gRPC |
 | Server push to browsers (dashboards, chat, notifications) | SignalR |
 | Server→client streaming only, minimal moving parts | SSE (see *Real-Time* above) |
-
-## Summary
-
-Serialization is where your data model meets the outside world, and the format you choose trades off interoperability, size, speed, and evolvability. Use text (JSON via `System.Text.Json`, ideally source-generated) at edges where humans and diverse clients live; use binary (Protobuf for gRPC and cross-language, MessagePack for fast internal .NET, Avro for Kafka pipelines) in the machine-to-machine interior. But the format is only the encoding — the durable challenge is evolving the *contract* without breaking the systems already depending on it. Master the compatibility directions, keep field identities permanent, add optional fields with defaults, ignore what you don't understand, and reach for expand–contract before a new version. When a version is unavoidable, pick one scheme, advertise deprecation in the responses, and tag telemetry with version and consumer so you can retire it. For events, let schema registries and upcasters enforce and absorb change. And choose the transport for the boundary: REST at the edge, gRPC inside, SSE or SignalR when the server has to push. Do that, and your contracts can grow for years without a single 2 a.m. page.
 
 ## Practice
 
