@@ -21096,7 +21096,7 @@ An SBOM lists what is inside an artifact, so "are we affected?" becomes a query;
 
 # Chapter 28: Cloud Fundamentals — AWS & Azure
 
-_⏱️ Estimated read time: ~30 min · 5204 words (study pace)_
+_⏱️ Estimated read time: ~30 min · 4931 words (study pace)_
 
 Owning hardware means paying for enough capacity to survive your busiest day of the year, capacity that sits idle the other 364 days. The cloud meters it instead: you pay for what you actually use. That shift — from *owning capacity* to *renting capability* — is the thread that runs through everything in this chapter.
 
@@ -21306,8 +21306,6 @@ Authentication=Active Directory Default;
 Encrypt=True;
 ```
 
-> **Best practice:** Managed Identity plus Key Vault plus `DefaultAzureCredential` is the gold-standard pattern for Azure .NET apps. There is no reason to ship a password in a connection string or an `appsettings.json` in 2026.
-
 > **Security note:** The whole point is that there is *no secret to leak*. A leaked connection-string password is a breach; a managed identity has nothing to steal because the credential lives only inside Azure's control plane and rotates constantly.
 
 ### ARM and Bicep
@@ -21460,26 +21458,6 @@ Serverless (Lambda, Azure Functions, Container Apps scaling to zero) is genuinel
 > **Best practice:** Mitigate cold starts by keeping deployment packages small, minimizing initialization work in the constructor, using provisioned concurrency / premium plans for latency-sensitive user-facing paths, and considering Native AOT for .NET functions. For background and async processing where a few hundred milliseconds don't matter, cold starts are a non-issue — don't over-engineer.
 
 The senior judgment call: **serverless for event-driven and bursty work; managed containers or App Service for steady, latency-sensitive, always-on traffic.** A busy API serving thousands of requests per second is often cheaper and faster on an always-warm container than on per-invocation functions.
-
-## Cost Awareness and Security: The Habits That Matter
-
-Two disciplines decide most cloud outcomes.
-
-**On cost:**
-
-- **Right-size, then reserve.** Start small and scale up based on real metrics — don't guess large. For predictable steady workloads, commit to reserved capacity (Reserved Instances / Savings Plans) for large discounts over on-demand pricing.
-- **Kill zombies.** Automate the shutdown of dev/test resources outside business hours and clean up orphaned disks, snapshots, and IPs.
-- **Set budget alerts** at the account level from day one. Nobody should learn about a runaway bill from the invoice.
-- **Mind egress and cross-region traffic** — the quiet budget killers.
-
-**On security:**
-
-- **Least privilege, always.** Grant the minimum permissions, scoped to specific resources. Audit and prune regularly.
-- **Never hardcode credentials.** No access keys in code, config files, or environment variables committed to git. Use **IAM roles** on AWS and **Managed Identity** on Azure so applications carry no static secrets at all.
-- **Store secrets in a vault** (Secrets Manager / Key Vault) with rotation, and reference them at runtime — never inline.
-- **Encrypt in transit and at rest** (usually a checkbox or default now — make sure it's on).
-- **Isolate the network.** Databases in private subnets/VNets, never exposed to the public internet; access controlled by security groups.
-- **Respect the shared responsibility model.** The provider secures the platform; the config, the data, and the access policy are always yours.
 
 ## Lock-In, and the Honest Economics of Leaving
 
