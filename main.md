@@ -12129,7 +12129,7 @@ Always with its currency, since the number of decimal places depends on it (none
 
 # Chapter 16: Working Like a Middle Developer
 
-_⏱️ Estimated read time: ~50 min · 7890 words (study pace)_
+_⏱️ Estimated read time: ~50 min · 7856 words (study pace)_
 
 This chapter is about the work around code: how to take a vague ticket, a request for an estimate or a pull request, and send back something a teammate can act on without a meeting.
 
@@ -12142,8 +12142,6 @@ Mentoring, influence and the path to senior continue in [Chapter 36: Senior Beha
 A middle engineer is measured by **throughput**: how many tickets they close, how fast, how correctly. That is real and valuable. But it scales linearly — you can only type so fast, and there are only so many hours in a week.
 
 A senior engineer is measured by **leverage**: how much better everyone *around* them performs because of their presence. Leverage compounds. A good design doc saves ten engineers a week of rework. A sharp code review teaches a pattern that a junior then applies fifty more times without you. A well-run incident post-mortem prevents a class of outages forever.
-
-> **The core shift: you stop being judged by the code you personally wrote, and start being judged by the good outcomes you caused — including ones where you wrote no code at all.**
 
 Concretely, the behaviors change like this:
 

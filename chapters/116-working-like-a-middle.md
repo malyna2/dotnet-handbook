@@ -12,8 +12,6 @@ A middle engineer is measured by **throughput**: how many tickets they close, ho
 
 A senior engineer is measured by **leverage**: how much better everyone *around* them performs because of their presence. Leverage compounds. A good design doc saves ten engineers a week of rework. A sharp code review teaches a pattern that a junior then applies fifty more times without you. A well-run incident post-mortem prevents a class of outages forever.
 
-> **The core shift: you stop being judged by the code you personally wrote, and start being judged by the good outcomes you caused — including ones where you wrote no code at all.**
-
 Concretely, the behaviors change like this:
 
 | Middle mindset | Senior mindset |
