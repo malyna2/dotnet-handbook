@@ -30547,7 +30547,7 @@ Avoid lobbying the CTO to reverse it, and avoid quietly steering the rewrite bac
 
 # Chapter 42: The Advisory Casebook
 
-_⏱️ Estimated read time: ~1 h · 11556 words (study pace)_
+_⏱️ Estimated read time: ~1 h · 11538 words (study pace)_
 
 [Chapter 35](#chapter-35-production-incidents) and [Chapter 30](#chapter-30-the-azure-casebook-real-incidents-real-fixes) are casebooks about systems: a database that falls over, a lock that expires, a private endpoint without DNS. This chapter is a casebook about the people who pay for those systems. The incidents here don't show up in a dashboard. A client asks for something that won't solve their problem, a CTO contradicts you in front of the team, an account manager has sold a feature that can't exist, or you broke production yourself.
 
@@ -30599,8 +30599,6 @@ Two other books give you vocabulary the cases rely on. Peter Block's *Flawless C
 > **Best practice.** When a client conversation goes badly, debug it with the equation. Did you lose credibility (you were wrong or vague), reliability (you missed something), intimacy (they didn't feel safe) or raise self-orientation (you looked like you were protecting yourself or selling)? The fix differs for each, so name the term before you try to repair it.
 
 ## Outsourcing, Outstaffing and Who You Are Speaking For
-
-Before the cases, get one structural fact right, because it changes the correct move in several of them.
 
 ```
    OUTSTAFFING                               OUTSOURCING
