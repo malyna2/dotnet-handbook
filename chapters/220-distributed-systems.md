@@ -2,9 +2,7 @@
 
 A single-process program lives in a comfortable universe. Memory reads are instantaneous, function calls always return, and if something crashes, the whole thing crashes together: you never have to reason about *half* your program being alive while the other half is dead. The moment you split that program across two machines connected by a network, you leave that universe for good. Messages get lost. Clocks disagree. One node thinks another is dead when it is merely slow. And **you can never tell the difference between a slow node and a dead one**; that single fact is the source of most of the pain in this chapter.
 
-[Chapter 11](#chapter-11-messaging-and-background-work) gave you the working tools inside that world: brokers, at-least-once delivery, idempotent consumers, the outbox and background workers. This chapter makes you able to say *why* those tools are shaped the way they are, to design a multi-service flow whose guarantees you can state (what is ordered, what is deduplicated, what happens on every failure), and to prove that its resilience code works before an incident does it for you.
-
-It builds up in four steps. First the limits: the fallacies, CAP and PACELC, consistency models, consensus, time and locks, the physics no framework can repeal. Then the patterns that live within those limits: idempotency (from a retried `POST` to a replayed message), sagas, and retries that don't make an outage worse. Then reliability as an engineering practice: error budgets, graceful degradation, a layered Polly pipeline, disaster recovery, and chaos engineering to verify all of it. Last, two runtime models for work across many machines: job schedulers that must run a job once across instances, and actors, which remove shared state instead of guarding it.
+[Chapter 11](#chapter-11-messaging-and-background-work) gave you the working tools inside that world: brokers, at-least-once delivery, idempotent consumers, the outbox and background workers.
 
 ## The Eight Fallacies of Distributed Computing
 
@@ -19,7 +17,7 @@ In the 1990s, engineers at Sun Microsystems (L. Peter Deutsch and colleagues) ca
 7. **Transport cost is zero.** Serialization, TLS handshakes, and marshaling all burn CPU and time.
 8. **The network is homogeneous.** Different protocols, MTUs, and hardware behave differently.
 
-> **Best practice.** Treat every remote call as a *fallible operation that can hang forever*, not as a method call that happens to be slow. This single mindset shift ("the call might never return") forces you toward timeouts, retries and circuit breakers instead of hopeful synchronous code. Assume each call is unreliable, slow, expensive and insecure, then be pleasantly surprised when it works.
+> **Best practice.** Treat every remote call as a *fallible operation that can hang forever*, not as a method call that happens to be slow. This single mindset shift ("the call might never return") forces you toward timeouts, retries and circuit breakers instead of hopeful synchronous code.
 
 ## CAP and PACELC: The Physics of Distributed State
 
@@ -41,7 +39,7 @@ There is no universally correct answer. A shopping cart wants availability (PA/E
 
 ## Consistency Models: What "The Data Is Correct" Even Means
 
-"Consistency" in CAP is a specific, strong guarantee (linearizability). But there is a whole spectrum, and choosing the right point on it is a core senior-level skill.
+"Consistency" in CAP is a specific, strong guarantee (linearizability). But there is a whole spectrum.
 
 - **Strong consistency (linearizability):** Every read sees the most recent write, as if there were a single copy of the data. Intuitive, but expensive — it requires coordination on every operation.
 - **Eventual consistency:** If writes stop, all replicas *eventually* converge. Cheap and highly available, but a read right after a write may return the old value. Amazon's shopping cart and DNS are classic examples.
@@ -322,7 +320,7 @@ Retry is one of three client-side defences; [Chapter 5](#chapter-5-http-and-web-
 
 ## From Theory to Practice: Reliability & SRE
 
-Everything so far tells you *why* things fail and which patterns live within the limits. **Site Reliability Engineering** (codified by Google) tells you how to *run* systems that fail gracefully. The shift in thinking is from "prevent all failure" (impossible) to "engineer for failure and control its impact."
+**Site Reliability Engineering** (codified by Google) tells you how to *run* systems that fail gracefully. The shift in thinking is from "prevent all failure" (impossible) to "engineer for failure and control its impact."
 
 The target for all of it is an SLO and the error budget it leaves, which turns "reliability vs. velocity" from an argument into arithmetic; [Chapter 25](#alerting-slis-slos-slas-and-error-budgets) defines the terms and alerts on the burn rate. Don't chase 100%: it is infinitely expensive, and users can't tell 99.99% from 100% because their own network is less reliable than that. Pick the SLO users actually need and spend the rest of the budget on shipping. The patterns below are how you stay inside it.
 
@@ -370,8 +368,6 @@ Read the layering carefully. The *inner* timeout (2s) bounds each individual att
 
 ### Blast Radius
 
-Every resilience pattern above is a claim about behaviour under failure, and claims need verifying — the *Verifying Resilience* section below is about how. What every experiment is bounded by, and what most reliability work is ultimately about, is blast radius.
-
 **Blast radius** is the amount of the system a single failure can damage. Great reliability engineering is largely *blast-radius reduction*: cell-based / sharded architectures, bulkheads, per-tenant isolation, and gradual (canary) rollouts all exist to ensure that when — not if — something breaks, it breaks *small*.
 
 ### Redundancy, Failover, and Disaster Recovery
@@ -387,10 +383,6 @@ An RPO near zero demands synchronous replication (and CAP/PACELC latency costs �
 ## Verifying Resilience: Chaos Engineering in Practice
 
 Look back at the Polly pipeline earlier in this chapter. Timeout, retry with jitter, circuit breaker, fallback, bulkhead — perhaps forty lines of configuration, sitting in the request path of every call your service makes.
-
-Now answer honestly: **when did that code last run?**
-
-Not "when was it deployed." When did the circuit breaker last open? When did the fallback last return a degraded response? For most services, the answer is "during an incident, which is also when we discovered the breaker's threshold was wrong."
 
 Resilience code is the only code we routinely ship without executing. Its failure paths run rarely by design, unit tests exercise the happy path, and integration tests run against dependencies that are up. So the retry policy that retries a non-idempotent operation, the circuit breaker whose threshold is so high it never trips, the fallback that throws a `NullReferenceException`, and the timeout that is longer than the caller's timeout — all of these sit in production, untested, until the day they are needed and don't work. Frequently they make the incident *worse*: a retry storm turning a slow dependency into a dead one is one of the most common ways a partial outage becomes a total one.
 
@@ -778,14 +770,6 @@ It is a poor fit when:
 Orleans is not the only actor game in .NET. **Akka.NET** is a faithful port of the JVM's Akka: it exposes classic actors with explicit lifecycles, hierarchical supervision (parents restart failed children per a strategy), and location transparency. It gives you more control - and more responsibility - than Orleans' virtual actors, and it's the natural choice if you want the traditional supervision-tree model or you're porting from Akka.
 
 **Dapr** (Distributed Application Runtime) offers actors as one building block among many, delivered as a **language-agnostic sidecar**. Dapr's virtual-actor model is conceptually close to Orleans (turn-based single-threaded access, automatic activation, state persistence) but you interact with it over HTTP/gRPC from any language, and it slots into a broader platform of pub/sub, state stores, and service invocation. Choose Dapr when polyglot services and a portable, infrastructure-managed runtime matter more than the deep, .NET-native ergonomics Orleans provides.
-
-## Putting It Together
-
-The through-line of this chapter is a single, humbling idea: **in a distributed system, partial failure is the normal state, not an exception.** The theory (CAP, PACELC, consistency models, consensus, logical clocks) tells you precisely which guarantees are *achievable* and what they cost. The engineering (idempotency, sagas, backoff with jitter, circuit breakers, bulkheads, error budgets, chaos testing, measured RTO/RPO) builds systems that stay *useful* while individual parts fail underneath them.
-
-The same maturation runs through "later" work. Job frameworks like Hangfire and Quartz.NET give you persistence, retries, cron and single-execution guarantees across a cluster, so you stop hand-rolling schedulers. The actor model, realized in Orleans' virtual grains, inverts the concurrency problem: instead of guarding shared state with locks, you partition state into single-threaded islands where races cannot occur by construction.
-
-The mid-level instinct is to make the network invisible and hope. The senior instinct is to assume the network is actively trying to ruin your day, to design as if every process will crash mid-operation and run twice (because in production, eventually, it will), and to build a system that shrugs, degrades gracefully, retries safely and keeps its promises anyway, right up to, but not past, the reliability you actually promised.
 
 ## Practice
 
