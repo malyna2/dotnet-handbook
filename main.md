@@ -23437,7 +23437,7 @@ Each "I don't know" is a candidate for a small, measurable improvement, and for 
 
 # Chapter 31: Compliance, Data Privacy & Cloud Cost (FinOps)
 
-_⏱️ Estimated read time: ~30 min · 5215 words (study pace)_
+_⏱️ Estimated read time: ~30 min · 5196 words (study pace)_
 
 Two sets of requirements never arrive as user stories, yet everybody expects you to honor them: the law, and the invoice. A feature that leaks personal data or quietly triples the cloud bill is not "done," no matter how green the tests are. This chapter is about those invisible stakeholders — the regulator, the CFO, and increasingly the sustainability report — and the concrete engineering decisions that keep all of them satisfied. The third turns out to want mostly what the second wants, which is the most useful fact in the chapter. The pieces build on the cloud map of [Chapter 28](#chapter-28-cloud-fundamentals-aws-azure).
 
@@ -23667,8 +23667,6 @@ In the on-prem era, capacity was someone else's capital-expenditure problem, dec
 1. **Inform (visibility)** — everyone can see what things cost and who is spending.
 2. **Optimize** — reduce waste and match resources to real demand.
 3. **Operate (accountability)** — teams own their spend as a normal engineering metric.
-
-The mindset shift senior engineers champion: **cost is a shared, engineering-owned responsibility, not something finance reconciles after the fact.**
 
 ### Where the money actually goes
 

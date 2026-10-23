@@ -229,8 +229,6 @@ In the on-prem era, capacity was someone else's capital-expenditure problem, dec
 2. **Optimize** — reduce waste and match resources to real demand.
 3. **Operate (accountability)** — teams own their spend as a normal engineering metric.
 
-The mindset shift senior engineers champion: **cost is a shared, engineering-owned responsibility, not something finance reconciles after the fact.**
-
 ### Where the money actually goes
 
 You cannot optimize what you don't understand. The major cost drivers:
