@@ -12962,15 +12962,15 @@ Before an interview, reread [Part 2 · Pay Attention To](#part-2-pay-attention-t
 
 # Chapter 17: Runtime Internals and Performance
 
-_⏱️ Estimated read time: ~1 h · 9245 words (study pace)_
+_⏱️ Estimated read time: ~55 min · 8768 words (study pace)_
 
-Every request a .NET service handles shares two runtime resources: a small pool of threads and a generational heap. Both are tuned for short work. A thread held while it waits, or an object kept a little too long, becomes a delay for every other request. This chapter makes you able to predict how a service behaves when its threads block or its heap churns, prove it from counters, a trace and a dump, and choose between tuning the runtime and changing the code, with the cost of each spelled out for the team that will live with the choice.
+Every request a .NET service handles shares two runtime resources: a small pool of threads and a generational heap. Both are tuned for short work. A thread held while it waits, or an object kept a little too long, becomes a delay for every other request.
 
-It builds on Part 1: the stack, the heap and the GC's generations from [Chapter 3](#chapter-3-how-net-runs-your-code), the state machine, the thread pool and sync-over-async from [Chapter 4](#chapter-4-async-essentials), and value types, boxing and closures from [Chapter 1](#chapter-1-c-essentials). The chapter opens with the discipline (measure first, then benchmark and profile), because everything after it is a lever you pull only when a measurement points at it. Then come the mechanisms those measurements point at: the GC in depth, allocations and the tools that avoid them, the thread pool and the memory model under load, `ValueTask`, parallelism and channels. Last come the parts of the runtime that decide startup and deployment: reflection and source generators, the JIT, ReadyToRun and Native AOT, and assembly loading. Data-access performance (EF Core, caching) is in [Chapter 18](#chapter-18-data-in-depth).
+It builds on Part 1: the stack, the heap and the GC's generations from [Chapter 3](#chapter-3-how-net-runs-your-code), the state machine, the thread pool and sync-over-async from [Chapter 4](#chapter-4-async-essentials), and value types, boxing and closures from [Chapter 1](#chapter-1-c-essentials). Every lever after the first section is one you pull only when a measurement points at it. Data-access performance (EF Core, caching) is in [Chapter 18](#chapter-18-data-in-depth).
 
 ## The Golden Rule: Measure, Don't Guess
 
-Human intuition about performance is famously, almost comically, unreliable. The CPU your code runs on is a machine of staggering complexity — out-of-order execution, multiple cache layers, branch predictors, a JIT compiler that rewrites your IL on the fly, and a garbage collector that pauses threads at moments you cannot predict by reading source code. Reasoning about all of this in your head is like trying to predict the weather by staring at a single cloud.
+Human intuition about performance is unreliable. The CPU your code runs on is a machine of staggering complexity — out-of-order execution, multiple cache layers, branch predictors, a JIT compiler that rewrites your IL on the fly, and a garbage collector that pauses threads at moments you cannot predict by reading source code.
 
 > **The single most important sentence in this chapter:** Measure first, optimize second. If you optimize before measuring, you are not engineering — you are gambling with your own time as the stake.
 
@@ -12988,8 +12988,6 @@ A disciplined optimization workflow looks like this:
 4. **Form a hypothesis and change one thing.** Only one.
 5. **Measure again.** Did it actually improve? By how much? Is the improvement worth the added complexity?
 6. **Repeat or stop.** Stop when you hit the budget. Do not gold-plate.
-
-The next two sections equip you for steps 2, 3 and 5: benchmarking a piece of code you suspect, and profiling a running system to find what to suspect. The rest of the chapter is the mechanics behind step 4, so that when the profiler points somewhere you know which lever to pull.
 
 ## Benchmarking with BenchmarkDotNet
 
@@ -13111,7 +13109,7 @@ dotnet-gcdump collect -p 12345
 
 ## Garbage Collection — in depth
 
-[Chapter 3](#chapter-3-how-net-runs-your-code) taught the model: a tracing, generational, compacting collector; gen0, gen1 and gen2; what triggers a collection; finalization and why `GC.Collect()` is almost always wrong. This section is what that model does under a server's load: where large objects go, how the two GC flavours split the work across cores, and how a full collection avoids freezing the application.
+[Chapter 3](#chapter-3-how-net-runs-your-code) taught the model; this section is what it does under a server's load: where large objects go, how the two GC flavours split the work across cores, and how a full collection avoids freezing the application.
 
 ### The Large Object Heap (LOH)
 
@@ -13161,8 +13159,6 @@ You *can* force LOH compaction on demand (`GCSettings.LargeObjectHeapCompactionM
 The problem with Gen 2 collections is that scanning the whole heap can take a long time, and if all application threads are paused ("stop the world") for that duration, you get latency spikes. **Background GC** solves this for Gen 2: most of the Gen 2 collection runs *concurrently* on a background thread while your application threads keep running. Application threads are only paused for brief moments (to get a consistent snapshot and finalize the collection). Gen 0 and Gen 1 collections remain blocking, but they're fast enough that this is fine. Background GC is enabled by default and is why modern .NET can achieve low pause times even with large heaps.
 
 ## Memory and Allocations: The Quiet Performance Killer
-
-In managed .NET, you do not manually free memory; the garbage collector does. That is a productivity feature and, at the same time, the source of the most common non-obvious performance problems. This section turns the GC's mechanics into the question a profiler makes you ask: which allocations can this hot path stop making?
 
 ### Why Allocations Cost
 
@@ -13584,14 +13580,6 @@ A consolidated field guide to the recurring offenders, most of which this chapte
 - **LINQ and closures in genuinely hot loops.** Fine everywhere else; a real cost in the flagged 10%.
 - **Excessive logging in hot paths.** String formatting and I/O per request adds up; use structured logging with level checks and interpolated string handlers.
 - **Not disposing / leaking IDisposables.** Undisposed `HttpClient` per request exhausts sockets; unclosed DB connections exhaust the pool. Use `IHttpClientFactory` and `using`.
-
-## Putting It All Together
-
-Performance engineering is not a bag of tricks to sprinkle everywhere — it is a discipline of *evidence*. The senior engineer's edge is not knowing more optimizations than the mid-level one; it is the restraint to not apply them until measurement demands it, and the tooling fluency to measure quickly and correctly when it does.
-
-Internalize the loop: **define a goal, measure a baseline, profile to find the real bottleneck, change one thing, measure again, stop when you hit the budget.** Keep the mechanical knowledge (allocations create GC pressure, a large buffer per request is gen2 work per request, a blocked thread is a delay for everyone, the right collection changes the cost curve's shape, EF can turn one line into a thousand queries) in your back pocket so that when the profiler points at the hot 10%, you know exactly which lever to pull.
-
-Above all, remember the golden rule from the start of this chapter, because it is the one you will be tempted to break every single time: **measure first. Don't guess.** The code you were *sure* was slow almost never is. Let the evidence, not your intuition, decide where you spend your effort.
 
 ## Practice
 
