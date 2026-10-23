@@ -1,10 +1,10 @@
 # Chapter 38: Having a Point of View
 
-Chapters 38–43 are about a shift that no certification measures: going from being the person a client hands tickets to, to being the person a client *asks*. For a .NET engineer placed through an outsourcing or outstaffing firm, that shift decides a lot. It decides whether you are renewed or rotated, whether you are invited to the architecture meeting or told its outcome, and whether the client's CTO asks for you by name when the next contract is signed. The vendor sells your hours. What the client comes to value, or fails to find, is your judgment.
+Chapters 38–43 are about a shift that no certification measures: going from being the person a client hands tickets to, to being the person a client *asks*. For a .NET engineer placed through an outsourcing or outstaffing firm, that shift decides whether you are renewed or rotated. The vendor sells your hours. What the client comes to value, or fails to find, is your judgment.
 
-This chapter is about the first ingredient of that judgment: **having a point of view**. That means positions you hold on purpose, can defend with a mechanism, and would drop for a stated reason. The next chapters build on it. [Chapter 39](#chapter-39-discovery-and-diagnosis) turns a point of view into a diagnosis of a specific client's system, [Chapter 40](#chapter-40-lab-the-net-health-check) practises that diagnosis on a real codebase, [Chapter 41](#chapter-41-recommendations-proposals-and-estimates) turns it into written recommendations and estimates, [Chapter 42](#chapter-42-the-advisory-casebook) walks through worked engagements, and [Chapter 43](#chapter-43-positioning-and-public-proof) makes all of it visible.
+This chapter is about the first ingredient of that judgment: **having a point of view**. That means positions you hold on purpose, can defend with a mechanism, and would drop for a stated reason.
 
-What this chapter does **not** repeat is how to move a decision: stakeholder communication, disagreeing productively and ADRs are covered in [Chapter 16](#chapter-16-working-like-a-middle-developer), and influence without authority in [Chapter 36](#chapter-36-senior-behaviours-career-and-interviews). Those chapters are about how to move a decision. This chapter is about having something worth moving.
+What this chapter does **not** repeat is how to move a decision: stakeholder communication, disagreeing productively and ADRs are covered in [Chapter 16](#chapter-16-working-like-a-middle-developer), and influence without authority in [Chapter 36](#chapter-36-senior-behaviours-career-and-interviews). This chapter is about having something worth moving.
 
 ```
                   what the client sees
@@ -524,7 +524,7 @@ That last cell is the professional move when the client decides against your adv
 
 ## Exercises
 
-These exercises don't have a compiler, which is why they're here. Each one practises a move from this chapter on a realistic artefact or situation.
+Each exercise practises a move from this chapter on a realistic artefact or situation.
 
 ### Find the bug: the canon entry
 
