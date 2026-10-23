@@ -1,8 +1,8 @@
 # Chapter 28: Cloud Fundamentals — AWS & Azure
 
-For most of computing history, running software meant owning hardware. You bought servers, racked them in a room with expensive cooling, hired people to replace failed disks at 3 a.m., and paid for enough capacity to survive your busiest day of the year — capacity that sat idle the other 364 days. The cloud rewired this economic model. Instead of buying a power station, you plug into the grid and pay for the kilowatt-hours you actually use. That single shift in mindset — from *owning capacity* to *renting capability* — is the thread that runs through everything in this chapter.
+Owning hardware means paying for enough capacity to survive your busiest day of the year, capacity that sits idle the other 364 days. The cloud meters it instead: you pay for what you actually use. That shift — from *owning capacity* to *renting capability* — is the thread that runs through everything in this chapter.
 
-As a .NET developer moving toward senior level, you don't need to become a network engineer. But you do need to understand what these services *are*, *why* they exist, and *when* to reach for each one. This chapter builds that mental map for both AWS and Azure, maps one provider's services onto the other's, and shows you how to provision it all as code. It ends with the trade-offs that decide how you use the cloud: serverless cold starts, the cost and security habits that matter, and the honest economics of lock-in. [Chapter 29](#chapter-29-azure-in-depth-for-net-developers) then takes Azure in depth, [Chapter 30](#chapter-30-the-azure-casebook-real-incidents-real-fixes) works through real incidents, and [Chapter 31](#chapter-31-compliance-data-privacy-cloud-cost-finops) covers compliance and cloud cost.
+[Chapter 29](#chapter-29-azure-in-depth-for-net-developers) then takes Azure in depth, [Chapter 30](#chapter-30-the-azure-casebook-real-incidents-real-fixes) works through real incidents, and [Chapter 31](#chapter-31-compliance-data-privacy-cloud-cost-finops) covers compliance and cloud cost.
 
 ## Cloud Fundamentals
 
@@ -140,7 +140,7 @@ Console.WriteLine($"Uploaded, ETag: {response.ETag}");
 
 ## Azure Core Services
 
-Azure is Microsoft's cloud and the natural home for .NET. The tooling, documentation, and identity model are built with .NET developers in mind. Here's the equivalent map. For the mechanisms behind it, and real incidents, see [Chapter 29](#chapter-29-azure-in-depth-for-net-developers) and [Chapter 30](#chapter-30-the-azure-casebook-real-incidents-real-fixes).
+Azure is Microsoft's cloud and the natural home for .NET. The tooling, documentation, and identity model are built with .NET developers in mind. For the mechanisms behind it, and real incidents, see [Chapter 29](#chapter-29-azure-in-depth-for-net-developers) and [Chapter 30](#chapter-30-the-azure-casebook-real-incidents-real-fixes).
 
 ### Compute
 
@@ -365,7 +365,7 @@ The senior judgment call: **serverless for event-driven and bursty work; managed
 
 ## Cost Awareness and Security: The Habits That Matter
 
-Everything in this chapter comes back to two disciplines that separate a mid-level engineer from a senior one in the cloud.
+Two disciplines decide most cloud outcomes.
 
 **On cost:**
 
@@ -438,11 +438,3 @@ And what you give up is real: capacity you can't get in an hour, DR that isn't a
 - **Be deliberate about proprietary glue.** Logic that lives in a vendor's configuration language is the most expensive kind to move and the easiest to accumulate accidentally. If a workflow is central to your business, consider keeping it in code you own.
 - **Write down what leaving would cost** for the two or three services you depend on most. Not a plan — an estimate, one paragraph each, in an ADR ([Chapter 16](#chapter-16-working-like-a-middle-developer)). This converts a recurring argument into a known number, and the number is usually smaller than the loudest person in the room thinks.
 - **Revisit when the shape changes.** The right answer at 10 engineers and spiky traffic is different at 200 engineers and a flat baseline. Lock-in decisions should be reviewed when the business changes, not defended forever.
-
-## Summary
-
-The cloud replaces owned capacity with metered capability, along a spectrum from IaaS (you manage almost everything) to serverless (you manage almost nothing). Regions and Availability Zones give you locality and resilience; the shared responsibility model draws the line between the provider's job and yours; and metered billing rewards vigilance.
-
-AWS and Azure solve the same set of problems — compute, storage, databases, messaging, identity, observability — with different names, and the mapping table lets you translate fluently between them. For a .NET developer, Azure's native integration (App Service, Azure SQL, Entra ID, Managed Identity, Application Insights) offers a remarkably smooth path, while AWS's breadth and maturity make it the industry's default.
-
-Two habits underpin real seniority in the cloud: define everything as code (Terraform, Bicep, Pulumi, or CDK — with careful attention to state), and design for credential-free identity and least privilege from the very first line. Master those, and you're no longer just deploying to the cloud — you're engineering on it.
