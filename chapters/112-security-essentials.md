@@ -34,8 +34,6 @@ app.UseAuthentication(); // figures out WHO — populates HttpContext.User
 app.UseAuthorization();  // figures out WHAT — enforces [Authorize] policies
 ```
 
-A `401 Unauthorized` means "I don't know who you are" (authentication failed). A `403 Forbidden` means "I know who you are, but you can't do this" (authorization failed). Despite its name, `401` is about authentication.
-
 **Which authentication scheme.** For APIs, the dominant scheme is **JWT bearer tokens**: the client sends `Authorization: Bearer <token>`, and the server validates a signed set of claims without a lookup (configured in *Validating JWTs Correctly* below). For server-rendered apps, **cookie authentication** stores an encrypted session identifier in a cookie. For delegated identity — "log in with Google/Microsoft/your corporate IdP" — you configure `.AddOpenIdConnect(...)` and let the middleware handle the redirect dance of the flows described under *OAuth 2.0, OpenID Connect, and JWTs*. The design rule: your API should *trust tokens from a known issuer*, not manage passwords itself.
 
 ### Policy-based and role-based authorization
@@ -92,8 +90,6 @@ public async Task<IActionResult> GetInvoice(int id)
 ```
 
 > **Pitfall:** Returning `403 Forbidden` for a resource the user doesn't own leaks its existence. Prefer `404` for cross-tenant access so attackers can't enumerate valid IDs.
-
-For anything beyond trivial checks, use ASP.NET Core's resource-based authorization (`IAuthorizationService.AuthorizeAsync`) so the ownership logic lives in a reusable handler rather than being copy-pasted into every action.
 
 > **Pay attention.** **Why `[Authorize]` can't stop an IDOR.** Attributes and endpoint policies run before the action, against the principal and the route, and the record hasn't been loaded yet. They can answer "may this caller use this endpoint?", never "does invoice 1005 belong to this caller?", because ownership is a column of the row. So the check has to sit where the row is: in the query itself (`Where(i => i.Id == id && i.OwnerId == userId)`, or an EF Core global query filter on the tenant), or in a resource-based check after loading. A query that filters by owner can't forget the check on the next endpoint that loads the same entity.
 
@@ -198,7 +194,7 @@ Your server fetches a URL supplied by the user, and an attacker points it at int
 
 ## OAuth 2.0, OpenID Connect, and JWTs
 
-Modern applications rarely handle passwords directly. Instead they delegate to an identity provider using **OAuth 2.0** (an authorization framework) and **OpenID Connect** (an authentication layer on top of OAuth). Understanding the roles and flows is essential.
+Modern applications rarely handle passwords directly. Instead they delegate to an identity provider using **OAuth 2.0** (an authorization framework) and **OpenID Connect** (an authentication layer on top of OAuth).
 
 The actors: the **resource owner** (the user), the **client** (your app), the **authorization server** (the IdP that issues tokens), and the **resource server** (your API that accepts tokens).
 
@@ -431,8 +427,6 @@ Here is a **TLS 1.3** handshake, the modern default, which is faster than its pr
 2. **ServerHello** — The server picks a cipher suite, sends its own key share and random nonce. At this point both sides can derive the shared symmetric key via **Diffie-Hellman** — crucially, without ever sending the secret over the wire.
 3. **Certificate** — The server sends its **X.509 certificate**, which binds its domain name to a public key and is signed by a **Certificate Authority (CA)** the client trusts. The client verifies the signature chain up to a trusted root in its store, checks the domain matches, and checks expiry/revocation.
 4. **Finished** — Both sides confirm they derived the same keys. From here, all application data is encrypted with fast **symmetric** encryption (e.g., AES-GCM).
-
-The elegant trick: **asymmetric** cryptography (slow) is used only to authenticate and to agree on a shared secret; then **symmetric** cryptography (fast) does the bulk encryption. You get the security of public-key crypto with the speed of symmetric ciphers.
 
 **TLS 1.3** also supports **0-RTT resumption**, where a returning client can send data in its very first packet — great for latency, but 0-RTT data is vulnerable to replay, so never use it for non-idempotent requests.
 
