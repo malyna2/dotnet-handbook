@@ -436,8 +436,6 @@ if (_ready) Use(_data); // might see _ready == true but stale _data
 
 A **memory barrier** prevents reordering across it and forces visibility; `Volatile.Read`/`Volatile.Write` (and the `volatile` keyword) insert one. You rarely need this level: `lock`, `Interlocked` and the concurrent collections establish the barriers for you. Hand-rolled lock-free code is expert territory and a classic source of bugs that appear only in production, under load.
 
-> **Best practice.** Prefer high-level synchronization (`lock`, `Interlocked`, concurrent collections, immutable data) over manual memory barriers. Reach for `volatile` only when you understand the memory model, and document *why*.
-
 ## Prove it
 
 Three programs, one per trap. Predict each output before you run it.

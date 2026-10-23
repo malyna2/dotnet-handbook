@@ -2039,7 +2039,7 @@ It starts a graceful shutdown: it calls `StopAsync` on each hosted service, and 
 
 # Chapter 4: Async Essentials
 
-_⏱️ Estimated read time: ~45 min · 6253 words (study pace)_
+_⏱️ Estimated read time: ~45 min · 6224 words (study pace)_
 
 This chapter is about what `async` and `await` do to three things: the thread, the exception and the work that is waiting. Every async outage in production is one of those three going wrong. One mechanism ties it together: **`await` hands the thread back and parks the rest of the method on the task, and the task is the only thing that carries the result or the exception back.**
 
@@ -2476,8 +2476,6 @@ if (_ready) Use(_data); // might see _ready == true but stale _data
 ```
 
 A **memory barrier** prevents reordering across it and forces visibility; `Volatile.Read`/`Volatile.Write` (and the `volatile` keyword) insert one. You rarely need this level: `lock`, `Interlocked` and the concurrent collections establish the barriers for you. Hand-rolled lock-free code is expert territory and a classic source of bugs that appear only in production, under load.
-
-> **Best practice.** Prefer high-level synchronization (`lock`, `Interlocked`, concurrent collections, immutable data) over manual memory barriers. Reach for `volatile` only when you understand the memory model, and document *why*.
 
 ## Prove it
 
