@@ -1,14 +1,14 @@
 # Chapter 21: Architecture
 
-You can write correct code and still build a system that becomes miserable to change. Correctness is about whether a single function returns the right answer; architecture is about whether, six months from now, a new feature takes an afternoon or a fortnight. Architecture is the cost of change, decided in advance: every boundary makes change cheap on one side of it and expensive across it. This chapter makes you able to put boundaries where the business changes independently, to choose between a modular monolith and microservices with the cost of each spelled out, and to defend the choice in a design review and write it down so the next team knows why.
+You can write correct code and still build a system that becomes miserable to change. Correctness is about whether a single function returns the right answer; architecture is about whether, six months from now, a new feature takes an afternoon or a fortnight. Architecture is the cost of change, decided in advance: every boundary makes change cheap on one side of it and expensive across it.
 
-[Chapter 10](#chapter-10-design-basics) covered the code-level foundations: SOLID, the common patterns, Repository and Unit of Work, layered and Clean architecture. Here those become system-level choices. The chapter starts with the two forces every choice trades (coupling and cohesion), then the boundaries inside a domain (DDD's aggregates and bounded contexts, the Specification pattern for query rules), then the split between the write model and the read model (CQRS and event sourcing), then the styles that draw the boundary somewhere else (vertical slices, the modular monolith, microservices), and finally the edge where clients meet the services (gateways and BFFs). Once a boundary becomes a network boundary, [Chapter 20](#chapter-20-distributed-systems) takes over; how the contracts that cross a boundary evolve is [Chapter 22](#chapter-22-api-evolution-real-time-and-serialization).
+[Chapter 10](#chapter-10-design-basics) covered the code-level foundations: SOLID, the common patterns, Repository and Unit of Work, layered and Clean architecture. Here those become system-level choices. Once a boundary becomes a network boundary, [Chapter 20](#chapter-20-distributed-systems) takes over; how the contracts that cross a boundary evolve is [Chapter 22](#chapter-22-api-evolution-real-time-and-serialization).
 
 There is no "correct" architecture, only architectures that fit a particular set of forces: team size, deployment cadence, domain complexity, and how much uncertainty you're carrying. Through every section, keep asking the only question that matters: *what problem does this solve, and do I actually have that problem?*
 
 ## Why Architecture Matters: Coupling and Cohesion
 
-Every discussion of architecture eventually reduces to two words: **coupling** and **cohesion**. Master these and everything else is commentary.
+Every discussion of architecture eventually reduces to two words: **coupling** and **cohesion**.
 
 **Cohesion** measures how much the things inside a module belong together. A class called `OrderProcessor` that validates orders, charges payment, and sends emails has *low* cohesion — three unrelated responsibilities crammed together. Split it so each unit does one thing well and cohesion goes up.
 
@@ -92,7 +92,7 @@ public sealed record OrderPlaced(OrderId OrderId, CustomerId CustomerId, DateTim
 
 ### Strategic Design: Bounded Contexts
 
-Here's the insight that separates senior DDD from junior DDD. The word "Customer" means different things in different parts of a business. To Sales, a Customer is a lead with a pipeline stage. To Shipping, a Customer is an address and a delivery preference. To Billing, a Customer is a payment method and a credit limit. Forcing all of these into one universal `Customer` class creates a bloated, contradictory model that nobody can change safely.
+The word "Customer" means different things in different parts of a business. To Sales, a Customer is a lead with a pipeline stage. To Shipping, a Customer is an address and a delivery preference. To Billing, a Customer is a payment method and a credit limit. Forcing all of these into one universal `Customer` class creates a bloated, contradictory model that nobody can change safely.
 
 A **Bounded Context** is an explicit boundary within which a particular model and its Ubiquitous Language apply consistently. Inside the Sales context, "Customer" means the sales meaning — full stop. Different contexts can have their own `Customer`, and they connect through well-defined contracts (a *Context Map* describes these relationships — shared kernel, customer/supplier, anti-corruption layer, etc.).
 
@@ -284,12 +284,6 @@ A **Backend for Frontend (BFF)** takes this further: instead of one general-purp
 ```
 
 > **Trade-off:** BFFs eliminate over- and under-fetching and let frontend teams move fast without waiting on a shared API. The cost is more services to maintain and potential logic duplication across BFFs. The BFF is also a natural home for the OAuth token-handling pattern in modern SPAs (keeping tokens server-side). Use BFFs when your clients genuinely diverge; a single gateway suffices when they don't.
-
-## Bringing It Together
-
-If you take one thing from this chapter, let it be this: **architecture is the art of deferring and containing change.** Every pattern here is a way to draw a boundary so that a change on one side doesn't force a change on the other. Coupling and cohesion are the physics; Clean Architecture, DDD bounded contexts, CQRS, vertical slices and modular monoliths are the engineering; and the distributed patterns of [Chapter 20](#chapter-20-distributed-systems) (sagas, the outbox, idempotency, eventual consistency) are what you need once a boundary becomes a network boundary.
-
-The senior move is restraint. Reach for the simplest structure that fits the forces in play, and add ceremony only when a real force demands it. A modular monolith with clean domain boundaries will serve the vast majority of systems far longer than most engineers expect — and it leaves every more-complex option open when, and only when, you actually need it.
 
 ## Practice
 
