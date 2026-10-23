@@ -1,8 +1,6 @@
 # Chapter 2: Data Structures and Algorithms Essentials
 
-This chapter makes you able to say what a piece of code costs as its input grows, and to pick the .NET collection whose cost matches the job: why `Dictionary` lookups are constant time and what makes them linear, why `List<T>.Add` is cheap on average and occasionally not, why `Array.Sort` is not stable, and when a plain list beats every clever structure. That is the instinct that spots a nested loop over a growing list long before it becomes an incident, and the vocabulary interviewers test.
-
-It runs in three steps. **Big-O** gives the language for cost. **Core data structures** explains each BCL collection by how it is built, because the internals are what produce its costs. **Key algorithms and patterns** covers the handful of techniques (sorting, binary search, two pointers, sliding window, hashing, BFS/DFS, dynamic programming, greedy) that most coding questions and much real code reduce to. A short framing for real problems and the interview questions close it.
+This chapter makes you able to say what a piece of code costs as its input grows, and to pick the .NET collection whose cost matches the job: why `Dictionary` lookups are constant time and what makes them linear, why `List<T>.Add` is cheap on average and occasionally not, why `Array.Sort` is not stable, and when a plain list beats every clever structure.
 
 The same habit applied to whole systems (load estimates, caches, queues, replicas) is [Chapter 23: System Design](#chapter-23-system-design); measuring the cost of real code with a profiler and BenchmarkDotNet is [Chapter 17: Runtime Internals and Performance](#chapter-17-runtime-internals-and-performance).
 
@@ -43,7 +41,7 @@ Amortized O(1) is not the same as worst-case O(1). If you have a hard latency ce
 
 ## Core Data Structures and Their .NET Types
 
-The single most valuable skill in this section is matching a problem to a structure. Each structure trades away something to be fast at something else. Let's walk them in the order you'll reach for them.
+Each structure trades away something to be fast at something else.
 
 ### Arrays: `T[]`
 
@@ -200,8 +198,6 @@ For a lookup table built **once and read many times**, such as reference data lo
 ### When *Not* to Reach for a Fancy Structure
 
 > **Best practice:** for small collections (a handful to a few dozen items), a plain `List<T>` with a linear scan often *beats* a `Dictionary` or `SortedSet`. Hashing has constant overhead, tree nodes fragment memory, and cache locality wins at small `n`. Don't build an index for ten items.
-
-The discipline isn't reaching for the most sophisticated structure — it's reaching for the *simplest one that meets the actual constraints*. Premature "optimization" with heavyweight structures adds complexity and can be slower. Know your `n`.
 
 ## Key Algorithms and Patterns
 
@@ -360,10 +356,6 @@ When a task lands on your desk, resist jumping to code. Frame it first:
 > The framing itself is the skill. "Which data structure is best?" has no answer; "what does this problem actually need, and what's the simplest structure that delivers it within the constraints?" does.
 
 > **Pay attention.** **LINQ hides the loop, not its cost.** Each operator is a pass over its source, so a lambda that calls `Contains`, `First` or `Any` on a `List<T>` runs a full scan per element. `orders.Where(o => vipIds.Contains(o.CustomerId))` is O(n·m) with `vipIds` as a list and O(n) with it as a `HashSet<int>`, and the code looks the same. Likewise `Distinct`, `GroupBy` and `ToLookup` build hash tables internally (O(n) time, O(n) space), and `OrderBy` sorts (O(n log n)). Fix: before writing a lambda, ask what each call inside it costs per element, and build a set or dictionary once outside the query.
-
-## Bringing It Together
-
-The through-line is one habit: **reason about cost before you commit to code.** Pick the collection whose Big-O matches your access pattern and your realistic `n`, know which internal mechanism (contiguous array, hash buckets, balanced tree, binary heap) produces that cost and what breaks it (a bad hash, a mutated key, unsorted input to a binary search), and recognize the handful of algorithmic patterns most problems reduce to. Strong engineers are not the ones who memorized the most algorithms; they are the ones who reliably ask "how does this behave as it grows?" and have the vocabulary to answer.
 
 ## Prove it
 
