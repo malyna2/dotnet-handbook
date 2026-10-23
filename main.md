@@ -18396,11 +18396,9 @@ Because the cost isn't linear. Consecutive versions have a documented path; four
 
 # Chapter 25: Observability and Testing at Scale
 
-_⏱️ Estimated read time: ~1 h · 9989 words (study pace)_
+_⏱️ Estimated read time: ~1 h · 9893 words (study pace)_
 
 [Chapter 9: Exceptions, Logging and First Diagnosis](#chapter-9-exceptions-logging-and-first-diagnosis) gave you the log line, and [Chapter 8: Testing](#chapter-8-testing) gave you unit and integration tests inside one service. This chapter starts where a request leaves the process and where a codebase outgrows one team.
-
-The through-line is one habit of mind: **treat your telemetry and your tests as systems to be engineered, with their own costs, failure modes, and return on investment** — and measure both against the same yardstick, the user-visible SLI.
 
 ## Metrics
 
@@ -18635,7 +18633,7 @@ So you pick one victim. In Jaeger you query for slow traces on that route (tail 
 
 But a span only shows *that* the call took 3.8 seconds, not *why*. So you copy the trace ID from Jaeger, paste it into Seq, and — because every service stamps its logs with the trace ID ([Chapter 9](#correlation-across-services)) — you get every structured log line from every service for that exact request. There they are: three warnings, `Payment gateway returned 429, retrying in 800ms (attempt 3)`. The gateway was not slow; it was rejecting you, and your own retries were stacking inside the span. A quick pivot on the same query shows the 429s started at 2:52 — right when the nightly reconciliation job began hammering the gateway with the same API key. Kill the job, latency recovers, go back to bed.
 
-Walk the chain again: the metric said *something is wrong and where*, the trace said *which hop*, the logs said *why*. Three tools, one investigation — and the only thing that connected them was the trace ID, propagated in every hop's `traceparent` header, recorded on every span, and stamped onto every log line. That correlation is not luck. It exists because the propagation, the enricher, and the sampler were wired up on a quiet afternoon, exactly as this chapter prescribes. At 3 a.m. you can only harvest what you instrumented at 3 p.m.
+Walk the chain again: the metric said *something is wrong and where*, the trace said *which hop*, the logs said *why*. Three tools, one investigation — and the only thing that connected them was the trace ID, propagated in every hop's `traceparent` header, recorded on every span, and stamped onto every log line.
 
 One more step exists when the trace points inside a single process — a span that is slow but makes no outbound calls. Then the next tool is a profiler on that process: `dotnet-counters` first, then whatever its reading points to ([Chapter 17: Profiling](#profiling-finding-the-bottleneck-in-a-running-system)).
 
@@ -18968,7 +18966,7 @@ export default function () {
 }
 ```
 
-The key discipline is reading **percentiles, not averages**. An average latency of 50ms can hide a p99 of 3 seconds — meaning one request in a hundred is agonizingly slow, which at scale is thousands of unhappy users. Averages lie; percentiles tell the truth about tail behavior, and tail behavior is what users actually feel.
+The key discipline is reading **percentiles, not averages**. An average latency of 50ms can hide a p99 of 3 seconds — meaning one request in a hundred is agonizingly slow, which at scale is thousands of unhappy users.
 
 In NBomber you express load as a *scenario* with an injection rate:
 
