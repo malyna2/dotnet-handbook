@@ -19182,7 +19182,7 @@ Checkout calls Payments and Inventory, each owned by another team and deployed o
 
 # Chapter 26: Delivery and Platform
 
-_⏱️ Estimated read time: ~1 h 25 min · 14044 words (study pace)_
+_⏱️ Estimated read time: ~1 h 25 min · 13962 words (study pace)_
 
 Part 1 taught you to build, test and containerize one service ([Chapter 13: Git and CI/CD](#chapter-13-git-and-cicd), [Chapter 14: Containers and Linux](#chapter-14-containers-and-linux)). This chapter is about everything between that image and a user, and about doing it for many services and many teams.
 
@@ -19211,8 +19211,6 @@ Four of these carry the .NET-specific weight:
 - **Statelessness + backing services (4, 6).** Nothing persisted in local memory or disk between requests; sessions and caches live in attached resources. This is the precondition for horizontal scaling (8).
 - **Disposability (9).** Handle `SIGTERM`, finish in-flight work, release resources — the generic host's [graceful-shutdown pipeline](#processes-signals-graceful-shutdown) exists for this; it is what makes rolling deploys and elastic scaling safe.
 - **Logs (11).** Structured logs to stdout ([Chapter 9](#chapter-9-exceptions-logging-and-first-diagnosis)); the platform aggregates. An app managing its own log files fights every orchestrator it runs under.
-
-> **Why this matters for a senior .NET dev:** these factors are the contract that makes an app cloud-native. Violate them and no amount of Kubernetes will save you.
 
 ## systemd: Running a .NET App as a Service
 
@@ -19289,7 +19287,7 @@ exit 1
 
 Key ideas: the **shebang** picks the interpreter; **`set -euo pipefail`** is the single most important line for robust scripts (fail fast, fail loud); `$VAR` reads variables; the `for` loop with `curl -sf` (silent, fail-on-error) polls the health endpoint; a non-zero `exit` tells CI the deploy failed.
 
-> **Best practice:** Start every non-trivial script with `set -euo pipefail`. Without it, a failed command in the middle is silently ignored and the script marches on, often making things worse. This one line turns sloppy scripts into safe ones.
+> **Best practice:** Start every non-trivial script with `set -euo pipefail`. Without it, a failed command in the middle is silently ignored and the script marches on, often making things worse.
 
 ## Kubernetes Fundamentals
 
@@ -19597,8 +19595,6 @@ Run it, and Aspire starts your projects, spins up Postgres and Redis in containe
 - **Deployment** — the same App Host model generates deployment manifests, integrating with tools that publish to Kubernetes or Azure Container Apps (Aspir8, for example). So the same C# app model that runs your inner loop also informs your deployment.
 
 > **Where Aspire fits:** it is primarily a **development-time and composition** layer that nudges you toward 12-Factor practices. It is *not* itself a production runtime, nor a service mesh. For a team building a modular monolith or a handful of services, it dramatically lowers the friction of doing distributed .NET *well*.
-
-> **Best practice:** Use Aspire to make local multi-service development pleasant and observable, and to standardize resilient, instrumented client configuration across services. Still learn Kubernetes and its manifests — that's where your app ultimately runs, and Aspire complements that knowledge rather than replacing it.
 
 > **Capstone tie-in:** The sections so far are exercised by ShopCore Steps 3 (Dockerize) and [8 (Deploy with Infrastructure as Code)](#step-8-deploy-with-infrastructure-as-code) in [Chapter 44](#chapter-44-capstone-one-project-growing-up) — you'd package the API with a multi-stage Dockerfile and Compose, then run the services on a managed Kubernetes cluster or cloud container service.
 
