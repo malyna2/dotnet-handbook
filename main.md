@@ -13580,11 +13580,11 @@ Each box is a heap allocation and a copy, feeding gen-0 GC. In a tight loop that
 
 # Chapter 18: Data in Depth
 
-_⏱️ Estimated read time: ~55 min · 10183 words (study pace)_
+_⏱️ Estimated read time: ~55 min · 10034 words (study pace)_
 
 This chapter starts where [Chapter 7](#chapter-7-data-access) stops: making one database fast when the obvious levers are already pulled, and then deciding what to do when one database is no longer enough.
 
-Both halves come down to the same question: *where does the data live, and who is allowed to touch it?* [Chapter 19](#chapter-19-the-slow-query-lab-reading-execution-plans) is the hands-on lab for the plan-reading half.
+[Chapter 19](#chapter-19-the-slow-query-lab-reading-execution-plans) is the hands-on lab for the plan-reading half.
 
 ## Entity Framework Core: The Object-Relational Mapper — in depth
 
@@ -13907,8 +13907,6 @@ Configure ASP.NET Core sessions to use the distributed cache and any instance ca
 
 For most of a system's life, a single well-tuned database is enough. You add indexes, you cache the hot paths, you buy a bigger machine, and the graphs stay green. Then one day they don't. The write-ahead log can't flush fast enough, a nightly report locks a table that customers need, connections pile up faster than the pool can hand them out, and your biggest customer's traffic starts starving everyone else. Scaling data is the art of pushing that day as far into the future as possible, and knowing what to do when it finally arrives.
 
-There are only two directions you can scale, and the choice colors every decision that follows.
-
 **Vertical scaling** (scaling *up*) means giving one machine more resources: more CPU cores, more RAM, faster NVMe disks. It is gloriously simple. Your application doesn't change, your transactions stay ACID, your joins still work. The ceiling is real, though — the biggest cloud database instance is finite, and the price curve is exponential. Doubling from a medium box to a large one is cheap; doubling from the largest box to *twice that* is impossible at any price.
 
 **Horizontal scaling** (scaling *out*) means adding more machines and spreading the load across them. The ceiling is effectively unbounded, but you pay for it in complexity: data now lives in more than one place, and the comforting guarantees of a single node — a global transaction, a cheap join, a unique index — start to fray.
@@ -14000,8 +13998,6 @@ The shard key is the most consequential choice in the whole design, because it d
 
 That third point is the crux. In a multi-tenant SaaS, `TenantId` is often the ideal shard key: virtually every query is already scoped to one tenant, so it naturally lands on one shard. Shard by the wrong key and your most common query becomes a **scatter-gather** across every shard.
 
-> **Best practice:** Pick the shard key by looking at your *read* patterns, not your data model. The question is not "how is this data structured?" but "what does 95% of my traffic filter by?"
-
 ### The Pain: Cross-Shard Queries, Joins, and Transactions
 
 Once data is split, three things that used to be free become expensive or impossible:
@@ -14054,8 +14050,6 @@ The relay can poll the outbox table — or, elegantly, **CDC can read the outbox
 
 So how do outbox and CDC relate? The outbox is *your application deliberately writing events you designed*; CDC is *infrastructure capturing raw row changes*. Use the **outbox** when you want clean, intentional domain events with a stable contract. Use **raw CDC** when you want to replicate or react to table changes without touching the application — for example, feeding a data warehouse. They compose beautifully: CDC is often the *transport* for outbox rows.
 
-> **Best practice:** Never dual-write to a database and a message broker in application code hoping both succeed. Use the outbox pattern so the event and the state change share one transaction, then ship the events with CDC or a relay.
-
 ## NoSQL and Polyglot Persistence
 
 No single database is good at everything, and some data shapes fit other models better than tables:
@@ -14067,8 +14061,6 @@ No single database is good at everything, and some data shapes fit other models 
 **Polyglot persistence** means using the right store for each job: Postgres for transactional integrity, Elasticsearch for full-text search, Redis for ephemeral session data, a columnar warehouse for analytics, a graph database for relationship queries. CDC is the glue that keeps these stores in sync from a single source of truth.
 
 The same idea, applied to one service's own data, is a **CQRS read store** ([Chapter 21](#chapter-21-architecture) teaches the pattern): writes go to a normalized transactional model, reads are served from stores shaped exactly for how they are queried (pre-joined, denormalized, indexed for one screen), kept up to date asynchronously, often from the same event or CDC stream. You accept eventual consistency in exchange for read models that are fast and don't compete with writes. And under all of it sit the caching layers (in-process, Redis, HTTP and CDN at the edge); CDC can drive precise cache invalidation too, by streaming the exact rows that changed.
-
-> **Rule of thumb.** Choose storage by access pattern, not by hype. Most systems are polyglot: a relational database as the source of truth, Redis for caching, Elasticsearch for search. NoSQL is a specialization, not a replacement.
 
 ## Multi-Tenancy
 
