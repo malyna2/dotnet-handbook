@@ -2,8 +2,6 @@
 
 A design prompt gives you forty-five minutes and one vague sentence: "design a URL shortener", "design checkout". There is no single right answer, and nobody is grading the diagram. In an interview or an architecture review, people check three things: that every box traces back to a requirement or a number, that you know what each box costs, and that you can say what breaks first when the numbers grow.
 
-The thread through all of it: **numbers first, then the architecture those numbers justify, then the failure each choice brings in.**
-
 ## A Repeatable Approach
 
 Use the same seven steps every time; each produces what the next one needs.
