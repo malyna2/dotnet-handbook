@@ -22952,7 +22952,7 @@ Orders (App Service) calls Pricing (Container Apps); both are your team's and si
 
 # Chapter 30: The Azure Casebook — Real Incidents, Real Fixes
 
-_⏱️ Estimated read time: ~55 min · 9492 words (study pace)_
+_⏱️ Estimated read time: ~55 min · 9313 words (study pace)_
 
 [Chapter 29](#chapter-29-azure-in-depth-for-net-developers) explains how Azure works. This chapter is about what happens when it meets production. Each case is a situation that .NET teams on Azure run into again and again. They are composites of common incidents, not one company's post-mortem. For each one you get the same six parts:
 
@@ -22963,7 +22963,7 @@ _⏱️ Estimated read time: ~55 min · 9492 words (study pace)_
 - **Fix**: what to change now, and what to change properly.
 - **Prevent it** and **Interview angle**: the habit that stops it happening again, and how to tell the story.
 
-Read a case's *Situation* and *What you see*, then stop and write down your own diagnosis before you read on. That habit is the one that pays off at 3 a.m. and in system-design interviews alike. [Chapter 35](#chapter-35-production-incidents) does the same for cloud-agnostic scenarios. This chapter is specific to Azure.
+Read a case's *Situation* and *What you see*, then stop and write down your own diagnosis before you read on. [Chapter 35](#chapter-35-production-incidents) does the same for cloud-agnostic scenarios. This chapter is specific to Azure.
 
 ## The Azure Triage Card
 
@@ -23628,12 +23628,6 @@ Answer these from your own system, not from memory:
 - **Recovery.** For each stateful dependency: where does it live when the region is gone, and when was that last tested?
 
 Each "I don't know" is a candidate for a small, measurable improvement, and for a story in your evidence portfolio ([Chapter 37](#chapter-37-the-story-bank-evidence-portfolio)). Keep stories about a real employer private, and anonymise the numbers you share.
-
-## Summary
-
-The Azure incidents that cost the most time are rarely exotic. They come from a handful of mechanisms: **control plane versus data plane** permissions and their propagation delay; a **credential chain** that picks an unexpected identity; **SNAT ports** and connections that are not reused; the **slot swap sequence** and settings that move with it; **peek-lock** semantics, lock expiry and dead-letter queues nobody watches; **elastic compute in front of inelastic databases**; **hot partitions** in Cosmos DB; **private endpoints without DNS**; the **230-second** request limit; **replay** in Durable Functions; **secret rotation** without overlap; **transient SQL faults**; **telemetry caps**; and **multi-region diagrams** that stop at the compute tier.
-
-Each case follows the same discipline: read the symptom, name the mechanism, confirm it with a specific check, fix the cause rather than the symptom, and add the guardrail that keeps it fixed. That discipline, more than any service name, is what an interviewer is listening for, and what your team relies on at 3 a.m.
 
 
 ---
