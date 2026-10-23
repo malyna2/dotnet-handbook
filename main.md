@@ -81,7 +81,7 @@ Before an interview, reread [Part 1 · Pay Attention To](#part-1-pay-attention-t
 
 # Chapter 1: C# Essentials
 
-_⏱️ Estimated read time: ~1 h 20 min · 10772 words (study pace)_
+_⏱️ Estimated read time: ~1 h 20 min · 10651 words (study pace)_
 
 Two facts explain most of what everyday C# does: what an assignment copies, what `==` compares, which method a call through a base class runs, where a null still gets past the compiler, when a LINQ query runs, what a lambda captures. A variable holds either a value or a reference to a shared object. And the compiler turns many lines into something else: an operator or a method picked from the variable's declared type, a hidden object that holds captured variables, a state machine that runs later.
 
@@ -123,7 +123,7 @@ In brief: the **stack** is per-thread memory that grows and shrinks with method 
 - A value type **captured by a closure** or used in an `async` method or iterator is often hoisted into a compiler-generated heap object.
 - A reference type's **reference** (the pointer-sized handle) follows the same rules as a value type — a local reference variable sits on the stack — but the **object it points to** is on the heap.
 
-> **Gotcha:** "Value types are always on the stack" is false. Reason about *where the variable is declared*. The JIT is also free to keep values in registers, and since .NET 9 and 10 it stack-allocates some objects that provably don't outlive the method (boxes, small arrays, some delegates). The runtime decides, not the type.
+> **Gotcha:** The JIT is also free to keep values in registers, and since .NET 9 and 10 it stack-allocates some objects that provably don't outlive the method (boxes, small arrays, some delegates). The runtime decides, not the type.
 
 It matters because heap allocations drive garbage collection: a higher allocation rate means more frequent collections, with pauses and CPU spent tracing objects. `Span<T>`, structs and object pooling exist to avoid them ([Chapter 17: Runtime Internals and Performance](#chapter-17-runtime-internals-and-performance)).
 
@@ -199,8 +199,6 @@ ref struct StackOnly
 // StackOnly cannot be a field of a class, cannot be boxed,
 // cannot be used inside an async method or a lambda closure.
 ```
-
-> **Rule of thumb:** `readonly struct` for immutable value semantics with zero defensive-copy overhead; `ref struct` for stack-only, allocation-free buffers like `Span<T>`.
 
 ## Classes, Inheritance and Virtual Dispatch
 
@@ -543,7 +541,7 @@ string desc = data switch
 };
 ```
 
-The `switch` *expression* (distinct from the older `switch` statement) returns a value, is exhaustive-checked by the compiler, and reads top-to-bottom with the first match winning. This is a functional, declarative style that replaces sprawling `if/else` ladders.
+The `switch` *expression* (distinct from the older `switch` statement) returns a value, is exhaustive-checked by the compiler, and reads top-to-bottom with the first match winning.
 
 ## Nullable Reference Types
 
@@ -645,11 +643,9 @@ public static class StringExtensions
 bool empty = "   ".IsNullOrBlank();   // reads like an instance call; compiles to a static call
 ```
 
-Extension methods are purely compile-time sugar — there's no runtime magic, just a static call the compiler rewrites. They can't access private members and are resolved by the `using` namespaces in scope.
+Extension methods can't access private members and are resolved by the `using` namespaces in scope.
 
 > **New in C# 14 (.NET 10):** *extension members* generalize this `static`-`this` form. Inside an `extension` block you can now declare extension **properties**, operators, and static extension members — not just instance methods. The classic `this`-parameter syntax still works and interoperates with the new blocks, so nothing here is obsolete (see *Modern Syntax You Should Be Using* below for the timeline).
-
-Beyond generic math, interfaces can now declare `static` members (operators, factory methods, constants), which combined with generics enables abstractions that were previously impossible in C#.
 
 ## Iterators and yield return
 
@@ -792,8 +788,6 @@ Console.WriteLine(string.Join(" ", tagged));                                    
 record Order(int Id, string Customer, decimal Total);
 class Person(string name) { public string Name { get; } = name; }
 ```
-
-Multiple enumeration is the trap that crosses all of them: an operator that returns `IEnumerable<T>` hands back a recipe, so two terminal calls on it run the whole pipeline twice.
 
 ## IDisposable, IAsyncDisposable, and the Dispose Pattern
 
