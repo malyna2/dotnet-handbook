@@ -24,7 +24,7 @@ Two attitudes will sink you before you write a line of code.
 
 The first is contempt. It is tempting to look at legacy code and assume the people who wrote it were incompetent. Almost always they were not. They were working under deadlines you don't know about, with framework versions that no longer exist, satisfying requirements that have since changed. That "insane" workaround was probably a rational response to a constraint that has been forgotten. Approach the code as an archaeologist, not a critic.
 
-The second is the urge to rewrite. We'll return to this, but hold the thought: the ugly code that's still running is doing something valuable. It encodes thousands of bug fixes and edge cases — the accumulated learning of the business — that exist *nowhere else*, certainly not in any specification. That value is real, and throwing it away is expensive.
+The second is the urge to rewrite. The ugly code that's still running is doing something valuable. It encodes thousands of bug fixes and edge cases — the accumulated learning of the business — that exist *nowhere else*, certainly not in any specification. That value is real, and throwing it away is expensive.
 
 > **Best practice:** Before changing legacy code, assume it is the way it is for a reason you don't yet see. Your job is to understand that reason, then make it better, not to prove you're smarter than your predecessors.
 

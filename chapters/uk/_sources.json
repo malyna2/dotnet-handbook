@@ -36,16 +36,16 @@
     "translation": "2a8f5bd27396d54a6d34d3d6f56e9a1a277eb5931efe72a9ecef9a414d31aa44"
   },
   "108-testing": {
-    "source": "f39d7751d9b3a5c773cc7e12952e9aac651a599826ec44497c3c01604b747570",
-    "translation": "eabb0903599399872ce88ef29ac08654277d5ef6fe88764955b0657974ed1c9e"
+    "source": "79bb223796abf686f248f0cda32f2c0d497981e708682c867b49b1cadeb87e7b",
+    "translation": "97918926336bcb8756d2aeb0c9ca10b6f9881b653dce903dcb46f5411d0ae303"
   },
   "109-exceptions-logging-diagnosis": {
-    "source": "362cf35b9809f6c4c852b3cb180c846ed31fc32529a96108255e32d8083a7510",
-    "translation": "4b59ea43ab9f9b734ad54c5b84b923be1626fb19715cf80d726ed779a80e349f"
+    "source": "93711120ad543f845a95cc5f3158e58eb5a79389ea0f41be00877ea23ad0e41f",
+    "translation": "32699828f9b37ac033573448e4b2d9bf440d999fdb70e48070678c6c0d4e5c54"
   },
   "110-design-basics": {
-    "source": "c12a0b6cc63e43ae4dcdf69b2b5c101b37170f52d81f0b4b6008e441e70e4c39",
-    "translation": "18f105068a661e51ceda1aa23fe0ff1c1da51ba4efea45608f3041bc8e0e0808"
+    "source": "ecd7662f392b99b443e3dbc74db90ba7660e866d259268c4883260d92a902859",
+    "translation": "6c37a3c1fcbbcd6c3fabeb5c0fe4d8173fc854410df7f2c63ae647c5189e1900"
   },
   "111-messaging-and-background-work": {
     "source": "e6bb56aae0010928c3aa0ac4cd44f8a7fbd8bc6d74de934a185665835a909b27",
@@ -92,8 +92,8 @@
     "translation": "6a64fd0145d27cd65c3bfe0ff947c173838a31a1b1aa6a3859f32cfe01b2be2f"
   },
   "220-distributed-systems": {
-    "source": "5a7066e67ac0b747c54d5469c1ee040cbb02866a8f97ceb4a12e8328d05e326f",
-    "translation": "9f7fef0346357f66bca2a72583eb8aeca43649dfb287902276105e3438c7aa43"
+    "source": "bb021e940c86d842961901ebb05d8c70725dd522cbe67a4e141e0c0d479d4611",
+    "translation": "7afa426e81cc4ec70b6b2c65256ed03458c880b990e76d348389b70becb134f7"
   },
   "221-architecture": {
     "source": "12884b4898ced91df61f883ddb373346703fccf26c4416238f8dc7ef86bb3b2b",
@@ -108,8 +108,8 @@
     "translation": "92b2fc092669fcd2efee888546f50ddabcd8e419ce40df893e70c1da98e313c9"
   },
   "224-legacy-brownfield": {
-    "source": "c7a675a45b3a40ab73bda14d9c66a7dadad973afc6fd2086b2b27238af437e65",
-    "translation": "7bd34e184df56eb0d5d06cc58a9b16436cbffd4e389ad5514a3086f598978010"
+    "source": "d05df1823d6de01854235f8434e0d9c78e5af04d9542f48dade88e0a95b723b0",
+    "translation": "6061a2100276108197581d78830efbc366a06bdfc9c95ef6ea4278715d49f3bc"
   },
   "225-observability-testing-at-scale": {
     "source": "838687548f553d8dbc9e0d09db5a7f0a83958047930295734a6857bde21449b8",
@@ -124,8 +124,8 @@
     "translation": "5f7fb48b77300d4cc9f5c5dbe705052c4d5243d9d6282587cade1d301f47c3de"
   },
   "228-cloud-fundamentals": {
-    "source": "cf2c8a34b2448a0f1470d2c26ba4bd9aae26f47f26d85f990a684df1ed2ae644",
-    "translation": "a11fc596928c991562ec4374823ce3b6df7d5fbf75cda854d4fe8e9d38b01818"
+    "source": "14342fe49b540a616ebe4e2693a0a4b378bcea57569c06349813cb65f20cdb08",
+    "translation": "940d824742f7f17ca513d024bf7b18e2491bb96c19b79c8c7d9c51d313c005c2"
   },
   "229-azure-in-depth": {
     "source": "37542e656150f0eda56445f7f8a674dc4c1f0677befac92067ed7e9c57f4f8a2",

@@ -66,7 +66,7 @@ The two canonical algorithms are **Paxos** (Lamport) and **Raft** (Ongaro and Ou
 
 ## Distributed Time: Why You Can't Trust the Clock
 
-Here is a trap that snares even experienced engineers: using wall-clock timestamps to order events across machines. Every server's clock drifts. NTP corrects it, but corrections can jump the clock *backwards*, and two servers can easily disagree by tens or hundreds of milliseconds — sometimes seconds. If you decide "the write with the later timestamp wins," you can silently discard a newer write because the machine that made it had a slightly slow clock.
+Never order events across machines by wall-clock timestamps. Every server's clock drifts. NTP corrects it, but corrections can jump the clock *backwards*, and two servers can easily disagree by tens or hundreds of milliseconds — sometimes seconds. If you decide "the write with the later timestamp wins," you can silently discard a newer write because the machine that made it had a slightly slow clock.
 
 > **Pitfall:** "Last write wins" using `DateTime.UtcNow` from different servers is a data-corruption bug waiting to happen. Physical clocks tell you *roughly when*, never reliably *what happened before what*.
 

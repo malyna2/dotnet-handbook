@@ -125,7 +125,7 @@ Patterns also give teams a shared vocabulary. When a colleague says "let's put a
 
 ### The Danger of Overusing Patterns
 
-Here is the uncomfortable truth that separates mid-level from senior: **most code does not need a pattern, and reaching for one prematurely is a form of harm.**
+**Most code does not need a pattern, and reaching for one prematurely is a form of harm.**
 
 The failure mode has a name in the community — "pattern-itis" or "architecture astronautics." It looks like this: a developer learns the patterns, gets excited, and starts seeing them everywhere. A simple `if/else` becomes a Strategy with three classes and a factory. A two-method service grows an interface, an abstract base, and a decorator "for flexibility." Six months later, tracing a single request means opening eleven files, and nobody can find where the actual work happens.
 

@@ -387,7 +387,7 @@ Two disciplines decide most cloud outcomes.
 
 Every architecture discussion involving a managed service eventually reaches someone saying "but that locks us in," at which point the conversation usually stops. It shouldn't, because "locked in" is not a binary state and the objection is frequently used to justify building something worse.
 
-Here is the reframe that makes the discussion productive: **lock-in is not a yes/no property, it is a switching cost — and switching cost is worth paying for capability you get now.** You are already locked into your programming language, your database engine, your identity provider, and your ORM. Nobody proposes writing SQL that runs identically on six engines. The question is never "are we locked in," it is "what would leaving cost, and is the thing we get worth that price?"
+**Lock-in is not a yes/no property, it is a switching cost — and switching cost is worth paying for capability you get now.** You are already locked into your programming language, your database engine, your identity provider, and your ORM. Nobody proposes writing SQL that runs identically on six engines. The question is never "are we locked in," it is "what would leaving cost, and is the thing we get worth that price?"
 
 ### The gradient
 

@@ -85,7 +85,7 @@ public void ApplyDiscount_Cases(decimal price, decimal percent, decimal expected
 
 ### Lifecycle and Fixtures
 
-Here is xUnit's most important and most surprising design decision: **xUnit creates a new instance of your test class for every single test method.** There is no shared mutable state between tests unless you deliberately introduce it. This is a feature — it makes test isolation the default and kills a whole category of order-dependent bugs.
+xUnit's most surprising design decision: **xUnit creates a new instance of your test class for every single test method.** There is no shared mutable state between tests unless you deliberately introduce it. This is a feature — it makes test isolation the default and kills a whole category of order-dependent bugs.
 
 Because of this, xUnit has no `[SetUp]`/`[TearDown]` attributes like NUnit. Instead:
 

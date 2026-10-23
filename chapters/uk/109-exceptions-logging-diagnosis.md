@@ -82,8 +82,6 @@ builder.Host.UseSerilog((context, services, configuration) => configuration
 var app = builder.Build();
 ```
 
-Розгляньмо кожне поняття окремо.
-
 **Шаблони повідомлень** — серце Serilog. Коли ви пишете `logger.LogInformation("Order {OrderId} shipped", orderId)`, Serilog зберігає і вихідний шаблон, *і* властивість. Завдяки цьому events з однаковим шаблоном, але різними ідентифікаторами розпізнаються як той самий *тип* events, що надзвичайно корисно для групування й аналізу.
 
 Непомітна, але потужна можливість — оператор deployment (розгортання) `@`:

@@ -82,8 +82,6 @@ builder.Host.UseSerilog((context, services, configuration) => configuration
 var app = builder.Build();
 ```
 
-Let's dissect each concept.
-
 **Message templates** are the heart of Serilog. When you write `logger.LogInformation("Order {OrderId} shipped", orderId)`, Serilog stores the raw template *and* the property. This means events with the same template but different IDs are recognized as the same *kind* of event, which is enormously valuable for grouping and analysis.
 
 A subtle but powerful feature is the `@` destructuring operator:

@@ -6191,7 +6191,7 @@ Not necessarily: it is a named subquery. SQL Server expands it at every referenc
 
 # Chapter 8: Testing
 
-_⏱️ Estimated read time: ~45 min · 6136 words (study pace)_
+_⏱️ Estimated read time: ~45 min · 6131 words (study pace)_
 
 Most developers can write a test. Far fewer can explain *why* one test is worth writing and another is worth deleting, why a green suite can still be worthless, or why the team that mocks everything ends up trusting nothing.
 
@@ -6278,7 +6278,7 @@ public void ApplyDiscount_Cases(decimal price, decimal percent, decimal expected
 
 ### Lifecycle and Fixtures
 
-Here is xUnit's most important and most surprising design decision: **xUnit creates a new instance of your test class for every single test method.** There is no shared mutable state between tests unless you deliberately introduce it. This is a feature — it makes test isolation the default and kills a whole category of order-dependent bugs.
+xUnit's most surprising design decision: **xUnit creates a new instance of your test class for every single test method.** There is no shared mutable state between tests unless you deliberately introduce it. This is a feature — it makes test isolation the default and kills a whole category of order-dependent bugs.
 
 Because of this, xUnit has no `[SetUp]`/`[TearDown]` attributes like NUnit. Instead:
 
@@ -6918,7 +6918,7 @@ Fast, isolated/independent (no order dependence, no shared state), deterministic
 
 # Chapter 9: Exceptions, Logging and First Diagnosis
 
-_⏱️ Estimated read time: ~1 h 10 min · 11458 words (study pace)_
+_⏱️ Estimated read time: ~1 h 10 min · 11454 words (study pace)_
 
 Every service fails, and what decides how fast a failure gets fixed is the trail it leaves: one log entry carrying the whole exception, a response that tells the caller what they can do about it, and one id that joins the two.
 
@@ -7001,8 +7001,6 @@ builder.Host.UseSerilog((context, services, configuration) => configuration
 
 var app = builder.Build();
 ```
-
-Let's dissect each concept.
 
 **Message templates** are the heart of Serilog. When you write `logger.LogInformation("Order {OrderId} shipped", orderId)`, Serilog stores the raw template *and* the property. This means events with the same template but different IDs are recognized as the same *kind* of event, which is enormously valuable for grouping and analysis.
 
@@ -7800,7 +7798,7 @@ Monitoring answers questions you decided on in advance: dashboards and alerts fo
 
 # Chapter 10: Design Basics
 
-_⏱️ Estimated read time: ~1 h 15 min · 10478 words (study pace)_
+_⏱️ Estimated read time: ~1 h 15 min · 10468 words (study pace)_
 
 This chapter is about design judgment: the force that pushes you toward a design, the cost the design extracts, and the point at which the cure becomes worse than the disease.
 
@@ -7927,7 +7925,7 @@ Patterns also give teams a shared vocabulary. When a colleague says "let's put a
 
 ### The Danger of Overusing Patterns
 
-Here is the uncomfortable truth that separates mid-level from senior: **most code does not need a pattern, and reaching for one prematurely is a form of harm.**
+**Most code does not need a pattern, and reaching for one prematurely is a form of harm.**
 
 The failure mode has a name in the community — "pattern-itis" or "architecture astronautics." It looks like this: a developer learns the patterns, gets excited, and starts seeing them everywhere. A simple `if/else` becomes a Strategy with three classes and a factory. A two-method service grows an interface, an abstract base, and a decorator "for flexibility." Six months later, tracing a single request means opening eleven files, and nobody can find where the actual work happens.
 
@@ -15058,7 +15056,7 @@ SQL Server handles the OR form (script 4 of the SQL Server track). It is a genui
 
 # Chapter 20: Distributed Systems
 
-_⏱️ Estimated read time: ~1 h 15 min · 12151 words (study pace)_
+_⏱️ Estimated read time: ~1 h 15 min · 12142 words (study pace)_
 
 A single-process program lives in a comfortable universe. Memory reads are instantaneous, function calls always return, and if something crashes, the whole thing crashes together: you never have to reason about *half* your program being alive while the other half is dead. The moment you split that program across two machines connected by a network, you leave that universe for good. Messages get lost. Clocks disagree. One node thinks another is dead when it is merely slow. And **you can never tell the difference between a slow node and a dead one**; that single fact is the source of most of the pain in this chapter.
 
@@ -15126,7 +15124,7 @@ The two canonical algorithms are **Paxos** (Lamport) and **Raft** (Ongaro and Ou
 
 ## Distributed Time: Why You Can't Trust the Clock
 
-Here is a trap that snares even experienced engineers: using wall-clock timestamps to order events across machines. Every server's clock drifts. NTP corrects it, but corrections can jump the clock *backwards*, and two servers can easily disagree by tens or hundreds of milliseconds — sometimes seconds. If you decide "the write with the later timestamp wins," you can silently discard a newer write because the machine that made it had a slightly slow clock.
+Never order events across machines by wall-clock timestamps. Every server's clock drifts. NTP corrects it, but corrections can jump the clock *backwards*, and two servers can easily disagree by tens or hundreds of milliseconds — sometimes seconds. If you decide "the write with the later timestamp wins," you can silently discard a newer write because the machine that made it had a slightly slow clock.
 
 > **Pitfall:** "Last write wins" using `DateTime.UtcNow` from different servers is a data-corruption bug waiting to happen. Physical clocks tell you *roughly when*, never reliably *what happened before what*.
 
@@ -17906,7 +17904,7 @@ The four worked designs above are the answers, and each one's *hard parts* are w
 
 # Chapter 24: Working with Legacy & Brownfield Code
 
-_⏱️ Estimated read time: ~45 min · 7338 words (study pace)_
+_⏱️ Estimated read time: ~45 min · 7330 words (study pace)_
 
 Most professional work happens on systems that already exist, and the senior skill is changing them safely while understanding only a slice.
 
@@ -17932,7 +17930,7 @@ Two attitudes will sink you before you write a line of code.
 
 The first is contempt. It is tempting to look at legacy code and assume the people who wrote it were incompetent. Almost always they were not. They were working under deadlines you don't know about, with framework versions that no longer exist, satisfying requirements that have since changed. That "insane" workaround was probably a rational response to a constraint that has been forgotten. Approach the code as an archaeologist, not a critic.
 
-The second is the urge to rewrite. We'll return to this, but hold the thought: the ugly code that's still running is doing something valuable. It encodes thousands of bug fixes and edge cases — the accumulated learning of the business — that exist *nowhere else*, certainly not in any specification. That value is real, and throwing it away is expensive.
+The second is the urge to rewrite. The ugly code that's still running is doing something valuable. It encodes thousands of bug fixes and edge cases — the accumulated learning of the business — that exist *nowhere else*, certainly not in any specification. That value is real, and throwing it away is expensive.
 
 > **Best practice:** Before changing legacy code, assume it is the way it is for a reason you don't yet see. Your job is to understand that reason, then make it better, not to prove you're smarter than your predecessors.
 
@@ -21269,7 +21267,7 @@ An SBOM lists what is inside an artifact, so "are we affected?" becomes a query;
 
 # Chapter 28: Cloud Fundamentals — AWS & Azure
 
-_⏱️ Estimated read time: ~30 min · 5213 words (study pace)_
+_⏱️ Estimated read time: ~30 min · 5204 words (study pace)_
 
 Owning hardware means paying for enough capacity to survive your busiest day of the year, capacity that sits idle the other 364 days. The cloud meters it instead: you pay for what you actually use. That shift — from *owning capacity* to *renting capability* — is the thread that runs through everything in this chapter.
 
@@ -21658,7 +21656,7 @@ Two disciplines decide most cloud outcomes.
 
 Every architecture discussion involving a managed service eventually reaches someone saying "but that locks us in," at which point the conversation usually stops. It shouldn't, because "locked in" is not a binary state and the objection is frequently used to justify building something worse.
 
-Here is the reframe that makes the discussion productive: **lock-in is not a yes/no property, it is a switching cost — and switching cost is worth paying for capability you get now.** You are already locked into your programming language, your database engine, your identity provider, and your ORM. Nobody proposes writing SQL that runs identically on six engines. The question is never "are we locked in," it is "what would leaving cost, and is the thing we get worth that price?"
+**Lock-in is not a yes/no property, it is a switching cost — and switching cost is worth paying for capability you get now.** You are already locked into your programming language, your database engine, your identity provider, and your ORM. Nobody proposes writing SQL that runs identically on six engines. The question is never "are we locked in," it is "what would leaving cost, and is the thing we get worth that price?"
 
 ### The gradient
 
