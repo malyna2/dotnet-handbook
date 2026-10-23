@@ -97,5 +97,3 @@ Take the system to a real environment. Write Terraform to provision the infrastr
 - All three services run in the target platform, reachable through a single ingress or gateway.
 - Secrets come from a managed secret store, never from committed files.
 - Traces and metrics from Step 5 flow to a hosted backend, so you can watch a real request cross service boundaries.
-
-By the end of Step 8 you have not read about distributed systems — you have built, broken, and operated one. That experience is what interviewers and teammates recognize as senior.

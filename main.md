@@ -31841,7 +31841,7 @@ Most engineers find that the brag doc has more post candidates than they expecte
 
 # Chapter 44: Capstone — One Project, Growing Up
 
-_⏱️ Estimated read time: ~5 min · 1423 words (study pace)_
+_⏱️ Estimated read time: ~5 min · 1392 words (study pace)_
 
 Reading about architecture teaches you vocabulary. Evolving a single real system teaches you judgment. This chapter is one project carried through every stage of its life, so that you feel the pain that motivates each technique before you reach for it. You will build **ShopCore**, a small e-commerce backend — products, carts, orders, and payments. The domain is deliberately familiar so your attention stays on the engineering.
 
@@ -31940,8 +31940,6 @@ Take the system to a real environment. Write Terraform to provision the infrastr
 - All three services run in the target platform, reachable through a single ingress or gateway.
 - Secrets come from a managed secret store, never from committed files.
 - Traces and metrics from Step 5 flow to a hosted backend, so you can watch a real request cross service boundaries.
-
-By the end of Step 8 you have not read about distributed systems — you have built, broken, and operated one. That experience is what interviewers and teammates recognize as senior.
 
 
 ---
