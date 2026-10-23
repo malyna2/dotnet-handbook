@@ -360,8 +360,6 @@ A **container** virtualizes the *operating system*. There is no guest kernel. Ev
 
 **Control groups (cgroups)** provide *limits* — they control what a process can *use*. A cgroup caps CPU shares, memory, and I/O bandwidth for a group of processes. When you tell Kubernetes a pod may use "500m CPU and 512Mi memory," that limit is ultimately enforced by cgroups.
 
-Put simply: **namespaces decide what you can see; cgroups decide what you can consume.** A container is just a normal Linux process (or process tree) wrapped in namespaces for isolation and cgroups for resource limits. That's why containers start in milliseconds and cost almost nothing at idle — there's no second kernel to boot.
-
 > **Pitfall:** Because containers share the host kernel, a Linux container cannot run natively on Windows or macOS. Docker Desktop quietly runs a lightweight Linux VM in the background and starts your containers *inside* it. On a Linux server there is no such VM — containers run directly on the host kernel.
 
 ### Images vs. Containers
@@ -384,8 +382,6 @@ Every instruction in a Dockerfile that changes the filesystem produces a new **l
 When Docker executes a build, for each instruction it checks whether it has already built an identical layer (same instruction, same input). If so, it reuses the cached layer and skips the work. The moment one instruction's input changes, that layer and **every layer after it** are invalidated and rebuilt.
 
 This single rule dictates how you should order a Dockerfile: **put the things that change rarely near the top, and the things that change constantly near the bottom.** For a .NET app, your project files and restored NuGet packages change far less often than your source code. So you copy the `.csproj` and restore *first*, then copy the rest of the source. That way, editing a `.cs` file doesn't force a full package restore.
-
-> **Best practice:** Copy dependency manifests and restore packages *before* copying application source. This keeps the expensive `dotnet restore` layer cached across the many builds where only your code changed.
 
 ### Common Dockerfile instructions
 
@@ -491,16 +487,6 @@ ENTRYPOINT ["dotnet", "MyApi.dll"]
 ```
 
 The payoffs are substantial: images are tens of megabytes smaller, there's a far smaller surface for CVEs, and non-root is the default. The trade-off is that you **cannot `docker exec` a shell into the container** to poke around — there is no `/bin/sh`. For debugging you attach an ephemeral debug container or rely on logs and metrics.
-
-> **Best practice:** For production, prefer chiseled/distroless runtime images. Smaller images pull faster, cost less to store, and present a smaller attack surface. Keep a shell-equipped image variant only if your ops workflow genuinely needs one.
-
-### Image size optimization, summarized
-
-- Use multi-stage builds so build tooling never reaches the final image.
-- Choose the smallest viable base (`-alpine`, `-chiseled`).
-- Order instructions for cache friendliness; restore before copying source.
-- Add a thorough `.dockerignore`.
-- Combine related `RUN` commands and clean up in the same layer (a file deleted in a *later* layer still occupies space in the earlier one).
 
 ## Docker Compose for Local Development
 
