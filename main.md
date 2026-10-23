@@ -21520,7 +21520,7 @@ And what you give up is real: capacity you can't get in an hour, DR that isn't a
 
 # Chapter 29: Azure in Depth for .NET Developers
 
-_⏱️ Estimated read time: ~1 h 35 min · 14749 words (study pace)_
+_⏱️ Estimated read time: ~1 h 35 min · 14711 words (study pace)_
 
 [Chapter 28](#chapter-28-cloud-fundamentals-aws-azure) gave you the map: what App Service, Functions, Cosmos DB and Service Bus *are*, and how they line up against AWS. A map gets you through a conversation. It does not get you through the first week of owning a production system on Azure, where the questions sound like this: *why does the app get a 403 from Blob Storage when its identity is a Contributor on the subscription? Why did the slot swap cause a minute of 500s? Why does Cosmos DB throttle at 3,000 RU/s when we provisioned 20,000?*
 
@@ -21551,7 +21551,7 @@ Read the cross-cutting row carefully. Most developers learn the services in the 
 
 ## Certifications: What They Measure, and Where This Chapter Stands
 
-A certification proves you have the vocabulary. An interview, and your first incident, test whether you understand the mechanism behind it. This chapter aims at the second, but it is laid out so that the first comes along for free.
+A certification proves you have the vocabulary. An interview, and your first incident, test whether you understand the mechanism behind it.
 
 The landscape changed in 2026, so check the current state yourself before you book anything. As of September 2026, the official study-guide pages on Microsoft Learn could not be opened from the environment this chapter was written in, so the table below comes from several independent third-party summaries that agree with each other. Confirm it on the official study guide before you rely on it.
 
@@ -21563,7 +21563,7 @@ The landscape changed in 2026, so check the current state yourself before you bo
 
 The practical takeaway: **AZ-900 is a reasonable one-weekend goal** once you have read this chapter, and it is useful when your CV has to get past a recruiter's keyword filter. The developer-level exam has moved towards AI workloads, but the platform underneath it is exactly what this chapter teaches: containers, Cosmos DB, messaging, Functions, Key Vault, RBAC and KQL. Learn the platform first. The AI-specific parts are thin layers on top of it.
 
-> **Best practice.** Use the free Microsoft Learn sandbox and the exam's official practice assessment rather than a question dump. Dumps teach you to recognise answers. This chapter's *Self-check* section at the end, and Chapter 30's cases, teach you to derive them, which is also what an interviewer checks.
+> **Best practice.** Use the free Microsoft Learn sandbox and the exam's official practice assessment rather than a question dump: dumps teach you to recognise answers, not to derive them.
 
 ## The Control Plane: How Azure Is Organised
 
