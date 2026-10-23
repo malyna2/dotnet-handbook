@@ -21,8 +21,6 @@ This book grew out of a simple roadmap — a checklist of "things a middle .NET 
 
 *Pay attention* callouts spell out the mechanism behind the most common wrong answer, the one an interviewer's "why?" finds. Where a topic is taught in another chapter, the text links there instead of repeating it.
 
-Let's begin.
-
 ---
 
 ## Contents
