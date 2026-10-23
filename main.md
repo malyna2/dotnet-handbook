@@ -20575,11 +20575,9 @@ Deployment frequency, lead time for changes, change failure rate and failed depl
 
 # Chapter 27: Security in Depth and the Supply Chain
 
-_⏱️ Estimated read time: ~55 min · 9845 words (study pace)_
+_⏱️ Estimated read time: ~50 min · 9285 words (study pace)_
 
-[Chapter 12: Security Essentials](#chapter-12-security-essentials) covered what every middle developer must get right inside one application: authentication and authorization, the OWASP Top 10, storing secrets, TLS, the cryptography you call, and scanning dependencies for known CVEs. This chapter is the depth above that, where the decisions span services, pipelines and years. It makes you able to remove long-lived credentials instead of guarding them, to plan a cryptographic migration before it is forced on you, and to defend the chain of code and builds that ends in the artifact you ship.
-
-Three threads, in that order. **Zero trust and workload identity** replace "this request came from inside the network" and "this service holds a secret" with identities the platform attests and credentials that expire in minutes — in production and in CI. **Crypto agility** takes the algorithms themselves off the list of things you assume, because the post-quantum migration has already started. And the **software supply chain** applies the same thinking to the packages you consume, the build that assembles them, and the artifacts you publish, ending with what to do on the day an advisory lands and where to start.
+[Chapter 12: Security Essentials](#chapter-12-security-essentials) covered what every middle developer must get right inside one application. This chapter is the depth above that, where the decisions span services, pipelines and years.
 
 ## Zero Trust and Workload Identity
 
@@ -20761,11 +20759,7 @@ Open your solution and count the projects. Now run `dotnet list package --includ
 
 That is the software supply chain, and for most of the last two decades our profession treated it as somebody else's problem. It isn't any more. Attackers worked out that compromising one popular package buys them access to thousands of downstream organizations, which is a far better return than attacking those organizations one at a time. The 2025 revision of the OWASP Top 10 promoted supply chain failures to their own category. The EU's Cyber Resilience Act turns parts of what follows into a legal obligation for anyone selling software into Europe.
 
-The rest of this chapter is about the three places that trust can be violated — **what you consume**, **where you build**, and **what you publish** — and the specific controls that close each gap in a .NET shop. As always, the point is the mechanism. "Use a lockfile" is advice; understanding *which attack a lockfile actually stops, and which it doesn't*, is knowledge you can apply when the next attack looks slightly different.
-
 ## The Shape of the Problem
-
-Start with the arithmetic, because it explains why intuition fails here.
 
 You add one package. That package depends on four others; each of those depends on a handful more. Three levels down you are trusting perhaps two hundred distinct pieces of code and — this is the part that matters — perhaps a hundred distinct *human beings*, any one of whom can be phished, bribed, coerced, or simply have their laptop stolen. Your security posture is not the average of those hundred people's practices. It's the **minimum**.
 
@@ -20804,8 +20798,6 @@ An LLM asked for a package to do X will occasionally invent one that doesn't exi
 > **Pitfall.** "The assistant suggested it and it installed fine" is not evidence a package exists legitimately. Before adding any package you have not used before, look at it on nuget.org: download count, repository link, publication history, whether the source repo actually corresponds. This takes fifteen seconds and is the single highest-value habit in this chapter.
 
 ### Dependency confusion, and why pinning does not fix it
-
-This one is worth understanding precisely, because the obvious fix is the wrong one.
 
 Suppose your company has an internal package, `Contoso.Billing.Client`, published to a private Azure Artifacts feed. Your `nuget.config` lists two sources: the private feed and nuget.org. You ask for version `2.1.0`.
 
@@ -20951,7 +20943,7 @@ A workable middle:
 
 ## The Build Is Part of the Attack Surface
 
-Here is the row people skip. Your CI runner checks out your source, has credentials to your registries and clouds, and produces the artifact that goes to production. It is, in effect, a production machine with a shell exposed to anyone who can influence a workflow file.
+Your CI runner checks out your source, has credentials to your registries and clouds, and produces the artifact that goes to production. It is, in effect, a production machine with a shell exposed to anyone who can influence a workflow file.
 
 ### Pin your actions by commit SHA, not by tag
 
@@ -21114,14 +21106,6 @@ You cannot do all of this next sprint. Ordered by value per hour of effort, for 
 | 8 | Signing + provenance + admission control | ~1 week | Artifacts that never came from your build |
 
 Items 1, 2 and 4 together take an afternoon and remove the three most commonly exploited paths. Do those first, then argue about the rest.
-
-## Summary
-
-Two habits run under the whole chapter. First, prefer *not having* a secret to guarding one: zero trust means network position confers no trust, workload identity lets the platform vouch for a service instead of the service holding a password, and OIDC federation removes the last static credential from CI — provided the trust policy pins the subject exactly. Second, assume your current choices will have to change: inventory where cryptography lives, version your ciphertext, turn on hybrid key exchange where the switch exists, and automate certificates before shrinking lifetimes make manual renewal an outage.
-
-Your dependency graph is a list of people who can reach production, and it is longer than you think. Three surfaces need defending, not one: what you consume, the build that assembles it, and what you publish onward. Package source mapping structurally eliminates dependency confusion; lockfiles make graph changes visible and incident response a query rather than an excavation; signature verification with named owners raises the cost of impersonation. In CI, pin actions by SHA because tags are mutable pointers into someone else's repository, cut token permissions to the floor, replace long-lived cloud credentials with short-lived OIDC, and remember that a build runner is a production machine holding your secrets. On the way out, an SBOM tells you what you shipped and provenance proves where it came from — but only if something verifies them at deploy time, and only if you actually query them when the advisory lands.
-
-None of this makes an untrusted dependency trustworthy. That is not the goal. The goal is that when — not if — one of those hundred maintainers has a bad day, you find out fast, you know exactly what you shipped, and the blast radius stops well short of production.
 
 ## Practice
 
