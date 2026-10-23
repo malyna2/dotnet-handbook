@@ -13723,15 +13723,15 @@ Each box is a heap allocation and a copy, feeding gen-0 GC. In a tight loop that
 
 # Chapter 18: Data in Depth
 
-_⏱️ Estimated read time: ~1 h · 10398 words (study pace)_
+_⏱️ Estimated read time: ~55 min · 10183 words (study pace)_
 
-[Chapter 7](#chapter-7-data-access) made you able to use EF Core and SQL correctly inside one service: tracking, loading, projections, indexes, isolation levels, caching and migrations. This chapter is what comes after: making one database fast when the obvious levers are already pulled, and then deciding what to do when one database is no longer enough. It makes you able to read a PostgreSQL plan and fix the mechanism behind it, design a Redis cache that fails as a slowdown rather than an outage, and choose between replicas, sharding and tenant isolation with the cost of each spelled out.
+This chapter starts where [Chapter 7](#chapter-7-data-access) stops: making one database fast when the obvious levers are already pulled, and then deciding what to do when one database is no longer enough.
 
-The sections run from one query to the whole fleet. First the depth of the single node: EF Core's remaining performance tools (pagination, compiled queries, bulk loads), PostgreSQL's storage model, indexes and plans, and Redis in practice. Then scale, ordered from least to most invasive: scaling up, read replicas, connection pooling under load, partitioning and sharding, zero-downtime migrations, change data capture, polyglot persistence, and finally multi-tenancy, where both pressures meet. Both halves come down to the same question: *where does the data live, and who is allowed to touch it?* [Chapter 19](#chapter-19-the-slow-query-lab-reading-execution-plans) is the hands-on lab for the plan-reading half.
+Both halves come down to the same question: *where does the data live, and who is allowed to touch it?* [Chapter 19](#chapter-19-the-slow-query-lab-reading-execution-plans) is the hands-on lab for the plan-reading half.
 
 ## Entity Framework Core: The Object-Relational Mapper — in depth
 
-Entity Framework Core is where business services most often bleed performance, because one innocent line of C# can generate a catastrophic SQL pattern. [Chapter 7](#chapter-7-data-access) covers the levers that fix most of it: `AsNoTracking`, projection to DTOs, killing the N+1 with `Include` or a projection, split queries, and `ExecuteUpdate`/`ExecuteDelete`. Three more matter once those are in place.
+Entity Framework Core is where business services most often bleed performance, because one innocent line of C# can generate a catastrophic SQL pattern. [Chapter 7](#chapter-7-data-access) covers the levers that fix most of it. Three more matter once those are in place.
 
 > **Best practice.** Log and inspect the actual SQL EF generates (`LogTo`, or a profiler) before changing anything. Most EF performance problems are invisible in C# and obvious the moment you see the SQL.
 
@@ -13821,7 +13821,7 @@ Libraries such as **EFCore.BulkExtensions** and **linq2db.EntityFrameworkCore** 
 
 ## PostgreSQL in Practice: Indexes and Query Plans
 
-[Chapter 7](#chapter-7-data-access)'s SQL is engine-agnostic. PostgreSQL is now the default relational database for new .NET services, and it differs from SQL Server in ways that change how you index and how you diagnose a slow query. The good news is that Postgres will tell you exactly what it did, in plain text, if you know how to ask.
+[Chapter 7](#chapter-7-data-access)'s SQL is engine-agnostic. PostgreSQL is now the default relational database for new .NET services, and it differs from SQL Server in ways that change how you index and how you diagnose a slow query.
 
 ### The Storage Model That Explains Everything Else
 
@@ -13983,7 +13983,7 @@ Finally, three mapping choices that prevent whole categories of problem: store t
 
 ## Caching — in depth
 
-[Chapter 7](#chapter-7-data-access) teaches the basics: `IMemoryCache` against `IDistributedCache`, cache-aside, invalidation, stampedes and HybridCache. The senior judgment on top is *when* to cache at all: data that is **read far more than written** and **tolerates some staleness** (reference data, computed aggregates, rendered fragments). Rapidly changing, per-user-critical or must-be-consistent data is not a cache candidate, and every cache needs an expiry, a size bound and a story for how stale data gets refreshed. The rest of this section is what it takes to run the shared tier, Redis, well.
+[Chapter 7](#chapter-7-data-access) teaches the basics. The senior judgment on top is *when* to cache at all: data that is **read far more than written** and **tolerates some staleness** (reference data, computed aggregates, rendered fragments). Rapidly changing, per-user-critical or must-be-consistent data is not a cache candidate, and every cache needs an expiry, a size bound and a story for how stale data gets refreshed.
 
 ### Redis in Practice: Key Design, Data Types, and Eviction
 
@@ -14057,8 +14057,6 @@ There are only two directions you can scale, and the choice colors every decisio
 **Horizontal scaling** (scaling *out*) means adding more machines and spreading the load across them. The ceiling is effectively unbounded, but you pay for it in complexity: data now lives in more than one place, and the comforting guarantees of a single node — a global transaction, a cheap join, a unique index — start to fray.
 
 > **Best practice:** Scale *up* until it genuinely hurts before you scale *out*. A single Postgres instance on modern hardware can serve enormous workloads. Horizontal scaling is a one-way door that permanently raises your operational complexity; walk through it deliberately, not reflexively.
-
-The sections that follow are a tour of horizontal-scaling techniques, ordered roughly from least to most invasive.
 
 ## Scaling Reads with Replication
 
