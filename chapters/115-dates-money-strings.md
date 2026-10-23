@@ -344,22 +344,8 @@ Document.Create(doc =>
 
 Notice the through-line: sending email, resizing/processing uploads, generating PDFs, delivering push notifications, and calling flaky third-party APIs are all **slow, failure-prone, and retry-worthy.** Doing them synchronously inside an HTTP request couples the user's response time to a system you don't control and turns a transient provider outage into a user-facing 500.
 
-The senior instinct is to **offload them to background processing** ([Chapter 11](#chapter-11-messaging-and-background-work)): accept the request, persist the intent, enqueue a job (via a hosted service, `Channel`, or a durable queue like Azure Service Bus / RabbitMQ backed by a worker), and return immediately. The background worker owns the retries, the idempotency, and the dead-letter handling.
+Offload them to background processing ([Chapter 11](#chapter-11-messaging-and-background-work)): accept the request, persist the intent, answer `202 Accepted` with a `Location` to poll, and let a worker own the retries, the idempotency and the dead-letter handling. [Async Request-Reply](#async-request-reply-202-a-status-resource-and-retry-after) in Chapter 11 walks through the whole contract.
 
-```csharp
-// The controller does the minimum and returns fast.
-[HttpPost("orders/{id}/invoice")]
-public async Task<IActionResult> Invoice(int id)
-{
-    Job job = await _jobs.EnqueueAsync(new GenerateInvoiceJob(id));  // durable: a job row and an outbox message
-    Response.Headers.RetryAfter = "5";
-    return AcceptedAtAction(nameof(GetJob), new { jobId = job.Id }, job);  // 202 + Location: where to check back
-}
-```
-
-A bare `Accepted()` says "check back later" without saying where. The `Location` header names the job's status resource, which the client polls until it redirects to the result. [Async Request-Reply](#async-request-reply-202-a-status-resource-and-retry-after) in Chapter 11 walks through the whole contract: the status resource, `303 See Other`, failures, and the idempotency key that makes a retried `POST` safe.
-
-This is the pattern behind every resilient real-world app: **the request path stays thin and fast; anything slow, external, or flaky moves to a background worker that can retry safely.**
 
 ## Sources & Further Reading
 
