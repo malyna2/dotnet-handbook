@@ -6920,11 +6920,9 @@ Fast, isolated/independent (no order dependence, no shared state), deterministic
 
 # Chapter 9: Exceptions, Logging and First Diagnosis
 
-_⏱️ Estimated read time: ~1 h 10 min · 11807 words (study pace)_
+_⏱️ Estimated read time: ~1 h 10 min · 11458 words (study pace)_
 
-Every service fails, and what decides how fast a failure gets fixed is the trail it leaves: one log entry carrying the whole exception, a response that tells the caller what they can do about it, and one id that joins the two. This chapter teaches the habits that leave that trail, and the first measurements to take when the complaint is not an error but slowness.
-
-It starts with the tool every later section uses: `ILogger` and structured logging, where a message template keeps typed properties a log store can query, a level says who has to act, and secrets stay out. The exception-handling strategy then settles where a failure is caught (almost nowhere), what gets logged (once, at the boundary) and what the caller sees (a ProblemDetails body with a stable code and a trace id). On your own machine, the debugger then finds a reproducible failure faster than any log: conditional breakpoints and tracepoints, why it stops on an exception your code catches, async stacks, attaching to a running process, and when it is the wrong tool. Next comes the trace id itself: the wiring that gives every request one, and how it follows the request across services and queues so the logs of five services read as one story. The chapter closes with a method for a slow endpoint — CPU-bound or waiting, and the fingerprint of a starved thread pool — and then two programs to run, three questions, checks for your own service and interview questions.
+Every service fails, and what decides how fast a failure gets fixed is the trail it leaves: one log entry carrying the whole exception, a response that tells the caller what they can do about it, and one id that joins the two.
 
 ## Logging with Microsoft.Extensions.Logging
 
@@ -7070,7 +7068,7 @@ NLog is the other mature structured logging library for .NET. It is configuratio
 
 ## Exception Handling Strategy
 
-Most codebases have a *style* of exception handling — `try`/`catch` wherever someone was once burned, a `catch (Exception ex) { _logger.LogError(ex.Message); throw; }` copied from file to file, a global handler that returns `"An error occurred"` — and no *strategy*. A strategy answers three questions: **where do I catch, what do I log, and what do I surface?** Each answer depends on a prior question: what kind of failure is this? The logging rules above are the tool; this section decides where it is used.
+Most codebases have a *style* of exception handling — `try`/`catch` wherever someone was once burned, a `catch (Exception ex) { _logger.LogError(ex.Message); throw; }` copied from file to file, a global handler that returns `"An error occurred"` — and no *strategy*. A strategy answers three questions: **where do I catch, what do I log, and what do I surface?** Each answer depends on a prior question: what kind of failure is this?
 
 ### Classify the Failure First
 
@@ -7409,7 +7407,7 @@ A dump (`dotnet-dump collect`) is the debugger's view frozen at one moment, take
 
 ## Why Observability, and How It Differs from Monitoring
 
-Everything so far ends a failure in one log entry and a response carrying a trace id. The rest of the chapter is about that id and the telemetry around it, because in production you cannot attach a debugger, step through a request as it hops across five services, or ask a customer to reproduce the bug while you watch: what the running system emits is your only window into it.
+In production you cannot attach a debugger, step through a request as it hops across five services, or ask a customer to reproduce the bug while you watch: what the running system emits is your only window into it.
 
 The words *monitoring* and *observability* are often used interchangeably, but the distinction matters and it reveals a shift in how we operate systems.
 
@@ -7425,7 +7423,7 @@ The foundation of observability rests on **three pillars**: **logs**, **metrics*
 - **Metrics** are numeric measurements aggregated over time. "Requests per second," "p99 latency," "queue depth." They are cheap to store and perfect for trends and alerting.
 - **Traces** follow a single request as it travels through your system, showing where time was spent across service boundaries. They are the story of one journey.
 
-Think of it this way: metrics are the vital signs on the patient monitor (heart rate, blood pressure), logs are the doctor's detailed notes on each symptom, and a trace is the timeline of the patient's entire visit from admission to discharge. A good diagnostician uses all three. This chapter wires them up and joins them by the trace id; [Chapter 25: Observability and Testing at Scale](#chapter-25-observability-and-testing-at-scale) designs metrics, custom spans and alerts.
+This chapter wires them up and joins them by the trace id; [Chapter 25: Observability and Testing at Scale](#chapter-25-observability-and-testing-at-scale) designs metrics, custom spans and alerts.
 
 ## Observability Wiring
 
@@ -7446,7 +7444,7 @@ builder.Services.AddOpenTelemetry()
 
 With those few lines, every request produces a trace: a root span from the ASP.NET Core instrumentation, child spans for each `HttpClient` call, all exported over OTLP to whatever backend you run (Jaeger, Tempo, an APM vendor — the wire format is standard). Better still, propagation is automatic: `HttpClient` injects the **W3C trace-context** `traceparent` header on outbound calls and ASP.NET Core reads it on inbound ones, so when service A calls service B, both ends land in the *same* trace without either team writing propagation code. Combine that with the [`IHttpClientFactory`](#ihttpclientfactory-resilience-with-polly) discipline from Chapter 5 and a slow endpoint stops being a mystery — the trace shows you exactly which downstream call ate the time budget.
 
-The point is that the web framework *participates natively*: a few lines in `Program.cs` and every request carries a trace. Custom `ActivitySource` spans and metrics design are Part 2 material, in Chapter 25; the next sections put the trace id to work in your logs.
+Custom `ActivitySource` spans and metrics design are Part 2 material, in Chapter 25.
 
 ## Centralized Logging
 
@@ -7458,7 +7456,7 @@ In a fleet of containers, SSHing into a box to `tail` a log file is hopeless —
 
 ## Correlation Across Services
 
-The logging, the exception boundary and the tracing above all serve one goal: given a single symptom, reconstruct the whole story. That requires **correlation** — the ability to jump from a metric spike to the exact traces behind it, and from a trace to the exact logs of each span.
+Given a single symptom, reconstruct the whole story: that requires **correlation**, the ability to jump from a metric spike to the exact traces behind it, and from a trace to the exact logs of each span.
 
 The unifying key is the **trace ID**. W3C Trace Context propagates it over HTTP, and `Activity.Current` holds it for the code handling the request, so logs only need to record it. With `Microsoft.Extensions.Logging` under the generic host this is on by default: the host sets `ActivityTrackingOptions` to `TraceId | SpanId | ParentId`, which adds them to every entry's scope (a provider prints scopes only if configured to, such as the console's `IncludeScopes`). Current Serilog versions read `Activity.Current` themselves and store `TraceId` and `SpanId` on every event; older code used the `Serilog.Enrichers.Span` package for this. To add it by hand:
 
