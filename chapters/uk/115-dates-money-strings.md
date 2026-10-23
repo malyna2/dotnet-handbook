@@ -100,27 +100,7 @@ ZonedDateTime resolved = kyiv.ResolveLocal(wallClock, Resolvers.LenientResolver)
 
 ### `TimeProvider`: тестування часу (.NET 8+)
 
-Код, який безпосередньо викликає `DateTimeOffset.UtcNow`, неможливо перевірити на фіксований момент часу або опівніч. У .NET 8 стандартизували саморобну абстракцію `IClock` як **`TimeProvider`**.
-
-```csharp
-public class SubscriptionService
-{
-    private readonly TimeProvider _time;
-    public SubscriptionService(TimeProvider time) => _time = time;
-
-    public bool IsExpired(Subscription sub) =>
-        _time.GetUtcNow() >= sub.ExpiresAtUtc;
-}
-
-// Production: register TimeProvider.System in DI.
-// Tests: use FakeTimeProvider from Microsoft.Extensions.TimeProvider.Testing.
-var fake = new FakeTimeProvider(
-    new DateTimeOffset(2026, 7, 21, 12, 0, 0, TimeSpan.Zero));
-var svc = new SubscriptionService(fake);
-fake.Advance(TimeSpan.FromDays(1)); // deterministically move time forward
-```
-
-`TimeProvider` також абстрагує таймери й `Task.Delay`, тож можна тестувати тайм-аути й retries (повторні спроби) без реального очікування. **Упроваджуйте `TimeProvider` залежністю всюди, де інакше звернулися б до `DateTimeOffset.UtcNow`.**
+Код, який безпосередньо викликає `DateTimeOffset.UtcNow`, неможливо перевірити на фіксований момент часу або опівніч. **Упроваджуйте `TimeProvider` залежністю всюди, де інакше звернулися б до `DateTimeOffset.UtcNow`**: у продакшені реєструють `TimeProvider.System`, а в тестах використовують `FakeTimeProvider`, який також керує таймерами й `Task.Delay` ([Імітація часу за допомогою TimeProvider](#fake-time-with-timeprovider-net-8) у Розділі 8).
 
 ### Розбір і форматування з урахуванням культури
 
@@ -362,7 +342,7 @@ Document.Create(doc =>
 
 ### Об’єднайте підхід: переносьте важку роботу у фон
 
-У цих прикладах повторюється один принцип: надсилання електронної пошти, зміна розміру чи обробка завантажень, створення PDF, надсилання push-сповіщень і виклики ненадійних сторонніх API — усе це **повільні операції, що можуть завершуватися невдало й потребують retries**. Якщо виконувати їх синхронно в HTTP-запиті, час відповіді користувачеві залежатиме від неконтрольованої вами системи, а тимчасова відмова провайдера перетвориться на помилку 500, яку побачить користувач.
+У цих прикладах повторюється один принцип: надсилання електронної пошти, зміна розміру чи обробка завантажень, створення PDF, надсилання push-сповіщень і виклики ненадійних сторонніх API — усе це **повільні операції, що можуть завершуватися невдало й потребують retries** (повторні спроби). Якщо виконувати їх синхронно в HTTP-запиті, час відповіді користувачеві залежатиме від неконтрольованої вами системи, а тимчасова відмова провайдера перетвориться на помилку 500, яку побачить користувач.
 
 Senior-розробник інтуїтивно **переносить такі операції у фонову обробку** ([Розділ 11](#chapter-11-messaging-and-background-work)): приймає запит, зберігає намір, додає завдання до queue (через hosted service, `Channel` або надійний queue на кшталт Azure Service Bus / RabbitMQ, який обробляє worker) і негайно повертає відповідь. Фоновий worker відповідає за retries, ідемпотентність і обробку dead-letter queue (черги недоставлених повідомлень).
 

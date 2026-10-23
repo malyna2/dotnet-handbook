@@ -11652,7 +11652,7 @@ What it listens on. `ss -tlnp` inside the container shows the bound address: an 
 
 # Chapter 15: Dates, Money and Strings
 
-_⏱️ Estimated read time: ~35 min · 5270 words (study pace)_
+_⏱️ Estimated read time: ~35 min · 5205 words (study pace)_
 
 The incidents that wake engineers at 3 a.m. are rarely caused by clever algorithms gone wrong — they are caused by a timestamp stored in the server's local time, a `double` that lost a penny, a `ToUpper()` that mangled a Turkish username, or a 2 GB upload that pinned a web server's memory.
 
@@ -11754,27 +11754,7 @@ Use NodaTime when time is core to your domain (scheduling, calendars, finance, a
 
 ### `TimeProvider`: testable time (.NET 8+)
 
-Code that calls `DateTimeOffset.UtcNow` directly can't be tested at a fixed "now", or at midnight. .NET 8 standardized the homegrown `IClock` as **`TimeProvider`**.
-
-```csharp
-public class SubscriptionService
-{
-    private readonly TimeProvider _time;
-    public SubscriptionService(TimeProvider time) => _time = time;
-
-    public bool IsExpired(Subscription sub) =>
-        _time.GetUtcNow() >= sub.ExpiresAtUtc;
-}
-
-// Production: register TimeProvider.System in DI.
-// Tests: use FakeTimeProvider from Microsoft.Extensions.TimeProvider.Testing.
-var fake = new FakeTimeProvider(
-    new DateTimeOffset(2026, 7, 21, 12, 0, 0, TimeSpan.Zero));
-var svc = new SubscriptionService(fake);
-fake.Advance(TimeSpan.FromDays(1)); // deterministically move time forward
-```
-
-`TimeProvider` also abstracts timers and `Task.Delay`, so you can test timeout and retry logic without real waiting. **Inject `TimeProvider` everywhere you'd otherwise reach for `DateTimeOffset.UtcNow`.**
+Code that calls `DateTimeOffset.UtcNow` directly can't be tested at a fixed "now", or at midnight. **Inject `TimeProvider` everywhere you'd otherwise reach for `DateTimeOffset.UtcNow`**: production registers `TimeProvider.System`, and tests use `FakeTimeProvider`, which also drives timers and `Task.Delay` ([Fake time with TimeProvider](#fake-time-with-timeprovider-net-8) in Chapter 8).
 
 ### Parsing and formatting across cultures
 
