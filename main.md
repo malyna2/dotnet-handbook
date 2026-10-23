@@ -7751,7 +7751,7 @@ Monitoring answers questions you decided on in advance: dashboards and alerts fo
 
 # Chapter 10: Design Basics
 
-_⏱️ Estimated read time: ~1 h 15 min · 10468 words (study pace)_
+_⏱️ Estimated read time: ~1 h 15 min · 10347 words (study pace)_
 
 This chapter is about design judgment: the force that pushes you toward a design, the cost the design extracts, and the point at which the cure becomes worse than the disease.
 
@@ -7881,8 +7881,6 @@ Patterns also give teams a shared vocabulary. When a colleague says "let's put a
 **Most code does not need a pattern, and reaching for one prematurely is a form of harm.**
 
 The failure mode has a name in the community — "pattern-itis" or "architecture astronautics." It looks like this: a developer learns the patterns, gets excited, and starts seeing them everywhere. A simple `if/else` becomes a Strategy with three classes and a factory. A two-method service grows an interface, an abstract base, and a decorator "for flexibility." Six months later, tracing a single request means opening eleven files, and nobody can find where the actual work happens.
-
-> **Overuse warning:** Every pattern adds indirection, and indirection is a cost paid by every future reader of the code. A pattern is justified only when the flexibility it buys is flexibility you will actually use. Speculative flexibility — "we might need to swap the database someday" — is usually a bad trade. This is YAGNI (You Aren't Gonna Need It), and it is the single most important principle in this chapter.
 
 The right mental model: patterns are a response to *pain you already feel*, not insurance against pain you imagine. Write the simple version first. When it starts to hurt — when you find yourself editing the same `switch` in five places, when a class has grown three unrelated reasons to change — *then* refactor toward the pattern that relieves that specific pain. This is why patterns are best learned alongside refactoring: they are destinations, and refactoring is the road.
 
@@ -8287,8 +8285,6 @@ public interface IUnitOfWork
 }
 ```
 
-Here is the senior-level nuance you must understand:
-
 > **The great Repository-over-EF-Core debate.** EF Core's `DbContext` is *already* a Unit of Work (it tracks changes and commits them via `SaveChanges`, as [DbContext and Change Tracking](#dbcontext-and-change-tracking) in Chapter 7 shows), and `DbSet<T>` is *already* a repository (a queryable collection abstraction). So wrapping EF Core in your own repository and unit-of-work layer often means building an abstraction over an abstraction.
 
 Arguments **against** adding your own repository over EF Core:
@@ -8493,8 +8489,6 @@ Two closing habits round this out. The **Boy-Scout Rule**: leave the code a litt
 ### Code smells: naming the pain
 
 A **code smell** — the term popularized by Martin Fowler and Kent Beck — is a surface-level symptom that hints at a deeper design problem. A smell is not a bug (the code may work perfectly) and not automatically wrong; it is a *heuristic*, something worth a second look. Its real value is vocabulary: when you can name what bothers you ("this is Feature Envy"), you also know the standard refactorings that address it.
-
-> **Smells guide, they do not dictate.** A smell is a prompt to *consider* a refactoring, not a rule that forces one. Sometimes the smelly version is genuinely the clearest option, and forcing a "clean" structure onto it makes things worse.
 
 | Smell | The pain you feel | Refactor toward |
 |---|---|---|
