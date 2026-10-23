@@ -23814,7 +23814,7 @@ Three consequences fall straight out of that formula, and they are not the ones 
 
 # Chapter 32: The AI-Native Developer — Thriving in the AI Era
 
-_⏱️ Estimated read time: ~1 h 5 min · 12233 words (study pace)_
+_⏱️ Estimated read time: ~1 h 5 min · 12150 words (study pace)_
 
 For most of your career the deal has been simple: you learn to write code, and in exchange the industry pays you well to write it. That deal is being renegotiated in real time. By 2025 and into 2026, a competent AI coding assistant can produce a working REST endpoint, a unit test suite, an EF Core migration, or a plausible refactor faster than you can open the file. The raw act of turning a clear specification into syntactically correct C# — the thing you spent years getting good at — has largely been commoditized.
 
@@ -23914,8 +23914,6 @@ AI coding assistance has moved through four broad generations, and understanding
 4. **Agentic (autonomous multi-step) coding.** This is the shift that matters. You give a *goal* — "add rate limiting to the public API, configurable per tenant, with tests" — and the agent plans, reads files across the repo, edits multiple files, runs the build, runs the tests, reads the failures, and iterates until the goal is met or it gets stuck. It uses *tools*: a file editor, a shell, a test runner, sometimes a browser or a database client.
 
 The jump from 3 to 4 is qualitative, not incremental. Modes 1-3 make *you* faster at operations you were already doing. Mode 4 lets you *delegate a unit of work* and change what you spend your attention on. You stop thinking in keystrokes and start thinking in tasks, specifications, and review.
-
-> **Key shift:** With agentic coding, your job moves up the stack — from writing every line to *specifying intent, supplying context, and verifying results*. Your scarcest resource is no longer typing speed; it's the quality of your instructions and the rigor of your review.
 
 ### The tools of the era
 
@@ -24269,8 +24267,6 @@ Only then read line by line — and only the parts that survived. Most weak diff
 > **Best practice.** The second time you correct the model about the same thing, that correction belongs in the conventions file rather than in your next prompt. Prompts are disposable; the rules file compounds.
 
 > **Gotcha — scrutiny is usually applied backwards.** The least reliable thing a model produces is the part the compiler can't check. Code has a brutal feedback loop: it builds or it doesn't, tests pass or they don't, and every stage of training pushed it toward code that survives that loop. Prose has no such loop. So the numbers in the explanation ("this cuts allocations by about 40%", "dictionary lookup is O(1) so this scales fine"), the benchmark claims, the version facts, and the citations are exactly the outputs with no corrective pressure behind them — and they arrive in the same confident register as the code. Most reviewers do the reverse of what they should: they interrogate the code, which already has three safety nets, and nod along at the performance claim, which has none. Treat every unverified number in an AI explanation as a hypothesis, and either attach a benchmark to it ([Chapter 17](#chapter-17-runtime-internals-and-performance)) or delete it.
-
-That rubric is what makes "never merge what you haven't read" survive contact with volume. It is not a substitute for understanding the diff — it's what buys you the time to understand the parts that deserve it.
 
 ### Anti-patterns and failure modes
 

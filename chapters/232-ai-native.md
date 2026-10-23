@@ -99,8 +99,6 @@ AI coding assistance has moved through four broad generations, and understanding
 
 The jump from 3 to 4 is qualitative, not incremental. Modes 1-3 make *you* faster at operations you were already doing. Mode 4 lets you *delegate a unit of work* and change what you spend your attention on. You stop thinking in keystrokes and start thinking in tasks, specifications, and review.
 
-> **Key shift:** With agentic coding, your job moves up the stack — from writing every line to *specifying intent, supplying context, and verifying results*. Your scarcest resource is no longer typing speed; it's the quality of your instructions and the rigor of your review.
-
 ### The tools of the era
 
 > **Dated snapshot (mid-2026):** the product names in this section — and throughout this chapter — are the fastest-rotting facts in this book. The categories and the discipline of driving these tools are durable; the specific assistants, agents, and market leaders rotate every few months. Re-verify the names against the current ecosystem before making tooling decisions.
@@ -453,8 +451,6 @@ Only then read line by line — and only the parts that survived. Most weak diff
 > **Best practice.** The second time you correct the model about the same thing, that correction belongs in the conventions file rather than in your next prompt. Prompts are disposable; the rules file compounds.
 
 > **Gotcha — scrutiny is usually applied backwards.** The least reliable thing a model produces is the part the compiler can't check. Code has a brutal feedback loop: it builds or it doesn't, tests pass or they don't, and every stage of training pushed it toward code that survives that loop. Prose has no such loop. So the numbers in the explanation ("this cuts allocations by about 40%", "dictionary lookup is O(1) so this scales fine"), the benchmark claims, the version facts, and the citations are exactly the outputs with no corrective pressure behind them — and they arrive in the same confident register as the code. Most reviewers do the reverse of what they should: they interrogate the code, which already has three safety nets, and nod along at the performance claim, which has none. Treat every unverified number in an AI explanation as a hypothesis, and either attach a benchmark to it ([Chapter 17](#chapter-17-runtime-internals-and-performance)) or delete it.
-
-That rubric is what makes "never merge what you haven't read" survive contact with volume. It is not a substitute for understanding the diff — it's what buys you the time to understand the parts that deserve it.
 
 ### Anti-patterns and failure modes
 
