@@ -1560,7 +1560,7 @@ Overlapping subproblems (the same smaller question recurs) and optimal substruct
 
 # Chapter 3: How .NET Runs Your Code
 
-_⏱️ Estimated read time: ~35 min · 5460 words (study pace)_
+_⏱️ Estimated read time: ~35 min · 5314 words (study pace)_
 
 This chapter explains the machinery around your code that every .NET service shares: where the runtime puts what you allocate and how the garbage collector gets it back, how settings reach your classes, how the dependency-injection container builds and disposes your objects, and how the Generic Host starts and stops the application. With it you can explain why memory climbs and comes back, why a misspelt setting fails silently, and why a `Scoped` service inside a singleton serves stale data to every request.
 
@@ -1573,8 +1573,6 @@ The .NET runtime gives every managed program two fundamentally different regions
 The **stack** is a thread-local, last-in-first-out region. Each thread gets its own stack (by default 1 MB on Windows). When you call a method, the runtime pushes a *stack frame* containing the method's parameters, its local variables, and bookkeeping like the return address. When the method returns, the frame is popped — instantly, with zero cleanup cost. There is no garbage collector involved in stack memory; deallocation is just moving a pointer back down.
 
 The **managed heap** is a process-wide region shared by all threads, and it's where reference-type objects live. When you write `new Customer()`, the runtime carves space out of the heap and hands you back a *reference* (essentially a pointer) to it. That reference might sit on the stack (as a local variable) or inside another heap object (as a field), but the `Customer` instance itself is always on the heap.
-
-Which of the two holds a given piece of data depends on where the variable is declared, not only on its type: a local `int` is in the stack frame, an `int` field of a class is inside the object on the heap, and a reference variable on the stack points to an object on the heap. [Chapter 1](#stack-vs-heap-where-the-bytes-actually-live) gives the rules.
 
 ```csharp
 public void Example()
@@ -1592,8 +1590,6 @@ public class Customer { public int Id; public string Name = ""; }
 ```
 
 When `Example` returns, the stack frame — `localValue`, `p`, the references `c` and `numbers` — vanishes for free. But the `Customer` and the `int[]` remain on the heap until the garbage collector proves nobody can reach them anymore. That "proving unreachability and reclaiming" is the job of the GC.
-
-> **Why this matters:** every heap allocation has a cost — not just the allocation itself, but the eventual GC work to reclaim it. High-performance .NET code minimizes heap allocations by favoring `structs` for small, short-lived data, using `Span<T>` for slicing without copying, and avoiding hidden allocations (boxing, closures, LINQ in hot paths); [Chapter 17](#chapter-17-runtime-internals-and-performance) shows how to measure them.
 
 **Boxing** is where the two meet: a value type assigned to `object` or an interface is copied into a new heap object, an allocation the code doesn't show ([Chapter 1](#boxing-and-unboxing-the-hidden-tax)).
 
@@ -1653,8 +1649,6 @@ A **finalizer** (`~ClassName()`) is a method the GC calls before reclaiming an o
 1. When the GC finds an unreachable object *with a finalizer*, it can't reclaim it immediately. Instead it places the object on the **finalization queue**, which keeps it alive.
 2. A dedicated **finalizer thread** later runs the finalizer.
 3. Only on the *next* GC can the object actually be collected.
-
-So a finalizable object survives at least one extra generation and requires two collection cycles to die. Overusing finalizers is a real performance problem.
 
 **`IDisposable`** provides *deterministic* cleanup: you (or a `using` block) call `Dispose()` at a precise, known point rather than waiting for the GC. This is the preferred mechanism, and [Chapter 1](#idisposable-iasyncdisposable-and-the-dispose-pattern) covers using it.
 
