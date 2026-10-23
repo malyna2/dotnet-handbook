@@ -2,8 +2,6 @@
 
 A senior's output is decisions that other people act on. The cost of a wrong decision grows with how much is built on it and how many people follow it, so every senior behaviour either moves a check earlier or makes a decision cheaper to revisit: the design reviewed before the lines exist, the decision written down so it can be superseded rather than relitigated, the estimate checked against how long similar work really took, the legacy behaviour pinned before it is changed. Influence runs on the same mechanism over a longer time: trust compounds from estimates that were honest, reviews that were fair and commitments that landed or were renegotiated early.
 
-This chapter makes you able to work that way and to show it. It starts with the behaviours that multiply your impact through other people — mentoring, judgment and influence without authority — and how to steer your own growth toward senior and staff. Then it turns those behaviours into interview answers: how to approach any question, and the behavioural questions every senior loop asks. It closes with how to keep learning once the book ends. The practice at the end draws on the tools taught elsewhere: ADRs and the single review comment from [Chapter 16: Working Like a Middle Developer](#chapter-16-working-like-a-middle-developer), characterization tests, seams and hotspots from [Chapter 24](#chapter-24-working-with-legacy-brownfield-code), reference-class and PERT estimates from [Chapter 41](#chapter-41-recommendations-proposals-and-estimates), the reviewer's rubric for generated code from [Chapter 32](#chapter-32-the-ai-native-developer-thriving-in-the-ai-era), and the story bank you build in [Chapter 37](#chapter-37-the-story-bank-evidence-portfolio).
-
 ## Mentoring, Pairing & Growing Others
 
 The fastest way to increase your leverage is to make the people around you better. This is also the clearest signal of readiness for senior and staff roles.
@@ -58,8 +56,6 @@ Everything above assumes you sit inside the team. As a contractor, consultant or
 Your influence comes from the same sources as inside a team (trust, data and bringing people along early), with one extra hazard: **self-orientation**. The moment advice sounds like it serves your next contract, it stops being advice. Chapters 38–43, starting with [Chapter 38: Having a Point of View](#chapter-38-having-a-point-of-view), turn this stance into skills you can practise.
 
 ## Career Growth: Toward Senior and Staff
-
-Finally, steer your own growth deliberately instead of hoping it happens.
 
 **Seek feedback actively** rather than waiting for the annual review. Ask specific questions: "What's one thing I could do that would have the most impact on the team?" or "What would you need to see for me to be considered senior?" Vague questions ("any feedback?") get vague answers; specific ones get gold.
 
@@ -135,7 +131,7 @@ Practice out loud, time yourself, and remember: interviewers hire for *reasoning
 
 ### Where to Learn From
 
-A book ends; the field does not. The half-life of a specific framework detail is short, but the habit of continuous, deliberate learning is what keeps a career compounding. Build a routine from these sources.
+Build a routine from these sources.
 
 **Read code, not just articles.** The fastest way to level up is to read software written by people better than you. Clone Microsoft's [eShop](https://github.com/dotnet/eShop) reference application and trace how it wires up services, messaging, and .NET Aspire. When you hit a behavior you cannot explain, step into [dotnet/runtime](https://github.com/dotnet/runtime) itself — the source is public, and reading how `List<T>`, `Task`, or the GC is implemented demystifies things you have used for years.
 
@@ -153,7 +149,7 @@ The goal is not to consume everything. It is to build a steady, sustainable habi
 
 ### A Short Shelf of Great Books
 
-Videos and blogs keep you current; books give you depth that lasts. These have earned permanent spots on many senior engineers' shelves. Read them slowly.
+Videos and blogs keep you current; books give you depth that lasts. Read them slowly.
 
 - **C# in Depth** — Jon Skeet
 - **Dependency Injection Principles, Practices, and Patterns** — Mark Seemann
@@ -171,9 +167,7 @@ This book gave you breadth: a map of the whole territory a senior .NET engineer 
 
 So the aim is a T-shape: a wide base of competence, with a few tall spikes of genuine mastery. You cannot go deep everywhere, and trying to will only leave you exhausted and mediocre. Choose your spikes deliberately — maybe performance and the runtime, maybe distributed systems and messaging — and let the rest stay at working competence, refreshed as needed.
 
-Come back to this book. In six months, reread the *Pay attention to* pages at the end of each part and ask honestly where you now stand. You will find that chapters which once felt abstract have become obvious, and that new chapters have quietly become relevant because your work changed. A book like this is not a certificate you earn once; it is a compass you consult repeatedly, and each time it points a little further than before.
-
-You have the map and the habits; [Chapter 44: Capstone](#chapter-44-capstone-one-project-growing-up) gives you the project. The only thing left is to open your editor and start ShopCore. Build the thing. That is how senior engineers are made — not by finishing books, but by shipping systems and reflecting on what they cost. Go build.
+You have the map and the habits; [Chapter 44: Capstone](#chapter-44-capstone-one-project-growing-up) gives you the project.
 
 ## Sources & Further Reading
 
