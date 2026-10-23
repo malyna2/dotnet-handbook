@@ -38,8 +38,6 @@ The classic **OSI model** has seven layers, but in practice you only need to int
 | Internet | Getting packets to the right *host* across networks | IP, ICMP |
 | Link | Getting bits across one physical hop | Ethernet, Wi-Fi |
 
-The analogy that sticks: sending a letter. The **Link** layer is the mail truck driving between two post offices. The **Internet** layer (IP) is the addressing system that routes the envelope city-to-city — best effort, no guarantee it arrives. The **Transport** layer is the internal office mail room that makes sure the letter reaches *Bob in accounting* (a port number) and, in TCP's case, that missing pages get re-sent. The **Application** layer is the actual language written inside the letter that Bob understands.
-
 > **Best practice.** When you debug, ask *which layer is failing?* "Connection refused" is transport/host (nothing is listening on that port). "No such host is known" is DNS/application. A 500 is application. Confusing these wastes hours.
 
 ## TCP vs UDP
@@ -55,8 +53,6 @@ Both TCP and UDP ride on top of IP, and both use **port numbers** to route to a 
 The cost is *latency* and *state*. That handshake is a full round-trip before your first byte. Head-of-line blocking (more on this later) means one lost packet stalls everything behind it.
 
 **UDP (User Datagram Protocol)** is *fire-and-forget datagrams.* No handshake, no ordering, no retransmission, no congestion control. You send a packet; maybe it arrives, maybe it doesn't, maybe it arrives twice, maybe out of order. What you gain is minimal overhead and no head-of-line blocking.
-
-Think of TCP as a phone call — you establish a connection, take turns, and confirm you heard each other. UDP is shouting across a crowded room: fast, but you have no idea if anyone heard.
 
 **When to use which:**
 
@@ -259,8 +255,6 @@ var handler = new SocketsHttpHandler
 };
 var client = new HttpClient(handler);
 ```
-
-> **Best practice.** Never `new` up an `HttpClient` per request. Use `IHttpClientFactory` (typed clients, plus resilience via `Microsoft.Extensions.Http.Resilience`), or one long-lived instance with `PooledConnectionLifetime` set.
 
 ### Resilience with Polly
 
@@ -511,7 +505,6 @@ Between the bytes on the wire and the objects your endpoint takes and returns si
 
 Key differences to know:
 
-- **Performance:** STJ is substantially faster and allocates less. It's the default in ASP.NET Core.
 - **Defaults:** STJ is **stricter** by default — case-sensitive property matching (configurable), no comments or trailing commas unless enabled, and it doesn't handle some things Newtonsoft did permissively (like quoted numbers) without opting in.
 - **Feature breadth:** Newtonsoft still has richer support for some advanced scenarios (`TypeNameHandling` for polymorphic type embedding, `[JsonConstructor]` flexibility, `DefaultValueHandling` nuances, `JObject`/`JToken` LINQ-to-JSON ergonomics), though STJ has closed most gaps and added polymorphism support (`[JsonDerivedType]`) and `JsonNode`.
 
