@@ -26,8 +26,6 @@ The first is contempt. It is tempting to look at legacy code and assume the peop
 
 The second is the urge to rewrite. The ugly code that's still running is doing something valuable. It encodes thousands of bug fixes and edge cases — the accumulated learning of the business — that exist *nowhere else*, certainly not in any specification. That value is real, and throwing it away is expensive.
 
-> **Best practice:** Before changing legacy code, assume it is the way it is for a reason you don't yet see. Your job is to understand that reason, then make it better, not to prove you're smarter than your predecessors.
-
 ## Changing Code You Don't Understand
 
 The core problem of legacy work is a dilemma. To change code safely, you'd like tests. To write tests, you usually need to change the code so it can be tested (to break dependencies). But changing code without tests is exactly what's dangerous. How do you get out of this loop?
@@ -192,8 +190,6 @@ The seductive plan is: freeze the old system, build a shiny new one in parallel,
 - **Value arrives only at the end** — if it arrives. For years there's no return on the investment, which makes the project a prime target for cancellation the moment budgets tighten.
 - **Cutover is all-or-nothing.** You flip the switch and either it works or the business stops. There is no gentle rollback.
 
-> **Pitfall:** "We'll just rewrite it, it'll be faster the second time" is one of the most expensive sentences in software. The second time you'll rediscover why the first version was complicated — the hard way, in production.
-
 ### The Strangler Fig Pattern
 
 Martin Fowler named the *Strangler Fig* pattern after the tropical vine that germinates in a host tree's canopy, sends roots down around the trunk, and gradually envelops the tree until it can stand on its own — the original eventually gone, its structure replaced in place.
@@ -231,7 +227,7 @@ app.MapWhen(
 app.Run(async ctx => await _legacyProxy.ForwardAsync(ctx));
 ```
 
-The strategic advantages mirror the rewrite's failures point for point: **value ships continuously** (each migrated slice is in production immediately), **risk is bounded** (if the new Orders service misbehaves, you re-route that one path back to legacy), and **you can stop anytime** with a coherent, working system. Strangler Fig is not merely "nicer"; it is a fundamentally lower-risk bet.
+The strategic advantages mirror the rewrite's failures point for point: **value ships continuously** (each migrated slice is in production immediately), **risk is bounded** (if the new Orders service misbehaves, you re-route that one path back to legacy), and **you can stop anytime** with a coherent, working system.
 
 > **Best practice:** Migrate along seams that matter to the business — a whole capability like "checkout" or "reporting" — not arbitrary technical layers. A migrated slice should be independently valuable and independently deployable.
 
@@ -491,7 +487,7 @@ The deepest version of this point: **the maintenance cadence you can sustain is 
 
 Forty microservices means forty runtime upgrades, forty base images, forty dependency graphs. That is a real, recurring cost, and it is one of the strongest arguments for the modular monolith ([Chapter 21](#chapter-21-architecture)) at team sizes that cannot staff forty upgrade paths. Similarly, every additional language, framework, database engine and cloud service you adopt adds its own independent expiry schedule.
 
-The question to ask when adopting anything new is not only "does this solve our problem?" but "**who will upgrade this in three years, and will they know why we chose it?**" A team that asks this consistently ends up with fewer, better-understood technologies — and considerably less of the legacy this chapter is about.
+The question to ask when adopting anything new is not only "does this solve our problem?" but "**who will upgrade this in three years, and will they know why we chose it?**"
 
 ## Practice
 
