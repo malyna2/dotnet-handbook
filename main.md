@@ -17908,17 +17908,15 @@ The four worked designs above are the answers, and each one's *hard parts* are w
 
 # Chapter 24: Working with Legacy & Brownfield Code
 
-_⏱️ Estimated read time: ~50 min · 7620 words (study pace)_
+_⏱️ Estimated read time: ~45 min · 7338 words (study pace)_
 
-Most professional work happens on systems that already exist, and the senior skill is changing them safely while understanding only a slice. This chapter makes you able to do that: pin a system's current behaviour before you touch it, find the seams where it can be changed without editing everything at once, decide between incremental strangling and a rewrite, move a .NET Framework system to modern .NET, and keep the platform under it from going out of support again.
+Most professional work happens on systems that already exist, and the senior skill is changing them safely while understanding only a slice.
 
-The sections build in that order. First the mindset and the techniques for code you don't understand (characterization tests, seams, breaking dependencies, sprouting and wrapping new code beside the old); then modernization at the scale of a whole system (the strangler fig against the big rewrite), the .NET Framework migration in practice, and living with a big ball of mud, where hotspots tell you which debt is worth paying; then the data, downtime and progress-measurement side of a migration; and last the end-of-life treadmill that makes legacy a verb rather than a noun. It builds on the refactoring and tech-debt basics of [Chapter 16](#chapter-16-working-like-a-middle-developer) and the testing basics of [Chapter 8](#chapter-8-testing).
+The chapter builds on the refactoring and tech-debt basics of [Chapter 16](#chapter-16-working-like-a-middle-developer) and the testing basics of [Chapter 8](#chapter-8-testing).
 
 ## The Myth of the Greenfield
 
-Somewhere early in your career you probably imagined that senior engineers spend their days architecting elegant new systems from a blank editor. The reality is almost the exact opposite. The overwhelming majority of professional software work happens on systems that already exist, already have users, already generate revenue, and already carry years of decisions — good and bad — baked into their code. This is *brownfield* development: building on land that has already been developed, where you must account for existing structures rather than pouring a fresh foundation.
-
-The move from mid-level to senior is, more than anything, the ability to be effective in this environment. Junior developers freeze in front of a million-line codebase they don't understand. Senior developers have a systematic approach for changing code safely even when they only understand a small slice of it. That approach — the mindset, the techniques, and the tooling — is what this chapter is about.
+Systems that already exist have users, generate revenue, and carry years of decisions — good and bad — baked into their code. This is *brownfield* development: building on land that has already been developed, where you must account for existing structures rather than pouring a fresh foundation.
 
 ### What "Legacy" Actually Means
 
@@ -18093,7 +18091,7 @@ Every existing caller of `Pay` now gets the audit log for free, and you never to
 
 ## Modernizing at Scale: Strangler Fig vs. the Big Rewrite
 
-The techniques above operate at the method and class level. When the goal is to modernize an entire system — say, move a .NET Framework monolith to modern .NET — you need a strategy at the architecture level. Here the field has essentially settled on one answer, and it has a memorable name.
+The techniques above operate at the method and class level. When the goal is to modernize an entire system — say, move a .NET Framework monolith to modern .NET — you need a strategy at the architecture level.
 
 ### Why Big-Bang Rewrites Usually Fail
 
@@ -18343,7 +18341,7 @@ public decimal Price(Cart cart)
 
 ## The EOL Treadmill: Legacy Is a Verb
 
-This chapter has treated legacy as a state you inherit. It is worth ending on the observation that it is also a process you are subject to, continuously, whether or not you write any code.
+Legacy is not only a state you inherit; it is also a process you are subject to, continuously, whether or not you write any code.
 
 Consider what a single ASP.NET Core service actually depends on, and who controls the clock on each:
 
