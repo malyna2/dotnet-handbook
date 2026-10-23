@@ -8777,7 +8777,7 @@ The direction of one arrow. In layers, business logic references the data layer,
 
 # Chapter 11: Messaging and Background Work
 
-_⏱️ Estimated read time: ~1 h · 8429 words (study pace)_
+_⏱️ Estimated read time: ~1 h · 8338 words (study pace)_
 
 Sooner or later a request has to do something it shouldn't wait for: send an email, notify another service, build a report that takes minutes. Doing it inline couples the user's latency, and the request's success, to work that has no business being on the hot path.
 
@@ -9290,7 +9290,7 @@ builder.Services.AddHostedService<EmailDispatchWorker>();
 
 ### The outbox-driven worker
 
-In-memory channels have a fatal flaw for anything that matters: **if the process dies, the queue dies with it.** When a user places an order, you write the order to the database *and* you want to publish an `OrderPlaced` event - and doing that as two separate operations means a crash between them loses one side. That is the dual write from [The Transactional Outbox](#the-transactional-outbox) above, which covers the table, the atomic commit and MassTransit's built-in support. Here the point is the other half of the pattern: the background worker that actually drains the table.
+In-memory channels have a fatal flaw for anything that matters: **if the process dies, the queue dies with it.** The fix is [The Transactional Outbox](#the-transactional-outbox) above; this is the background worker that drains its table.
 
 The worker polls unprocessed rows and publishes them, marking each as done only after the broker acknowledges:
 
@@ -9342,7 +9342,7 @@ builder.Services.Configure<HostOptions>(o =>
 
 The moment you run more than one instance of your service - and in any serious deployment you will, for availability alone - two copies of that outbox worker are polling the same table. Both may grab the same row. Your message gets published twice.
 
-You cannot engineer this possibility away entirely. Distributed systems give you **at-least-once** delivery as the practical default; exactly-once is a comforting fiction that, when you look closely, is always at-least-once plus idempotent processing (*Why Exactly-Once Is (Almost) a Myth* above). So stop fighting duplicates and make processing **idempotent**: claim a natural or supplied key under a unique index, in the same transaction as the effect, exactly as in [Idempotent Consumers](#idempotent-consumers). Apply it to every handler a worker runs.
+You cannot engineer this away entirely (*Why Exactly-Once Is (Almost) a Myth* above), so make processing **idempotent**: claim a natural or supplied key under a unique index, in the same transaction as the effect, exactly as in [Idempotent Consumers](#idempotent-consumers). Apply it to every handler a worker runs.
 
 For the polling contention itself, options range from a `SELECT ... FOR UPDATE SKIP LOCKED` (PostgreSQL) to claiming rows with an atomic `UPDATE ... SET LockedBy = @me WHERE ...`, to simply electing a single leader so only one instance polls at all ([Chapter 20: Ensuring a job runs once across instances](#ensuring-a-job-runs-once-across-instances)). The right answer depends on throughput, but the principle is constant: **assume duplicates and design so they don't hurt.**
 
