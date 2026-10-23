@@ -26176,17 +26176,15 @@ Logic in unit tests; components with Testing Library, querying by role and label
 
 # Chapter 35: Production Incidents
 
-_⏱️ Estimated read time: ~1 h 35 min · 17780 words (study pace)_
+_⏱️ Estimated read time: ~1 h 35 min · 17620 words (study pace)_
 
-Every senior engineer eventually learns that the hard part of the job is not writing code — it is deciding what to do when the code you already shipped meets reality. Reality shows up as a traffic spike you did not plan for, a "successful" request that silently lost data, a p99 latency graph that looks like a seismograph, and a dependency that vanishes at the worst possible moment. This chapter is a war-room playbook: it makes you able to go from a symptom to a working theory, stop the bleeding, and then name the architectural decision the incident is pushing you toward — and to tell that story well in an interview.
+The hard part of the job is deciding what to do when the code you already shipped meets reality: a traffic spike you did not plan for, a "successful" request that silently lost data, a p99 latency graph that looks like a seismograph, a dependency that vanishes at the worst possible moment.
 
-It opens with method. *The Debugging Map* turns a production symptom into the piece of distributed-systems theory that explains it, and *Live-Container Triage* shows how the OS view and the runtime view of one failing container are read against each other. Then comes *the incident cheat-card*, one row per scenario, and twelve scenarios you could plausibly live through on an on-call rotation. Each follows the same shape: the situation, how you notice it, how to stop the bleeding, the root causes, the durable fix and its trade-offs, and how to talk about it.
+Each of the twelve scenarios follows the same shape: the situation, how you notice it, how to stop the bleeding, the root causes, the durable fix and its trade-offs, and how to talk about it.
 
-The building blocks come from earlier chapters — cloud and statelessness ([Chapter 28](#chapter-28-cloud-fundamentals-aws-azure)), Kubernetes ([Chapter 26](#chapter-26-delivery-and-platform)), data at scale ([Chapter 18](#chapter-18-data-in-depth)), messaging ([Chapter 11](#chapter-11-messaging-and-background-work)), distributed theory and SRE ([Chapter 20](#chapter-20-distributed-systems)), and the runtime, GC and performance tooling ([Chapter 17](#chapter-17-runtime-internals-and-performance)). They are not re-taught here; they are put to work under fire.
+The building blocks come from earlier chapters — cloud and statelessness ([Chapter 28](#chapter-28-cloud-fundamentals-aws-azure)), Kubernetes ([Chapter 26](#chapter-26-delivery-and-platform)), data at scale ([Chapter 18](#chapter-18-data-in-depth)), messaging ([Chapter 11](#chapter-11-messaging-and-background-work)), distributed theory and SRE ([Chapter 20](#chapter-20-distributed-systems)), and the runtime, GC and performance tooling ([Chapter 17](#chapter-17-runtime-internals-and-performance)). They are not re-taught here.
 
 ## How to Triage: From Symptom to Theory
-
-Two habits make the scenarios below fast to work through. The first is recognising which piece of theory a symptom belongs to; the second is reading a sick process from two levels at once.
 
 ### The Debugging Map: Symptom → Theory → Mitigation
 
