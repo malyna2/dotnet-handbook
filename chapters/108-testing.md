@@ -1,8 +1,8 @@
 # Chapter 8: Testing
 
-Most developers can write a test. Far fewer can explain *why* one test is worth writing and another is worth deleting, why a green suite can still be worthless, or why the team that mocks everything ends up trusting nothing. This chapter makes you able to write and fix the tests of one service without help: put each test at the level that can prove its claim, choose the right test double, test the HTTP surface and the database for real, and remove a flaky test's cause instead of retrying it.
+Most developers can write a test. Far fewer can explain *why* one test is worth writing and another is worth deleting, why a green suite can still be worthless, or why the team that mocks everything ends up trusting nothing.
 
-One idea ties the sections together: **a test is only as true as the things it runs for real, and only as repeatable as the inputs it controls.** The pyramid and xUnit come first: what each level proves, and how xUnit isolates one test from the next. Test doubles, mocking libraries, assertions and test data follow, which is where a test decides what it replaces and therefore what it can no longer catch. Integration testing puts the real pipeline and the real database engine back. TDD and BDD are ways of working with all of that; the craft section (names, structure, smells, flakiness) and deterministic time and data make a failure repeatable and readable. Contract, property-based, end-to-end, load and mutation testing are in [Chapter 25: Observability and Testing at Scale](#chapter-25-observability-and-testing-at-scale).
+One idea ties the sections together: **a test is only as true as the things it runs for real, and only as repeatable as the inputs it controls.** Contract, property-based, end-to-end, load and mutation testing are in [Chapter 25: Observability and Testing at Scale](#chapter-25-observability-and-testing-at-scale).
 
 ## Why We Test At All
 
@@ -24,7 +24,7 @@ The classic anti-pattern is the **ice cream cone**: lots of manual and E2E testi
 
 ## Unit Testing with xUnit
 
-.NET has three mainstream test frameworks: **xUnit**, **NUnit**, and **MSTest**. They are more alike than different, but xUnit has become the de facto default for new projects, partly because it was written by people reacting against perceived design mistakes in the others. We'll use xUnit as our primary vehicle and note the differences as we go.
+.NET has three mainstream test frameworks: **xUnit**, **NUnit**, and **MSTest**. They are more alike than different, but xUnit has become the de facto default for new projects, partly because it was written by people reacting against perceived design mistakes in the others.
 
 ### Facts and Theories
 
@@ -260,7 +260,7 @@ Many people find NSubstitute reads more cleanly because there's no `.Object` unw
 
 ### When NOT to Mock
 
-This is the senior-level point of the whole section. Mocking is a sharp tool that is routinely overused.
+Mocking is a sharp tool that is routinely overused.
 
 - **Don't mock types you don't own.** Mocking `HttpClient`, `DbContext`, or a third-party SDK couples your test to *your assumptions* about how that library behaves, which may be wrong. Wrap it in your own thin interface and mock *that*, or use a real/fake implementation.
 - **Don't mock value objects or pure logic.** If a class has no external dependencies, just use the real thing. Mocking a `Money` or a `DateRange` is absurd.
@@ -528,7 +528,7 @@ public class OrderSteps
 
 ## Craft: Naming, Structure, and Smells
 
-The techniques above are worthless if the tests themselves are unreadable or unreliable. Test code is production code — it is read far more often than it is written, and it is the first documentation a new developer meets.
+Test code is production code — it is read far more often than it is written, and it is the first documentation a new developer meets.
 
 ### Test Naming
 
@@ -619,14 +619,6 @@ The real power: `FakeTimeProvider` also controls `Task.Delay` and timers created
 ### Seeded test data
 
 A random generator is an input too. One seeded from the clock produces a suite that passes 99 runs and fails the 100th, because the generator happened to produce an edge case. That isn't a flaky test, it's an *undiscovered bug*, but without the seed nobody can reproduce it. Seed generators with a fixed value in tests (Bogus: a fixed `Randomizer.Seed`), and if you vary the seed on purpose to explore more inputs, log it on failure so any failure *is* reproducible. Then treat each such failure as a real finding.
-
-## Bringing It Together
-
-Testing maturity is not measured in a coverage percentage or a count of tests. It's measured in a single capability: **can your team change the code with confidence and speed?** Everything in this chapter serves that. The pyramid tells you where to invest. Unit tests with clean AAA structure and honest names give fast, precise feedback. Test doubles, used with the judgment to know when *not* to mock, isolate units without ossifying them. Integration tests with Testcontainers verify the seams against real infrastructure. TDD applies design pressure; BDD aligns with stakeholders when there's an audience for it. Controlled time and seeded data keep the suite repeatable, and relentless hygiene around flakiness protects the trust that makes the whole edifice worthwhile. Whether the tests actually verify anything is the question mutation testing answers, in [Chapter 25](#chapter-25-observability-and-testing-at-scale).
-
-Write tests that would fail if the behaviour broke, that read clearly when they do, and that survive a refactor of the code they cover. Do that, and your test suite stops being a chore you maintain and becomes the thing that lets you move fast without breaking things.
-
-> **Capstone tie-in:** This chapter is exercised by ShopCore Step 2 (Prove It Works: Tests) — you'd unit-test the domain rules with xUnit and place an order through the HTTP surface against a Testcontainers PostgreSQL via `WebApplicationFactory`. See [Chapter 44](#chapter-44-capstone-one-project-growing-up).
 
 ## Prove it
 
