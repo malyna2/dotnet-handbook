@@ -17187,13 +17187,9 @@ A SignalR connection lives on one server, so an instance can push only to its ow
 
 # Chapter 23: System Design
 
-_⏱️ Estimated read time: ~1 h · 9943 words (study pace)_
+_⏱️ Estimated read time: ~1 h · 9806 words (study pace)_
 
 A design prompt gives you forty-five minutes and one vague sentence: "design a URL shortener", "design checkout". There is no single right answer, and nobody is grading the diagram. In an interview or an architecture review, people check three things: that every box traces back to a requirement or a number, that you know what each box costs, and that you can say what breaks first when the numbers grow.
-
-This chapter prepares you for that conversation. It starts with a repeatable process and its arithmetic: back-of-the-envelope estimation, Little's law, and the latency numbers that decide where a call can afford to go. Then a short map of the building blocks and scaling moves, each taught in depth elsewhere: caching in [Chapter 7](#chapter-7-data-access) and [Chapter 18](#chapter-18-data-in-depth), queues in [Chapter 11](#chapter-11-messaging-and-background-work) and [Chapter 20](#chapter-20-distributed-systems), sharding in Chapter 18, consistency in Chapter 20, observability in [Chapter 25](#chapter-25-observability-and-testing-at-scale), delivery in [Chapter 26](#chapter-26-delivery-and-platform), Azure in [Chapter 29](#chapter-29-azure-in-depth-for-net-developers). This chapter links to them instead of teaching them again.
-
-The core is four worked designs in one shape: a URL shortener, a distributed rate limiter, a notification service and checkout with payment. Then a design for you to do, three questions, a storage decision, and the questions interviewers use to probe a design.
 
 The thread through all of it: **numbers first, then the architecture those numbers justify, then the failure each choice brings in.**
 
