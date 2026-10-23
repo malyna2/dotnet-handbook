@@ -2061,11 +2061,9 @@ It starts a graceful shutdown: it calls `StopAsync` on each hosted service, and 
 
 # Chapter 4: Async Essentials
 
-_⏱️ Estimated read time: ~45 min · 6434 words (study pace)_
+_⏱️ Estimated read time: ~45 min · 6253 words (study pace)_
 
-This chapter is about what `async` and `await` do to three things: the thread, the exception and the work that is waiting. Every async outage in production is one of those three going wrong. By the end you should be able to write and review async request code that loses no exceptions and holds no thread it doesn't need: say where an exception from `async void` or `Task.WhenAll` goes, why `.Result` slows down every endpoint even when nothing deadlocks, what a `CancellationToken` actually stops, and how to share state between threads without a race.
-
-One mechanism ties it together: **`await` hands the thread back and parks the rest of the method on the task, and the task is the only thing that carries the result or the exception back.** The sections build that model in order. First why async exists and the thread pool it runs on, then what a `Task` is and what `await` does with it, down to the state machine the compiler generates. Then where the rest of the method runs when the task completes, and what happens when you block a thread to wait for it: the classic deadlock and its quieter, more common cousin, thread-pool starvation. Then how to stop work you no longer need (cancellation) and how to run several operations at once (`WhenAll`, `WhenAny`, throttling, async streams). Concurrent work means shared data, so the chapter ends with thread safety.
+This chapter is about what `async` and `await` do to three things: the thread, the exception and the work that is waiting. Every async outage in production is one of those three going wrong. One mechanism ties it together: **`await` hands the thread back and parks the rest of the method on the task, and the task is the only thing that carries the result or the exception back.**
 
 `ValueTask`, the TPL's parallel loops, Channels and the thread pool's injection rules build on this model and come in [Chapter 17: Runtime Internals and Performance](#chapter-17-runtime-internals-and-performance). [Chapter 5: HTTP and Web APIs](#chapter-5-http-and-web-apis) applies it to a web request.
 
@@ -2505,7 +2503,7 @@ A **memory barrier** prevents reordering across it and forces visibility; `Volat
 
 ## Prove it
 
-Three programs, one per trap. Predict each output before you run it: the gap between the prediction and the output is what this chapter is for.
+Three programs, one per trap. Predict each output before you run it.
 
 **1. An `async void` exception kills the process.**
 
