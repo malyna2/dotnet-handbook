@@ -1,8 +1,6 @@
 # Chapter 6: Frontend Essentials
 
-The moment your API meets a browser, problems land on your desk that you cannot hand off: why the SPA works locally and fails in production, why a request "blocked by CORS" still changed the database, why the page freezes while your endpoint answers in 40 ms, where the login token should live. Most .NET teams ship a React or Angular frontend next to their API, and their interviews ask backend candidates frontend questions. This chapter gives you a junior-plus foundation: enough to read and change a SPA, debug it in the browser's DevTools, answer the standard questions by their mechanism, and design the API boundary so the frontend team can move fast.
-
-It follows the path a page takes: how the browser turns HTML, CSS and JavaScript into pixels; each language in turn, with JavaScript the way interviews test it; the DOM and events; TypeScript as a C# developer meets it. Then the boundary you own (`fetch`, CORS, cookies, typed clients), React by its mechanism and how Angular differs, routing and forms, accessibility, the npm and Vite toolchain, XSS, and the Core Web Vitals that measure the result.
+The moment your API meets a browser, problems land on your desk that you cannot hand off: why the SPA works locally and fails in production, why a request "blocked by CORS" still changed the database, why the page freezes while your endpoint answers in 40 ms, where the login token should live.
 
 Every JavaScript and TypeScript sample here runs: the repository tests them in `verify/frontend/` (pinned TypeScript, React and Angular, Vitest with jsdom). Rendering strategies, performance and testing in depth, Content Security Policy and SPA authentication are in [Chapter 34: Frontend and Full-Stack in Depth](#chapter-34-frontend-and-full-stack-in-depth).
 
@@ -846,7 +844,7 @@ A **controlled** React input keeps its value in state (`value={email}` plus an `
 
 ## Accessibility: The Part That Is Now Law
 
-Accessibility has moved from "good practice we should get to" to "a legal requirement with a date attached". The **European Accessibility Act**, applicable since June 2025, obliges a broad set of consumer-facing products and services sold in the EU (e-commerce, banking, transport ticketing, e-books, telecoms) to meet accessibility requirements, with the harmonised standard EN 301 549 pointing at **WCAG 2.1/2.2 level AA**; the public sector was already covered by the Web Accessibility Directive. In the US, Section 508 covers federal procurement, and ADA litigation over inaccessible websites has been steady for a decade. So **inaccessible markup is a compliance defect, not a polish item**, and "the designer didn't specify it" stopped being an answer.
+The **European Accessibility Act**, applicable since June 2025, obliges a broad set of consumer-facing products and services sold in the EU (e-commerce, banking, transport ticketing, e-books, telecoms) to meet accessibility requirements, with the harmonised standard EN 301 549 pointing at **WCAG 2.1/2.2 level AA**; the public sector was already covered by the Web Accessibility Directive. In the US, Section 508 covers federal procurement, and ADA litigation over inaccessible websites has been steady for a decade. So **inaccessible markup is a compliance defect, not a polish item**.
 
 ### WCAG, and How to Actually Think About It
 
@@ -915,7 +913,7 @@ For asynchronous validation and status messages, an `aria-live="polite"` region 
 
 How to test all of this, automatically in CI and by hand with a keyboard and a screen reader, is in [Chapter 34](#chapter-34-frontend-and-full-stack-in-depth).
 
-> **Best practice.** Fix accessibility in your shared components, not in your pages. A design system where the `Button`, `Modal`, `Field` and `Table` components are correct once means hundreds of screens are correct by default — and it turns accessibility from a per-feature tax into a solved infrastructure problem. This is the same leverage argument as any other cross-cutting concern in this book.
+> **Best practice.** Fix accessibility in your shared components, not in your pages. A design system where the `Button`, `Modal`, `Field` and `Table` components are correct once means hundreds of screens are correct by default — and it turns accessibility from a per-feature tax into a solved infrastructure problem.
 
 ## Tooling: npm, package.json, Lockfiles and Vite
 
@@ -1007,7 +1005,7 @@ A short decision guide:
 3. **Rich, public, ecosystem-hungry SPA with JS talent available?** React/Angular/Vue against a REST API, ideally behind a BFF.
 4. **Cross-platform desktop/mobile from one C# codebase?** MAUI, or Blazor Hybrid if reusing web UI; Avalonia if Linux desktop matters; native if platform polish is the product.
 
-[Chapter 34](#chapter-34-frontend-and-full-stack-in-depth) compares Blazor, rendering strategies and native clients. There is no universal answer, only the one that fits *this* team, audience and performance budget, chosen explicitly.
+[Chapter 34](#chapter-34-frontend-and-full-stack-in-depth) compares Blazor, rendering strategies and native clients.
 
 ## Sources & Further Reading
 
