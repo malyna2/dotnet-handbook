@@ -12843,7 +12843,7 @@ Before an interview, reread [Part 2 · Pay Attention To](#part-2-pay-attention-t
 
 # Chapter 17: Runtime Internals and Performance
 
-_⏱️ Estimated read time: ~55 min · 8714 words (study pace)_
+_⏱️ Estimated read time: ~55 min · 8248 words (study pace)_
 
 Every request a .NET service handles shares two runtime resources: a small pool of threads and a generational heap. Both are tuned for short work. A thread held while it waits, or an object kept a little too long, becomes a delay for every other request.
 
@@ -12856,8 +12856,6 @@ Human intuition about performance is unreliable. The CPU your code runs on is a 
 > **The single most important sentence in this chapter:** Measure first, optimize second. If you optimize before measuring, you are not engineering — you are gambling with your own time as the stake.
 
 Donald Knuth's line, "premature optimization is the root of all evil," is quoted so often it has lost its teeth. People forget the surrounding sentence, which says we *should* forgo optimizations in "the critical 3%." The point is not that optimization is bad — it is that optimizing the wrong thing is worse than doing nothing, because it costs time, adds complexity, introduces bugs, and makes the code harder to read, all while the actual bottleneck sits untouched.
-
-Think of it like triage in an emergency room. A patient walks in and you do not immediately start treating the visible bruise on their arm. You take vitals, identify the life-threatening problem, and treat *that*. Code is the same: the slow part is almost never where you think it is. The famous "90/10 rule" holds that 90% of execution time is spent in about 10% of the code. Your job is to find that 10% before you touch anything.
 
 > **Best practice:** Establish a performance *budget* and a *baseline* before optimizing. "This endpoint must respond in under 200ms at the 95th percentile under 500 concurrent users" is a goal you can measure against. "Make it faster" is not.
 
@@ -12943,7 +12941,7 @@ BenchmarkDotNet prints a table that looks roughly like this (numbers illustrativ
 | StringJoin          | 1000 |     4.100 us |    0.02 |     4.30 KB |
 ```
 
-Learn to read this table like a doctor reads a chart:
+How to read the table:
 
 - **Mean** is the average time per operation. `us` is microseconds, `ns` nanoseconds, `ms` milliseconds — check the unit, it changes per table.
 - **Ratio** compares each row to the `Baseline = true` benchmark. `0.03` means StringBuilder took 3% of the naive version's time — over 30x faster.
@@ -13145,8 +13143,6 @@ finally
 
 Strings in .NET are immutable, so every "modification" creates a new string. As the earlier benchmark showed, concatenating in a loop with `+=` is quadratic in both time and allocations. `StringBuilder` maintains a growable internal buffer and only materializes the final string once, turning that O(n²) allocation storm into a linear one.
 
-The nuance seniors know: for a **small, fixed number of concatenations**, `StringBuilder` is *slower* due to its own setup overhead. `"Hello, " + name + "!"` compiles to a single efficient `string.Concat` call — do not "optimize" it into a StringBuilder. Reach for StringBuilder when the number of appends is large or unbounded (loops). Also prefer **string interpolation** (`$"..."`) for readability; modern C# lowers it efficiently, and interpolated string handlers even avoid intermediate allocations in APIs like logging.
-
 ### Closures and LINQ in Hot Paths
 
 LINQ is expressive and, in the vast majority of code, its cost is negligible and readability wins. But in a genuine hot path it hides allocations: each query allocates enumerator state machines, and any lambda that **captures** a variable allocates a closure object to hold the captured state.
@@ -13163,7 +13159,7 @@ foreach (var x in items)
     if (x.Value > threshold) count++;
 ```
 
-> **Best practice:** Write LINQ by default — it is clearer and the cost rarely matters. Rewrite to explicit loops *only* in code a profiler has flagged as hot. This is measure-first in miniature: do not preemptively strip LINQ from your whole codebase because you read it is slow. Ninety percent of your code does not care.
+> **Best practice:** Write LINQ by default — it is clearer and the cost rarely matters. Rewrite to explicit loops *only* in code a profiler has flagged as hot.
 
 ## The Thread Pool Under Load
 
@@ -13338,8 +13334,6 @@ Reflection powers serializers, DI containers, ORMs, and validators. But it's **s
 
 A **source generator** is a compiler plugin that runs *during compilation*, inspects your code (via the Roslyn syntax and semantic model), and *emits additional C# source* that gets compiled alongside your own. It's the modern answer to problems previously solved with runtime reflection or reflection-emit.
 
-The mental model: instead of discovering metadata and building behavior at *runtime* (slow, AOT-hostile), a source generator does that discovery at *compile time* and writes plain code you could have written by hand. The result is faster, trimming-friendly, and debuggable.
-
 ```csharp
 // You write a partial declaration with an attribute:
 [JsonSerializable(typeof(Person))]
@@ -13443,22 +13437,6 @@ Two assemblies with the *same name* loaded into *two different ALCs* are conside
 ### Strong naming
 
 A **strong name** is a cryptographic identity for an assembly: the assembly is signed with a private key, and its identity becomes name + version + culture + **public key token**. Historically this was required for the Global Assembly Cache (GAC) and to prevent name collisions. In modern cross-platform .NET the GAC is gone and strong naming is far less important — it's mainly relevant for library authors who need a stable public identity or must be referenced by other strong-named assemblies. It is *not* a security feature (the public key is embedded and verifiable, but it doesn't prevent tampering the way Authenticode does). Don't rely on strong naming for security; use it for identity stability if you publish widely-consumed libraries.
-
-## Common .NET Performance Anti-Patterns
-
-A consolidated field guide to the recurring offenders, most of which this chapter has met:
-
-- **Optimizing without measuring.** The meta-anti-pattern. You cannot fix what you have not measured.
-- **String concatenation with `+=` in loops.** Quadratic allocations. Use `StringBuilder` or `string.Join`.
-- **The N+1 query.** One query becomes hundreds via lazy navigation access. Use `Include` or projection ([Chapter 7](#chapter-7-data-access); EF Core performance in depth is in [Chapter 18](#chapter-18-data-in-depth)).
-- **Sync-over-async (`.Result`/`.Wait()`).** Blocks threads, causes thread-pool starvation under load.
-- **`List.Contains` inside a loop.** O(n²), fine on 100 dev rows and fatal on 100,000. Build a `HashSet` or `Dictionary` once, before the loop; [Chapter 2](#chapter-2-data-structures-and-algorithms-essentials) has the collections and their costs.
-- **Fetching whole entities and unbounded result sets.** Project to DTOs; always paginate.
-- **Catching exceptions for control flow.** Throwing is expensive (stack capture). Do not use `try/catch` where a `TryParse` or a null check works. Exceptions are for the exceptional.
-- **Hidden boxing.** Value types silently heap-allocated by `object`/interface conversions and non-generic collections.
-- **LINQ and closures in genuinely hot loops.** Fine everywhere else; a real cost in the flagged 10%.
-- **Excessive logging in hot paths.** String formatting and I/O per request adds up; use structured logging with level checks and interpolated string handlers.
-- **Not disposing / leaking IDisposables.** Undisposed `HttpClient` per request exhausts sockets; unclosed DB connections exhaust the pool. Use `IHttpClientFactory` and `using`.
 
 ## Practice
 
