@@ -2766,7 +2766,7 @@ Asynchronous streaming — `await foreach` over items produced with latency (pag
 
 # Chapter 5: HTTP and Web APIs
 
-_⏱️ Estimated read time: ~1 h 5 min · 9634 words (study pace)_
+_⏱️ Estimated read time: ~1 h 5 min · 9585 words (study pace)_
 
 Most bugs that reach production in a web service are not really *code* bugs. They are network bugs wearing a code costume: a call that works on your laptop times out under load, a service that handled a thousand requests per second starts throwing `SocketException`, an endpoint answers `200` while its client sees a failure.
 
@@ -3484,8 +3484,6 @@ Because the property is named by lambda rather than by string, renaming `Name` i
 | **FluentValidation** | Conditional, cross-field, and per-element collection rules; DI and async; several validators for one shape; stable error codes; trivial to unit test | Invisible to OpenAPI unless you add a schema filter; must be explicitly invoked, so it guards only the paths you wired; still check-then-act against the database |
 | **Domain guard / value object** | Holds for *every* caller — HTTP, consumer, job, test; makes illegal state unrepresentable; the rule lives next to the concept it constrains | Throws on the first violation rather than accumulating them, so it yields a poor error document; fires too late to give the client a field-level list |
 
-They are layers, not alternatives. DataAnnotations (or nothing) for trivial DTOs, FluentValidation at the edge to produce a good error document, and domain guards as the thing you would actually bet correctness on.
-
 ## CancellationToken Propagation
 
 [Chapter 4](#cancellationtoken-cooperative-cancellation) showed how a `CancellationToken` works; a web API is where it pays. Once the client disconnects, times out or navigates away, work done on its behalf is wasted. `HttpContext.RequestAborted` is a `CancellationToken` that trips when the connection drops, and both Minimal APIs and MVC bind it to any `CancellationToken` parameter of an endpoint or action. It helps only if you *pass it through*: EF Core queries, `HttpClient` calls and stream reads all accept one.
@@ -3508,7 +3506,7 @@ This matters most under load. Clients time out, abandon their requests and *retr
 
 The token stops only the calls it reaches: one method in the chain that doesn't forward it leaves everything below it running ([Chapter 4](#cancellationtoken-cooperative-cancellation) has the mechanism, and the analyzer that finds a token left behind).
 
-> **Gotcha.** Not everything should be cancellable. If you've charged a payment and are about to write the outbox record, cancelling *mid-write* because the client hung up is far worse than finishing wasted work: you'd take the money and lose the event. Past such a point of no return, pass `CancellationToken.None` (or a token decoupled from the request). The skill is knowing which operations are safe to abandon and which have already committed you.
+> **Gotcha.** Not everything should be cancellable. If you've charged a payment and are about to write the outbox record, cancelling *mid-write* because the client hung up is far worse than finishing wasted work: you'd take the money and lose the event. Past such a point of no return, pass `CancellationToken.None` (or a token decoupled from the request).
 
 ## Cross-Cutting HTTP Concerns
 
