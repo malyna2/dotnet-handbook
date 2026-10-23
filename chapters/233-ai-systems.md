@@ -594,8 +594,6 @@ The caching advice above is about *your* cache — you store the response and sk
 
 **Reasoning models and thinking budgets.** Models that spend extra tokens reasoning before answering do measurably better on multi-step logic, planning, and hard debugging — and worse on everything else, in the sense that you pay for tokens you never see and wait longer for them. Most providers expose a budget or effort setting. Treat it as a per-task-type decision, not a global default: high effort for the planning step of an agent or a complex diagnosis, minimum or off for extraction, classification, routing, and formatting. A router that also picks the thinking budget per branch is doing the same job as the model cascade, on a second axis.
 
-> **Best practice.** These three levers are worth an afternoon before any prompt micro-optimization, because they're structural: reorder your prompt for caching, move your non-interactive work to batch, and match thinking budget to task type. Together they routinely cut a bill by more than half without touching a single word of a prompt — and they change nothing about output quality, which is more than can be said for most cost work.
-
 ## Evaluation and observability
 
 ### Evaluation

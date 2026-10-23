@@ -24414,7 +24414,7 @@ Break the code on purpose (invert a condition, delete a line, make a guard retur
 
 # Chapter 33: Building AI-Powered Systems
 
-_⏱️ Estimated read time: ~1 h 25 min · 14907 words (study pace)_
+_⏱️ Estimated read time: ~1 h 25 min · 14835 words (study pace)_
 
 [Chapter 32](#chapter-32-the-ai-native-developer-thriving-in-the-ai-era) was about *using* AI to write software. This chapter flips the relationship: now the AI model is a *component inside* the software you ship. This is a different discipline. When you use an assistant to write a function, you review the output once and move on. When you embed a model in a running system, that model produces fresh, non-deterministic output on every request, for every user, forever — and you own the consequences. That single fact reshapes how you design, test, and operate the application.
 
@@ -25009,8 +25009,6 @@ The caching advice above is about *your* cache — you store the response and sk
 **Batch APIs** trade latency for roughly half the price: you submit a set of requests and collect the results within a provider-defined window (typically hours). Nothing interactive can use this — and a surprising amount of what a production system does isn't interactive. Backfilling embeddings, classifying a night's worth of tickets, generating summaries for a reporting table, and **running your eval suite** are all batch work. If your evals are expensive enough that you hesitate to run them, that hesitation is the problem, and batching is usually the fix.
 
 **Reasoning models and thinking budgets.** Models that spend extra tokens reasoning before answering do measurably better on multi-step logic, planning, and hard debugging — and worse on everything else, in the sense that you pay for tokens you never see and wait longer for them. Most providers expose a budget or effort setting. Treat it as a per-task-type decision, not a global default: high effort for the planning step of an agent or a complex diagnosis, minimum or off for extraction, classification, routing, and formatting. A router that also picks the thinking budget per branch is doing the same job as the model cascade, on a second axis.
-
-> **Best practice.** These three levers are worth an afternoon before any prompt micro-optimization, because they're structural: reorder your prompt for caching, move your non-interactive work to batch, and match thinking budget to task type. Together they routinely cut a bill by more than half without touching a single word of a prompt — and they change nothing about output quality, which is more than can be said for most cost work.
 
 ## Evaluation and observability
 
