@@ -4956,7 +4956,7 @@ LCP ≤ 2.5 s, INP ≤ 200 ms, CLS ≤ 0.1, at the 75th percentile of real visit
 
 # Chapter 7: Data Access
 
-_⏱️ Estimated read time: ~1 h 40 min · 14327 words (study pace)_
+_⏱️ Estimated read time: ~1 h 35 min · 14228 words (study pace)_
 
 Flawless business logic doesn't survive a data layer that fires a thousand queries where one would do, scans an index it was meant to seek, or loses one user's update under another's.
 
@@ -4969,8 +4969,6 @@ Good schema design prevents whole classes of bugs. **Normalization** is the disc
 - **First Normal Form (1NF):** every column holds a single atomic value — no comma-separated lists, no repeating groups. One phone number per column, or a related table for many.
 - **Second Normal Form (2NF):** 1NF plus every non-key column depends on the *whole* primary key (relevant to composite keys). No column should depend on just part of the key.
 - **Third Normal Form (3NF):** 2NF plus no non-key column depends on another non-key column (no *transitive* dependencies). If you store `CustomerId` and also `CustomerCity`, the city depends on the customer, not the order — move it out.
-
-The intuition: **one fact, one place.** When a customer changes their city, you want to update one row, not hunt down every order that duplicated it. Duplication is how databases drift into inconsistency.
 
 **Foreign keys and constraints** are the database enforcing your rules so bad data cannot exist regardless of application bugs:
 
@@ -5601,8 +5599,6 @@ catch (DbUpdateConcurrencyException)
 }
 ```
 
-> **Best practice:** Prefer optimistic concurrency for typical web apps — it scales because it holds no locks. Reserve pessimistic locking for genuinely high-contention hotspots.
-
 > **Pay attention.** **The window a concurrency token covers.** EF Core puts the token's *original* value, the one this context read, into the `WHERE`. The sample above therefore guards only the milliseconds between its own `Single` and `SaveChanges`. A web edit has a far longer window. The user's form was built from version 1; someone else saved version 2; the save handler loads the product again, gets version 2, copies the form onto it, and its `UPDATE … WHERE RowVersion = <version 2>` matches one row. Nothing throws, and the other user's change is gone. The fix is to make the original value the one the user saw: send the row version with the form (or as an `ETag`) and set it before saving.
 
 ```csharp
@@ -5623,9 +5619,7 @@ catch (DbUpdateConcurrencyException)
 
 A **view** is a saved query you can select from like a table — useful for encapsulating a complex join or presenting a simplified shape. A **stored procedure** is precompiled SQL logic living in the database, callable by name.
 
-Raw SQL — via stored procs, `FromSqlRaw`, or Dapper — is justified when: the query is too complex or too performance-critical for LINQ to express well; you need database-specific features EF does not surface; or you are doing bulk set-based operations (updating a million rows in one statement rather than loading and tracking them).
-
-> **Note:** For the *bulk write* case you usually no longer need raw SQL: `ExecuteUpdate`/`ExecuteDelete` ([Set-Based Updates and Deletes](#set-based-updates-and-deletes-executeupdate-and-executedelete)) issue one set-based statement without loading or tracking. Reserve raw SQL for genuinely complex queries or provider-specific features.
+Raw SQL — via stored procs, `FromSqlRaw`, or Dapper — is justified when: the query is too complex or too performance-critical for LINQ to express well, or you need database-specific features EF does not surface. Bulk writes no longer need it: `ExecuteUpdate`/`ExecuteDelete` ([Set-Based Updates and Deletes](#set-based-updates-and-deletes-executeupdate-and-executedelete)) issue one set-based statement.
 
 ```csharp
 // EF calling raw SQL while staying in the entity model

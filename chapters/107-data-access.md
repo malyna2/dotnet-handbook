@@ -12,8 +12,6 @@ Good schema design prevents whole classes of bugs. **Normalization** is the disc
 - **Second Normal Form (2NF):** 1NF plus every non-key column depends on the *whole* primary key (relevant to composite keys). No column should depend on just part of the key.
 - **Third Normal Form (3NF):** 2NF plus no non-key column depends on another non-key column (no *transitive* dependencies). If you store `CustomerId` and also `CustomerCity`, the city depends on the customer, not the order — move it out.
 
-The intuition: **one fact, one place.** When a customer changes their city, you want to update one row, not hunt down every order that duplicated it. Duplication is how databases drift into inconsistency.
-
 **Foreign keys and constraints** are the database enforcing your rules so bad data cannot exist regardless of application bugs:
 
 ```sql
@@ -643,8 +641,6 @@ catch (DbUpdateConcurrencyException)
 }
 ```
 
-> **Best practice:** Prefer optimistic concurrency for typical web apps — it scales because it holds no locks. Reserve pessimistic locking for genuinely high-contention hotspots.
-
 > **Pay attention.** **The window a concurrency token covers.** EF Core puts the token's *original* value, the one this context read, into the `WHERE`. The sample above therefore guards only the milliseconds between its own `Single` and `SaveChanges`. A web edit has a far longer window. The user's form was built from version 1; someone else saved version 2; the save handler loads the product again, gets version 2, copies the form onto it, and its `UPDATE … WHERE RowVersion = <version 2>` matches one row. Nothing throws, and the other user's change is gone. The fix is to make the original value the one the user saw: send the row version with the form (or as an `ETag`) and set it before saving.
 
 ```csharp
@@ -665,9 +661,7 @@ catch (DbUpdateConcurrencyException)
 
 A **view** is a saved query you can select from like a table — useful for encapsulating a complex join or presenting a simplified shape. A **stored procedure** is precompiled SQL logic living in the database, callable by name.
 
-Raw SQL — via stored procs, `FromSqlRaw`, or Dapper — is justified when: the query is too complex or too performance-critical for LINQ to express well; you need database-specific features EF does not surface; or you are doing bulk set-based operations (updating a million rows in one statement rather than loading and tracking them).
-
-> **Note:** For the *bulk write* case you usually no longer need raw SQL: `ExecuteUpdate`/`ExecuteDelete` ([Set-Based Updates and Deletes](#set-based-updates-and-deletes-executeupdate-and-executedelete)) issue one set-based statement without loading or tracking. Reserve raw SQL for genuinely complex queries or provider-specific features.
+Raw SQL — via stored procs, `FromSqlRaw`, or Dapper — is justified when: the query is too complex or too performance-critical for LINQ to express well, or you need database-specific features EF does not surface. Bulk writes no longer need it: `ExecuteUpdate`/`ExecuteDelete` ([Set-Based Updates and Deletes](#set-based-updates-and-deletes-executeupdate-and-executedelete)) issue one set-based statement.
 
 ```csharp
 // EF calling raw SQL while staying in the entity model
