@@ -1,8 +1,8 @@
 # Chapter 34: Frontend and Full-Stack in Depth
 
-[Chapter 6: Frontend Essentials](#chapter-6-frontend-essentials) gave you the browser's mechanisms: the rendering pipeline, the event loop, React's render-and-effect model, CORS and cookies from the browser's side. This chapter is about the decisions a senior full-stack developer makes on top of them, usually for a team: where HTML gets rendered, where state lives and how it is cached, what makes a frontend slow and how to prove it is fast, how to test a UI without a flaky suite, how to keep injected script from running, and how a SPA should authenticate against your API.
+[Chapter 6: Frontend Essentials](#chapter-6-frontend-essentials) gave you the browser's mechanisms. This chapter is about the decisions a senior full-stack developer makes on top of them, usually for a team.
 
-The first half is frontend architecture: rendering strategies, state management at scale, performance in depth, testing, and Content Security Policy. The second half is the full-stack boundary seen from the .NET side: SPA authentication and the Backend-for-Frontend, REST versus GraphQL, file uploads, the browser end of SignalR, then Blazor and native clients for when the UI itself is C#, and accessibility in depth. As in Chapter 6, the JavaScript and TypeScript samples run in the repository (`verify/frontend/ch34`), except the few that need a real browser or a running server, which say so.
+As in Chapter 6, the JavaScript and TypeScript samples run in the repository (`verify/frontend/ch34`), except the few that need a real browser or a running server, which say so.
 
 ## Rendering Strategies: CSR, SSR, SSG, Streaming and Hydration
 
@@ -412,7 +412,7 @@ Interop crosses a serialization boundary and is asynchronous (in Interactive Ser
 
 ## Native Clients from C#: MAUI, Uno, Avalonia
 
-Native desktop and mobile UI is its own discipline, and a backend-leaning book does not need a deep tour of it. What you need is to recognize the three frameworks a .NET shop reaches for, because sooner or later one of them will be calling your API:
+Native desktop and mobile UI is its own discipline. What you need is to recognize the three frameworks a .NET shop reaches for, because sooner or later one of them will be calling your API:
 
 - **.NET MAUI** is the evolution of Xamarin.Forms: iOS, Android, Windows, and macOS apps from a single C#/XAML codebase, rendered to real native controls. The typical encounter is a line-of-business mobile app maintained by the same .NET team that owns the backend. (Its **Blazor Hybrid** variant hosts your existing Blazor web components inside the native shell via `BlazorWebView`, trading platform look-and-feel for web-UI reuse.)
 - **Uno Platform** targets mobile, desktop, *and* the browser (via WASM) from WinUI/XAML — broader reach than MAUI.
@@ -422,7 +422,7 @@ The senior-relevant point is that all three are *API consumers*. What they depen
 
 ## Accessibility: The Part That Is Now Law — in depth
 
-[Chapter 6](#accessibility-the-part-that-is-now-law) covered the law, WCAG's principles, semantic HTML before ARIA, keyboard operability and accessible forms. This section covers what changes in a SPA, how to test, and the Blazor-specific traps.
+[Chapter 6](#accessibility-the-part-that-is-now-law) covered the basics; this section is what changes in a SPA.
 
 WCAG 2.2 added a handful of criteria worth knowing because they catch modern UI patterns: focus must not be entirely hidden behind sticky headers, drag operations need a single-pointer alternative, click targets need a minimum size, and users must not be forced to re-enter information they already gave you in the same process.
 
