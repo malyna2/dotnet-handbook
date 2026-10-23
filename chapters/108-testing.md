@@ -375,8 +375,6 @@ The most consequential integration-test decision is what to do about the databas
 
 > **Pay attention.** **The in-memory provider never generates SQL, so nothing a database enforces can fail.** It runs your LINQ over .NET collections. `HasIndex(...).IsUnique()` is metadata only a relational provider turns into `CREATE UNIQUE INDEX`, so two rows with the same email both save (this chapter's *Prove it* program shows it next to SQLite, which rejects the second). String comparison is C#'s, case-sensitive, where SQL Server's default collation is not. A query the real provider can't translate never reaches a translator. Beginning a transaction throws by default; suites that silence that warning get a transaction that does nothing, so a rollback test passes for the wrong reason. Fix: run anything that touches SQL against the production engine.
 
-> **Best practice:** test business logic against fast fakes, but test anything that touches SQL — queries, migrations, constraints, concurrency — against the *same engine you run in production*.
-
 ### Testcontainers for .NET
 
 Testcontainers spins up **real** services in Docker containers, programmatically, from your test code — a genuine Postgres, Redis, RabbitMQ, whatever — and tears them down afterwards. You get production fidelity with unit-test-like ergonomics and no shared-environment contention.
@@ -484,7 +482,7 @@ public static string From(int n)
 }
 ```
 
-**Refactor** — the code is already clean; the tests stay green; we're done. Notice what TDD gave us: we never wrote a line of production code that wasn't justified by a test, our design emerged from the examples, and we have a full regression suite for free.
+**Refactor** — the code is already clean; the tests stay green; we're done.
 
 > **What TDD is really for:** it's a design tool disguised as a testing tool. Writing the test first forces you to use your own API before it exists, which surfaces awkward interfaces immediately. The tests are a valuable by-product; the *design pressure* is the main event. TDD is not mandatory, and it shines most on logic-heavy code with clear inputs and outputs, less so on exploratory or UI-glue work.
 
