@@ -28833,11 +28833,11 @@ Log it as a prediction ("the first extraction will take longer than planned, 70%
 
 # Chapter 39: Discovery and Diagnosis
 
-_⏱️ Estimated read time: ~55 min · 9197 words (study pace)_
+_⏱️ Estimated read time: ~55 min · 9120 words (study pace)_
 
 A client says "we want microservices." A middle engineer hears a specification and starts sketching service boundaries. A senior engineer hears a *symptom*, and asks what hurts. Six weeks later the first engineer is splitting a monolith that was never the problem, and the second has found out that three teams share a single release train, that every deploy needs a Friday change board, and that what the client wanted all along was to ship on a Tuesday without asking permission. That can be fixed with a pipeline and a module boundary. A network doesn't have to come into it.
 
-This chapter is about the work that comes before advice: finding out what the problem actually is. [Chapter 38](#chapter-38-having-a-point-of-view) argued that clients hire an expert for a point of view. This chapter is about earning the right to give one. A point of view given before diagnosis is just an opinion, and clients can tell the difference. What the doctor does before prescribing, the consultant has to do too, for the same reason: a correct treatment for the wrong disease is still malpractice.
+This chapter is about the work that comes before advice: finding out what the problem actually is. [Chapter 38](#chapter-38-having-a-point-of-view) argued that clients hire an expert for a point of view. A point of view given before diagnosis is just an opinion, and clients can tell the difference.
 
 ```
    the request            discovery                    diagnosis              advice
@@ -28847,7 +28847,7 @@ This chapter is about the work that comes before advice: finding out what the pr
                           └──── "that's not quite it" ────┘
 ```
 
-The loop in the middle matters. A diagnosis that the client has not recognised as their own is not finished. The rest of this chapter is the toolkit for getting round that loop quickly and without making the client feel interrogated.
+The loop in the middle matters. A diagnosis that the client has not recognised as their own is not finished.
 
 ## The Request Is Not the Need
 
@@ -29324,7 +29324,7 @@ A lot of discovery now happens over video, across time zones, and in English as 
 
 ## Exercises
 
-These exercises have no compiler to check them against. They exercise judgment, which is the skill this chapter is about. Put your worked answers, your own question bank and your own problem-statement template in your public portfolio repo. Anything drawn from a real client stays private.
+Put your worked answers, your own question bank and your own problem-statement template in your public portfolio repo. Anything drawn from a real client stays private.
 
 ### Find the bug: the discovery call
 
