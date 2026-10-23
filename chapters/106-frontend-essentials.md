@@ -495,8 +495,6 @@ console.log(isOrder(fromServer));    // false
 
 ## Talking to the API from the Browser
 
-This is the boundary you own: a `fetch` call, the browser's same-origin rules, cookies, and the contract that keeps both sides honest.
-
 ### fetch and Its One Surprise
 
 Take a minimal API endpoint:
@@ -993,8 +991,6 @@ Optimize for *effectiveness at the boundary*, not for becoming a frontend engine
 - **Fluent:** enough HTML, CSS, JavaScript and TypeScript to read a SPA, make small changes, write a `fetch` call and debug in DevTools; the Network tab and Console are your first stop when "the frontend is broken".
 - **Deep:** the API contract: OpenAPI, generated clients, versioning, auth flows (OIDC, PKCE, the BFF), CORS, real-time. This is *your* territory.
 - **Aware:** how React and Angular structure an app, well enough to review PRs and design APIs that fit; rendering strategies and the build pipeline conceptually.
-
-> **The single most valuable investment:** owning the contract boundary. A documented, versioned, typed API with clear auth turns frontend integration from a negotiation into a formality.
 
 ### Picking the UI Stack
 
