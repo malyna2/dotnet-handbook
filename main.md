@@ -6875,7 +6875,7 @@ Fast, isolated/independent (no order dependence, no shared state), deterministic
 
 # Chapter 9: Exceptions, Logging and First Diagnosis
 
-_⏱️ Estimated read time: ~1 h 10 min · 11454 words (study pace)_
+_⏱️ Estimated read time: ~1 h 10 min · 11372 words (study pace)_
 
 Every service fails, and what decides how fast a failure gets fixed is the trail it leaves: one log entry carrying the whole exception, a response that tells the caller what they can do about it, and one id that joins the two.
 
@@ -7050,13 +7050,13 @@ A `Result<T>` is a return value that holds either the success value or an error,
 
 Now the performance, with the mechanism rather than folklore. A throw/catch pair costs a few **microseconds** on .NET 10: about 4 µs when the catch is one frame above the throw, 8–10 µs ten frames up, 12–19 µs twenty frames up and about 30 µs fifty frames up. Returning a failure value through the same frames costs well under a microsecond. (Release build, no debugger, 4 vCPU Xeon, .NET 10.0.12; the program and its raw runs are in [`verify/measurements/ExceptionCost`](https://github.com/malyna2/dotnet-handbook/tree/main/verify/measurements/ExceptionCost).) Two things dominate. First, **the stack walk**: throwing does not simply jump. The runtime walks frames outward looking for a handler whose filter matches, unwinding as it goes, so the same `throw` is cheap in a leaf method and expensive from twenty frames down a request pipeline. Second, **the stack trace string**: while unwinding, the runtime records only the raw frames. It resolves them to method names and formats the text when something reads `StackTrace` or calls `ToString()`, and logging the exception does exactly that. In the same runs, catching *and* reading the trace cost 13 µs at one frame, 38–48 µs at ten and 150–165 µs at fifty, three to five times the bare throw.
 
-Put that in context, because context is the whole point. Ten microseconds once per failed HTTP request, against a budget of tens of milliseconds, is *noise* — nobody has ever had an outage because a 404 threw. Ten microseconds per row across 200,000 rows is **two seconds of pure overhead**, and logging each one multiplies it again: that is a genuine, career-defining performance bug.
+Ten microseconds once per failed HTTP request, against a budget of tens of milliseconds, is *noise* — nobody has ever had an outage because a 404 threw. Ten microseconds per row across 200,000 rows is **two seconds of pure overhead**, and logging each one multiplies it again: that is a genuine, career-defining performance bug.
 
 > **Best practice.** Use exceptions for the exceptional and for anything a caller must not be able to ignore. Use `Result<T>` for expected alternate outcomes — especially inside loops and hot paths, where the per-item cost of throwing is the thing that kills you. The tell for a misuse is a `try`/`catch` *inside* a `foreach`: that is control flow wearing an exception costume.
 
 ### Where to Catch
 
-Here is the rule that replaces a thousand scattered `try` blocks: **catch only where you can add value — and there are exactly three ways to add value.**
+**Catch only where you can add value — and there are exactly three ways to add value.**
 
 - **Translate it.** Wrap a low-level exception into one that means something in your abstraction, so callers do not end up depending on `SqlException` or `HttpRequestException` leaking out of a repository. The interface promised an `IOrderRepository`; it should not fail in ADO.NET vocabulary. Always pass the original as the inner exception — translation preserves, it does not discard.
 - **Handle it.** Actually do something: retry, fall back to a cache, compensate a half-finished workflow, degrade gracefully. If your `catch` block does not change the outcome, it is not handling anything.
@@ -7362,13 +7362,9 @@ A dump (`dotnet-dump collect`) is the debugger's view frozen at one moment, take
 
 In production you cannot attach a debugger, step through a request as it hops across five services, or ask a customer to reproduce the bug while you watch: what the running system emits is your only window into it.
 
-The words *monitoring* and *observability* are often used interchangeably, but the distinction matters and it reveals a shift in how we operate systems.
-
 **Monitoring** answers questions you already knew to ask. You decide in advance that CPU above 90% is bad, that a 500-error rate above 1% is bad, and you build dashboards and alerts for those known failure modes. Monitoring is a checklist of "known unknowns."
 
 **Observability** is the property of a system that lets you ask *new* questions without shipping new code. It is about handling "unknown unknowns" — the failure you never anticipated. When a customer reports that checkout is slow, but only for users who paid with a specific gateway, only on mobile, only after 6 p.m., you did not build a dashboard for that. An observable system carries enough rich, high-cardinality data that you can slice and pivot your way to the answer after the fact.
-
-> **Key distinction:** Monitoring tells you *that* something is wrong. Observability helps you understand *why* it is wrong. You need both, but as systems grow more distributed, observability becomes the dominant concern.
 
 The foundation of observability rests on **three pillars**: **logs**, **metrics**, and **traces**. Each answers a different kind of question, and their real power emerges when you correlate them.
 
@@ -7420,7 +7416,7 @@ using (LogContext.PushProperty("TraceId", Activity.Current?.TraceId.ToString()))
 }
 ```
 
-Now a single trace ID lets you pivot: see the slow trace in Jaeger, copy its ID, paste it into Seq, and read every log line from every service for that exact request. This is the payoff of observability.
+Now a single trace ID lets you pivot: see the slow trace in Jaeger, copy its ID, paste it into Seq, and read every log line from every service for that exact request.
 
 **Messaging** needs the same discipline, and whether the framework helps depends on the client library. A broker stores bytes and properties; the trace context crosses a queue only if the producer's client writes it into the message and the consumer's client reads it back. The Azure Service Bus SDK does both. On send it writes the current activity's W3C id into the message's `Diagnostic-Id` application property (and into `traceparent` as well once activity-source tracing is on), and `ServiceBusProcessor` makes that context the parent of its processing span. Its tracing is still experimental, so OpenTelemetry sees those spans only after `AppContext.SetSwitch("Azure.Experimental.EnableActivitySource", true)` and `AddSource("Azure.Messaging.ServiceBus.*")`. With a client that doesn't propagate (check yours, for RabbitMQ and Kafka alike) or a hand-rolled transport, you **inject** the trace context into the message headers, and the consumer **extracts** it to continue the trace:
 
