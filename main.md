@@ -25,7 +25,7 @@ This book grew out of a simple roadmap — a checklist of "things a middle .NET 
 
 ## Contents
 
-> **Total study time: about 42 hours** — Part 1 about 16 hours, Part 2 about 26 hours (reading prose at ~200 wpm and every code sample at ~60 wpm, the pace behind each chapter's own estimate). A straight read (prose at ~250 wpm, code at ~100) is closer to **31 hours**; a quick skim (~300 and ~200 wpm), **24 hours**. Practice and labs come on top.
+> **Total study time: about 41 hours** — Part 1 about 15 hours, Part 2 about 26 hours (reading prose at ~200 wpm and every code sample at ~60 wpm, the pace behind each chapter's own estimate). A straight read (prose at ~250 wpm, code at ~100) is closer to **30 hours**; a quick skim (~300 and ~200 wpm), **23 hours**. Practice and labs come on top.
 
 Use the **sidebar** on the left (or the cards below) to jump to any chapter; the **Next →** button at the bottom of every page walks the book in reading order.
 
@@ -60,12 +60,12 @@ Before an interview, reread [Part 1 · Pay Attention To](#part-1-pay-attention-t
 | Chapter | | Reading |
 |---|---|---|
 | 1 | [C# Essentials](#chapter-1-c-essentials) | 1 h 20 min |
-| 2 | [Data Structures and Algorithms Essentials](#chapter-2-data-structures-and-algorithms-essentials) | 40 min |
+| 2 | [Data Structures and Algorithms Essentials](#chapter-2-data-structures-and-algorithms-essentials) | 35 min |
 | 3 | [How .NET Runs Your Code](#chapter-3-how-net-runs-your-code) | 35 min |
 | 4 | [Async Essentials](#chapter-4-async-essentials) | 45 min |
 | 5 | [HTTP and Web APIs](#chapter-5-http-and-web-apis) | 1 h 5 min |
 | 6 | [Frontend Essentials](#chapter-6-frontend-essentials) | 1 h 25 min |
-| 7 | [Data Access](#chapter-7-data-access) | 1 h 40 min |
+| 7 | [Data Access](#chapter-7-data-access) | 1 h 35 min |
 | 8 | [Testing](#chapter-8-testing) | 45 min |
 | 9 | [Exceptions, Logging and First Diagnosis](#chapter-9-exceptions-logging-and-first-diagnosis) | 1 h 10 min |
 | 10 | [Design Basics](#chapter-10-design-basics) | 1 h 15 min |
@@ -12827,7 +12827,7 @@ Before an interview, reread [Part 2 · Pay Attention To](#part-2-pay-attention-t
 | 32 | [The AI-Native Developer — Thriving in the AI Era](#chapter-32-the-ai-native-developer-thriving-in-the-ai-era) | 1 h 5 min |
 | 33 | [Building AI-Powered Systems](#chapter-33-building-ai-powered-systems) | 1 h 25 min |
 | 34 | [Frontend and Full-Stack in Depth](#chapter-34-frontend-and-full-stack-in-depth) | 50 min |
-| 35 | [Production Incidents](#chapter-35-production-incidents) | 1 h 35 min |
+| 35 | [Production Incidents](#chapter-35-production-incidents) | 1 h 30 min |
 | 36 | [Senior Behaviours, Career and Interviews](#chapter-36-senior-behaviours-career-and-interviews) | 20 min |
 | 37 | [The Story Bank & Evidence Portfolio](#chapter-37-the-story-bank-evidence-portfolio) | 50 min |
 | 38 | [Having a Point of View](#chapter-38-having-a-point-of-view) | 1 h 5 min |
