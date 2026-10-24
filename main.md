@@ -27102,7 +27102,7 @@ A reference kept by mistake: the GC frees only unreachable objects, so anything 
 
 # Chapter 36: Senior Behaviours, Career and Interviews
 
-_⏱️ Estimated read time: ~20 min · 4331 words (study pace)_
+_⏱️ Estimated read time: ~20 min · 4114 words (study pace)_
 
 A senior's output is decisions that other people act on. The cost of a wrong decision grows with how much is built on it and how many people follow it, so every senior behaviour either moves a check earlier or makes a decision cheaper to revisit: the design reviewed before the lines exist, the decision written down so it can be superseded rather than relitigated, the estimate checked against how long similar work really took, the legacy behaviour pinned before it is changed. Influence runs on the same mechanism over a longer time: trust compounds from estimates that were honest, reviews that were fair and commitments that landed or were renegotiated early.
 
@@ -27174,10 +27174,6 @@ Your influence comes from the same sources as inside a team (trust, data and bri
 
 You don't have to pick forever, but knowing which one energizes you tells you which skills to lean into. A Solver invests in debugging and systems depth; a Tech Lead in communication and planning; an Architect in design and cross-team influence.
 
-> **The through-line: senior engineering is the multiplication of impact through other people and good judgment, not the maximization of your personal code output. Every skill here — clear writing, kind reviews, honest estimates, blameless post-mortems, deliberate mentoring, sound judgment, real ownership — is a lever. Master the levers, and your impact stops being bounded by your own two hands.**
-
-Start with one lever — pick the weakest one — and practice it deliberately this week.
-
 ## Interviews: Turning Behaviour into Answers
 
 An interview compresses everything above into an hour, and it scores what it can hear. The technical question banks live with their topics — each chapter ends with its own *Interview Questions* — so this section is about the approach that applies to all of them and the behavioural questions that probe seniority directly.
@@ -27227,8 +27223,6 @@ Bring data, not complaints: present the estimate, the trade-offs, and options (c
 
 > **Follow-up:** *Tell me about a time you had to make a decision without complete information.* Show how you bounded the risk: made a reversible choice, shipped small to learn, set a checkpoint to re-evaluate, and communicated the uncertainty rather than pretending certainty.
 
-Practice out loud, time yourself, and remember: interviewers hire for *reasoning you can hear*, not just answers you happen to know.
-
 ## How to Keep Learning
 
 [Chapter 16](#chapter-16-working-like-a-middle-developer) set up the habit: a few high-signal sources, release notes, learning by building and teaching. At senior level the question changes from *how to keep up* to *where to go deep*, and the sources get closer to the metal.
@@ -27249,8 +27243,6 @@ Build a routine from these sources.
 
 **Practice deliberately.** Use [Microsoft Learn](https://learn.microsoft.com) for structured, up-to-date modules when you adopt a new technology. Use [Exercism](https://exercism.org)'s C# track to sharpen fundamentals with mentored feedback. Contribute to open source — even a documentation fix or a small bug on a library you use teaches you how real projects are governed.
 
-The goal is not to consume everything. It is to build a steady, sustainable habit: read a little real code every week, follow a few people whose judgment you trust, and always have one small learning project on the side.
-
 ### A Short Shelf of Great Books
 
 Videos and blogs keep you current; books give you depth that lasts. Read them slowly.
@@ -27266,8 +27258,6 @@ Videos and blogs keep you current; books give you depth that lasts. Read them sl
 You do not need to read them all at once, and you should not. Pick the one that matches what your work needs now — Skeet while you deepen the language, Kleppmann when you split a system into services, Vernon when the domain modeling gets hard.
 
 ### Depth Versus Breadth, and Why You Will Return
-
-This book gave you breadth: a map of the whole territory a senior .NET engineer is expected to traverse. Breadth is what lets you hold a conversation about anything in it and know where to dig. But breadth alone is shallow. The engineers people trust are the ones who, on top of that broad map, have gone deep in a few areas — deep enough to debug the hard cases, to make the non-obvious trade-off, to teach it to others.
 
 So the aim is a T-shape: a wide base of competence, with a few tall spikes of genuine mastery. You cannot go deep everywhere, and trying to will only leave you exhausted and mediocre. Choose your spikes deliberately — maybe performance and the runtime, maybe distributed systems and messaging — and let the rest stay at working competence, refreshed as needed.
 
