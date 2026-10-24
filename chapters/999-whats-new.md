@@ -2,6 +2,57 @@
 
 This page is the handbook's changelog. When a new release lands, a popup announces it on your next visit. Under each release, **Site & functionality** items are plain notes, while **Content updates** link to every chapter that changed — a link is ticked off (✓, stored locally in your browser) once you visit it, so you can work through an update at your own pace and see what's still unread.
 
+## Release — October 24, 2026
+
+**🔧 Site & functionality**
+
+- Reading-time estimates and the total study time on the part pages and in the preface were recomputed for the shorter chapters.
+
+**📖 Content updates**
+
+- [Chapter 1: C# Essentials](#chapter-1-c-essentials) — Trimmed roadmaps, recaps and repeated explanations.
+- [Chapter 2: Data Structures and Algorithms Essentials](#chapter-2-data-structures-and-algorithms-essentials) — Trimmed roadmaps, recaps and repeated explanations.
+- [Chapter 3: How .NET Runs Your Code](#chapter-3-how-net-runs-your-code) — Trimmed roadmaps, recaps and repeated explanations.
+- [Chapter 4: Async Essentials](#chapter-4-async-essentials) — Trimmed roadmaps, recaps and repeated explanations.
+- [Chapter 5: HTTP and Web APIs](#chapter-5-http-and-web-apis) — Trimmed roadmaps, recaps and repeated explanations.
+- [Chapter 6: Frontend Essentials](#chapter-6-frontend-essentials) — Trimmed roadmaps, recaps and repeated explanations.
+- [Chapter 7: Data Access](#chapter-7-data-access) — Trimmed roadmaps, recaps and repeated explanations.
+- [Chapter 8: Testing](#chapter-8-testing) — Trimmed roadmaps, recaps and repeated explanations.
+- [Chapter 9: Exceptions, Logging and First Diagnosis](#chapter-9-exceptions-logging-and-first-diagnosis) — Trimmed roadmaps, recaps and repeated explanations.
+- [Chapter 10: Design Basics](#chapter-10-design-basics) — Trimmed roadmaps, recaps and repeated explanations.
+- [Chapter 11: Messaging and Background Work](#chapter-11-messaging-and-background-work) — Trimmed roadmaps, recaps and repeated explanations.
+- [Chapter 12: Security Essentials](#chapter-12-security-essentials) — Trimmed roadmaps, recaps and repeated explanations.
+- [Chapter 13: Git and CI/CD](#chapter-13-git-and-cicd) — Trimmed roadmaps, recaps and repeated explanations.
+- [Chapter 14: Containers and Linux](#chapter-14-containers-and-linux) — Trimmed roadmaps, recaps and repeated explanations.
+- [Chapter 15: Dates, Money and Strings](#chapter-15-dates-money-and-strings) — Trimmed roadmaps, recaps and repeated explanations.
+- [Chapter 16: Working Like a Middle Developer](#chapter-16-working-like-a-middle-developer) — Trimmed roadmaps, recaps and repeated explanations.
+- [Chapter 17: Runtime Internals and Performance](#chapter-17-runtime-internals-and-performance) — Trimmed roadmaps, recaps and repeated explanations.
+- [Chapter 18: Data in Depth](#chapter-18-data-in-depth) — Trimmed roadmaps, recaps and repeated explanations.
+- [Chapter 20: Distributed Systems](#chapter-20-distributed-systems) — Trimmed roadmaps, recaps and repeated explanations.
+- [Chapter 21: Architecture](#chapter-21-architecture) — Trimmed roadmaps, recaps and repeated explanations.
+- [Chapter 22: API Evolution, Real-Time and Serialization](#chapter-22-api-evolution-real-time-and-serialization) — Trimmed roadmaps, recaps and repeated explanations.
+- [Chapter 23: System Design](#chapter-23-system-design) — Trimmed roadmaps, recaps and repeated explanations.
+- [Chapter 24: Working with Legacy & Brownfield Code](#chapter-24-working-with-legacy-brownfield-code) — Trimmed roadmaps, recaps and repeated explanations.
+- [Chapter 25: Observability and Testing at Scale](#chapter-25-observability-and-testing-at-scale) — Trimmed roadmaps, recaps and repeated explanations.
+- [Chapter 26: Delivery and Platform](#chapter-26-delivery-and-platform) — Trimmed roadmaps, recaps and repeated explanations.
+- [Chapter 27: Security in Depth and the Supply Chain](#chapter-27-security-in-depth-and-the-supply-chain) — Trimmed roadmaps, recaps and repeated explanations.
+- [Chapter 28: Cloud Fundamentals — AWS & Azure](#chapter-28-cloud-fundamentals-aws-azure) — Trimmed roadmaps, recaps and repeated explanations.
+- [Chapter 29: Azure in Depth for .NET Developers](#chapter-29-azure-in-depth-for-net-developers) — Trimmed roadmaps, recaps and repeated explanations.
+- [Chapter 30: The Azure Casebook — Real Incidents, Real Fixes](#chapter-30-the-azure-casebook-real-incidents-real-fixes) — Trimmed roadmaps, recaps and repeated explanations.
+- [Chapter 31: Compliance, Data Privacy & Cloud Cost (FinOps)](#chapter-31-compliance-data-privacy-cloud-cost-finops) — Trimmed roadmaps, recaps and repeated explanations.
+- [Chapter 32: The AI-Native Developer — Thriving in the AI Era](#chapter-32-the-ai-native-developer-thriving-in-the-ai-era) — Trimmed roadmaps, recaps and repeated explanations.
+- [Chapter 33: Building AI-Powered Systems](#chapter-33-building-ai-powered-systems) — Trimmed roadmaps, recaps and repeated explanations.
+- [Chapter 34: Frontend and Full-Stack in Depth](#chapter-34-frontend-and-full-stack-in-depth) — Trimmed roadmaps, recaps and repeated explanations.
+- [Chapter 35: Production Incidents](#chapter-35-production-incidents) — Trimmed roadmaps, recaps and repeated explanations.
+- [Chapter 36: Senior Behaviours, Career and Interviews](#chapter-36-senior-behaviours-career-and-interviews) — Trimmed roadmaps, recaps and repeated explanations.
+- [Chapter 37: The Story Bank & Evidence Portfolio](#chapter-37-the-story-bank-evidence-portfolio) — Trimmed roadmaps, recaps and repeated explanations.
+- [Chapter 38: Having a Point of View](#chapter-38-having-a-point-of-view) — Trimmed roadmaps, recaps and repeated explanations.
+- [Chapter 39: Discovery and Diagnosis](#chapter-39-discovery-and-diagnosis) — Trimmed roadmaps, recaps and repeated explanations.
+- [Chapter 41: Recommendations, Proposals and Estimates](#chapter-41-recommendations-proposals-and-estimates) — Trimmed roadmaps, recaps and repeated explanations.
+- [Chapter 42: The Advisory Casebook](#chapter-42-the-advisory-casebook) — Trimmed roadmaps, recaps and repeated explanations.
+- [Chapter 43: Positioning and Public Proof](#chapter-43-positioning-and-public-proof) — Trimmed roadmaps, recaps and repeated explanations.
+- [Chapter 44: Capstone — One Project, Growing Up](#chapter-44-capstone-one-project-growing-up) — Trimmed roadmaps, recaps and repeated explanations.
+
 ## Release — October 15, 2026
 
 **🔧 Site & functionality**
