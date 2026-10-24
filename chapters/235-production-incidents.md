@@ -147,8 +147,6 @@ For high-value or scarce goods, **reservation** is the senior answer; for commod
 - **Feature-flag the non-critical surface** in advance so shedding load is a toggle, not a deploy.
 - **Game-day the failure** — run a load test that simulates the push notification and rehearse the runbook.
 
-> **In an interview:** "I separate what must stay up from what's optional. First I make the app tier stateless so I can scale it horizontally and put load-shedding and rate limiting at the edge, returning fast 429s instead of failing slowly. Then I protect the database — the usual bottleneck — with layered caching, read replicas, and queue-based load leveling so checkout accepts orders fast and finalizes them asynchronously. For inventory I use an atomic conditional decrement or a reservation window to avoid overselling. And critically, I load-test to failure and pre-provision *before* Black Friday — you can't autoscale your way out of a design that isn't horizontally scalable."
-
 ---
 
 ## Scenario 2 — The lost write: the user got 200 but the data never saved
@@ -211,8 +209,6 @@ If the relay crashes after publishing but before marking a row processed, it rep
 - **Make `200` mean durably committed.** If you must go async, return `202 Accepted` with a status URL, and back it with a durable queue/outbox — not a fire-and-forget `Task` ([Async Request-Reply](#async-request-reply-202-a-status-resource-and-retry-after) in Chapter 11 has the full contract).
 - **Reconciliation jobs as a standing safety net.** A scheduled job that compares counts/checksums across services and alerts (or auto-heals) on drift. Even a perfect design benefits from a smoke detector.
 - **Idempotency everywhere** writes can be retried — from the public API down to internal consumers.
-
-> **In an interview:** "The root cause is almost always a dual-write — updating the database and the message broker without a shared transaction, so a crash between them loses or orphans data. The fix is the Transactional Outbox: write the business row and an outbox row in one DB transaction, then a relay publishes at-least-once and consumers dedup by message ID, giving effectively-once processing. Exactly-once delivery is a myth, so I design for duplicates instead of pretending they can't happen. And I never let a 200 mean 'I'll try later' — either it's durably committed, or I return 202 backed by a durable queue, plus a reconciliation job as a safety net."
 
 ---
 
@@ -309,8 +305,6 @@ GC.Collect(); // deliberate, rare, e.g. after a large batch job — never in the
 - **Pick Server + background GC intentionally** for services and document why.
 - **Watch container memory limits** — GC frequency is a function of headroom; a too-tight limit manufactures GC pressure.
 
-> **In an interview:** "First I confirm it's actually GC with dotnet-counters — if GC pause time is low, the spikes are thread-pool starvation or contention wearing a GC mask, and I chase that instead. If it is GC, I make sure I'm on Server GC with background collection so Gen 2 doesn't stop the world, then I attack the real cause: allocation pressure. I pool buffers with ArrayPool, use Span and structs to cut per-request garbage, and kill LOH churn since large arrays trigger expensive Gen 2 collections. GC tuning caps the symptom; reducing allocations removes it. And I know exactly-once GC tricks like LOH compaction are last resorts, not hot-path tools."
-
 ---
 
 ## Scenario 4 — The broker is down: a critical dependency has failed
@@ -382,8 +376,6 @@ builder.Services.AddHealthChecks()
 - **Adopt the outbox for anything you cannot afford to lose** — it doubles as your broker-outage insurance.
 - **Chaos-test dependency failure** (kill the broker in staging) and rehearse recovery, including DLQ replay.
 - **Readiness probes that report degraded, not dead,** for optional dependencies.
-
-> **In an interview:** "The failure I'm most afraid of isn't the broker dying — it's that death cascading into a full outage because threads hang on it and starve the pool. So I fail fast with a circuit breaker and timeouts, isolate it behind a bulkhead so it can't consume resources the rest of the service needs, and retry with exponential backoff plus jitter to avoid a retry storm on recovery. The architectural key is the Transactional Outbox: I write orders to my own database and relay to the broker asynchronously, so a broker outage becomes a delay, not data loss. Poison messages go to a dead-letter queue, and readiness probes report degraded rather than dead for optional dependencies so Kubernetes doesn't yank healthy pods."
 
 ## Scenario 5 — Disaster: the database is gone. How backups should really be done
 
@@ -854,8 +846,6 @@ The full treatment is [Chapter 27](#chapter-27-security-in-depth-and-the-supply-
 - Write the response runbook *now*, while nothing is on fire, and make step one "grep the lockfiles."
 - Rehearse it. A game day ([Chapter 20](#chapter-20-distributed-systems)) using a real advisory from last year will find that nobody knows which repos exist, which is the finding.
 
-> **In an interview:** "First I'd scope exposure, not impact — grep committed lockfiles across all repos and branches for the affected version, then check SBOMs and restore logs to see whether it ever reached a build. If it executed on a runner, I'd assume every credential that machine could see is compromised and rotate, rather than reasoning about what the payload probably took. Then purge package and layer caches, because yanking doesn't clear them, and pin forward rather than rolling back — attackers backport. The reason I can answer the first question in minutes is that lockfiles are committed and SBOMs are stored per release; without those, the same incident is a week of archaeology. And the control that would most likely have prevented it entirely is a cooldown window on dependency updates, since these releases are usually pulled within hours."
-
 ---
 
 ## Scenario 11 — The agent leaked customer data through a tool call
@@ -913,8 +903,6 @@ Six weeks ago, someone opened a support ticket whose body contained instructions
 - **Budget the loop** — max iterations, max tool calls, wall-clock timeout — so an injected instruction hits a wall.
 - Full treatment in [Chapter 33](#chapter-33-building-ai-powered-systems)'s *Securing AI features and agents*.
 
-> **In an interview:** "I'd contain it by disabling the outbound tool rather than the assistant, then scope exposure from tool-call logs — which only works if you logged arguments, so that's a design decision made months earlier. The root cause isn't a bug in the prompt; it's that the agent had all three legs of the lethal trifecta: private data, untrusted content from retrieved tickets, and an egress tool with a free-form recipient. Prompt hardening can't fix that, because instructions and data are the same tokens. The durable fix is architectural — authorize the data tool against the end user's identity in code so it can only ever return that caller's orders, and constrain or remove the egress. And I'd treat it as a data breach from minute one, because it is one."
-
 ---
 
 ## Scenario 12 — The invisible customer: an AI crawler tripled the egress bill
@@ -970,8 +958,6 @@ Traffic is up roughly 4×. Signups are flat.
 - **Make autoscaling scale down** and alert when a floor changes. Ratchets that only go up are a recurring, silent cost.
 - **Normalize cache keys at the edge** and strip unknown query parameters, as a standing rule.
 - **Know your egress paths** ([Chapter 31](#chapter-31-compliance-data-privacy-cloud-cost-finops)) — the same inventory that serves FinOps answers this in minutes.
-
-> **In an interview:** "The first thing I'd flag is that this is a cost incident with no availability signal, so the real failure is in the alerting — a monthly budget alarm surfaces it four weeks late, where a spend-velocity alert surfaces it the same day. Technically I'd characterise before blocking: user agent, ASN, asset-to-HTML ratio, URL breadth. Then the cheap high-value moves are edge caching for unauthenticated traffic and fixing any cache key that varies on a client-controlled parameter, which is often the whole problem. Blocking by user agent is the thing everyone reaches for and the least effective, since it's a string the client chooses — and it risks de-indexing you. Longer term it's a policy question, not just an engineering one: which crawlers do we actually want, given some of them send us customers?"
 
 ---
 
