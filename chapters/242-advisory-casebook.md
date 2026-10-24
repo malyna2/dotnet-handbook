@@ -51,8 +51,6 @@ Two other books give you vocabulary the cases rely on. Peter Block's *Flawless C
 
 ## Outsourcing, Outstaffing and Who You Are Speaking For
 
-Before the cases, get one structural fact right, because it changes the correct move in several of them.
-
 ```
    OUTSTAFFING                               OUTSOURCING
    ───────────                               ───────────

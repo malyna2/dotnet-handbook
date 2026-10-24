@@ -1,14 +1,14 @@
 # Chapter 14: Containers and Linux
 
-For most of its life, .NET meant Windows: Visual Studio, F5, IIS. That world still exists, but it is no longer where most new .NET code *runs*. The default target for a cloud deployment is a Linux container, and "it works on my machine" fails there in specific, explainable ways: a file the app can't write, a shutdown that loses requests, a port nobody can reach. This chapter makes you able to work on Linux from the shell, containerize a .NET service into a small, non-root image, run a local multi-service stack with Docker Compose, and diagnose a container that won't start, won't write or won't answer.
+The default target for a cloud deployment is a Linux container, and "it works on my machine" fails there in specific, explainable ways: a file the app can't write, a shutdown that loses requests, a port nobody can reach.
 
 The chapter has one through-line: **a container is an ordinary Linux process** with a restricted view of the system (namespaces) and a capped share of it (cgroups), started from a layered, read-only image. Everything that goes wrong inside one is a Linux behaviour: file permissions decide what it can write, signals decide whether it shuts down gracefully, environment variables carry its configuration, and stdout carries its logs.
 
-So the sections start with Linux itself: the shell, the filesystem, the everyday commands and pipes, then the three mechanisms containers lean on hardest (permissions, processes and signals, environment variables). Then containers: what one actually is, how Docker builds images, a production Dockerfile for ASP.NET Core, Compose for local development, and registries. The chapter ends with the tools for reading logs and checking the network. Running containers at scale (Kubernetes, Helm, service meshes, .NET Aspire) and running .NET under systemd continue in [Chapter 26: Delivery and Platform](#chapter-26-delivery-and-platform).
+Running containers at scale (Kubernetes, Helm, service meshes, .NET Aspire) and running .NET under systemd continue in [Chapter 26: Delivery and Platform](#chapter-26-delivery-and-platform).
 
 ## Why Linux Matters for Modern .NET
 
-Three forces pushed .NET onto Linux, and understanding them tells you *why* the skills in this chapter pay off.
+Three forces pushed .NET onto Linux.
 
 **Containers.** Docker images are almost always built `FROM` a Linux base. Microsoft ships `mcr.microsoft.com/dotnet/aspnet:10.0` as a Debian-based Linux image by default, with Alpine and Ubuntu variants. When you `docker build` and `docker run`, you are running your app on a tiny Linux system, even if your laptop is Windows. Kubernetes — the industry standard orchestrator — schedules Linux containers.
 
@@ -64,8 +64,6 @@ cd -                # jump back to the previous directory
 ```
 
 ## Essential Commands
-
-These are the verbs of daily Linux life. Learn them until they're muscle memory.
 
 ```bash
 ls -lah                 # list: long format, all files, human-readable sizes
@@ -167,8 +165,6 @@ dotnet restore ; dotnet build        # run both regardless (';' just sequences)
 `&&` = "and then, if the previous succeeded." `||` = "or else, if it failed." You'll write these constantly in Dockerfiles and CI scripts.
 
 ## Permissions: Why Your Container App Can't Write That File
-
-This is the single most common Linux surprise for Windows developers, so we'll go deep.
 
 Every file and directory has an **owner** (a user), a **group**, and a set of permission bits for three classes: the owner (`u`), the group (`g`), and everyone else (`o`). Each class gets three bits: **read (r)**, **write (w)**, and **execute (x)**. Run `ls -l` and read the first column:
 
@@ -346,13 +342,11 @@ For .NET work this is close to ideal: build and run your app inside WSL2's Linux
 
 ## What a Container Actually Is
 
-With the Linux basics in place, containers turn out to be a combination of things you have already seen: processes, a filesystem tree and a few kernel features. The single most common misconception is that a container is a lightweight virtual machine. It is not, and understanding the difference is the foundation for everything else.
+A container is a combination of things you have already seen: processes, a filesystem tree and a few kernel features. The single most common misconception is that a container is a lightweight virtual machine. It is not.
 
 A **virtual machine** virtualizes *hardware*. A hypervisor (VMware, Hyper-V, KVM) presents fake CPUs, fake network cards, and fake disks to a **complete guest operating system**, kernel and all. If you run five VMs on a host, you are running five separate kernels, each consuming hundreds of megabytes of RAM before your application starts, each booting for tens of seconds.
 
 A **container** virtualizes the *operating system*. There is no guest kernel. Every container on a host shares the **host's single Linux kernel**. What makes a container feel isolated — its own process list, its own network interfaces, its own root filesystem — is a set of kernel features, not a separate machine.
-
-> **Analogy:** A VM is a detached house — its own foundation, plumbing, and electrical panel. A container is an apartment in a building: it has its own locked front door and feels private, but it shares the building's foundation, water main, and structure (the kernel) with every other apartment. Apartments are cheaper to build and faster to move into, but they all depend on the same building holding up.
 
 ### The two kernel features that make it work
 
@@ -365,8 +359,6 @@ A **container** virtualizes the *operating system*. There is no guest kernel. Ev
 - **User namespace** — maps user IDs, so root *inside* the container can map to an unprivileged user *outside*.
 
 **Control groups (cgroups)** provide *limits* — they control what a process can *use*. A cgroup caps CPU shares, memory, and I/O bandwidth for a group of processes. When you tell Kubernetes a pod may use "500m CPU and 512Mi memory," that limit is ultimately enforced by cgroups.
-
-Put simply: **namespaces decide what you can see; cgroups decide what you can consume.** A container is just a normal Linux process (or process tree) wrapped in namespaces for isolation and cgroups for resource limits. That's why containers start in milliseconds and cost almost nothing at idle — there's no second kernel to boot.
 
 > **Pitfall:** Because containers share the host kernel, a Linux container cannot run natively on Windows or macOS. Docker Desktop quietly runs a lightweight Linux VM in the background and starts your containers *inside* it. On a Linux server there is no such VM — containers run directly on the host kernel.
 
@@ -390,8 +382,6 @@ Every instruction in a Dockerfile that changes the filesystem produces a new **l
 When Docker executes a build, for each instruction it checks whether it has already built an identical layer (same instruction, same input). If so, it reuses the cached layer and skips the work. The moment one instruction's input changes, that layer and **every layer after it** are invalidated and rebuilt.
 
 This single rule dictates how you should order a Dockerfile: **put the things that change rarely near the top, and the things that change constantly near the bottom.** For a .NET app, your project files and restored NuGet packages change far less often than your source code. So you copy the `.csproj` and restore *first*, then copy the rest of the source. That way, editing a `.cs` file doesn't force a full package restore.
-
-> **Best practice:** Copy dependency manifests and restore packages *before* copying application source. This keeps the expensive `dotnet restore` layer cached across the many builds where only your code changed.
 
 ### Common Dockerfile instructions
 
@@ -429,11 +419,7 @@ README.md
 
 Here is the tension: to *build* a .NET app you need the whole SDK (compilers, NuGet, MSBuild) — hundreds of megabytes. To *run* it you need only the much smaller runtime. A **multi-stage build** lets you use a fat SDK image to compile, then copy just the published output into a slim runtime image, discarding the SDK entirely. The final image contains none of the build tooling.
 
-Think of it as a workshop and a display case: you do all the messy cutting and welding in the workshop (the build stage), then move only the finished product to the clean display case (the runtime stage). Nobody ships the workshop.
-
 ## Containerizing a .NET Application
-
-Let's build a production-grade Dockerfile for an ASP.NET Core service. We'll layer in every best practice: multi-stage, cache-friendly ordering, non-root user, and a minimal final image.
 
 ```dockerfile
 # syntax=docker/dockerfile:1
@@ -501,16 +487,6 @@ ENTRYPOINT ["dotnet", "MyApi.dll"]
 ```
 
 The payoffs are substantial: images are tens of megabytes smaller, there's a far smaller surface for CVEs, and non-root is the default. The trade-off is that you **cannot `docker exec` a shell into the container** to poke around — there is no `/bin/sh`. For debugging you attach an ephemeral debug container or rely on logs and metrics.
-
-> **Best practice:** For production, prefer chiseled/distroless runtime images. Smaller images pull faster, cost less to store, and present a smaller attack surface. Keep a shell-equipped image variant only if your ops workflow genuinely needs one.
-
-### Image size optimization, summarized
-
-- Use multi-stage builds so build tooling never reaches the final image.
-- Choose the smallest viable base (`-alpine`, `-chiseled`).
-- Order instructions for cache friendliness; restore before copying source.
-- Add a thorough `.dockerignore`.
-- Combine related `RUN` commands and clean up in the same layer (a file deleted in a *later* layer still occupies space in the earlier one).
 
 ## Docker Compose for Local Development
 
@@ -632,14 +608,6 @@ curl -v http://localhost:8080/health     # -v shows the connection + headers
 ```
 
 If `curl` from inside the box works but external access fails, the problem is networking (port mapping, firewall, security group), not your app.
-
-## Putting It Together
-
-Containers are ordinary processes wrapped in kernel **namespaces** (isolation) and **cgroups** (limits), not miniature VMs, which is why they're fast and cheap. **Docker** builds them from layered, cache-friendly Dockerfiles; **multi-stage builds** and **chiseled, non-root** images give you small, secure .NET containers. **Docker Compose** runs a local multi-service stack, while **registries** distribute your images under immutable tags.
-
-Linux is the *native habitat* of production .NET, and the filesystem tree, permission bits, signals, environment variables and pipes aren't trivia: they are the exact concepts that explain why a container won't start, why an app can't write a file, why a deployment hangs or loses requests on shutdown, and why the port isn't reachable. When you can reason about these from the shell, you stop depending on someone else to diagnose production.
-
-Practice by doing: spin up an Ubuntu container (`docker run -it ubuntu bash`), poke around `/etc` and `/var`, break a permission and fix it, run your app as a non-root user, and read its logs with `docker logs`. The commands become reflexes faster than you'd expect. At scale, Kubernetes takes over from Compose; [Chapter 26: Delivery and Platform](#chapter-26-delivery-and-platform) covers it, and [Chapter 35: Live-Container Triage](#live-container-triage-a-walkthrough) walks through diagnosing a misbehaving container in production.
 
 ## Sources & Further Reading
 

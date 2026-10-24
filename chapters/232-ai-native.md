@@ -1,16 +1,14 @@
 # Chapter 32: The AI-Native Developer — Thriving in the AI Era
 
-For most of your career the deal has been simple: you learn to write code, and in exchange the industry pays you well to write it. That deal is being renegotiated in real time. By 2025 and into 2026, a competent AI coding assistant can produce a working REST endpoint, a unit test suite, an EF Core migration, or a plausible refactor faster than you can open the file. The raw act of turning a clear specification into syntactically correct C# — the thing you spent years getting good at — has largely been commoditized. That is not a threat to be defended against. It is a promotion, if you understand what you are being promoted into.
+For most of your career the deal has been simple: you learn to write code, and in exchange the industry pays you well to write it. That deal is being renegotiated in real time. By 2025 and into 2026, a competent AI coding assistant can produce a working REST endpoint, a unit test suite, an EF Core migration, or a plausible refactor faster than you can open the file. The raw act of turning a clear specification into syntactically correct C# — the thing you spent years getting good at — has largely been commoditized.
 
-This chapter makes you able to answer two questions with evidence rather than slogans. The first is about *value*: where your worth as a developer comes from when the machine can type, and how to build the judgment, context and design sense that appreciate rather than depreciate. The second is about *craft*: how to drive AI coding agents well day to day — context engineering, plan-first specs, parallel and background agents, and a reviewer's rubric for the predictable ways generated .NET code goes wrong — without letting them make you slower or erode the judgment the first half says you now trade on. Building AI *into* the software you ship is a different discipline, and it is [Chapter 33: Building AI-Powered Systems](#chapter-33-building-ai-powered-systems).
-
-The value question comes first because it is the foundation: if you keep competing on the axis the machine now dominates, no workflow will save you. If you get it right, the rest is leverage.
+Building AI *into* the software you ship is a different discipline, and it is [Chapter 33: Building AI-Powered Systems](#chapter-33-building-ai-powered-systems).
 
 ## Becoming Valuable When AI Can Write the Code
 
 ### The value shift: what commoditizes and what appreciates
 
-Here is the uncomfortable truth stated plainly: **"I can write code" is no longer a moat. It is table stakes, and increasingly it is not even that.** For twenty years, the ability to translate an idea into correct, working software was scarce enough to command a premium. Scarcity created leverage; leverage created salary. AI is dissolving that particular scarcity. The translation step — intent to implementation — is becoming cheap, fast, and available to everyone, including people who cannot code at all.
+**"I can write code" is no longer a moat. It is table stakes, and increasingly it is not even that.** For twenty years, the ability to translate an idea into correct, working software was scarce enough to command a premium. Scarcity created leverage; leverage created salary. AI is dissolving that particular scarcity. The translation step — intent to implementation — is becoming cheap, fast, and available to everyone, including people who cannot code at all.
 
 When a resource becomes abundant, its price falls and value migrates to whatever is still scarce around it. So the real question for your career is not "can AI do what I do?" It is "when the typing is free, what is still scarce?" A useful way to think about it is to sort the parts of your job into two buckets: what *commoditizes* and what *appreciates*.
 
@@ -18,11 +16,7 @@ Things that commoditize — that get cheaper as AI improves — include: produci
 
 Things that appreciate — that get *more* valuable as code gets cheaper — include: knowing *which* code should exist in the first place, understanding what the business actually needs, sensing what will break in production at 3 a.m., holding the messy history of why a system is the way it is, framing an ambiguous problem so it can be solved at all, and deciding what *not* to build. Notice a pattern: the commoditizing skills are about producing output; the appreciating skills are about *judgment*.
 
-> When code becomes cheap, judgment becomes expensive. Move your identity from "the person who writes the code" to "the person who decides what code is worth writing and whether it's any good."
-
-**Isn't this just the next abstraction shift?** Developers love to point out — correctly — that we have been here before. We moved from toggling switches to assembly, from assembly to C, from C to managed languages like C#, from writing our own data structures to pulling in NuGet packages, from hand-rolled infrastructure to the cloud. Every one of those shifts commoditized a layer of labor, and every time the doomsayers were wrong: demand for developers went *up*, because cheaper software meant more software was worth building (this is Jevons' paradox — efficiency gains increase total consumption). There is real truth here, and it should make you optimistic. More software will be built, not less.
-
-But there is something genuinely different this time, and pretending otherwise is a mistake. Every previous abstraction moved us *up a rung on the same ladder*: from managing memory to managing objects, from managing servers to managing services. The human was always still the one specifying the behavior precisely; the tool just executed a lower level for us deterministically. AI is different in two ways. First, it operates at the level of *intent expressed in natural language* — it is not a more powerful deterministic compiler, it is a non-deterministic collaborator that guesses. Second, it does not just execute the layer below faster; it can increasingly do the *design and reasoning* work that used to sit above the code. A compiler never proposed an architecture. So the honest synthesis is: yes, this is another abstraction shift and demand for people who can build valuable software will likely grow — *and* the specific skills that thrive are further up the stack than ever before, in exactly the judgment-heavy territory the machine is worst at.
+**Isn't this just the next abstraction shift?** Partly. Every earlier shift — assembly to C, C to managed languages like C#, hand-rolled infrastructure to the cloud — commoditized a layer of labor and still raised demand for developers, because cheaper software made more software worth building (Jevons' paradox: efficiency gains increase total consumption). Two things differ this time. Earlier tools executed a lower layer deterministically while a human specified the behavior precisely; AI works from *intent expressed in natural language* and guesses. And it reaches *up* into the design and reasoning work that used to sit above the code: a compiler never proposed an architecture. So demand for people who build valuable software will likely grow, but the skills that hold their value sit further up the stack, in the judgment-heavy work the machine is worst at.
 
 ### Bringing business value: outcomes, not output
 
@@ -32,13 +26,11 @@ The single most reliable way to be valuable in the AI era is embarrassingly old-
 
 Which leads to a skill most developers are actively bad at: **saying no and killing low-value work.** In a world where building anything used to be expensive, the constraint was capacity, so prioritization happened naturally — you couldn't build everything, so you built the loudest thing. AI collapses the cost of building, which sounds great but is a trap: now you *can* build the low-value thing, quickly, and feel productive doing it. The developer who ships ten AI-generated features nobody needed has produced negative value — every one of those features is now code someone has to maintain, secure, and understand. The developer who talked the team out of eight of them and shipped the two that mattered created enormous value and has almost nothing to show for it in a commit graph. Learn to be the second developer, and learn to make that value legible to the people who evaluate you.
 
-> Your job is not to maximize the code you produce. It's to maximize the value the system delivers per unit of complexity it carries. Often the highest-value move is deletion, a well-placed "we shouldn't build this," or a smaller solution than the one requested.
-
 Finally, **measure impact and say it out loud** — instrument your features, know the before-and-after number, and get comfortable with "this work resulted in X." [Chapter 36](#chapter-36-senior-behaviours-career-and-interviews) covers why this matters for your career; here it doubles as training yourself to think in outcomes.
 
 ### Bringing expertise AI doesn't have: the context moat
 
-Here is the good news buried in all of this. The AI knows an astonishing amount about software *in general* and almost nothing about *your* software in particular. It has never sat in your incident retros. It does not know that the `Orders` service and the `Billing` service disagree about what a "cancelled" order means, and that this ambiguity has caused three production incidents, and that the fix everyone keeps proposing would break the reconciliation job that finance depends on every month-end. That knowledge — specific, hard-won, undocumented — is a moat, and it is a moat AI actively strengthens rather than erodes, because it is exactly the thing that cannot be pretrained.
+The AI knows an astonishing amount about software *in general* and almost nothing about *your* software in particular. It has never sat in your incident retros. It does not know that the `Orders` service and the `Billing` service disagree about what a "cancelled" order means, and that this ambiguity has caused three production incidents, and that the fix everyone keeps proposing would break the reconciliation job that finance depends on every month-end. That knowledge — specific, hard-won, undocumented — is a moat, and it is a moat AI actively strengthens rather than erodes, because it is exactly the thing that cannot be pretrained.
 
 Call it a **context moat**: the accumulated, mostly-tacit knowledge of a specific system, organization, and domain that makes your judgment correct where a brilliant outsider's would be plausible but wrong. It has several deposits worth mining deliberately:
 
@@ -63,8 +55,6 @@ The core mental move is **failure-mode thinking**: for any proposed change, ask 
 A concrete practice worth adopting is the **pre-mortem** — the forward-looking sibling of the blameless post-mortem from [Chapter 16](#chapter-16-working-like-a-middle-developer): before building, imagine the project has failed catastrophically six months from now and write the story of *why*. It inverts your brain from "how do I make this work" to "what would kill this," while the risks are still cheap to address.
 
 > AI is confidently wrong more often than it is uncertainly wrong. Its failure mode is fluent plausibility. The scarce, valuable skill is *calibrated suspicion* — knowing which parts of a confident answer to trust and which to interrogate.
-
-This is really the meta-skill of the era: **asking the right questions.** When the AI hands you a solution, the valuable move is rarely "does it compile" — it's "what did it assume, what did it silently leave out, what happens under the conditions it didn't consider, and is this even the right problem to be solving?" The engineer who asks sharper questions of the AI extracts far more value from it than the one who accepts fluent answers.
 
 ### Designing high-value solutions: taste, framing, and leverage
 
@@ -91,17 +81,9 @@ Notice these are the classic markers of *seniority*, just intensified. That is t
 
 For career strategy, a few deliberate bets. Aim to be a **force multiplier** — someone whose context, judgment, and design sense make an AI-augmented team of five as effective as a team of twenty. That is where the outsized value and compensation will sit. Cultivate a **T-shape**: deep enough in something real (your domain, a system, a technical area) to have genuine expertise AI can't fake, and broad enough to connect the dots across business, product, and operations. And double down on the **ownership** and **trust** that Chapters 16 and 36 make central — the AI-era twist is that accountability is precisely the thing you cannot delegate to a model, and in a world drowning in cheap plausible output, a person whose "this is good, ship it" or "no, this is wrong" is reliable becomes disproportionately valuable.
 
-What should you deliberately practice? Reviewing code critically. Writing clear specs and design docs. Learning your business domain like it's a technology. Doing pre-mortems. Framing problems before solving them. Saying "we shouldn't build this." Measuring the impact of your work in business terms. None of these require the AI's permission, and every one of them appreciates as the code gets cheaper.
-
-> The developers who thrive in this era won't be the ones who resist AI or the ones who blindly accept its output. They'll be the ones who use it to operate a level higher than they could alone — trading the keyboard for judgment, and typing for taste.
-
-With that foundation in place — a clear-eyed view of where your value actually comes from — we can turn to the daily craft: working productively *with* these tools: how to drive them, review them, and integrate them into your workflow without letting them erode the very judgment that now defines your worth.
-
 ## Working Productively with AI: The Agentic Developer Workflow
 
-The first half of this chapter was about staying valuable. This half is about the other side of the equation: becoming dramatically more productive by working *with* AI instead of merely near it. The difference between a developer who has an AI subscription and one who has an AI *workflow* is enormous — often several times the throughput on the same hardware, the same codebase, and the same brain. The skills below are the ones that separate the two.
-
-None of this replaces the engineering judgment you spent years building. It amplifies it. A senior engineer with a disciplined agentic workflow is, in 2025-2026, one of the most leveraged individual contributors that has ever existed. Let's build that workflow.
+The difference between a developer who has an AI subscription and one who has an AI *workflow* is large, and it comes from the skills below.
 
 ### From autocomplete to agents: the spectrum of assistance
 
@@ -116,10 +98,6 @@ AI coding assistance has moved through four broad generations, and understanding
 4. **Agentic (autonomous multi-step) coding.** This is the shift that matters. You give a *goal* — "add rate limiting to the public API, configurable per tenant, with tests" — and the agent plans, reads files across the repo, edits multiple files, runs the build, runs the tests, reads the failures, and iterates until the goal is met or it gets stuck. It uses *tools*: a file editor, a shell, a test runner, sometimes a browser or a database client.
 
 The jump from 3 to 4 is qualitative, not incremental. Modes 1-3 make *you* faster at operations you were already doing. Mode 4 lets you *delegate a unit of work* and change what you spend your attention on. You stop thinking in keystrokes and start thinking in tasks, specifications, and review.
-
-> **Key shift:** With agentic coding, your job moves up the stack — from writing every line to *specifying intent, supplying context, and verifying results*. Your scarcest resource is no longer typing speed; it's the quality of your instructions and the rigor of your review.
-
-That reframing drives everything else in this half of the chapter.
 
 ### The tools of the era
 
@@ -139,7 +117,7 @@ You don't need to master all of these, but you should know the categories so you
 
 ### Context engineering: the core skill
 
-If you take one thing from this half of the chapter, take this. The community's center of gravity has moved from *prompt engineering* (wording a single clever request) to **context engineering** (assembling the right information in the model's working set at the right time). Modern models are strong reasoners; they rarely fail because you phrased a sentence poorly. They fail because they lack — or are drowning in — context.
+The community's center of gravity has moved from *prompt engineering* (wording a single clever request) to **context engineering** (assembling the right information in the model's working set at the right time). Modern models are strong reasoners; they rarely fail because you phrased a sentence poorly. They fail because they lack — or are drowning in — context.
 
 The model only knows what's in its context window: your message, the files it has read, tool outputs, and any standing instructions. Everything else is a guess based on training data that may be stale or generic. Context engineering is the discipline of curating that window.
 
@@ -163,7 +141,7 @@ Keep it short and true. A bloated, aspirational rules file is worse than none be
 
 ### Workflow assets: making the setup a team artifact
 
-Everything in this half so far is a technique *you* apply. The step that separates a productive individual from a productive team is turning those techniques into **artifacts that live in the repository**, reviewed and versioned like code. The test is simple: if a new hire clones the repo and starts an agent, do they get your team's workflow, or do they get the defaults?
+The step that separates a productive individual from a productive team is turning those techniques into **artifacts that live in the repository**, reviewed and versioned like code. The test is simple: if a new hire clones the repo and starts an agent, do they get your team's workflow, or do they get the defaults?
 
 Four kinds of asset are worth maintaining:
 
@@ -187,8 +165,6 @@ The reliable way to get good agentic output is to stop firing off one-line reque
 **Break work into verifiable increments.** Rather than one giant task, decompose: (1) add the config model and bind it; (2) add the rate-limit middleware with unit tests; (3) wire it into the pipeline; (4) integration tests. Each step ends at a green build and passing tests — a safe checkpoint you can commit and, if needed, roll back to. Small reversible steps are the backbone of trustworthy AI work.
 
 **Let the agent write tests first.** Test-driven development turns out to be a superb fit for agents because tests are an executable specification the agent can iterate against. Have it write the failing tests from your acceptance criteria (review them — this is where you confirm it understood the requirement), then implement until green. The tests become both the target and the proof.
-
-> **Takeaway:** The quality of agentic output is capped by the quality of the spec. Ten minutes writing acceptance criteria and reviewing a plan routinely saves hours of reviewing wrong code.
 
 ### Multiple sub-agents and orchestration
 
@@ -282,8 +258,6 @@ The most valuable practices aren't individual tricks; they're *systemic* — AI 
 - **Evals for internal agents.** As teams build their own agents (a support bot, a code-review bot), they treat them like software: a suite of test cases with expected outcomes, run in CI, so a prompt or model change that regresses quality is caught before it ships. If you build an internal agent, build its eval harness alongside it — untested agents rot silently.
 
 Leading engineering orgs, including Anthropic itself, have written publicly about running large fleets of coding agents internally, treating agent instructions and evals as first-class artifacts, and using agents heavily in their own development. The transferable lesson isn't any single proprietary detail; it's the *posture*: make AI a maintained part of your platform and process, with the same rigor — version control, review, testing, evals — you apply to code.
-
-> **Takeaway:** The biggest wins come from putting AI into shared infrastructure — review bots, CI, golden paths — not just individual laptops. That's where a team's productivity compounds.
 
 ### Measuring whether any of this is working
 
@@ -478,11 +452,7 @@ Only then read line by line — and only the parts that survived. Most weak diff
 
 > **Gotcha — scrutiny is usually applied backwards.** The least reliable thing a model produces is the part the compiler can't check. Code has a brutal feedback loop: it builds or it doesn't, tests pass or they don't, and every stage of training pushed it toward code that survives that loop. Prose has no such loop. So the numbers in the explanation ("this cuts allocations by about 40%", "dictionary lookup is O(1) so this scales fine"), the benchmark claims, the version facts, and the citations are exactly the outputs with no corrective pressure behind them — and they arrive in the same confident register as the code. Most reviewers do the reverse of what they should: they interrogate the code, which already has three safety nets, and nod along at the performance claim, which has none. Treat every unverified number in an AI explanation as a hypothesis, and either attach a benchmark to it ([Chapter 17](#chapter-17-runtime-internals-and-performance)) or delete it.
 
-That rubric is what makes "never merge what you haven't read" survive contact with volume. It is not a substitute for understanding the diff — it's what buys you the time to understand the parts that deserve it.
-
 ### Anti-patterns and failure modes
-
-Name them so you recognize them early:
 
 - **Over-trusting output.** The code is confident, well-formatted, and wrong. Confidence of presentation is uncorrelated with correctness. *Fix:* verify against tests and your own reading, never against how plausible it looks — the rubric above is the checklist for doing that quickly.
 - **Context rot.** In a long session the agent starts contradicting earlier decisions or re-introducing removed code. *Fix:* start fresh sessions per task; compact long threads; keep the working set clean.
@@ -490,24 +460,6 @@ Name them so you recognize them early:
 - **Agent thrash.** The agent loops — fixing test A breaks test B, fixing B breaks A — burning tokens and going nowhere. *Fix:* stop it, read what's actually happening, give it the missing context or the constraint it's ignoring, or take the wheel. Thrash usually means the agent lacks a key piece of context or the task is under-specified.
 - **Cost blowups.** Parallel agents, huge contexts, and long autonomous runs multiply token spend fast. *Fix:* right-size the model to the task (a smaller/faster model for routine edits), watch usage, prefer focused context over kitchen-sink pastes, and don't parallelize what doesn't need it.
 - **Skill atrophy.** Delegating everything erodes the judgment you need to review the delegations — the exact problem the first half of this chapter warned about. *Fix:* keep doing hard problems by hand sometimes; understand what the agent produced well enough to have written it.
-
-### A day in the life
-
-Here's how the pieces fit together for a senior .NET developer on a normal Tuesday.
-
-**Morning.** You review two pull requests that background agents opened overnight — one bumping dependencies and fixing the fallout, one adding integration tests to an under-covered controller. CI is green on both. You read the dependency PR carefully (a transitive package had a breaking API change; the fix looks right, you approve). The test PR has one test asserting buggy current behavior — you leave a comment, the agent revises it, you merge.
-
-**Mid-morning.** Your real task: add per-tenant rate limiting to the public API. You open your IDE agent, point it at the ticket via the Jira MCP server, and ask for a **plan** — no edits. It proposes middleware, a config-bound options model, and a test strategy. Good, except it planned an in-memory counter that won't survive your multi-instance deployment. You correct it: use the distributed cache. Plan updated. You have it write the **tests first** from the ticket's acceptance criteria, review those tests closely (this is where you confirm the requirement), then let it implement to green. You read the final diff — small, focused — and open the PR, where the review bot and CI add their checks.
-
-**Afternoon.** A bigger, parallelizable job lands: migrate the `Billing` module to EF Core. You set up a **worktree**, kick off an orchestrated run — a researcher inventories the queries, an implementer builds the entities, a tester scaffolds comparison tests against a database container — and *walk away* to a design meeting. You come back, read the researcher's inventory to sanity-check scope, and review the diffs piece by piece rather than all at once.
-
-**Late afternoon.** A production alert. Your on-call copilot has already correlated it with the morning's dependency deploy and drafted a timeline. You read logs with the agent's help, confirm the hypothesis, and revert — a two-line change you write and verify by hand, because in an incident you want zero ambiguity about what you're shipping.
-
-**End of day.** You queue two well-scoped background tasks — docs for a public API, a flaky-test fix — for overnight, sandboxed, PR-only. You log off having shipped more than you could have alone, and having read every line that carries your name on the merge.
-
-That's the shape of it. The AI wrote much of the code; you did the engineering — specifying, contextualizing, verifying, deciding. The tools will keep changing. The discipline underneath — clear specs, curated context, small reversible steps, relentless verification, a human accountable at the merge — is what makes an AI-native developer productive *and* trustworthy. Master that, and the next tool is just a faster way to do what you already know how to do well.
-
-So far the AI has been your collaborator. The next chapter flips the relationship: the model becomes a *component inside* the software you ship — and that changes how you design, test, and operate everything around it.
 
 ## Practice
 

@@ -1,18 +1,16 @@
 # Chapter 16: Working Like a Middle Developer
 
-The previous fifteen chapters are about code. This one is about the work around it, which decides how much of that code ends up useful: a message that gets read and acted on, a pull request reviewed so the author leaves smarter rather than smaller, an estimate for work you have never done, a bug found by method rather than luck, a change made safely in code you don't fully understand, and an outcome owned from the ticket to the alert. The chapter makes you able to take a vague ticket, a request for an estimate or a pull request, and send back something a teammate can act on without a meeting.
+This chapter is about the work around code: how to take a vague ticket, a request for an estimate or a pull request, and send back something a teammate can act on without a meeting.
 
 One habit ties it together: **turn every guess into a claim someone else can check, with the condition or assumption it rests on, in writing, before anyone builds on it.** People act on a claim they can verify in a minute and ignore or argue with one they can't; and a misunderstanding costs more with every step built on it, from one reply before the code exists to an incident after release. A problem statement makes your reading of a ticket checkable, a range names the assumption that drives an estimate, a review comment states the condition, mechanism, cost and fix, and a request for help shows what you already ruled out.
 
-The sections follow a piece of work through a team: from throughput to leverage, communication, code review, estimation, technical writing, debugging, safe change and tech debt, agile ceremonies, and ownership. Then the practice: four written tasks, three questions, a check at work and two judgment exercises. Mentoring, influence and the path to senior continue in [Chapter 36: Senior Behaviours, Career and Interviews](#chapter-36-senior-behaviours-career-and-interviews).
+Mentoring, influence and the path to senior continue in [Chapter 36: Senior Behaviours, Career and Interviews](#chapter-36-senior-behaviours-career-and-interviews).
 
 ## From Solving Tickets to Creating Leverage
 
 A middle engineer is measured by **throughput**: how many tickets they close, how fast, how correctly. That is real and valuable. But it scales linearly — you can only type so fast, and there are only so many hours in a week.
 
 A senior engineer is measured by **leverage**: how much better everyone *around* them performs because of their presence. Leverage compounds. A good design doc saves ten engineers a week of rework. A sharp code review teaches a pattern that a junior then applies fifty more times without you. A well-run incident post-mortem prevents a class of outages forever.
-
-> **The core shift: you stop being judged by the code you personally wrote, and start being judged by the good outcomes you caused — including ones where you wrote no code at all.**
 
 Concretely, the behaviors change like this:
 
@@ -23,8 +21,6 @@ Concretely, the behaviors change like this:
 | "I finished my part." | "The feature isn't done until the user is unblocked." |
 | "Someone should fix this." | "I filed it, tagged the owner, and proposed a fix." |
 | "That's not my code." | "I'll leave it a little better than I found it." |
-
-None of this needs a title or permission; the title tends to follow the behavior.
 
 ## Communication: The Real Superpower
 
@@ -59,7 +55,7 @@ The translation pattern: **Options → consequences in their terms → your reco
 
 > **Same thing, to a PM:** "The dashboards are slowing down the checkout database, which is why some users saw errors on Black Friday. I see two paths. **Option A:** a two-day fix that solves 80% of it, ships this sprint. **Option B:** a proper solution that also prepares us for next year's traffic — about a week, needs one more engineer. Given the holiday deadline, I recommend A now and we schedule B for Q1. I need you to confirm the deadline and whether the extra engineer is available."
 
-Notice: no jargon, quantified impact, framed as a choice, with a clear recommendation and a specific ask. That is the senior move.
+Notice: no jargon, quantified impact, framed as a choice, with a clear recommendation and a specific ask.
 
 ### Tailoring the message to the audience
 
@@ -113,7 +109,7 @@ That framing invites information rather than triggering defense. And when the de
 
 ## Code Review Mastery
 
-Code review is where craft, teaching, and team culture intersect every single day. Done well it spreads knowledge and raises the floor. Done badly it becomes a gauntlet of ego and bikeshedding.
+Code review done well spreads knowledge and raises the floor. Done badly it becomes a gauntlet of ego and bikeshedding.
 
 ### Finding What to Say in a Review
 
@@ -185,8 +181,6 @@ Your code is not you. A comment on your PR is a gift of someone's attention. Pra
 - Say "good catch" and mean it. Fix it, or explain your reasoning and open a discussion.
 - If a reviewer misunderstood, that's often a signal the *code* is unclear — consider a comment or rename rather than just replying in the thread.
 - Don't argue every nit. Take most, push back on the few that matter, move on.
-
-> **Review is teaching in both directions. Every PR is a chance to make the other person — author or reviewer — a slightly better engineer. Optimize for that, not for winning.**
 
 ## Estimation & Planning
 
@@ -297,8 +291,6 @@ When something breaks in production, the goal is to fix the *system*, not to fin
 A lightweight structure: **what happened** (timeline), **impact** (who/how much), **root cause** (the *why*, dug several levels deep — the deploy wasn't the root cause, the *lack of a canary* was), and **action items** (concrete, owned, dated). Focus every action on making the failure impossible or detectable, not on "be more careful."
 
 ## Safe Change, Refactoring & Tech Debt
-
-Changing code you don't fully understand is where careers are made or dented. The senior approach is disciplined.
 
 - **Refactor under a green test suite.** Refactoring means changing structure *without* changing behavior — and the only way to know behavior didn't change is tests. No coverage on the code you're about to refactor? Write **characterization tests** first: tests that pin down what the code *currently* does (even if it's wrong), so you'll notice if you change it.
 - **Separate refactoring commits from behavior changes.** A PR that both moves code around *and* changes what it does is nearly impossible to review. "Refactor: extract `PriceCalculator`" and "Fix: apply loyalty discount before tax" should be two commits, ideally two PRs.
@@ -503,7 +495,7 @@ days and the history follow.
 
 ## Exercises
 
-The drills in the technical chapters have answers you can check against a compiler. These do not, which is the point — the skills in this chapter are judgment, and judgment is practised by reasoning through situations before you are in them.
+These drills have no answer a compiler can check: judgment is practised by reasoning through situations before you are in them.
 
 ### What would you do — the estimate
 

@@ -1,6 +1,6 @@
 # Chapter 5: HTTP and Web APIs
 
-Most bugs that reach production in a web service are not really *code* bugs. They are network bugs wearing a code costume: a call that works on your laptop times out under load, a service that handled a thousand requests per second starts throwing `SocketException`, an endpoint answers `200` while its client sees a failure. This chapter makes you able to explain what happens between `await httpClient.GetAsync(url)` and the bytes coming back, and then to build an ASP.NET Core API that sits correctly on top of it: middleware in an order that works, input validated at the edge, outbound calls that reuse their connections and retry only what is safe to retry, and methods, status codes and headers that clients and proxies can act on.
+Most bugs that reach production in a web service are not really *code* bugs. They are network bugs wearing a code costume: a call that works on your laptop times out under load, a service that handled a thousand requests per second starts throwing `SocketException`, an endpoint answers `200` while its client sees a failure.
 
 Here is the whole journey at a glance:
 
@@ -21,13 +21,13 @@ await httpClient.GetAsync(url)
   origin server --> response back down the same path --> your await resumes
 ```
 
-The chapter follows that request. It starts under HTTP, with the layers, TCP and UDP, and DNS; then HTTP itself: methods and which of them are safe to retry, status codes and headers, the three protocol versions, and the connection pooling that turns a harmless-looking `using` into socket exhaustion. With that model in place it calls out of .NET properly, through `IHttpClientFactory` and a resilience pipeline. The second half is the server: the middleware pipeline and routing, the two ways to write an endpoint, filters, JSON, model binding and validation, cancellation, the cross-cutting concerns, REST and OpenAPI, and health checks. TLS is in [Chapter 12: Security Essentials](#chapter-12-security-essentials); load balancers, reverse proxies and CDNs in [Chapter 26: Delivery and Platform](#chapter-26-delivery-and-platform); versioning, gRPC and SignalR in [Chapter 22: API Evolution, Real-Time and Serialization](#chapter-22-api-evolution-real-time-and-serialization).
+TLS is in [Chapter 12: Security Essentials](#chapter-12-security-essentials); load balancers, reverse proxies and CDNs in [Chapter 26: Delivery and Platform](#chapter-26-delivery-and-platform); versioning, gRPC and SignalR in [Chapter 22: API Evolution, Real-Time and Serialization](#chapter-22-api-evolution-real-time-and-serialization).
 
 Keep one idea in mind throughout: **the network is a hostile, unreliable, shared medium that occasionally pretends to be a reliable function call.** Every abstraction in this chapter exists to manage that lie.
 
 ## The Layered Model: OSI and TCP/IP
 
-Networking is taught as a stack of layers because that is genuinely how it is built. Each layer solves one problem and hands a clean abstraction to the layer above, like nested Russian dolls.
+Each network layer solves one problem and hands a clean abstraction to the layer above.
 
 The classic **OSI model** has seven layers, but in practice you only need to internalize a simplified **TCP/IP model** with four:
 
@@ -37,8 +37,6 @@ The classic **OSI model** has seven layers, but in practice you only need to int
 | Transport | Getting bytes to the right *program* on a host, reliably or not | TCP, UDP, QUIC |
 | Internet | Getting packets to the right *host* across networks | IP, ICMP |
 | Link | Getting bits across one physical hop | Ethernet, Wi-Fi |
-
-The analogy that sticks: sending a letter. The **Link** layer is the mail truck driving between two post offices. The **Internet** layer (IP) is the addressing system that routes the envelope city-to-city — best effort, no guarantee it arrives. The **Transport** layer is the internal office mail room that makes sure the letter reaches *Bob in accounting* (a port number) and, in TCP's case, that missing pages get re-sent. The **Application** layer is the actual language written inside the letter that Bob understands.
 
 > **Best practice.** When you debug, ask *which layer is failing?* "Connection refused" is transport/host (nothing is listening on that port). "No such host is known" is DNS/application. A 500 is application. Confusing these wastes hours.
 
@@ -55,8 +53,6 @@ Both TCP and UDP ride on top of IP, and both use **port numbers** to route to a 
 The cost is *latency* and *state*. That handshake is a full round-trip before your first byte. Head-of-line blocking (more on this later) means one lost packet stalls everything behind it.
 
 **UDP (User Datagram Protocol)** is *fire-and-forget datagrams.* No handshake, no ordering, no retransmission, no congestion control. You send a packet; maybe it arrives, maybe it doesn't, maybe it arrives twice, maybe out of order. What you gain is minimal overhead and no head-of-line blocking.
-
-Think of TCP as a phone call — you establish a connection, take turns, and confirm you heard each other. UDP is shouting across a crowded room: fast, but you have no idea if anyone heard.
 
 **When to use which:**
 
@@ -78,7 +74,7 @@ When your app resolves `api.example.com`:
 
 That is potentially several round-trips — which is why caching is everywhere and why the first request to a new host is slower.
 
-> **Gotcha.** `HttpClient` and its underlying connection pool can cache DNS results for the *lifetime of a connection*. If a DNS record changes (a failover, a blue-green deploy), long-lived pooled connections may keep hitting the old IP. The fix is to retire connections on a schedule, which [IHttpClientFactory & Resilience with Polly](#ihttpclientfactory-resilience-with-polly) below shows two ways. This exact issue has caused countless "why is traffic still going to the dead server?" incidents.
+> **Gotcha.** `HttpClient` and its underlying connection pool can cache DNS results for the *lifetime of a connection*. If a DNS record changes (a failover, a blue-green deploy), long-lived pooled connections may keep hitting the old IP. The fix is to retire connections on a schedule, which [IHttpClientFactory & Resilience with Polly](#ihttpclientfactory-resilience-with-polly) below shows two ways.
 
 ## How HTTP Works
 
@@ -139,7 +135,7 @@ Headers worth knowing cold: `Content-Type` and `Accept` (content negotiation), `
 
 ## HTTP/1.1 vs HTTP/2 vs HTTP/3: A History of Fixing Head-of-Line Blocking
 
-Each HTTP version exists to fix the performance sins of the previous one. Understanding the progression tells you *why* modern web performance looks the way it does.
+Each HTTP version exists to fix the performance sins of the previous one.
 
 **HTTP/1.1** sends requests as plaintext over a TCP connection, one request-response at a time per connection. Its big feature was **persistent connections** (keep-alive) so you did not pay the TCP handshake for every request. But it has a fatal flaw: **application-layer head-of-line blocking.** A connection can only work on one request at a time. Browsers hacked around this by opening ~6 parallel connections per host — wasteful and still limited.
 
@@ -260,8 +256,6 @@ var handler = new SocketsHttpHandler
 var client = new HttpClient(handler);
 ```
 
-> **Best practice.** Never `new` up an `HttpClient` per request. Use `IHttpClientFactory` (typed clients, plus resilience via `Microsoft.Extensions.Http.Resilience`), or one long-lived instance with `PooledConnectionLifetime` set.
-
 ### Resilience with Polly
 
 Networks fail transiently. **Polly** (integrated via `Microsoft.Extensions.Http.Resilience`) adds resilience strategies to the handler pipeline:
@@ -297,8 +291,6 @@ Bulkheads, and what these patterns do across many services, are in [Chapter 20: 
 > **Order matters here too.** Strategies added *earlier* sit *outside* those added later. In the example above, retry is outermost, so the 3-second timeout is a *per-attempt* budget — each retry gets a fresh 3 seconds — while the typed client's `Timeout` of 10 seconds caps the whole operation, retries included. A per-attempt timeout belongs inside the retry; a total timeout belongs outside.
 
 > **Best practice.** Unless you have specific numbers in mind, start with `.AddStandardResilienceHandler()` — one line that applies Microsoft's recommended pipeline (rate limiter, total timeout, retry, circuit breaker, per-attempt timeout) with sensible defaults — and tune only when you have evidence the defaults don't fit.
-
-That is the client side of HTTP. The rest of the chapter is the other end of the wire: what ASP.NET Core does with a request when it arrives.
 
 ## The Middleware Pipeline & Request Lifecycle
 
@@ -513,7 +505,6 @@ Between the bytes on the wire and the objects your endpoint takes and returns si
 
 Key differences to know:
 
-- **Performance:** STJ is substantially faster and allocates less. It's the default in ASP.NET Core.
 - **Defaults:** STJ is **stricter** by default — case-sensitive property matching (configurable), no comments or trailing commas unless enabled, and it doesn't handle some things Newtonsoft did permissively (like quoted numbers) without opting in.
 - **Feature breadth:** Newtonsoft still has richer support for some advanced scenarios (`TypeNameHandling` for polymorphic type embedding, `[JsonConstructor]` flexibility, `DefaultValueHandling` nuances, `JObject`/`JToken` LINQ-to-JSON ergonomics), though STJ has closed most gaps and added polymorphism support (`[JsonDerivedType]`) and `JsonNode`.
 
@@ -725,8 +716,6 @@ Because the property is named by lambda rather than by string, renaming `Name` i
 | **FluentValidation** | Conditional, cross-field, and per-element collection rules; DI and async; several validators for one shape; stable error codes; trivial to unit test | Invisible to OpenAPI unless you add a schema filter; must be explicitly invoked, so it guards only the paths you wired; still check-then-act against the database |
 | **Domain guard / value object** | Holds for *every* caller — HTTP, consumer, job, test; makes illegal state unrepresentable; the rule lives next to the concept it constrains | Throws on the first violation rather than accumulating them, so it yields a poor error document; fires too late to give the client a field-level list |
 
-They are layers, not alternatives. DataAnnotations (or nothing) for trivial DTOs, FluentValidation at the edge to produce a good error document, and domain guards as the thing you would actually bet correctness on.
-
 ## CancellationToken Propagation
 
 [Chapter 4](#cancellationtoken-cooperative-cancellation) showed how a `CancellationToken` works; a web API is where it pays. Once the client disconnects, times out or navigates away, work done on its behalf is wasted. `HttpContext.RequestAborted` is a `CancellationToken` that trips when the connection drops, and both Minimal APIs and MVC bind it to any `CancellationToken` parameter of an endpoint or action. It helps only if you *pass it through*: EF Core queries, `HttpClient` calls and stream reads all accept one.
@@ -749,7 +738,7 @@ This matters most under load. Clients time out, abandon their requests and *retr
 
 The token stops only the calls it reaches: one method in the chain that doesn't forward it leaves everything below it running ([Chapter 4](#cancellationtoken-cooperative-cancellation) has the mechanism, and the analyzer that finds a token left behind).
 
-> **Gotcha.** Not everything should be cancellable. If you've charged a payment and are about to write the outbox record, cancelling *mid-write* because the client hung up is far worse than finishing wasted work: you'd take the money and lose the event. Past such a point of no return, pass `CancellationToken.None` (or a token decoupled from the request). The skill is knowing which operations are safe to abandon and which have already committed you.
+> **Gotcha.** Not everything should be cancellable. If you've charged a payment and are about to write the outbox record, cancelling *mid-write* because the client hung up is far worse than finishing wasted work: you'd take the money and lose the event. Past such a point of no return, pass `CancellationToken.None` (or a token decoupled from the request).
 
 ## Cross-Cutting HTTP Concerns
 
@@ -841,12 +830,6 @@ public class QueueBacklogHealthCheck(IQueueClient queue) : IHealthCheck
 By default the endpoint's body is the bare aggregate as plain text (`Healthy`). For a per-check JSON breakdown — which check failed, why, and how long it took — plug in a `ResponseWriter` (the `HealthChecks.UI.Client` package ships a ready-made one). For *push*-based monitoring, `IHealthCheckPublisher` inverts the flow: the app runs its checks on a timer and publishes results to your telemetry instead of waiting to be probed.
 
 > **Pitfall.** Probes hit these endpoints every few seconds, on every instance. An expensive readiness check — a full table scan, an uncached remote call — now runs at probe frequency × server count, and can itself become the load that takes a wobbly dependency down. Keep checks cheap, bound them with timeouts, and cache the verdict of any costly one. And keep dependencies *out of liveness*: [Health probes: liveness, readiness, startup](#health-probes-liveness-readiness-startup) in Chapter 26 shows how a database blip otherwise becomes a cluster-wide restart storm.
-
-## Summary
-
-The network under HTTP is a set of layers, each of which can fail on its own: ask which one before you debug. HTTP on top of it is stateless request and response, and its methods and status codes are instructions to machinery: retry policies, caches, proxies and browsers act on them without reading the body. Connections are expensive to open and are pooled; a new `HttpClient` per call defeats the pool, and `IHttpClientFactory` or one rotated client keeps it.
-
-ASP.NET Core is a **pipeline of composable components** built once at start-up, and each request runs through it in registration order: middleware sees only what earlier middleware set, and the endpoint, with its filters, binding and validation, is the innermost step. Validate at the edge for a good `400` and enforce in the domain and the database for correctness, pass the cancellation token down, retry only what is idempotent, and answer with the status code you mean.
 
 ## Sources & Further Reading
 

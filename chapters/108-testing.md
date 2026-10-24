@@ -1,8 +1,8 @@
 # Chapter 8: Testing
 
-Most developers can write a test. Far fewer can explain *why* one test is worth writing and another is worth deleting, why a green suite can still be worthless, or why the team that mocks everything ends up trusting nothing. This chapter makes you able to write and fix the tests of one service without help: put each test at the level that can prove its claim, choose the right test double, test the HTTP surface and the database for real, and remove a flaky test's cause instead of retrying it.
+Most developers can write a test. Far fewer can explain *why* one test is worth writing and another is worth deleting, why a green suite can still be worthless, or why the team that mocks everything ends up trusting nothing.
 
-One idea ties the sections together: **a test is only as true as the things it runs for real, and only as repeatable as the inputs it controls.** The pyramid and xUnit come first: what each level proves, and how xUnit isolates one test from the next. Test doubles, mocking libraries, assertions and test data follow, which is where a test decides what it replaces and therefore what it can no longer catch. Integration testing puts the real pipeline and the real database engine back. TDD and BDD are ways of working with all of that; the craft section (names, structure, smells, flakiness) and deterministic time and data make a failure repeatable and readable. Contract, property-based, end-to-end, load and mutation testing are in [Chapter 25: Observability and Testing at Scale](#chapter-25-observability-and-testing-at-scale).
+One idea ties the sections together: **a test is only as true as the things it runs for real, and only as repeatable as the inputs it controls.** Contract, property-based, end-to-end, load and mutation testing are in [Chapter 25: Observability and Testing at Scale](#chapter-25-observability-and-testing-at-scale).
 
 ## Why We Test At All
 
@@ -24,7 +24,7 @@ The classic anti-pattern is the **ice cream cone**: lots of manual and E2E testi
 
 ## Unit Testing with xUnit
 
-.NET has three mainstream test frameworks: **xUnit**, **NUnit**, and **MSTest**. They are more alike than different, but xUnit has become the de facto default for new projects, partly because it was written by people reacting against perceived design mistakes in the others. We'll use xUnit as our primary vehicle and note the differences as we go.
+.NET has three mainstream test frameworks: **xUnit**, **NUnit**, and **MSTest**. They are more alike than different, but xUnit has become the de facto default for new projects, partly because it was written by people reacting against perceived design mistakes in the others.
 
 ### Facts and Theories
 
@@ -85,7 +85,7 @@ public void ApplyDiscount_Cases(decimal price, decimal percent, decimal expected
 
 ### Lifecycle and Fixtures
 
-Here is xUnit's most important and most surprising design decision: **xUnit creates a new instance of your test class for every single test method.** There is no shared mutable state between tests unless you deliberately introduce it. This is a feature — it makes test isolation the default and kills a whole category of order-dependent bugs.
+xUnit's most surprising design decision: **xUnit creates a new instance of your test class for every single test method.** There is no shared mutable state between tests unless you deliberately introduce it. This is a feature — it makes test isolation the default and kills a whole category of order-dependent bugs.
 
 Because of this, xUnit has no `[SetUp]`/`[TearDown]` attributes like NUnit. Instead:
 
@@ -260,7 +260,7 @@ Many people find NSubstitute reads more cleanly because there's no `.Object` unw
 
 ### When NOT to Mock
 
-This is the senior-level point of the whole section. Mocking is a sharp tool that is routinely overused.
+Mocking is a sharp tool that is routinely overused.
 
 - **Don't mock types you don't own.** Mocking `HttpClient`, `DbContext`, or a third-party SDK couples your test to *your assumptions* about how that library behaves, which may be wrong. Wrap it in your own thin interface and mock *that*, or use a real/fake implementation.
 - **Don't mock value objects or pure logic.** If a class has no external dependencies, just use the real thing. Mocking a `Money` or a `DateRange` is absurd.
@@ -375,8 +375,6 @@ The most consequential integration-test decision is what to do about the databas
 
 > **Pay attention.** **The in-memory provider never generates SQL, so nothing a database enforces can fail.** It runs your LINQ over .NET collections. `HasIndex(...).IsUnique()` is metadata only a relational provider turns into `CREATE UNIQUE INDEX`, so two rows with the same email both save (this chapter's *Prove it* program shows it next to SQLite, which rejects the second). String comparison is C#'s, case-sensitive, where SQL Server's default collation is not. A query the real provider can't translate never reaches a translator. Beginning a transaction throws by default; suites that silence that warning get a transaction that does nothing, so a rollback test passes for the wrong reason. Fix: run anything that touches SQL against the production engine.
 
-> **Best practice:** test business logic against fast fakes, but test anything that touches SQL — queries, migrations, constraints, concurrency — against the *same engine you run in production*.
-
 ### Testcontainers for .NET
 
 Testcontainers spins up **real** services in Docker containers, programmatically, from your test code — a genuine Postgres, Redis, RabbitMQ, whatever — and tears them down afterwards. You get production fidelity with unit-test-like ergonomics and no shared-environment contention.
@@ -484,7 +482,7 @@ public static string From(int n)
 }
 ```
 
-**Refactor** — the code is already clean; the tests stay green; we're done. Notice what TDD gave us: we never wrote a line of production code that wasn't justified by a test, our design emerged from the examples, and we have a full regression suite for free.
+**Refactor** — the code is already clean; the tests stay green; we're done.
 
 > **What TDD is really for:** it's a design tool disguised as a testing tool. Writing the test first forces you to use your own API before it exists, which surfaces awkward interfaces immediately. The tests are a valuable by-product; the *design pressure* is the main event. TDD is not mandatory, and it shines most on logic-heavy code with clear inputs and outputs, less so on exploratory or UI-glue work.
 
@@ -528,7 +526,7 @@ public class OrderSteps
 
 ## Craft: Naming, Structure, and Smells
 
-The techniques above are worthless if the tests themselves are unreadable or unreliable. Test code is production code — it is read far more often than it is written, and it is the first documentation a new developer meets.
+Test code is production code — it is read far more often than it is written, and it is the first documentation a new developer meets.
 
 ### Test Naming
 
@@ -619,14 +617,6 @@ The real power: `FakeTimeProvider` also controls `Task.Delay` and timers created
 ### Seeded test data
 
 A random generator is an input too. One seeded from the clock produces a suite that passes 99 runs and fails the 100th, because the generator happened to produce an edge case. That isn't a flaky test, it's an *undiscovered bug*, but without the seed nobody can reproduce it. Seed generators with a fixed value in tests (Bogus: a fixed `Randomizer.Seed`), and if you vary the seed on purpose to explore more inputs, log it on failure so any failure *is* reproducible. Then treat each such failure as a real finding.
-
-## Bringing It Together
-
-Testing maturity is not measured in a coverage percentage or a count of tests. It's measured in a single capability: **can your team change the code with confidence and speed?** Everything in this chapter serves that. The pyramid tells you where to invest. Unit tests with clean AAA structure and honest names give fast, precise feedback. Test doubles, used with the judgment to know when *not* to mock, isolate units without ossifying them. Integration tests with Testcontainers verify the seams against real infrastructure. TDD applies design pressure; BDD aligns with stakeholders when there's an audience for it. Controlled time and seeded data keep the suite repeatable, and relentless hygiene around flakiness protects the trust that makes the whole edifice worthwhile. Whether the tests actually verify anything is the question mutation testing answers, in [Chapter 25](#chapter-25-observability-and-testing-at-scale).
-
-Write tests that would fail if the behaviour broke, that read clearly when they do, and that survive a refactor of the code they cover. Do that, and your test suite stops being a chore you maintain and becomes the thing that lets you move fast without breaking things.
-
-> **Capstone tie-in:** This chapter is exercised by ShopCore Step 2 (Prove It Works: Tests) — you'd unit-test the domain rules with xUnit and place an order through the HTTP surface against a Testcontainers PostgreSQL via `WebApplicationFactory`. See [Chapter 44](#chapter-44-capstone-one-project-growing-up).
 
 ## Prove it
 

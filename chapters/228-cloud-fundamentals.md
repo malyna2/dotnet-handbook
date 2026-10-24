@@ -1,8 +1,8 @@
 # Chapter 28: Cloud Fundamentals — AWS & Azure
 
-For most of computing history, running software meant owning hardware. You bought servers, racked them in a room with expensive cooling, hired people to replace failed disks at 3 a.m., and paid for enough capacity to survive your busiest day of the year — capacity that sat idle the other 364 days. The cloud rewired this economic model. Instead of buying a power station, you plug into the grid and pay for the kilowatt-hours you actually use. That single shift in mindset — from *owning capacity* to *renting capability* — is the thread that runs through everything in this chapter.
+Owning hardware means paying for enough capacity to survive your busiest day of the year, capacity that sits idle the other 364 days. The cloud meters it instead: you pay for what you actually use. That shift — from *owning capacity* to *renting capability* — is the thread that runs through everything in this chapter.
 
-As a .NET developer moving toward senior level, you don't need to become a network engineer. But you do need to understand what these services *are*, *why* they exist, and *when* to reach for each one. This chapter builds that mental map for both AWS and Azure, maps one provider's services onto the other's, and shows you how to provision it all as code. It ends with the trade-offs that decide how you use the cloud: serverless cold starts, the cost and security habits that matter, and the honest economics of lock-in. [Chapter 29](#chapter-29-azure-in-depth-for-net-developers) then takes Azure in depth, [Chapter 30](#chapter-30-the-azure-casebook-real-incidents-real-fixes) works through real incidents, and [Chapter 31](#chapter-31-compliance-data-privacy-cloud-cost-finops) covers compliance and cloud cost.
+[Chapter 29](#chapter-29-azure-in-depth-for-net-developers) then takes Azure in depth, [Chapter 30](#chapter-30-the-azure-casebook-real-incidents-real-fixes) works through real incidents, and [Chapter 31](#chapter-31-compliance-data-privacy-cloud-cost-finops) covers compliance and cloud cost.
 
 ## Cloud Fundamentals
 
@@ -140,7 +140,7 @@ Console.WriteLine($"Uploaded, ETag: {response.ETag}");
 
 ## Azure Core Services
 
-Azure is Microsoft's cloud and the natural home for .NET. The tooling, documentation, and identity model are built with .NET developers in mind. Here's the equivalent map. For the mechanisms behind it, and real incidents, see [Chapter 29](#chapter-29-azure-in-depth-for-net-developers) and [Chapter 30](#chapter-30-the-azure-casebook-real-incidents-real-fixes).
+Azure is Microsoft's cloud and the natural home for .NET. The tooling, documentation, and identity model are built with .NET developers in mind. For the mechanisms behind it, and real incidents, see [Chapter 29](#chapter-29-azure-in-depth-for-net-developers) and [Chapter 30](#chapter-30-the-azure-casebook-real-incidents-real-fixes).
 
 ### Compute
 
@@ -207,8 +207,6 @@ Database=AppDb;
 Authentication=Active Directory Default;
 Encrypt=True;
 ```
-
-> **Best practice:** Managed Identity plus Key Vault plus `DefaultAzureCredential` is the gold-standard pattern for Azure .NET apps. There is no reason to ship a password in a connection string or an `appsettings.json` in 2026.
 
 > **Security note:** The whole point is that there is *no secret to leak*. A leaked connection-string password is a breach; a managed identity has nothing to steal because the credential lives only inside Azure's control plane and rotates constantly.
 
@@ -363,31 +361,11 @@ Serverless (Lambda, Azure Functions, Container Apps scaling to zero) is genuinel
 
 The senior judgment call: **serverless for event-driven and bursty work; managed containers or App Service for steady, latency-sensitive, always-on traffic.** A busy API serving thousands of requests per second is often cheaper and faster on an always-warm container than on per-invocation functions.
 
-## Cost Awareness and Security: The Habits That Matter
-
-Everything in this chapter comes back to two disciplines that separate a mid-level engineer from a senior one in the cloud.
-
-**On cost:**
-
-- **Right-size, then reserve.** Start small and scale up based on real metrics — don't guess large. For predictable steady workloads, commit to reserved capacity (Reserved Instances / Savings Plans) for large discounts over on-demand pricing.
-- **Kill zombies.** Automate the shutdown of dev/test resources outside business hours and clean up orphaned disks, snapshots, and IPs.
-- **Set budget alerts** at the account level from day one. Nobody should learn about a runaway bill from the invoice.
-- **Mind egress and cross-region traffic** — the quiet budget killers.
-
-**On security:**
-
-- **Least privilege, always.** Grant the minimum permissions, scoped to specific resources. Audit and prune regularly.
-- **Never hardcode credentials.** No access keys in code, config files, or environment variables committed to git. Use **IAM roles** on AWS and **Managed Identity** on Azure so applications carry no static secrets at all.
-- **Store secrets in a vault** (Secrets Manager / Key Vault) with rotation, and reference them at runtime — never inline.
-- **Encrypt in transit and at rest** (usually a checkbox or default now — make sure it's on).
-- **Isolate the network.** Databases in private subnets/VNets, never exposed to the public internet; access controlled by security groups.
-- **Respect the shared responsibility model.** The provider secures the platform; the config, the data, and the access policy are always yours.
-
 ## Lock-In, and the Honest Economics of Leaving
 
 Every architecture discussion involving a managed service eventually reaches someone saying "but that locks us in," at which point the conversation usually stops. It shouldn't, because "locked in" is not a binary state and the objection is frequently used to justify building something worse.
 
-Here is the reframe that makes the discussion productive: **lock-in is not a yes/no property, it is a switching cost — and switching cost is worth paying for capability you get now.** You are already locked into your programming language, your database engine, your identity provider, and your ORM. Nobody proposes writing SQL that runs identically on six engines. The question is never "are we locked in," it is "what would leaving cost, and is the thing we get worth that price?"
+**Lock-in is not a yes/no property, it is a switching cost — and switching cost is worth paying for capability you get now.** You are already locked into your programming language, your database engine, your identity provider, and your ORM. Nobody proposes writing SQL that runs identically on six engines. The question is never "are we locked in," it is "what would leaving cost, and is the thing we get worth that price?"
 
 ### The gradient
 
@@ -438,11 +416,3 @@ And what you give up is real: capacity you can't get in an hour, DR that isn't a
 - **Be deliberate about proprietary glue.** Logic that lives in a vendor's configuration language is the most expensive kind to move and the easiest to accumulate accidentally. If a workflow is central to your business, consider keeping it in code you own.
 - **Write down what leaving would cost** for the two or three services you depend on most. Not a plan — an estimate, one paragraph each, in an ADR ([Chapter 16](#chapter-16-working-like-a-middle-developer)). This converts a recurring argument into a known number, and the number is usually smaller than the loudest person in the room thinks.
 - **Revisit when the shape changes.** The right answer at 10 engineers and spiky traffic is different at 200 engineers and a flat baseline. Lock-in decisions should be reviewed when the business changes, not defended forever.
-
-## Summary
-
-The cloud replaces owned capacity with metered capability, along a spectrum from IaaS (you manage almost everything) to serverless (you manage almost nothing). Regions and Availability Zones give you locality and resilience; the shared responsibility model draws the line between the provider's job and yours; and metered billing rewards vigilance.
-
-AWS and Azure solve the same set of problems — compute, storage, databases, messaging, identity, observability — with different names, and the mapping table lets you translate fluently between them. For a .NET developer, Azure's native integration (App Service, Azure SQL, Entra ID, Managed Identity, Application Insights) offers a remarkably smooth path, while AWS's breadth and maturity make it the industry's default.
-
-Two habits underpin real seniority in the cloud: define everything as code (Terraform, Bicep, Pulumi, or CDK — with careful attention to state), and design for credential-free identity and least privilege from the very first line. Master those, and you're no longer just deploying to the cloud — you're engineering on it.

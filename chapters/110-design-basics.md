@@ -1,10 +1,10 @@
 # Chapter 10: Design Basics
 
-A senior developer is not someone who has memorized twenty-three patterns from a book. It is someone who can look at a tangle of code and *feel* where the seams should be, who reaches for a pattern the way a carpenter reaches for the right chisel, and who — crucially — knows when to leave the chisel in the box and just drive the nail. This chapter is about that judgment: the force that pushes you toward a design, the cost the design extracts, and the point at which the cure becomes worse than the disease.
+This chapter is about design judgment: the force that pushes you toward a design, the cost the design extracts, and the point at which the cure becomes worse than the disease.
 
-It makes you able to explain each SOLID principle by what breaks without it, to choose between a plain `if`, a Strategy and a Decorator (including when no pattern is the right answer), to name the smell in a piece of code and the refactoring that removes it, and to place code in layers so the business rules don't depend on the database. Every rule here is a bet on where the next change will land: it gathers the code that changes for one reason into one place, behind a seam, and the indirection is repaid only if that change actually comes.
+Every rule here is a bet on where the next change will land: it gathers the code that changes for one reason into one place, behind a seam, and the indirection is repaid only if that change actually comes.
 
-The principles come first, because they are what the rest applies. The classic patterns follow as those principles turned into code, then the application patterns you meet daily in .NET. Clean code and code smells bring the same forces down to a single name or method, and the last sections scale them up to a whole solution: layered and clean architecture. Their depth — DDD, CQRS, vertical slices, monoliths and microservices — is [Chapter 21: Architecture](#chapter-21-architecture).
+The depth of the architecture sections — DDD, CQRS, vertical slices, monoliths and microservices — is [Chapter 21: Architecture](#chapter-21-architecture).
 
 ## Principles: The Foundation Under the Patterns
 
@@ -125,11 +125,9 @@ Patterns also give teams a shared vocabulary. When a colleague says "let's put a
 
 ### The Danger of Overusing Patterns
 
-Here is the uncomfortable truth that separates mid-level from senior: **most code does not need a pattern, and reaching for one prematurely is a form of harm.**
+**Most code does not need a pattern, and reaching for one prematurely is a form of harm.**
 
 The failure mode has a name in the community — "pattern-itis" or "architecture astronautics." It looks like this: a developer learns the patterns, gets excited, and starts seeing them everywhere. A simple `if/else` becomes a Strategy with three classes and a factory. A two-method service grows an interface, an abstract base, and a decorator "for flexibility." Six months later, tracing a single request means opening eleven files, and nobody can find where the actual work happens.
-
-> **Overuse warning:** Every pattern adds indirection, and indirection is a cost paid by every future reader of the code. A pattern is justified only when the flexibility it buys is flexibility you will actually use. Speculative flexibility — "we might need to swap the database someday" — is usually a bad trade. This is YAGNI (You Aren't Gonna Need It), and it is the single most important principle in this chapter.
 
 The right mental model: patterns are a response to *pain you already feel*, not insurance against pain you imagine. Write the simple version first. When it starts to hurt — when you find yourself editing the same `switch` in five places, when a class has grown three unrelated reasons to change — *then* refactor toward the pattern that relieves that specific pain. This is why patterns are best learned alongside refactoring: they are destinations, and refactoring is the road.
 
@@ -513,7 +511,7 @@ The controller and handler are fully decoupled — neither references the other'
 
 ## Enterprise & Application Patterns
 
-These aren't in the original GoF catalog, but they dominate day-to-day .NET architecture. This is where senior-level judgment shows most. The heavier ones, Specification and CQRS, are in [Chapter 21](#chapter-21-architecture).
+These aren't in the original GoF catalog, but they dominate day-to-day .NET architecture. The heavier ones, Specification and CQRS, are in [Chapter 21](#chapter-21-architecture).
 
 ### Repository & Unit of Work
 
@@ -533,8 +531,6 @@ public interface IUnitOfWork
     Task<int> SaveChangesAsync();   // commit everything atomically
 }
 ```
-
-Here is the senior-level nuance you must understand:
 
 > **The great Repository-over-EF-Core debate.** EF Core's `DbContext` is *already* a Unit of Work (it tracks changes and commits them via `SaveChanges`, as [DbContext and Change Tracking](#dbcontext-and-change-tracking) in Chapter 7 shows), and `DbSet<T>` is *already* a repository (a queryable collection abstraction). So wrapping EF Core in your own repository and unit-of-work layer often means building an abstraction over an abstraction.
 
@@ -601,9 +597,7 @@ return result.IsSuccess
 
 ## Clean Code & Code Smells
 
-Code is read far more often than it is written, so the reader, not the compiler, is the customer. The principles above are the *structural* side of good code; clean code is the *local* side — what a single name, method or file looks like up close — and messy code taxes every future change and every estimate.
-
-> **Clarity beats cleverness.** The compiler does not reward you for a dense one-liner, and the next developer will silently curse you for it. Optimize for the person who has to understand this code under pressure at 2 a.m.
+Code is read far more often than it is written, so the reader, not the compiler, is the customer. Messy code taxes every future change and every estimate.
 
 ### Naming: the cheapest documentation you will ever write
 
@@ -743,8 +737,6 @@ Two closing habits round this out. The **Boy-Scout Rule**: leave the code a litt
 
 A **code smell** — the term popularized by Martin Fowler and Kent Beck — is a surface-level symptom that hints at a deeper design problem. A smell is not a bug (the code may work perfectly) and not automatically wrong; it is a *heuristic*, something worth a second look. Its real value is vocabulary: when you can name what bothers you ("this is Feature Envy"), you also know the standard refactorings that address it.
 
-> **Smells guide, they do not dictate.** A smell is a prompt to *consider* a refactoring, not a rule that forces one. Sometimes the smelly version is genuinely the clearest option, and forcing a "clean" structure onto it makes things worse.
-
 | Smell | The pain you feel | Refactor toward |
 |---|---|---|
 | **Long Method** | You scroll, lose the plot, can't test the middle | Extract Method; Decompose Conditional |
@@ -763,7 +755,7 @@ A **code smell** — the term popularized by Martin Fowler and Kent Beck — is 
 | **Comments as deodorant** | Prose apologizing for code that can't explain itself | Extract Method with a good name; Rename |
 | **Magic Numbers / Strings** | Unexplained literals nobody dares to change | Named Constant; enum |
 
-Several of these are the local, code-level face of the principles above: Divergent Change is SRP violated, Duplicated Code is DRY violated, Message Chains break the Law of Demeter, Speculative Generality is YAGNI ignored. The smell vocabulary and the principle vocabulary describe the same forces from different distances.
+Several of these are the local, code-level face of the principles above: Divergent Change is SRP violated, Duplicated Code is DRY violated, Message Chains break the Law of Demeter, Speculative Generality is YAGNI ignored.
 
 ### A worked refactoring: Primitive Obsession → Value Object
 
@@ -809,7 +801,7 @@ The other two headline refactorings you have already seen in this chapter. **Lon
 
 ### Refactor under tests, in tiny steps
 
-Notice that the right-hand column of the smells table reduces to a small vocabulary of named moves — Extract Method/Class, Move Method, Parameter Object, Value Object, Replace Conditional with Polymorphism, Named Constant — that you will use constantly. The non-negotiable discipline around all of them: **refactor under test coverage, in tiny steps.** Refactoring by definition preserves behavior, and the only way you *know* behavior is preserved is a green test suite ([Chapter 8: Testing](#chapter-8-testing)). Make one small move, run the tests, commit; make the next. The catastrophic refactor is the one done in a single giant, untested edit — that is not refactoring, that is rewriting with extra confidence and no safety net.
+The non-negotiable discipline around every move in the smells table's right-hand column: **refactor under test coverage, in tiny steps.** Refactoring by definition preserves behavior, and the only way you *know* behavior is preserved is a green test suite ([Chapter 8: Testing](#chapter-8-testing)). Make one small move, run the tests, commit; make the next. The catastrophic refactor is the one done in a single giant, untested edit — that is not refactoring, that is rewriting with extra confidence and no safety net.
 
 You also do not have to sniff out every smell by hand: **Roslyn analyzers** flag many issues at build time, **SonarQube**/SonarLint track duplication, complexity, and a large smell ruleset across the codebase, and cyclomatic-complexity metrics put a number on "this method is too tangled." Wire them into the pipeline ([Static Analysis Gates in CI](#static-analysis-gates-in-ci), Chapter 13) so smells surface in pull requests rather than in production incidents.
 
@@ -841,7 +833,7 @@ This is a perfectly reasonable default for many applications, and dismissing it 
 
 ## Clean, Onion, and Hexagonal Architecture
 
-Clean Architecture, Onion Architecture, and Hexagonal Architecture (Ports & Adapters) are three names that arrived from different authors but describe essentially the same idea. Rather than treat them as rivals, understand the shared principle and note where the vocabulary differs.
+Clean Architecture, Onion Architecture, and Hexagonal Architecture (Ports & Adapters) are three names that arrived from different authors but describe essentially the same idea.
 
 ### The Dependency Rule
 
@@ -916,12 +908,6 @@ public sealed class EfOrderRepository : IOrderRepository { /* ... uses DbContext
 ```
 
 > **Trade-off:** Clean Architecture buys you testability, flexibility, and a domain that reads like the business rather than the database schema. It costs you indirection and ceremony — more projects, more interfaces, more mapping between DTOs and entities. For a CRUD admin tool it is over-engineering. For a system with rich, long-lived business rules it pays for itself many times over. **Match the ceremony to the complexity of the domain, not to fashion.**
-
-## Closing Thought
-
-Notice how many of these patterns dissolved into ordinary C# — Iterator became `yield`, Prototype became `with`, Observer became `event`, Strategy became `Func<>`, Singleton became a DI lifetime. That is not a coincidence. As a language and its ecosystem mature, yesterday's patterns become today's built-in features. The patterns worth carrying in your head are the ones the language *hasn't* absorbed and the *principles* underneath all of them.
-
-So hold the patterns lightly and the principles tightly. When you feel real pain — a growing `switch`, a class with three jobs, a test you can't write because a dependency is hard-wired — let a pattern relieve exactly that pain and no more. Resist the urge to build cathedrals of indirection for problems you don't yet have, and match an architecture's ceremony to the domain's complexity in the same way. The mark of a senior developer is not how many patterns they can deploy, but how much needless complexity they can keep out of the codebase.
 
 ## Three questions
 

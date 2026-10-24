@@ -1,16 +1,12 @@
 # Chapter 2: Data Structures and Algorithms Essentials
 
-This chapter makes you able to say what a piece of code costs as its input grows, and to pick the .NET collection whose cost matches the job: why `Dictionary` lookups are constant time and what makes them linear, why `List<T>.Add` is cheap on average and occasionally not, why `Array.Sort` is not stable, and when a plain list beats every clever structure. That is the instinct that spots a nested loop over a growing list long before it becomes an incident, and the vocabulary interviewers test.
-
-It runs in three steps. **Big-O** gives the language for cost. **Core data structures** explains each BCL collection by how it is built, because the internals are what produce its costs. **Key algorithms and patterns** covers the handful of techniques (sorting, binary search, two pointers, sliding window, hashing, BFS/DFS, dynamic programming, greedy) that most coding questions and much real code reduce to. A short framing for real problems and the interview questions close it.
+This chapter makes you able to say what a piece of code costs as its input grows, and to pick the .NET collection whose cost matches the job: why `Dictionary` lookups are constant time and what makes them linear, why `List<T>.Add` is cheap on average and occasionally not, why `Array.Sort` is not stable, and when a plain list beats every clever structure.
 
 The same habit applied to whole systems (load estimates, caches, queues, replicas) is [Chapter 23: System Design](#chapter-23-system-design); measuring the cost of real code with a profiler and BenchmarkDotNet is [Chapter 17: Runtime Internals and Performance](#chapter-17-runtime-internals-and-performance).
 
 ## Big-O: The Language of "How Bad Does This Get?"
 
 Big-O notation describes how the *cost* of an operation grows as the *input* grows. It deliberately ignores constants and lower-order terms because they wash out at scale. If one algorithm takes `3n + 50` steps and another takes `n²`, then for small `n` the first might even be slower — but we care about the trend, and eventually `n²` dwarfs everything.
-
-The useful analogy: Big-O is like the *fuel efficiency rating* of an algorithm, not its top speed. A truck rated at 20 MPG will always beat one rated at 5 MPG on a long enough trip, regardless of who has the faster engine off the line.
 
 We track two dimensions:
 
@@ -37,13 +33,11 @@ A concrete feel for the numbers: for `n = 1,000,000`, an O(n) algorithm does a m
 
 Some operations are *usually* cheap but *occasionally* expensive, and amortized analysis tells you the average cost over a sequence. The classic case is `List<T>.Add`. Adding to a dynamic array is O(1) — until the backing array fills, at which point .NET allocates a new array (typically double the size) and copies everything, an O(n) operation. But because doublings happen exponentially rarely, the *amortized* cost per Add is still O(1).
 
-> **The intuition:** you pay a big cost rarely enough that, spread across all the cheap operations, it averages out to constant. It is like a phone plan with a large one-time activation fee — annoying once, negligible per call over two years.
-
 Amortized O(1) is not the same as worst-case O(1). If you have a hard latency ceiling on *every* operation (real-time systems, some trading paths), that occasional O(n) resize can matter, and you'd pre-size the collection.
 
 ## Core Data Structures and Their .NET Types
 
-The single most valuable skill in this section is matching a problem to a structure. Each structure trades away something to be fast at something else. Let's walk them in the order you'll reach for them.
+Each structure trades away something to be fast at something else.
 
 ### Arrays: `T[]`
 
@@ -201,8 +195,6 @@ For a lookup table built **once and read many times**, such as reference data lo
 
 > **Best practice:** for small collections (a handful to a few dozen items), a plain `List<T>` with a linear scan often *beats* a `Dictionary` or `SortedSet`. Hashing has constant overhead, tree nodes fragment memory, and cache locality wins at small `n`. Don't build an index for ten items.
 
-The discipline isn't reaching for the most sophisticated structure — it's reaching for the *simplest one that meets the actual constraints*. Premature "optimization" with heavyweight structures adds complexity and can be slower. Know your `n`.
-
 ## Key Algorithms and Patterns
 
 You rarely implement these from scratch at work, but recognizing when a problem *is* one of these is the payoff, and interviews test the same recognition. Most of them lean on a structure from the previous section: binary search on a sorted array, BFS on a `Queue<T>`, dedup on a `HashSet<T>`, memoization on a `Dictionary`.
@@ -214,8 +206,6 @@ You rarely implement these from scratch at work, but recognizing when a problem 
 - It starts with **quicksort**, which is fast on average (O(n log n)) with excellent cache behavior.
 - If recursion goes too deep (a sign quicksort is hitting its O(n²) worst case on a pathological input), it switches to **heapsort**, which guarantees O(n log n).
 - For small partitions (roughly 16 or fewer elements), it switches to **insertion sort**, which has low overhead and is fast on tiny, nearly-sorted runs.
-
-The lesson: production sorting is an engineering compromise, not a textbook algorithm. You get guaranteed O(n log n) worst case *and* good real-world speed.
 
 ```csharp
 var nums = new[] { 5, 2, 8, 1, 9 };
@@ -346,7 +336,7 @@ The two hallmarks that signal DP: **overlapping subproblems** (the same smaller 
 
 ### Greedy
 
-A greedy algorithm makes the locally best choice at each step and hopes it leads to a global optimum. It's fast and simple — but only *correct* for problems with the right structure. Making change with standard coin denominations works greedily (always take the largest coin that fits); with arbitrary denominations it can fail, and you need DP. The skill is knowing *when* greedy is provably correct versus when it's a seductive trap.
+A greedy algorithm makes the locally best choice at each step and hopes it leads to a global optimum. It's fast and simple — but only *correct* for problems with the right structure. Making change with standard coin denominations works greedily (always take the largest coin that fits); with arbitrary denominations it can fail, and you need DP.
 
 ## Choosing the Right Tool for a Real Problem
 
@@ -357,13 +347,7 @@ When a task lands on your desk, resist jumping to code. Frame it first:
 3. **What are the constraints?** Memory ceiling? Latency ceiling on *every* op (worst-case matters, not just amortized)? Ordering requirements?
 4. **What's the dominant cost?** Optimize the operation that runs most often or on the largest data. A slow one-time setup with fast repeated lookups is usually the right trade.
 
-> The framing itself is the skill. "Which data structure is best?" has no answer; "what does this problem actually need, and what's the simplest structure that delivers it within the constraints?" does.
-
 > **Pay attention.** **LINQ hides the loop, not its cost.** Each operator is a pass over its source, so a lambda that calls `Contains`, `First` or `Any` on a `List<T>` runs a full scan per element. `orders.Where(o => vipIds.Contains(o.CustomerId))` is O(n·m) with `vipIds` as a list and O(n) with it as a `HashSet<int>`, and the code looks the same. Likewise `Distinct`, `GroupBy` and `ToLookup` build hash tables internally (O(n) time, O(n) space), and `OrderBy` sorts (O(n log n)). Fix: before writing a lambda, ask what each call inside it costs per element, and build a set or dictionary once outside the query.
-
-## Bringing It Together
-
-The through-line is one habit: **reason about cost before you commit to code.** Pick the collection whose Big-O matches your access pattern and your realistic `n`, know which internal mechanism (contiguous array, hash buckets, balanced tree, binary heap) produces that cost and what breaks it (a bad hash, a mutated key, unsorted input to a binary search), and recognize the handful of algorithmic patterns most problems reduce to. Strong engineers are not the ones who memorized the most algorithms; they are the ones who reliably ask "how does this behave as it grows?" and have the vocabulary to answer.
 
 ## Prove it
 

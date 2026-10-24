@@ -1,18 +1,16 @@
 # Chapter 17: Runtime Internals and Performance
 
-Every request a .NET service handles shares two runtime resources: a small pool of threads and a generational heap. Both are tuned for short work. A thread held while it waits, or an object kept a little too long, becomes a delay for every other request. This chapter makes you able to predict how a service behaves when its threads block or its heap churns, prove it from counters, a trace and a dump, and choose between tuning the runtime and changing the code, with the cost of each spelled out for the team that will live with the choice.
+Every request a .NET service handles shares two runtime resources: a small pool of threads and a generational heap. Both are tuned for short work. A thread held while it waits, or an object kept a little too long, becomes a delay for every other request.
 
-It builds on Part 1: the stack, the heap and the GC's generations from [Chapter 3](#chapter-3-how-net-runs-your-code), the state machine, the thread pool and sync-over-async from [Chapter 4](#chapter-4-async-essentials), and value types, boxing and closures from [Chapter 1](#chapter-1-c-essentials). The chapter opens with the discipline (measure first, then benchmark and profile), because everything after it is a lever you pull only when a measurement points at it. Then come the mechanisms those measurements point at: the GC in depth, allocations and the tools that avoid them, the thread pool and the memory model under load, `ValueTask`, parallelism and channels. Last come the parts of the runtime that decide startup and deployment: reflection and source generators, the JIT, ReadyToRun and Native AOT, and assembly loading. Data-access performance (EF Core, caching) is in [Chapter 18](#chapter-18-data-in-depth).
+It builds on Part 1: the stack, the heap and the GC's generations from [Chapter 3](#chapter-3-how-net-runs-your-code), the state machine, the thread pool and sync-over-async from [Chapter 4](#chapter-4-async-essentials), and value types, boxing and closures from [Chapter 1](#chapter-1-c-essentials). Every lever after the first section is one you pull only when a measurement points at it. Data-access performance (EF Core, caching) is in [Chapter 18](#chapter-18-data-in-depth).
 
 ## The Golden Rule: Measure, Don't Guess
 
-Human intuition about performance is famously, almost comically, unreliable. The CPU your code runs on is a machine of staggering complexity — out-of-order execution, multiple cache layers, branch predictors, a JIT compiler that rewrites your IL on the fly, and a garbage collector that pauses threads at moments you cannot predict by reading source code. Reasoning about all of this in your head is like trying to predict the weather by staring at a single cloud.
+Human intuition about performance is unreliable. The CPU your code runs on is a machine of staggering complexity — out-of-order execution, multiple cache layers, branch predictors, a JIT compiler that rewrites your IL on the fly, and a garbage collector that pauses threads at moments you cannot predict by reading source code.
 
 > **The single most important sentence in this chapter:** Measure first, optimize second. If you optimize before measuring, you are not engineering — you are gambling with your own time as the stake.
 
 Donald Knuth's line, "premature optimization is the root of all evil," is quoted so often it has lost its teeth. People forget the surrounding sentence, which says we *should* forgo optimizations in "the critical 3%." The point is not that optimization is bad — it is that optimizing the wrong thing is worse than doing nothing, because it costs time, adds complexity, introduces bugs, and makes the code harder to read, all while the actual bottleneck sits untouched.
-
-Think of it like triage in an emergency room. A patient walks in and you do not immediately start treating the visible bruise on their arm. You take vitals, identify the life-threatening problem, and treat *that*. Code is the same: the slow part is almost never where you think it is. The famous "90/10 rule" holds that 90% of execution time is spent in about 10% of the code. Your job is to find that 10% before you touch anything.
 
 > **Best practice:** Establish a performance *budget* and a *baseline* before optimizing. "This endpoint must respond in under 200ms at the 95th percentile under 500 concurrent users" is a goal you can measure against. "Make it faster" is not.
 
@@ -24,8 +22,6 @@ A disciplined optimization workflow looks like this:
 4. **Form a hypothesis and change one thing.** Only one.
 5. **Measure again.** Did it actually improve? By how much? Is the improvement worth the added complexity?
 6. **Repeat or stop.** Stop when you hit the budget. Do not gold-plate.
-
-The next two sections equip you for steps 2, 3 and 5: benchmarking a piece of code you suspect, and profiling a running system to find what to suspect. The rest of the chapter is the mechanics behind step 4, so that when the profiler points somewhere you know which lever to pull.
 
 ## Benchmarking with BenchmarkDotNet
 
@@ -100,7 +96,7 @@ BenchmarkDotNet prints a table that looks roughly like this (numbers illustrativ
 | StringJoin          | 1000 |     4.100 us |    0.02 |     4.30 KB |
 ```
 
-Learn to read this table like a doctor reads a chart:
+How to read the table:
 
 - **Mean** is the average time per operation. `us` is microseconds, `ns` nanoseconds, `ms` milliseconds — check the unit, it changes per table.
 - **Ratio** compares each row to the `Baseline = true` benchmark. `0.03` means StringBuilder took 3% of the naive version's time — over 30x faster.
@@ -147,7 +143,7 @@ dotnet-gcdump collect -p 12345
 
 ## Garbage Collection — in depth
 
-[Chapter 3](#chapter-3-how-net-runs-your-code) taught the model: a tracing, generational, compacting collector; gen0, gen1 and gen2; what triggers a collection; finalization and why `GC.Collect()` is almost always wrong. This section is what that model does under a server's load: where large objects go, how the two GC flavours split the work across cores, and how a full collection avoids freezing the application.
+[Chapter 3](#chapter-3-how-net-runs-your-code) taught the model; this section is what it does under a server's load: where large objects go, how the two GC flavours split the work across cores, and how a full collection avoids freezing the application.
 
 ### The Large Object Heap (LOH)
 
@@ -198,15 +194,11 @@ The problem with Gen 2 collections is that scanning the whole heap can take a lo
 
 ## Memory and Allocations: The Quiet Performance Killer
 
-In managed .NET, you do not manually free memory; the garbage collector does. That is a productivity feature and, at the same time, the source of the most common non-obvious performance problems. This section turns the GC's mechanics into the question a profiler makes you ask: which allocations can this hot path stop making?
-
 ### Why Allocations Cost
 
 Allocating a small object on the managed heap is itself cheap: it is basically a pointer bump. The cost comes *later*, when the GC has to reclaim it, and a collection can pause your application threads (the generations are in [Chapter 3](#chapter-3-how-net-runs-your-code); the LOH, Server GC and DATAS in the section above).
 
 So the real cost of allocations is **GC pressure**: the more garbage you produce, the more often the GC runs, the more CPU it burns, and the more latency spikes ("pauses") your users feel. A hot path that allocates a temporary object per iteration can trigger thousands of Gen0 collections per second. The allocation was cheap; the aggregate collection cost is not.
-
-> **Mental model:** Every allocation is a small loan from the GC that must be repaid with interest at an unpredictable time. A little borrowing is fine. Borrowing millions of times per second means the collector is constantly working — and it does that work by stealing CPU cycles and occasionally freezing your threads.
 
 The goal in hot paths is therefore not "never allocate" but "**do not allocate needlessly and repeatedly**." One lever is the type itself: a small `struct` used inline costs no heap allocation, and boxing it costs one every time ([Chapter 1](#chapter-1-c-essentials) covers both). Here are the other tools .NET gives you.
 
@@ -306,8 +298,6 @@ finally
 
 Strings in .NET are immutable, so every "modification" creates a new string. As the earlier benchmark showed, concatenating in a loop with `+=` is quadratic in both time and allocations. `StringBuilder` maintains a growable internal buffer and only materializes the final string once, turning that O(n²) allocation storm into a linear one.
 
-The nuance seniors know: for a **small, fixed number of concatenations**, `StringBuilder` is *slower* due to its own setup overhead. `"Hello, " + name + "!"` compiles to a single efficient `string.Concat` call — do not "optimize" it into a StringBuilder. Reach for StringBuilder when the number of appends is large or unbounded (loops). Also prefer **string interpolation** (`$"..."`) for readability; modern C# lowers it efficiently, and interpolated string handlers even avoid intermediate allocations in APIs like logging.
-
 ### Closures and LINQ in Hot Paths
 
 LINQ is expressive and, in the vast majority of code, its cost is negligible and readability wins. But in a genuine hot path it hides allocations: each query allocates enumerator state machines, and any lambda that **captures** a variable allocates a closure object to hold the captured state.
@@ -324,7 +314,7 @@ foreach (var x in items)
     if (x.Value > threshold) count++;
 ```
 
-> **Best practice:** Write LINQ by default — it is clearer and the cost rarely matters. Rewrite to explicit loops *only* in code a profiler has flagged as hot. This is measure-first in miniature: do not preemptively strip LINQ from your whole codebase because you read it is slow. Ninety percent of your code does not care.
+> **Best practice:** Write LINQ by default — it is clearer and the cost rarely matters. Rewrite to explicit loops *only* in code a profiler has flagged as hot.
 
 ## The Thread Pool Under Load
 
@@ -499,8 +489,6 @@ Reflection powers serializers, DI containers, ORMs, and validators. But it's **s
 
 A **source generator** is a compiler plugin that runs *during compilation*, inspects your code (via the Roslyn syntax and semantic model), and *emits additional C# source* that gets compiled alongside your own. It's the modern answer to problems previously solved with runtime reflection or reflection-emit.
 
-The mental model: instead of discovering metadata and building behavior at *runtime* (slow, AOT-hostile), a source generator does that discovery at *compile time* and writes plain code you could have written by hand. The result is faster, trimming-friendly, and debuggable.
-
 ```csharp
 // You write a partial declaration with an attribute:
 [JsonSerializable(typeof(Person))]
@@ -604,30 +592,6 @@ Two assemblies with the *same name* loaded into *two different ALCs* are conside
 ### Strong naming
 
 A **strong name** is a cryptographic identity for an assembly: the assembly is signed with a private key, and its identity becomes name + version + culture + **public key token**. Historically this was required for the Global Assembly Cache (GAC) and to prevent name collisions. In modern cross-platform .NET the GAC is gone and strong naming is far less important — it's mainly relevant for library authors who need a stable public identity or must be referenced by other strong-named assemblies. It is *not* a security feature (the public key is embedded and verifiable, but it doesn't prevent tampering the way Authenticode does). Don't rely on strong naming for security; use it for identity stability if you publish widely-consumed libraries.
-
-## Common .NET Performance Anti-Patterns
-
-A consolidated field guide to the recurring offenders, most of which this chapter has met:
-
-- **Optimizing without measuring.** The meta-anti-pattern. You cannot fix what you have not measured.
-- **String concatenation with `+=` in loops.** Quadratic allocations. Use `StringBuilder` or `string.Join`.
-- **The N+1 query.** One query becomes hundreds via lazy navigation access. Use `Include` or projection ([Chapter 7](#chapter-7-data-access); EF Core performance in depth is in [Chapter 18](#chapter-18-data-in-depth)).
-- **Sync-over-async (`.Result`/`.Wait()`).** Blocks threads, causes thread-pool starvation under load.
-- **`List.Contains` inside a loop.** O(n²), fine on 100 dev rows and fatal on 100,000. Build a `HashSet` or `Dictionary` once, before the loop; [Chapter 2](#chapter-2-data-structures-and-algorithms-essentials) has the collections and their costs.
-- **Fetching whole entities and unbounded result sets.** Project to DTOs; always paginate.
-- **Catching exceptions for control flow.** Throwing is expensive (stack capture). Do not use `try/catch` where a `TryParse` or a null check works. Exceptions are for the exceptional.
-- **Hidden boxing.** Value types silently heap-allocated by `object`/interface conversions and non-generic collections.
-- **LINQ and closures in genuinely hot loops.** Fine everywhere else; a real cost in the flagged 10%.
-- **Excessive logging in hot paths.** String formatting and I/O per request adds up; use structured logging with level checks and interpolated string handlers.
-- **Not disposing / leaking IDisposables.** Undisposed `HttpClient` per request exhausts sockets; unclosed DB connections exhaust the pool. Use `IHttpClientFactory` and `using`.
-
-## Putting It All Together
-
-Performance engineering is not a bag of tricks to sprinkle everywhere — it is a discipline of *evidence*. The senior engineer's edge is not knowing more optimizations than the mid-level one; it is the restraint to not apply them until measurement demands it, and the tooling fluency to measure quickly and correctly when it does.
-
-Internalize the loop: **define a goal, measure a baseline, profile to find the real bottleneck, change one thing, measure again, stop when you hit the budget.** Keep the mechanical knowledge (allocations create GC pressure, a large buffer per request is gen2 work per request, a blocked thread is a delay for everyone, the right collection changes the cost curve's shape, EF can turn one line into a thousand queries) in your back pocket so that when the profiler points at the hot 10%, you know exactly which lever to pull.
-
-Above all, remember the golden rule from the start of this chapter, because it is the one you will be tempted to break every single time: **measure first. Don't guess.** The code you were *sure* was slow almost never is. Let the evidence, not your intuition, decide where you spend your effort.
 
 ## Practice
 

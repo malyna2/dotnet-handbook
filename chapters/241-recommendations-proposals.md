@@ -1,6 +1,6 @@
 # Chapter 41: Recommendations, Proposals and Estimates
 
-Clients don't hire a senior contractor for answers they could find themselves. They hire one to turn partial information into a decision they can act on and defend to the people above them. [Chapter 39](#chapter-39-discovery-and-diagnosis) covered finding out what is wrong. This chapter covers what comes after: saying what to do about it, writing it so a busy executive can act, putting a shape and a price on the work, and keeping that shape intact once delivery starts.
+Clients don't hire a senior contractor for answers they could find themselves. They hire one to turn partial information into a decision they can act on and defend to the people above them. [Chapter 39](#chapter-39-discovery-and-diagnosis) covered finding out what is wrong. This chapter covers what comes after.
 
 These are four skills, but they form one pipeline, and a weak link breaks the rest:
 
@@ -16,7 +16,7 @@ These are four skills, but they form one pipeline, and a weak link breaks the re
 
 A good recommendation with a vague SOW turns into a dispute. A careful SOW built on a point estimate nobody believed turns into a death march. A perfect estimate for the wrong option wastes the client's money efficiently.
 
-[Chapter 16](#chapter-16-working-like-a-middle-developer) covered the basics: bottom line up front, trade-offs for a product manager, ADRs, and estimation within a team. The audience here is a client who pays by the day, can end the engagement, and may have been burned by the last vendor. The habits are the same, but the stakes and the incentives are different.
+[Chapter 16](#chapter-16-working-like-a-middle-developer) covered the basics. The audience here is a client who pays by the day, can end the engagement, and may have been burned by the last vendor. The habits are the same, but the stakes and the incentives are different.
 
 ## Why "It Depends" Is Not Advice
 
@@ -541,8 +541,6 @@ Options memos, one-pagers, proposals and estimates show senior judgment directly
 - **Practice work goes in your own public portfolio repo, not this handbook's repo.** Write a memo, an executive one-pager and a phased proposal with a three-point estimate for a *fictional* or *public* scenario: the monolith in the worked example above, or an open-source project's modernization.
 - **Real client documents stay private.** That includes their structure, prices and estimates, and any "anonymized" version in which the client can still be identified from its industry, stack and numbers. When in doubt, leave it out.
 - **Stories about real engagements** go in your private story bank ([Chapter 37](#chapter-37-the-story-bank-evidence-portfolio)), with metrics as [placeholders] until they're verified and you're allowed to use them.
-
-[Chapter 42](#chapter-42-the-advisory-casebook) walks through advisory situations end to end. [Chapter 43](#chapter-43-positioning-and-public-proof) turns artifacts like these into public proof.
 
 ## Exercises
 

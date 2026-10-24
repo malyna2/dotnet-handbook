@@ -1,10 +1,10 @@
 # Chapter 13: Git and CI/CD
 
-The people who write software and the people who run it share one piece of machinery: version control that lets many people change the same codebase safely, and pipelines that build and test every change the same way on every machine. This chapter makes you able to keep a branch current, clean and reviewable without losing anyone's work, get back commits that look lost, and set up the SDK, its tools, the analyzers and the formatter so that your laptop and the CI build apply the same rules, then read and write a GitHub Actions pipeline for a .NET service.
+The people who write software and the people who run it share one piece of machinery: version control that lets many people change the same codebase safely, and pipelines that build and test every change the same way on every machine.
 
 Each half rests on one mechanism. **A commit is an immutable snapshot whose ID is a hash of its content, parent IDs included; a branch is only a movable name for one commit.** Merge versus rebase, the reflog, what `.gitignore` can't undo and why long branches hurt all follow from that sentence. And **the `dotnet` CLI is a driver**: the same commands, tools and compiler-hosted analyzers run on every machine, so a pipeline is your local build, written down and run on every push.
 
-The chapter goes from Git's model to the pipeline: Git first, then what CI and CD mean, the `dotnet` CLI and MSBuild that every pipeline calls, a complete GitHub Actions workflow, versioning, secrets and the analysis gates, and finally the everyday tools around them. Azure Pipelines, NuGet publishing, deployment strategies, feature flags and platform engineering build on this in [Chapter 26: Delivery and Platform](#chapter-26-delivery-and-platform).
+Azure Pipelines, NuGet publishing, deployment strategies, feature flags and platform engineering build on this in [Chapter 26: Delivery and Platform](#chapter-26-delivery-and-platform).
 
 ## Git, Properly Understood
 
@@ -187,7 +187,7 @@ The command line is essential, but a good GUI makes history, staging, and confli
 
 ## What CI/CD Actually Means
 
-The acronym conflates three distinct practices. Precision here separates people who understand the pipeline from those who parrot the buzzword.
+The acronym conflates three distinct practices.
 
 **Continuous Integration (CI)** is the discipline of merging every developer's work into a shared mainline frequently—at least daily—and verifying each merge with an automated build and test run. The goal is to catch integration problems within minutes of introducing them, while the change is small and fresh in the author's mind. CI is fundamentally a *human* practice (integrate often) supported by automation (build and test on every push).
 
@@ -195,11 +195,9 @@ The acronym conflates three distinct practices. Precision here separates people 
 
 **Continuous Deployment** removes even that final button. Every change that passes all automated gates goes to production automatically, with no human in the loop. This demands very high confidence in your test suite and safe deployment techniques (feature flags, canaries, fast rollback).
 
-> **The distinction that matters in interviews and in practice:** Continuous *Delivery* keeps a human gate before production; continuous *Deployment* does not. Both require the same rigorous automated pipeline underneath.
-
 ## Build Automation with the dotnet CLI
 
-Every pipeline in this chapter leans on the `dotnet` CLI, which is the same tool you use locally. Learn it first: consistency between local and CI builds eliminates a whole class of "works on my machine" problems.
+Every pipeline in this chapter leans on the `dotnet` CLI, which is the same tool you use locally. Consistency between local and CI builds eliminates a whole class of "works on my machine" problems.
 
 ```bash
 dotnet restore                       # download NuGet dependencies
@@ -277,11 +275,7 @@ Several platforms implement these ideas. They differ in hosting model and syntax
 
 **Jenkins** is the veteran open-source automation server. It is enormously flexible via its plugin ecosystem and `Jenkinsfile` pipelines, self-hosted, and still widespread in organizations with established infrastructure. The tradeoff is operational overhead: you run, patch, and secure the server and its agents yourself.
 
-The concepts—triggers, jobs, steps, artifacts, caching, secrets, environments—exist in all four. Learn them once and you can read any of these platforms' configuration.
-
 ## A Complete GitHub Actions Workflow for .NET
-
-Let's build a real pipeline that restores, builds, tests, publishes, containerizes, and deploys a .NET application. We'll then dissect it.
 
 ```yaml
 name: build-test-deploy
@@ -487,8 +481,6 @@ A typical quality-gate stage in the pipeline runs the Sonar scanner around the b
 
 ## The Everyday Toolbox
 
-The tools below are the ones a modern .NET team reaches for around the build. Know what each one solves, so you pick deliberately rather than by habit.
-
 ### IDEs: Visual Studio, Rider, and VS Code
 
 **Visual Studio** (Windows) is the heavyweight. Its debugger is best-in-class, especially for tricky scenarios: mixed-mode debugging, memory dumps, IntelliTrace, and the diagnostic tooling for CPU and allocation profiling. If you work on WPF/WinForms, complex MSBuild setups, or need the deepest debugging experience, it is hard to beat. The cost is that it is heavy and Windows-only.
@@ -496,8 +488,6 @@ The tools below are the ones a modern .NET team reaches for around the build. Kn
 **JetBrains Rider** is cross-platform and, for many, the day-to-day sweet spot. It combines ReSharper's analysis engine with a fast solution model, excellent refactoring, and strong support for EF Core, Docker, databases, and unit test runners in one product. Rider tends to feel snappier than VS on large solutions and works identically on macOS, Linux, and Windows.
 
 **VS Code + C# Dev Kit** is the lightweight, extensible option. Backed by the Roslyn language server, C# Dev Kit gives you a solution explorer, test integration, and IntelliSense that is now genuinely good for everyday work. It shines for microservices, polyglot repos (a .NET API next to a React front end), and remote/container development via Dev Containers and SSH.
-
-> **Tip:** Match the tool to the task, not to tribal loyalty. Many seniors keep VS Code open for quick edits and scripts, and reach for Rider or Visual Studio when they need heavy refactoring or serious debugging.
 
 ### API Testing
 
@@ -514,17 +504,9 @@ Options for poking at HTTP endpoints:
 
 Diagrams-as-code beat drag-and-drop tools because they diff and version. **Mermaid** renders directly in GitHub/GitLab markdown, so sequence and flow diagrams live next to the code. **PlantUML** is more powerful for detailed UML. The **C4 model** (Context, Container, Component, Code) gives you a shared vocabulary for architecture at different zoom levels; tooling like Structurizr or C4-PlantUML renders it.
 
-> **Tip:** A Mermaid sequence diagram in your README saves ten minutes of whiteboard explanation for every new joiner.
-
 ### Local Dev Tooling
 
 Reliable local environments prevent "works on my machine." **Testcontainers** spins up real dependencies (Postgres, Redis, Kafka) in Docker for integration tests, then tears them down; no more shared, drifting test databases ([Chapter 8: Testcontainers for .NET](#testcontainers-for-net) shows how). **Azurite** emulates Azure Storage (Blob, Queue, Table) locally, and **LocalStack** emulates a broad range of AWS services. These let you develop and test cloud integrations offline and in CI.
-
-## Bringing It Together
-
-Command of Git and CI is a chain of small, well-understood decisions. You keep branches short-lived and integrate constantly, because a branch is just a pointer and deferred integration is where pain accumulates. You curate history with interactive rebase before review and treat shared history as immutable, trusting the reflog to catch your mistakes. You express your build as `dotnet` commands that run identically on your laptop and in CI, pin the tools in a manifest, centralize configuration with `Directory.Build.props` and Central Package Management, and version artifacts deterministically with SemVer and GitVersion. Your pipeline restores with caching, tests across a matrix, gates on analyzers, formatting, coverage and static analysis, keeps every secret in the platform's store, and produces one immutable artifact.
-
-None of these practices is exotic. Their power is cumulative: together they turn shipping software from a nerve-wracking event into a routine, boring, reversible non-event. How that artifact reaches production safely (deployment strategies, feature flags, Azure Pipelines and measuring delivery) is [Chapter 26: Delivery and Platform](#chapter-26-delivery-and-platform).
 
 ## Three questions
 

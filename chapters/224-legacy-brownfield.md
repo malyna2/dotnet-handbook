@@ -1,14 +1,12 @@
 # Chapter 24: Working with Legacy & Brownfield Code
 
-Most professional work happens on systems that already exist, and the senior skill is changing them safely while understanding only a slice. This chapter makes you able to do that: pin a system's current behaviour before you touch it, find the seams where it can be changed without editing everything at once, decide between incremental strangling and a rewrite, move a .NET Framework system to modern .NET, and keep the platform under it from going out of support again.
+Most professional work happens on systems that already exist, and the senior skill is changing them safely while understanding only a slice.
 
-The sections build in that order. First the mindset and the techniques for code you don't understand (characterization tests, seams, breaking dependencies, sprouting and wrapping new code beside the old); then modernization at the scale of a whole system (the strangler fig against the big rewrite), the .NET Framework migration in practice, and living with a big ball of mud, where hotspots tell you which debt is worth paying; then the data, downtime and progress-measurement side of a migration; and last the end-of-life treadmill that makes legacy a verb rather than a noun. It builds on the refactoring and tech-debt basics of [Chapter 16](#chapter-16-working-like-a-middle-developer) and the testing basics of [Chapter 8](#chapter-8-testing).
+The chapter builds on the refactoring and tech-debt basics of [Chapter 16](#chapter-16-working-like-a-middle-developer) and the testing basics of [Chapter 8](#chapter-8-testing).
 
 ## The Myth of the Greenfield
 
-Somewhere early in your career you probably imagined that senior engineers spend their days architecting elegant new systems from a blank editor. The reality is almost the exact opposite. The overwhelming majority of professional software work happens on systems that already exist, already have users, already generate revenue, and already carry years of decisions — good and bad — baked into their code. This is *brownfield* development: building on land that has already been developed, where you must account for existing structures rather than pouring a fresh foundation.
-
-The move from mid-level to senior is, more than anything, the ability to be effective in this environment. Junior developers freeze in front of a million-line codebase they don't understand. Senior developers have a systematic approach for changing code safely even when they only understand a small slice of it. That approach — the mindset, the techniques, and the tooling — is what this chapter is about.
+Systems that already exist have users, generate revenue, and carry years of decisions — good and bad — baked into their code. This is *brownfield* development: building on land that has already been developed, where you must account for existing structures rather than pouring a fresh foundation.
 
 ### What "Legacy" Actually Means
 
@@ -26,9 +24,7 @@ Two attitudes will sink you before you write a line of code.
 
 The first is contempt. It is tempting to look at legacy code and assume the people who wrote it were incompetent. Almost always they were not. They were working under deadlines you don't know about, with framework versions that no longer exist, satisfying requirements that have since changed. That "insane" workaround was probably a rational response to a constraint that has been forgotten. Approach the code as an archaeologist, not a critic.
 
-The second is the urge to rewrite. We'll return to this, but hold the thought: the ugly code that's still running is doing something valuable. It encodes thousands of bug fixes and edge cases — the accumulated learning of the business — that exist *nowhere else*, certainly not in any specification. That value is real, and throwing it away is expensive.
-
-> **Best practice:** Before changing legacy code, assume it is the way it is for a reason you don't yet see. Your job is to understand that reason, then make it better, not to prove you're smarter than your predecessors.
+The second is the urge to rewrite. The ugly code that's still running is doing something valuable. It encodes thousands of bug fixes and edge cases — the accumulated learning of the business — that exist *nowhere else*, certainly not in any specification. That value is real, and throwing it away is expensive.
 
 ## Changing Code You Don't Understand
 
@@ -183,7 +179,7 @@ Every existing caller of `Pay` now gets the audit log for free, and you never to
 
 ## Modernizing at Scale: Strangler Fig vs. the Big Rewrite
 
-The techniques above operate at the method and class level. When the goal is to modernize an entire system — say, move a .NET Framework monolith to modern .NET — you need a strategy at the architecture level. Here the field has essentially settled on one answer, and it has a memorable name.
+The techniques above operate at the method and class level. When the goal is to modernize an entire system — say, move a .NET Framework monolith to modern .NET — you need a strategy at the architecture level.
 
 ### Why Big-Bang Rewrites Usually Fail
 
@@ -193,8 +189,6 @@ The seductive plan is: freeze the old system, build a shiny new one in parallel,
 - **The target keeps moving.** The business can't stop for two years. Every feature added to the old system must also be added to the new one, so you're maintaining two systems and never catching up.
 - **Value arrives only at the end** — if it arrives. For years there's no return on the investment, which makes the project a prime target for cancellation the moment budgets tighten.
 - **Cutover is all-or-nothing.** You flip the switch and either it works or the business stops. There is no gentle rollback.
-
-> **Pitfall:** "We'll just rewrite it, it'll be faster the second time" is one of the most expensive sentences in software. The second time you'll rediscover why the first version was complicated — the hard way, in production.
 
 ### The Strangler Fig Pattern
 
@@ -233,7 +227,7 @@ app.MapWhen(
 app.Run(async ctx => await _legacyProxy.ForwardAsync(ctx));
 ```
 
-The strategic advantages mirror the rewrite's failures point for point: **value ships continuously** (each migrated slice is in production immediately), **risk is bounded** (if the new Orders service misbehaves, you re-route that one path back to legacy), and **you can stop anytime** with a coherent, working system. Strangler Fig is not merely "nicer"; it is a fundamentally lower-risk bet.
+The strategic advantages mirror the rewrite's failures point for point: **value ships continuously** (each migrated slice is in production immediately), **risk is bounded** (if the new Orders service misbehaves, you re-route that one path back to legacy), and **you can stop anytime** with a coherent, working system.
 
 > **Best practice:** Migrate along seams that matter to the business — a whole capability like "checkout" or "reporting" — not arbitrary technical layers. A migrated slice should be independently valuable and independently deployable.
 
@@ -433,7 +427,7 @@ public decimal Price(Cart cart)
 
 ## The EOL Treadmill: Legacy Is a Verb
 
-This chapter has treated legacy as a state you inherit. It is worth ending on the observation that it is also a process you are subject to, continuously, whether or not you write any code.
+Legacy is not only a state you inherit; it is also a process you are subject to, continuously, whether or not you write any code.
 
 Consider what a single ASP.NET Core service actually depends on, and who controls the clock on each:
 
@@ -493,7 +487,7 @@ The deepest version of this point: **the maintenance cadence you can sustain is 
 
 Forty microservices means forty runtime upgrades, forty base images, forty dependency graphs. That is a real, recurring cost, and it is one of the strongest arguments for the modular monolith ([Chapter 21](#chapter-21-architecture)) at team sizes that cannot staff forty upgrade paths. Similarly, every additional language, framework, database engine and cloud service you adopt adds its own independent expiry schedule.
 
-The question to ask when adopting anything new is not only "does this solve our problem?" but "**who will upgrade this in three years, and will they know why we chose it?**" A team that asks this consistently ends up with fewer, better-understood technologies — and considerably less of the legacy this chapter is about.
+The question to ask when adopting anything new is not only "does this solve our problem?" but "**who will upgrade this in three years, and will they know why we chose it?**"
 
 ## Practice
 

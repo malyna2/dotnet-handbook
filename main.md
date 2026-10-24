@@ -21,13 +21,11 @@ This book grew out of a simple roadmap — a checklist of "things a middle .NET 
 
 *Pay attention* callouts spell out the mechanism behind the most common wrong answer, the one an interviewer's "why?" finds. Where a topic is taught in another chapter, the text links there instead of repeating it.
 
-Let's begin.
-
 ---
 
 ## Contents
 
-> **Total study time: about 43 hours** — Part 1 about 16 hours, Part 2 about 27 hours (reading prose at ~200 wpm and every code sample at ~60 wpm, the pace behind each chapter's own estimate). A straight read (prose at ~250 wpm, code at ~100) is closer to **32 hours**; a quick skim (~300 and ~200 wpm), **24 hours**. Practice and labs come on top.
+> **Total study time: about 41 hours** — Part 1 about 15 hours, Part 2 about 26 hours (reading prose at ~200 wpm and every code sample at ~60 wpm, the pace behind each chapter's own estimate). A straight read (prose at ~250 wpm, code at ~100) is closer to **30 hours**; a quick skim (~300 and ~200 wpm), **23 hours**. Practice and labs come on top.
 
 Use the **sidebar** on the left (or the cards below) to jump to any chapter; the **Next →** button at the bottom of every page walks the book in reading order.
 
@@ -62,20 +60,20 @@ Before an interview, reread [Part 1 · Pay Attention To](#part-1-pay-attention-t
 | Chapter | | Reading |
 |---|---|---|
 | 1 | [C# Essentials](#chapter-1-c-essentials) | 1 h 20 min |
-| 2 | [Data Structures and Algorithms Essentials](#chapter-2-data-structures-and-algorithms-essentials) | 40 min |
+| 2 | [Data Structures and Algorithms Essentials](#chapter-2-data-structures-and-algorithms-essentials) | 35 min |
 | 3 | [How .NET Runs Your Code](#chapter-3-how-net-runs-your-code) | 35 min |
 | 4 | [Async Essentials](#chapter-4-async-essentials) | 45 min |
-| 5 | [HTTP and Web APIs](#chapter-5-http-and-web-apis) | 1 h 10 min |
+| 5 | [HTTP and Web APIs](#chapter-5-http-and-web-apis) | 1 h 5 min |
 | 6 | [Frontend Essentials](#chapter-6-frontend-essentials) | 1 h 25 min |
-| 7 | [Data Access](#chapter-7-data-access) | 1 h 40 min |
+| 7 | [Data Access](#chapter-7-data-access) | 1 h 35 min |
 | 8 | [Testing](#chapter-8-testing) | 45 min |
 | 9 | [Exceptions, Logging and First Diagnosis](#chapter-9-exceptions-logging-and-first-diagnosis) | 1 h 10 min |
-| 10 | [Design Basics](#chapter-10-design-basics) | 1 h 20 min |
+| 10 | [Design Basics](#chapter-10-design-basics) | 1 h 15 min |
 | 11 | [Messaging and Background Work](#chapter-11-messaging-and-background-work) | 1 h |
 | 12 | [Security Essentials](#chapter-12-security-essentials) | 45 min |
 | 13 | [Git and CI/CD](#chapter-13-git-and-cicd) | 40 min |
-| 14 | [Containers and Linux](#chapter-14-containers-and-linux) | 55 min |
-| 15 | [Dates, Money and Strings](#chapter-15-dates-money-and-strings) | 40 min |
+| 14 | [Containers and Linux](#chapter-14-containers-and-linux) | 50 min |
+| 15 | [Dates, Money and Strings](#chapter-15-dates-money-and-strings) | 35 min |
 | 16 | [Working Like a Middle Developer](#chapter-16-working-like-a-middle-developer) | 50 min |
 
 
@@ -83,11 +81,9 @@ Before an interview, reread [Part 1 · Pay Attention To](#part-1-pay-attention-t
 
 # Chapter 1: C# Essentials
 
-_⏱️ Estimated read time: ~1 h 20 min · 11126 words (study pace)_
+_⏱️ Estimated read time: ~1 h 20 min · 10650 words (study pace)_
 
-This chapter teaches you to predict what everyday C# does before you run it: what an assignment copies, what `==` compares, which method a call through a base class runs, where a null still gets past the compiler, when a LINQ query runs and where its filter executes, what a lambda captures, and what `Dispose` gives back. Two facts explain most of the answers. A variable holds either a value or a reference to a shared object. And the compiler turns many lines into something else: an operator or a method picked from the variable's declared type, a hidden object that holds captured variables, a state machine that runs later.
-
-The sections follow that order. Value and reference types come first, because copying, boxing and equality all follow from them; classes, inheritance and virtual dispatch build on reference types; generics remove boxing, and records, strings, tuples and pattern matching build on value equality and deconstruction. Nullable reference types show the limit of what the compiler checks. Delegates and closures, extension methods and iterators are the parts LINQ is made of, so LINQ comes after them and its two surprises, deferred execution and the `IEnumerable`/`IQueryable` split, read as consequences rather than rules; the everyday operators and their traps follow. `IDisposable` and the modern syntax close the teaching part; a runnable experiment, three questions and interview questions follow.
+Two facts explain most of what everyday C# does: what an assignment copies, what `==` compares, which method a call through a base class runs, where a null still gets past the compiler, when a LINQ query runs, what a lambda captures. A variable holds either a value or a reference to a shared object. And the compiler turns many lines into something else: an operator or a method picked from the variable's declared type, a hidden object that holds captured variables, a state machine that runs later.
 
 What the stack and the heap are, and how the garbage collector reclaims what you allocate, is [Chapter 3: How .NET Runs Your Code](#chapter-3-how-net-runs-your-code). `Span<T>`, reflection and source generators are in [Chapter 17: Runtime Internals and Performance](#chapter-17-runtime-internals-and-performance).
 
@@ -127,7 +123,7 @@ In brief: the **stack** is per-thread memory that grows and shrinks with method 
 - A value type **captured by a closure** or used in an `async` method or iterator is often hoisted into a compiler-generated heap object.
 - A reference type's **reference** (the pointer-sized handle) follows the same rules as a value type — a local reference variable sits on the stack — but the **object it points to** is on the heap.
 
-> **Gotcha:** "Value types are always on the stack" is false. Reason about *where the variable is declared*. The JIT is also free to keep values in registers, and since .NET 9 and 10 it stack-allocates some objects that provably don't outlive the method (boxes, small arrays, some delegates). The runtime decides, not the type.
+> **Gotcha:** The JIT is free to keep values in registers, and since .NET 9 and 10 it stack-allocates some objects that provably don't outlive the method (boxes, small arrays, some delegates). The runtime decides, not the type.
 
 It matters because heap allocations drive garbage collection: a higher allocation rate means more frequent collections, with pauses and CPU spent tracing objects. `Span<T>`, structs and object pooling exist to avoid them ([Chapter 17: Runtime Internals and Performance](#chapter-17-runtime-internals-and-performance)).
 
@@ -203,8 +199,6 @@ ref struct StackOnly
 // StackOnly cannot be a field of a class, cannot be boxed,
 // cannot be used inside an async method or a lambda closure.
 ```
-
-> **Rule of thumb:** `readonly struct` for immutable value semantics with zero defensive-copy overhead; `ref struct` for stack-only, allocation-free buffers like `Span<T>`.
 
 ## Classes, Inheritance and Virtual Dispatch
 
@@ -414,8 +408,6 @@ int i = Sum(new[] { 1, 2, 3 });          // 6
 double d = Sum(new[] { 1.5, 2.5 });      // 4.0
 ```
 
-This is a genuine leap: one algorithm, zero boxing, works for every numeric type including your own custom ones that implement the interface.
-
 ## Records, Value Equality, and with Expressions
 
 A struct compares by contents and a class by reference. A record gives a type contents-based comparison without hand-written code: it is a reference type (or `record struct` for a value type) for which the compiler generates **value-based equality**, a readable `ToString` and nondestructive mutation. Records are for *data* (DTOs, domain values, messages), where two instances with the same contents should be equal.
@@ -549,7 +541,7 @@ string desc = data switch
 };
 ```
 
-The `switch` *expression* (distinct from the older `switch` statement) returns a value, is exhaustive-checked by the compiler, and reads top-to-bottom with the first match winning. This is a functional, declarative style that replaces sprawling `if/else` ladders.
+The `switch` *expression* (distinct from the older `switch` statement) returns a value, is exhaustive-checked by the compiler, and reads top-to-bottom with the first match winning.
 
 ## Nullable Reference Types
 
@@ -651,11 +643,9 @@ public static class StringExtensions
 bool empty = "   ".IsNullOrBlank();   // reads like an instance call; compiles to a static call
 ```
 
-Extension methods are purely compile-time sugar — there's no runtime magic, just a static call the compiler rewrites. They can't access private members and are resolved by the `using` namespaces in scope.
+Extension methods can't access private members and are resolved by the `using` namespaces in scope.
 
 > **New in C# 14 (.NET 10):** *extension members* generalize this `static`-`this` form. Inside an `extension` block you can now declare extension **properties**, operators, and static extension members — not just instance methods. The classic `this`-parameter syntax still works and interoperates with the new blocks, so nothing here is obsolete (see *Modern Syntax You Should Be Using* below for the timeline).
-
-We covered **static abstract interface members** under generic math; the broader point is that interfaces can now declare `static` members (operators, factory methods, constants), which combined with generics enables abstractions that were previously impossible in C#.
 
 ## Iterators and yield return
 
@@ -799,8 +789,6 @@ record Order(int Id, string Customer, decimal Total);
 class Person(string name) { public string Name { get; } = name; }
 ```
 
-Multiple enumeration is the trap that crosses all of them: an operator that returns `IEnumerable<T>` hands back a recipe, so two terminal calls on it run the whole pipeline twice, as the earlier section showed.
-
 ## IDisposable, IAsyncDisposable, and the Dispose Pattern
 
 The GC reclaims *managed memory*, but knows nothing about file handles, sockets, database connections or native memory. `IDisposable` is the contract for releasing those deterministically, and `using` compiles to a `try/finally` that calls `Dispose`.
@@ -910,12 +898,6 @@ customer?.Email = LoadEmail();   // when customer is null, LoadEmail() is never 
 Compound assignment such as `+=` works the same way; `++` and `--` don't.
 
 > **Where the language is heading.** C# 13 (.NET 9) added **params collections** (`params` accepts `Span<T>`, `ReadOnlySpan<T>` and other collection types, not just arrays) and `lock` support for .NET 9's dedicated `System.Threading.Lock` type. C# 14 ships with .NET 10, the current LTS. Besides `field`, **extension members** and null-conditional assignment, it brings implicit conversions between arrays, `Span<T>` and `ReadOnlySpan<T>`, `nameof` on unbound generic types (`nameof(List<>)`), modifiers such as `out` on lambda parameters without declared types, partial constructors and events, and user-defined compound assignment operators. C# 15 ships with .NET 11, an STS release at release candidate 2 since October 13, 2026 and supported from November 10, 2026. Its documentation lists union types, `closed` class hierarchies (a `switch` that handles every derived type needs no default arm), extension indexers, arguments in collection expressions (`[with(capacity: 100), ..items]`), labeled `break` and `continue`, and the first step of new memory-safety rules for unsafe code. [The appendix](#appendix-net-version-comparison-cheat-sheet) has the full version timeline.
-
-## Bringing It Together
-
-C#'s surface features rest on a small number of mechanisms. The value/reference divide governs copying, boxing and equality; a virtual call is resolved at run time through the object's method table, while a non-virtual call, an operator and an extension method are fixed at compile time by the declared type; generics give reuse without boxing; records generate the equality a class doesn't have; nullable annotations are checked only where the compiler can see. Delegates, closures, extension methods and iterators combine into LINQ, which is lazy because its operators are iterators and translatable because `IQueryable<T>` takes expression trees. `Dispose` exists because the GC manages memory and nothing else. The modern syntax layered on top (records, patterns, primary constructors, collection expressions) is not cosmetic: each one states an intent, such as immutability or exhaustiveness, that the compiler can check.
-
-With these mechanisms you stop guessing: you know, before you run the profiler, which line boxes, which query hits the database twice and which struct is copied defensively. The rest of the book builds on that.
 
 ## Prove it
 
@@ -1083,19 +1065,15 @@ The compiler rewrites the method into a state machine. At an `await`, if the awa
 
 # Chapter 2: Data Structures and Algorithms Essentials
 
-_⏱️ Estimated read time: ~40 min · 5945 words (study pace)_
+_⏱️ Estimated read time: ~35 min · 5523 words (study pace)_
 
-This chapter makes you able to say what a piece of code costs as its input grows, and to pick the .NET collection whose cost matches the job: why `Dictionary` lookups are constant time and what makes them linear, why `List<T>.Add` is cheap on average and occasionally not, why `Array.Sort` is not stable, and when a plain list beats every clever structure. That is the instinct that spots a nested loop over a growing list long before it becomes an incident, and the vocabulary interviewers test.
-
-It runs in three steps. **Big-O** gives the language for cost. **Core data structures** explains each BCL collection by how it is built, because the internals are what produce its costs. **Key algorithms and patterns** covers the handful of techniques (sorting, binary search, two pointers, sliding window, hashing, BFS/DFS, dynamic programming, greedy) that most coding questions and much real code reduce to. A short framing for real problems and the interview questions close it.
+This chapter makes you able to say what a piece of code costs as its input grows, and to pick the .NET collection whose cost matches the job: why `Dictionary` lookups are constant time and what makes them linear, why `List<T>.Add` is cheap on average and occasionally not, why `Array.Sort` is not stable, and when a plain list beats every clever structure.
 
 The same habit applied to whole systems (load estimates, caches, queues, replicas) is [Chapter 23: System Design](#chapter-23-system-design); measuring the cost of real code with a profiler and BenchmarkDotNet is [Chapter 17: Runtime Internals and Performance](#chapter-17-runtime-internals-and-performance).
 
 ## Big-O: The Language of "How Bad Does This Get?"
 
 Big-O notation describes how the *cost* of an operation grows as the *input* grows. It deliberately ignores constants and lower-order terms because they wash out at scale. If one algorithm takes `3n + 50` steps and another takes `n²`, then for small `n` the first might even be slower — but we care about the trend, and eventually `n²` dwarfs everything.
-
-The useful analogy: Big-O is like the *fuel efficiency rating* of an algorithm, not its top speed. A truck rated at 20 MPG will always beat one rated at 5 MPG on a long enough trip, regardless of who has the faster engine off the line.
 
 We track two dimensions:
 
@@ -1122,13 +1100,11 @@ A concrete feel for the numbers: for `n = 1,000,000`, an O(n) algorithm does a m
 
 Some operations are *usually* cheap but *occasionally* expensive, and amortized analysis tells you the average cost over a sequence. The classic case is `List<T>.Add`. Adding to a dynamic array is O(1) — until the backing array fills, at which point .NET allocates a new array (typically double the size) and copies everything, an O(n) operation. But because doublings happen exponentially rarely, the *amortized* cost per Add is still O(1).
 
-> **The intuition:** you pay a big cost rarely enough that, spread across all the cheap operations, it averages out to constant. It is like a phone plan with a large one-time activation fee — annoying once, negligible per call over two years.
-
 Amortized O(1) is not the same as worst-case O(1). If you have a hard latency ceiling on *every* operation (real-time systems, some trading paths), that occasional O(n) resize can matter, and you'd pre-size the collection.
 
 ## Core Data Structures and Their .NET Types
 
-The single most valuable skill in this section is matching a problem to a structure. Each structure trades away something to be fast at something else. Let's walk them in the order you'll reach for them.
+Each structure trades away something to be fast at something else.
 
 ### Arrays: `T[]`
 
@@ -1286,8 +1262,6 @@ For a lookup table built **once and read many times**, such as reference data lo
 
 > **Best practice:** for small collections (a handful to a few dozen items), a plain `List<T>` with a linear scan often *beats* a `Dictionary` or `SortedSet`. Hashing has constant overhead, tree nodes fragment memory, and cache locality wins at small `n`. Don't build an index for ten items.
 
-The discipline isn't reaching for the most sophisticated structure — it's reaching for the *simplest one that meets the actual constraints*. Premature "optimization" with heavyweight structures adds complexity and can be slower. Know your `n`.
-
 ## Key Algorithms and Patterns
 
 You rarely implement these from scratch at work, but recognizing when a problem *is* one of these is the payoff, and interviews test the same recognition. Most of them lean on a structure from the previous section: binary search on a sorted array, BFS on a `Queue<T>`, dedup on a `HashSet<T>`, memoization on a `Dictionary`.
@@ -1299,8 +1273,6 @@ You rarely implement these from scratch at work, but recognizing when a problem 
 - It starts with **quicksort**, which is fast on average (O(n log n)) with excellent cache behavior.
 - If recursion goes too deep (a sign quicksort is hitting its O(n²) worst case on a pathological input), it switches to **heapsort**, which guarantees O(n log n).
 - For small partitions (roughly 16 or fewer elements), it switches to **insertion sort**, which has low overhead and is fast on tiny, nearly-sorted runs.
-
-The lesson: production sorting is an engineering compromise, not a textbook algorithm. You get guaranteed O(n log n) worst case *and* good real-world speed.
 
 ```csharp
 var nums = new[] { 5, 2, 8, 1, 9 };
@@ -1431,7 +1403,7 @@ The two hallmarks that signal DP: **overlapping subproblems** (the same smaller 
 
 ### Greedy
 
-A greedy algorithm makes the locally best choice at each step and hopes it leads to a global optimum. It's fast and simple — but only *correct* for problems with the right structure. Making change with standard coin denominations works greedily (always take the largest coin that fits); with arbitrary denominations it can fail, and you need DP. The skill is knowing *when* greedy is provably correct versus when it's a seductive trap.
+A greedy algorithm makes the locally best choice at each step and hopes it leads to a global optimum. It's fast and simple — but only *correct* for problems with the right structure. Making change with standard coin denominations works greedily (always take the largest coin that fits); with arbitrary denominations it can fail, and you need DP.
 
 ## Choosing the Right Tool for a Real Problem
 
@@ -1442,13 +1414,7 @@ When a task lands on your desk, resist jumping to code. Frame it first:
 3. **What are the constraints?** Memory ceiling? Latency ceiling on *every* op (worst-case matters, not just amortized)? Ordering requirements?
 4. **What's the dominant cost?** Optimize the operation that runs most often or on the largest data. A slow one-time setup with fast repeated lookups is usually the right trade.
 
-> The framing itself is the skill. "Which data structure is best?" has no answer; "what does this problem actually need, and what's the simplest structure that delivers it within the constraints?" does.
-
 > **Pay attention.** **LINQ hides the loop, not its cost.** Each operator is a pass over its source, so a lambda that calls `Contains`, `First` or `Any` on a `List<T>` runs a full scan per element. `orders.Where(o => vipIds.Contains(o.CustomerId))` is O(n·m) with `vipIds` as a list and O(n) with it as a `HashSet<int>`, and the code looks the same. Likewise `Distinct`, `GroupBy` and `ToLookup` build hash tables internally (O(n) time, O(n) space), and `OrderBy` sorts (O(n log n)). Fix: before writing a lambda, ask what each call inside it costs per element, and build a set or dictionary once outside the query.
-
-## Bringing It Together
-
-The through-line is one habit: **reason about cost before you commit to code.** Pick the collection whose Big-O matches your access pattern and your realistic `n`, know which internal mechanism (contiguous array, hash buckets, balanced tree, binary heap) produces that cost and what breaks it (a bad hash, a mutated key, unsorted input to a binary search), and recognize the handful of algorithmic patterns most problems reduce to. Strong engineers are not the ones who memorized the most algorithms; they are the ones who reliably ask "how does this behave as it grows?" and have the vocabulary to answer.
 
 ## Prove it
 
@@ -1594,23 +1560,19 @@ Overlapping subproblems (the same smaller question recurs) and optimal substruct
 
 # Chapter 3: How .NET Runs Your Code
 
-_⏱️ Estimated read time: ~35 min · 5795 words (study pace)_
+_⏱️ Estimated read time: ~35 min · 5314 words (study pace)_
 
 This chapter explains the machinery around your code that every .NET service shares: where the runtime puts what you allocate and how the garbage collector gets it back, how settings reach your classes, how the dependency-injection container builds and disposes your objects, and how the Generic Host starts and stops the application. With it you can explain why memory climbs and comes back, why a misspelt setting fails silently, and why a `Scoped` service inside a singleton serves stale data to every request.
-
-The sections go from the bottom up. **Memory and garbage collection** come first, because allocation cost, disposal and object lifetimes all rest on them. **Configuration** and **dependency injection** are the two systems that wire an application together; the options pattern joins them, and service lifetimes decide which objects live how long. The **Generic Host** owns both, plus the lifecycle of background work. The chapter ends with the **release cadence**, which decides which runtime version you should be on.
 
 [Chapter 1](#chapter-1-c-essentials) covers value and reference types and boxing at the language level, and this chapter builds on it. The depth (the Large Object Heap, Server and Workstation GC, background GC, the JIT and Native AOT) is in [Chapter 17: Runtime Internals and Performance](#chapter-17-runtime-internals-and-performance); logging is in [Chapter 9](#chapter-9-exceptions-logging-and-first-diagnosis), and JSON serialization in [Chapter 5](#serialization-systemtextjson-vs-newtonsoftjson).
 
 ## The Memory Model: Stack vs Managed Heap
 
-The .NET runtime gives every managed program two fundamentally different regions of memory to work with: the **stack** and the **managed heap**. Understanding which values live where is the single most useful mental model for reasoning about allocation, garbage collection, and performance.
+The .NET runtime gives every managed program two fundamentally different regions of memory to work with: the **stack** and the **managed heap**.
 
 The **stack** is a thread-local, last-in-first-out region. Each thread gets its own stack (by default 1 MB on Windows). When you call a method, the runtime pushes a *stack frame* containing the method's parameters, its local variables, and bookkeeping like the return address. When the method returns, the frame is popped — instantly, with zero cleanup cost. There is no garbage collector involved in stack memory; deallocation is just moving a pointer back down.
 
 The **managed heap** is a process-wide region shared by all threads, and it's where reference-type objects live. When you write `new Customer()`, the runtime carves space out of the heap and hands you back a *reference* (essentially a pointer) to it. That reference might sit on the stack (as a local variable) or inside another heap object (as a field), but the `Customer` instance itself is always on the heap.
-
-Which of the two holds a given piece of data depends on where the variable is declared, not only on its type: a local `int` is in the stack frame, an `int` field of a class is inside the object on the heap, and a reference variable on the stack points to an object on the heap. [Chapter 1](#stack-vs-heap-where-the-bytes-actually-live) gives the rules.
 
 ```csharp
 public void Example()
@@ -1629,13 +1591,11 @@ public class Customer { public int Id; public string Name = ""; }
 
 When `Example` returns, the stack frame — `localValue`, `p`, the references `c` and `numbers` — vanishes for free. But the `Customer` and the `int[]` remain on the heap until the garbage collector proves nobody can reach them anymore. That "proving unreachability and reclaiming" is the job of the GC.
 
-> **Why this matters:** every heap allocation has a cost — not just the allocation itself, but the eventual GC work to reclaim it. High-performance .NET code minimizes heap allocations by favoring `structs` for small, short-lived data, using `Span<T>` for slicing without copying, and avoiding hidden allocations (boxing, closures, LINQ in hot paths); [Chapter 17](#chapter-17-runtime-internals-and-performance) shows how to measure them.
-
 **Boxing** is where the two meet: a value type assigned to `object` or an interface is copied into a new heap object, an allocation the code doesn't show ([Chapter 1](#boxing-and-unboxing-the-hidden-tax)).
 
 ## Garbage Collection
 
-The .NET garbage collector is a **tracing, generational, compacting** collector. Let's unpack each of those words, because each represents a deliberate design decision that shapes how your programs behave.
+The .NET garbage collector is a **tracing, generational, compacting** collector.
 
 **Tracing** means the GC determines liveness by starting from a set of *roots* — static fields, local variables and CPU registers on every thread's stack, and GC handles — and following references transitively. Any object reachable from a root is *live*; everything else is *garbage*. The GC never needs the program to tell it what to free; it discovers it.
 
@@ -1690,8 +1650,6 @@ A **finalizer** (`~ClassName()`) is a method the GC calls before reclaiming an o
 2. A dedicated **finalizer thread** later runs the finalizer.
 3. Only on the *next* GC can the object actually be collected.
 
-So a finalizable object survives at least one extra generation and requires two collection cycles to die. Overusing finalizers is a real performance problem.
-
 **`IDisposable`** provides *deterministic* cleanup: you (or a `using` block) call `Dispose()` at a precise, known point rather than waiting for the GC. This is the preferred mechanism, and [Chapter 1](#idisposable-iasyncdisposable-and-the-dispose-pattern) covers using it.
 
 The canonical pattern combines both — `Dispose()` for deterministic cleanup, a finalizer as a backstop if the caller forgets, and `GC.SuppressFinalize` to skip the expensive finalizer when `Dispose` already did the work:
@@ -1740,8 +1698,6 @@ public sealed class NativeBufferOwner : IDisposable
 - It introduces a synchronous pause exactly when you didn't need one.
 
 Legitimate uses are rare: benchmarking (to establish a clean baseline), a one-time cleanup after loading a huge dataset that you know created long-lived garbage, or immediately before taking a memory snapshot for diagnostics. If you find yourself reaching for `GC.Collect()` to "fix" a memory problem, the real fix is almost always to allocate less or to dispose properly.
-
-That is the GC a middle developer needs: generations, what triggers a collection, and why finalizers are a backstop. Which GC flavour a server runs, how the Large Object Heap fragments and how to read GC counters under load are in [Chapter 17](#chapter-17-runtime-internals-and-performance).
 
 ## The Configuration System
 
@@ -1907,15 +1863,6 @@ Versions and their dates, as of October 2026 (`releases-index.json` in the `dotn
 - **.NET 11** (STS) — at release candidate (RC1, September 2026, supported in production as "go-live"); GA is due in November 2026.
 
 > **Best practice for teams:** standardize on **LTS releases** for products with long maintenance horizons — you get three years before a forced upgrade and a smaller upgrade treadmill. Choose **STS** only when you specifically need a feature that shipped there. Whatever you pick, plan upgrades *before* the support window closes: running on an out-of-support runtime means no security patches, which is an audit and compliance problem.
-
-## Summary
-
-- **Memory** splits into the per-thread **stack**, reclaimed for free when a method returns, and the shared **managed heap**, reclaimed by the GC; every heap allocation is future GC work.
-- The **GC** is tracing, generational and compacting: Gen 0 collections are cheap and frequent, Gen 2 collections are expensive and should stay rare. Finalizers keep an object alive for an extra collection, so prefer `IDisposable`, and leave `GC.Collect()` alone.
-- **Configuration** layers providers, a later one overriding an earlier one; the **options pattern** binds a section to a class, and only validation (with `ValidateOnStart`) turns a missing key into an error.
-- The **DI container** builds the object graph with three lifetimes; a service may depend only on equal or longer lifetimes, and `ValidateScopes` catches the captive dependency only in Development.
-- The **Generic Host** composes configuration, DI and logging, starts and stops hosted services, and hands `BackgroundService` a stopping token to honor.
-- The **November release cadence** with **LTS (even) / STS (odd)** tracks lets you plan upgrades before support ends.
 
 ## Prove it
 
@@ -2092,11 +2039,9 @@ It starts a graceful shutdown: it calls `StopAsync` on each hosted service, and 
 
 # Chapter 4: Async Essentials
 
-_⏱️ Estimated read time: ~45 min · 6434 words (study pace)_
+_⏱️ Estimated read time: ~45 min · 6224 words (study pace)_
 
-This chapter is about what `async` and `await` do to three things: the thread, the exception and the work that is waiting. Every async outage in production is one of those three going wrong. By the end you should be able to write and review async request code that loses no exceptions and holds no thread it doesn't need: say where an exception from `async void` or `Task.WhenAll` goes, why `.Result` slows down every endpoint even when nothing deadlocks, what a `CancellationToken` actually stops, and how to share state between threads without a race.
-
-One mechanism ties it together: **`await` hands the thread back and parks the rest of the method on the task, and the task is the only thing that carries the result or the exception back.** The sections build that model in order. First why async exists and the thread pool it runs on, then what a `Task` is and what `await` does with it, down to the state machine the compiler generates. Then where the rest of the method runs when the task completes, and what happens when you block a thread to wait for it: the classic deadlock and its quieter, more common cousin, thread-pool starvation. Then how to stop work you no longer need (cancellation) and how to run several operations at once (`WhenAll`, `WhenAny`, throttling, async streams). Concurrent work means shared data, so the chapter ends with thread safety.
+This chapter is about what `async` and `await` do to three things: the thread, the exception and the work that is waiting. Every async outage in production is one of those three going wrong. One mechanism ties it together: **`await` hands the thread back and parks the rest of the method on the task, and the task is the only thing that carries the result or the exception back.**
 
 `ValueTask`, the TPL's parallel loops, Channels and the thread pool's injection rules build on this model and come in [Chapter 17: Runtime Internals and Performance](#chapter-17-runtime-internals-and-performance). [Chapter 5: HTTP and Web APIs](#chapter-5-http-and-web-apis) applies it to a web request.
 
@@ -2532,11 +2477,9 @@ if (_ready) Use(_data); // might see _ready == true but stale _data
 
 A **memory barrier** prevents reordering across it and forces visibility; `Volatile.Read`/`Volatile.Write` (and the `volatile` keyword) insert one. You rarely need this level: `lock`, `Interlocked` and the concurrent collections establish the barriers for you. Hand-rolled lock-free code is expert territory and a classic source of bugs that appear only in production, under load.
 
-> **Best practice.** Prefer high-level synchronization (`lock`, `Interlocked`, concurrent collections, immutable data) over manual memory barriers. Reach for `volatile` only when you understand the memory model, and document *why*.
-
 ## Prove it
 
-Three programs, one per trap. Predict each output before you run it: the gap between the prediction and the output is what this chapter is for.
+Three programs, one per trap. Predict each output before you run it.
 
 **1. An `async void` exception kills the process.**
 
@@ -2823,9 +2766,9 @@ Asynchronous streaming — `await foreach` over items produced with latency (pag
 
 # Chapter 5: HTTP and Web APIs
 
-_⏱️ Estimated read time: ~1 h 10 min · 10200 words (study pace)_
+_⏱️ Estimated read time: ~1 h 5 min · 9585 words (study pace)_
 
-Most bugs that reach production in a web service are not really *code* bugs. They are network bugs wearing a code costume: a call that works on your laptop times out under load, a service that handled a thousand requests per second starts throwing `SocketException`, an endpoint answers `200` while its client sees a failure. This chapter makes you able to explain what happens between `await httpClient.GetAsync(url)` and the bytes coming back, and then to build an ASP.NET Core API that sits correctly on top of it: middleware in an order that works, input validated at the edge, outbound calls that reuse their connections and retry only what is safe to retry, and methods, status codes and headers that clients and proxies can act on.
+Most bugs that reach production in a web service are not really *code* bugs. They are network bugs wearing a code costume: a call that works on your laptop times out under load, a service that handled a thousand requests per second starts throwing `SocketException`, an endpoint answers `200` while its client sees a failure.
 
 Here is the whole journey at a glance:
 
@@ -2846,13 +2789,13 @@ await httpClient.GetAsync(url)
   origin server --> response back down the same path --> your await resumes
 ```
 
-The chapter follows that request. It starts under HTTP, with the layers, TCP and UDP, and DNS; then HTTP itself: methods and which of them are safe to retry, status codes and headers, the three protocol versions, and the connection pooling that turns a harmless-looking `using` into socket exhaustion. With that model in place it calls out of .NET properly, through `IHttpClientFactory` and a resilience pipeline. The second half is the server: the middleware pipeline and routing, the two ways to write an endpoint, filters, JSON, model binding and validation, cancellation, the cross-cutting concerns, REST and OpenAPI, and health checks. TLS is in [Chapter 12: Security Essentials](#chapter-12-security-essentials); load balancers, reverse proxies and CDNs in [Chapter 26: Delivery and Platform](#chapter-26-delivery-and-platform); versioning, gRPC and SignalR in [Chapter 22: API Evolution, Real-Time and Serialization](#chapter-22-api-evolution-real-time-and-serialization).
+TLS is in [Chapter 12: Security Essentials](#chapter-12-security-essentials); load balancers, reverse proxies and CDNs in [Chapter 26: Delivery and Platform](#chapter-26-delivery-and-platform); versioning, gRPC and SignalR in [Chapter 22: API Evolution, Real-Time and Serialization](#chapter-22-api-evolution-real-time-and-serialization).
 
 Keep one idea in mind throughout: **the network is a hostile, unreliable, shared medium that occasionally pretends to be a reliable function call.** Every abstraction in this chapter exists to manage that lie.
 
 ## The Layered Model: OSI and TCP/IP
 
-Networking is taught as a stack of layers because that is genuinely how it is built. Each layer solves one problem and hands a clean abstraction to the layer above, like nested Russian dolls.
+Each network layer solves one problem and hands a clean abstraction to the layer above.
 
 The classic **OSI model** has seven layers, but in practice you only need to internalize a simplified **TCP/IP model** with four:
 
@@ -2862,8 +2805,6 @@ The classic **OSI model** has seven layers, but in practice you only need to int
 | Transport | Getting bytes to the right *program* on a host, reliably or not | TCP, UDP, QUIC |
 | Internet | Getting packets to the right *host* across networks | IP, ICMP |
 | Link | Getting bits across one physical hop | Ethernet, Wi-Fi |
-
-The analogy that sticks: sending a letter. The **Link** layer is the mail truck driving between two post offices. The **Internet** layer (IP) is the addressing system that routes the envelope city-to-city — best effort, no guarantee it arrives. The **Transport** layer is the internal office mail room that makes sure the letter reaches *Bob in accounting* (a port number) and, in TCP's case, that missing pages get re-sent. The **Application** layer is the actual language written inside the letter that Bob understands.
 
 > **Best practice.** When you debug, ask *which layer is failing?* "Connection refused" is transport/host (nothing is listening on that port). "No such host is known" is DNS/application. A 500 is application. Confusing these wastes hours.
 
@@ -2880,8 +2821,6 @@ Both TCP and UDP ride on top of IP, and both use **port numbers** to route to a 
 The cost is *latency* and *state*. That handshake is a full round-trip before your first byte. Head-of-line blocking (more on this later) means one lost packet stalls everything behind it.
 
 **UDP (User Datagram Protocol)** is *fire-and-forget datagrams.* No handshake, no ordering, no retransmission, no congestion control. You send a packet; maybe it arrives, maybe it doesn't, maybe it arrives twice, maybe out of order. What you gain is minimal overhead and no head-of-line blocking.
-
-Think of TCP as a phone call — you establish a connection, take turns, and confirm you heard each other. UDP is shouting across a crowded room: fast, but you have no idea if anyone heard.
 
 **When to use which:**
 
@@ -2903,7 +2842,7 @@ When your app resolves `api.example.com`:
 
 That is potentially several round-trips — which is why caching is everywhere and why the first request to a new host is slower.
 
-> **Gotcha.** `HttpClient` and its underlying connection pool can cache DNS results for the *lifetime of a connection*. If a DNS record changes (a failover, a blue-green deploy), long-lived pooled connections may keep hitting the old IP. The fix is to retire connections on a schedule, which [IHttpClientFactory & Resilience with Polly](#ihttpclientfactory-resilience-with-polly) below shows two ways. This exact issue has caused countless "why is traffic still going to the dead server?" incidents.
+> **Gotcha.** `HttpClient` and its underlying connection pool can cache DNS results for the *lifetime of a connection*. If a DNS record changes (a failover, a blue-green deploy), long-lived pooled connections may keep hitting the old IP. The fix is to retire connections on a schedule, which [IHttpClientFactory & Resilience with Polly](#ihttpclientfactory-resilience-with-polly) below shows two ways.
 
 ## How HTTP Works
 
@@ -2964,7 +2903,7 @@ Headers worth knowing cold: `Content-Type` and `Accept` (content negotiation), `
 
 ## HTTP/1.1 vs HTTP/2 vs HTTP/3: A History of Fixing Head-of-Line Blocking
 
-Each HTTP version exists to fix the performance sins of the previous one. Understanding the progression tells you *why* modern web performance looks the way it does.
+Each HTTP version exists to fix the performance sins of the previous one.
 
 **HTTP/1.1** sends requests as plaintext over a TCP connection, one request-response at a time per connection. Its big feature was **persistent connections** (keep-alive) so you did not pay the TCP handshake for every request. But it has a fatal flaw: **application-layer head-of-line blocking.** A connection can only work on one request at a time. Browsers hacked around this by opening ~6 parallel connections per host — wasteful and still limited.
 
@@ -3085,8 +3024,6 @@ var handler = new SocketsHttpHandler
 var client = new HttpClient(handler);
 ```
 
-> **Best practice.** Never `new` up an `HttpClient` per request. Use `IHttpClientFactory` (typed clients, plus resilience via `Microsoft.Extensions.Http.Resilience`), or one long-lived instance with `PooledConnectionLifetime` set.
-
 ### Resilience with Polly
 
 Networks fail transiently. **Polly** (integrated via `Microsoft.Extensions.Http.Resilience`) adds resilience strategies to the handler pipeline:
@@ -3122,8 +3059,6 @@ Bulkheads, and what these patterns do across many services, are in [Chapter 20: 
 > **Order matters here too.** Strategies added *earlier* sit *outside* those added later. In the example above, retry is outermost, so the 3-second timeout is a *per-attempt* budget — each retry gets a fresh 3 seconds — while the typed client's `Timeout` of 10 seconds caps the whole operation, retries included. A per-attempt timeout belongs inside the retry; a total timeout belongs outside.
 
 > **Best practice.** Unless you have specific numbers in mind, start with `.AddStandardResilienceHandler()` — one line that applies Microsoft's recommended pipeline (rate limiter, total timeout, retry, circuit breaker, per-attempt timeout) with sensible defaults — and tune only when you have evidence the defaults don't fit.
-
-That is the client side of HTTP. The rest of the chapter is the other end of the wire: what ASP.NET Core does with a request when it arrives.
 
 ## The Middleware Pipeline & Request Lifecycle
 
@@ -3338,7 +3273,6 @@ Between the bytes on the wire and the objects your endpoint takes and returns si
 
 Key differences to know:
 
-- **Performance:** STJ is substantially faster and allocates less. It's the default in ASP.NET Core.
 - **Defaults:** STJ is **stricter** by default — case-sensitive property matching (configurable), no comments or trailing commas unless enabled, and it doesn't handle some things Newtonsoft did permissively (like quoted numbers) without opting in.
 - **Feature breadth:** Newtonsoft still has richer support for some advanced scenarios (`TypeNameHandling` for polymorphic type embedding, `[JsonConstructor]` flexibility, `DefaultValueHandling` nuances, `JObject`/`JToken` LINQ-to-JSON ergonomics), though STJ has closed most gaps and added polymorphism support (`[JsonDerivedType]`) and `JsonNode`.
 
@@ -3550,8 +3484,6 @@ Because the property is named by lambda rather than by string, renaming `Name` i
 | **FluentValidation** | Conditional, cross-field, and per-element collection rules; DI and async; several validators for one shape; stable error codes; trivial to unit test | Invisible to OpenAPI unless you add a schema filter; must be explicitly invoked, so it guards only the paths you wired; still check-then-act against the database |
 | **Domain guard / value object** | Holds for *every* caller — HTTP, consumer, job, test; makes illegal state unrepresentable; the rule lives next to the concept it constrains | Throws on the first violation rather than accumulating them, so it yields a poor error document; fires too late to give the client a field-level list |
 
-They are layers, not alternatives. DataAnnotations (or nothing) for trivial DTOs, FluentValidation at the edge to produce a good error document, and domain guards as the thing you would actually bet correctness on.
-
 ## CancellationToken Propagation
 
 [Chapter 4](#cancellationtoken-cooperative-cancellation) showed how a `CancellationToken` works; a web API is where it pays. Once the client disconnects, times out or navigates away, work done on its behalf is wasted. `HttpContext.RequestAborted` is a `CancellationToken` that trips when the connection drops, and both Minimal APIs and MVC bind it to any `CancellationToken` parameter of an endpoint or action. It helps only if you *pass it through*: EF Core queries, `HttpClient` calls and stream reads all accept one.
@@ -3574,7 +3506,7 @@ This matters most under load. Clients time out, abandon their requests and *retr
 
 The token stops only the calls it reaches: one method in the chain that doesn't forward it leaves everything below it running ([Chapter 4](#cancellationtoken-cooperative-cancellation) has the mechanism, and the analyzer that finds a token left behind).
 
-> **Gotcha.** Not everything should be cancellable. If you've charged a payment and are about to write the outbox record, cancelling *mid-write* because the client hung up is far worse than finishing wasted work: you'd take the money and lose the event. Past such a point of no return, pass `CancellationToken.None` (or a token decoupled from the request). The skill is knowing which operations are safe to abandon and which have already committed you.
+> **Gotcha.** Not everything should be cancellable. If you've charged a payment and are about to write the outbox record, cancelling *mid-write* because the client hung up is far worse than finishing wasted work: you'd take the money and lose the event. Past such a point of no return, pass `CancellationToken.None` (or a token decoupled from the request).
 
 ## Cross-Cutting HTTP Concerns
 
@@ -3666,12 +3598,6 @@ public class QueueBacklogHealthCheck(IQueueClient queue) : IHealthCheck
 By default the endpoint's body is the bare aggregate as plain text (`Healthy`). For a per-check JSON breakdown — which check failed, why, and how long it took — plug in a `ResponseWriter` (the `HealthChecks.UI.Client` package ships a ready-made one). For *push*-based monitoring, `IHealthCheckPublisher` inverts the flow: the app runs its checks on a timer and publishes results to your telemetry instead of waiting to be probed.
 
 > **Pitfall.** Probes hit these endpoints every few seconds, on every instance. An expensive readiness check — a full table scan, an uncached remote call — now runs at probe frequency × server count, and can itself become the load that takes a wobbly dependency down. Keep checks cheap, bound them with timeouts, and cache the verdict of any costly one. And keep dependencies *out of liveness*: [Health probes: liveness, readiness, startup](#health-probes-liveness-readiness-startup) in Chapter 26 shows how a database blip otherwise becomes a cluster-wide restart storm.
-
-## Summary
-
-The network under HTTP is a set of layers, each of which can fail on its own: ask which one before you debug. HTTP on top of it is stateless request and response, and its methods and status codes are instructions to machinery: retry policies, caches, proxies and browsers act on them without reading the body. Connections are expensive to open and are pooled; a new `HttpClient` per call defeats the pool, and `IHttpClientFactory` or one rotated client keeps it.
-
-ASP.NET Core is a **pipeline of composable components** built once at start-up, and each request runs through it in registration order: middleware sees only what earlier middleware set, and the endpoint, with its filters, binding and validation, is the innermost step. Validate at the edge for a good `400` and enforce in the domain and the database for correctness, pass the cancellation token down, retry only what is idempotent, and answer with the status code you mean.
 
 ## Sources & Further Reading
 
@@ -3823,11 +3749,9 @@ CORS is a browser security mechanism: a page on origin A calling an API on origi
 
 # Chapter 6: Frontend Essentials
 
-_⏱️ Estimated read time: ~1 h 25 min · 12290 words (study pace)_
+_⏱️ Estimated read time: ~1 h 25 min · 12045 words (study pace)_
 
-The moment your API meets a browser, problems land on your desk that you cannot hand off: why the SPA works locally and fails in production, why a request "blocked by CORS" still changed the database, why the page freezes while your endpoint answers in 40 ms, where the login token should live. Most .NET teams ship a React or Angular frontend next to their API, and their interviews ask backend candidates frontend questions. This chapter gives you a junior-plus foundation: enough to read and change a SPA, debug it in the browser's DevTools, answer the standard questions by their mechanism, and design the API boundary so the frontend team can move fast.
-
-It follows the path a page takes: how the browser turns HTML, CSS and JavaScript into pixels; each language in turn, with JavaScript the way interviews test it; the DOM and events; TypeScript as a C# developer meets it. Then the boundary you own (`fetch`, CORS, cookies, typed clients), React by its mechanism and how Angular differs, routing and forms, accessibility, the npm and Vite toolchain, XSS, and the Core Web Vitals that measure the result.
+The moment your API meets a browser, problems land on your desk that you cannot hand off: why the SPA works locally and fails in production, why a request "blocked by CORS" still changed the database, why the page freezes while your endpoint answers in 40 ms, where the login token should live.
 
 Every JavaScript and TypeScript sample here runs: the repository tests them in `verify/frontend/` (pinned TypeScript, React and Angular, Vitest with jsdom). Rendering strategies, performance and testing in depth, Content Security Policy and SPA authentication are in [Chapter 34: Frontend and Full-Stack in Depth](#chapter-34-frontend-and-full-stack-in-depth).
 
@@ -4322,8 +4246,6 @@ console.log(isOrder(fromServer));    // false
 
 ## Talking to the API from the Browser
 
-This is the boundary you own: a `fetch` call, the browser's same-origin rules, cookies, and the contract that keeps both sides honest.
-
 ### fetch and Its One Surprise
 
 Take a minimal API endpoint:
@@ -4671,7 +4593,7 @@ A **controlled** React input keeps its value in state (`value={email}` plus an `
 
 ## Accessibility: The Part That Is Now Law
 
-Accessibility has moved from "good practice we should get to" to "a legal requirement with a date attached". The **European Accessibility Act**, applicable since June 2025, obliges a broad set of consumer-facing products and services sold in the EU (e-commerce, banking, transport ticketing, e-books, telecoms) to meet accessibility requirements, with the harmonised standard EN 301 549 pointing at **WCAG 2.1/2.2 level AA**; the public sector was already covered by the Web Accessibility Directive. In the US, Section 508 covers federal procurement, and ADA litigation over inaccessible websites has been steady for a decade. So **inaccessible markup is a compliance defect, not a polish item**, and "the designer didn't specify it" stopped being an answer.
+The **European Accessibility Act**, applicable since June 2025, obliges a broad set of consumer-facing products and services sold in the EU (e-commerce, banking, transport ticketing, e-books, telecoms) to meet accessibility requirements, with the harmonised standard EN 301 549 pointing at **WCAG 2.1/2.2 level AA**; the public sector was already covered by the Web Accessibility Directive. In the US, Section 508 covers federal procurement, and ADA litigation over inaccessible websites has been steady for a decade. So **inaccessible markup is a compliance defect, not a polish item**.
 
 ### WCAG, and How to Actually Think About It
 
@@ -4740,7 +4662,7 @@ For asynchronous validation and status messages, an `aria-live="polite"` region 
 
 How to test all of this, automatically in CI and by hand with a keyboard and a screen reader, is in [Chapter 34](#chapter-34-frontend-and-full-stack-in-depth).
 
-> **Best practice.** Fix accessibility in your shared components, not in your pages. A design system where the `Button`, `Modal`, `Field` and `Table` components are correct once means hundreds of screens are correct by default — and it turns accessibility from a per-feature tax into a solved infrastructure problem. This is the same leverage argument as any other cross-cutting concern in this book.
+> **Best practice.** Fix accessibility in your shared components, not in your pages. A design system where the `Button`, `Modal`, `Field` and `Table` components are correct once means hundreds of screens are correct by default — and it turns accessibility from a per-feature tax into a solved infrastructure problem.
 
 ## Tooling: npm, package.json, Lockfiles and Vite
 
@@ -4821,8 +4743,6 @@ Optimize for *effectiveness at the boundary*, not for becoming a frontend engine
 - **Deep:** the API contract: OpenAPI, generated clients, versioning, auth flows (OIDC, PKCE, the BFF), CORS, real-time. This is *your* territory.
 - **Aware:** how React and Angular structure an app, well enough to review PRs and design APIs that fit; rendering strategies and the build pipeline conceptually.
 
-> **The single most valuable investment:** owning the contract boundary. A documented, versioned, typed API with clear auth turns frontend integration from a negotiation into a formality.
-
 ### Picking the UI Stack
 
 A short decision guide:
@@ -4832,7 +4752,7 @@ A short decision guide:
 3. **Rich, public, ecosystem-hungry SPA with JS talent available?** React/Angular/Vue against a REST API, ideally behind a BFF.
 4. **Cross-platform desktop/mobile from one C# codebase?** MAUI, or Blazor Hybrid if reusing web UI; Avalonia if Linux desktop matters; native if platform polish is the product.
 
-[Chapter 34](#chapter-34-frontend-and-full-stack-in-depth) compares Blazor, rendering strategies and native clients. There is no universal answer, only the one that fits *this* team, audience and performance budget, chosen explicitly.
+[Chapter 34](#chapter-34-frontend-and-full-stack-in-depth) compares Blazor, rendering strategies and native clients.
 
 ## Sources & Further Reading
 
@@ -5036,11 +4956,11 @@ LCP ≤ 2.5 s, INP ≤ 200 ms, CLS ≤ 0.1, at the 75th percentile of real visit
 
 # Chapter 7: Data Access
 
-_⏱️ Estimated read time: ~1 h 40 min · 14860 words (study pace)_
+_⏱️ Estimated read time: ~1 h 35 min · 14228 words (study pace)_
 
-Almost every non-trivial application is, underneath its features, a machine for moving data in and out of a database safely and quickly. Flawless business logic doesn't survive a data layer that fires a thousand queries where one would do, scans an index it was meant to seek, or loses one user's update under another's. This chapter makes you able to write and review data access that sends the SQL you expect: you will read a query's actual plan and say why each index operator seeks or scans, write EF Core queries whose round trips you can count before running them, and protect a row against lost updates.
+Flawless business logic doesn't survive a data layer that fires a thousand queries where one would do, scans an index it was meant to seek, or loses one user's update under another's.
 
-The order runs from the database up. The schema and SQL come first (normalization; querying with joins, grouping, NULL logic, subqueries and window functions; indexes, execution plans, transactions), because EF Core generates SQL and you can only judge its output once you can read it. Then EF Core itself: change tracking, loading related data and the N+1 problem, projections, bulk writes and cascades, and the lifetime of a `DbContext`. Concurrency builds on both: a concurrency token is a column in the `UPDATE`'s `WHERE`. Raw SQL and Dapper cover the queries an ORM shouldn't write, caching the queries you shouldn't run at all, and migrations how the schema changes in a pipeline. Part 2 goes further in [Chapter 18: Data in Depth](#chapter-18-data-in-depth): compiled queries, bulk inserts, PostgreSQL's planner, Redis, NoSQL and scaling.
+Part 2 goes further in [Chapter 18: Data in Depth](#chapter-18-data-in-depth): compiled queries, bulk inserts, PostgreSQL's planner, Redis, NoSQL and scaling.
 
 ## Database Design and Normalization
 
@@ -5049,8 +4969,6 @@ Good schema design prevents whole classes of bugs. **Normalization** is the disc
 - **First Normal Form (1NF):** every column holds a single atomic value — no comma-separated lists, no repeating groups. One phone number per column, or a related table for many.
 - **Second Normal Form (2NF):** 1NF plus every non-key column depends on the *whole* primary key (relevant to composite keys). No column should depend on just part of the key.
 - **Third Normal Form (3NF):** 2NF plus no non-key column depends on another non-key column (no *transitive* dependencies). If you store `CustomerId` and also `CustomerCity`, the city depends on the customer, not the order — move it out.
-
-The intuition: **one fact, one place.** When a customer changes their city, you want to update one row, not hunt down every order that duplicated it. Duplication is how databases drift into inconsistency.
 
 **Foreign keys and constraints** are the database enforcing your rules so bad data cannot exist regardless of application bugs:
 
@@ -5075,7 +4993,7 @@ Normalization optimizes for correct writes; it can make reads slower by requirin
 
 ## SQL Fundamentals
 
-Every ORM call ends as SQL, so the SQL comes first: what a join, a grouping or a window function returns and where NULL changes the answer, how an index finds rows, how the plan shows which way it found them, and what a transaction guarantees. A senior developer reads the generated SQL and the execution plan, not just the C#.
+Every ORM call ends as SQL. A senior developer reads the generated SQL and the execution plan, not just the C#.
 
 ### Joins
 
@@ -5340,7 +5258,7 @@ A predicate can seek only if it is **sargable**: it compares the stored column i
 >
 > On SQL Server 2022 CU27 (16.0.4295.3, 200,000 rows, 4 vCPU, warm cache), the `nvarchar` parameter cost an Index Scan and 888 logical reads, the `varchar` one an Index Seek and 3; under a Windows collation the `nvarchar` parameter also read 3 ([`seek-vs-scan.txt`](https://github.com/malyna2/dotnet-handbook/blob/main/verify/path/reference-runs/seek-vs-scan.txt), [`collation.txt`](https://github.com/malyna2/dotnet-handbook/blob/main/verify/path/reference-runs/collation.txt)). The fix is a parameter of the column's type: in EF Core, `.IsUnicode(false).HasMaxLength(100)` on the property (`ToQueryString()` then shows `DECLARE @email varchar(100)` instead of `nvarchar(4000)`); in Dapper, `new DbString { Value = email, IsAnsi = true, Length = 100 }`; in ADO.NET, `SqlDbType.VarChar`. Or make the column `nvarchar`, so both sides agree.
 
-Reading plans is a skill worth acquiring properly rather than by pattern-matching, and it is easiest to learn on PostgreSQL, whose `EXPLAIN` output is plain text and tells you both what it *expected* and what actually *happened*. [Chapter 18: Data in Depth](#chapter-18-data-in-depth) reads it line by line, and [Chapter 19](#chapter-19-the-slow-query-lab-reading-execution-plans) is the hands-on lab.
+Plans are easiest to learn on PostgreSQL, whose `EXPLAIN` output is plain text and tells you both what it *expected* and what actually *happened*. [Chapter 18: Data in Depth](#chapter-18-data-in-depth) reads it line by line, and [Chapter 19](#chapter-19-the-slow-query-lab-reading-execution-plans) is the hands-on lab.
 
 ### Transactions and ACID
 
@@ -5387,7 +5305,7 @@ A deadlock occurs when transaction A holds a lock B needs, while B holds a lock 
 
 ## Entity Framework Core: The Object-Relational Mapper
 
-With the SQL in view, the ORM on top of it. An ORM's job is to bridge two worlds that think differently. Your C# code thinks in objects, references, and collections. A relational database thinks in tables, rows, and foreign keys. EF Core translates between them. The danger is that the translation is *so* smooth you forget it is happening — and every performance problem in EF comes from forgetting that a property access or a `foreach` might quietly become a database round trip.
+An ORM's job is to bridge two worlds that think differently. Your C# code thinks in objects, references, and collections. A relational database thinks in tables, rows, and foreign keys. EF Core translates between them. The danger is that the translation is *so* smooth you forget it is happening — and every performance problem in EF comes from forgetting that a property access or a `foreach` might quietly become a database round trip.
 
 ### DbContext and Change Tracking
 
@@ -5681,8 +5599,6 @@ catch (DbUpdateConcurrencyException)
 }
 ```
 
-> **Best practice:** Prefer optimistic concurrency for typical web apps — it scales because it holds no locks. Reserve pessimistic locking for genuinely high-contention hotspots.
-
 > **Pay attention.** **The window a concurrency token covers.** EF Core puts the token's *original* value, the one this context read, into the `WHERE`. The sample above therefore guards only the milliseconds between its own `Single` and `SaveChanges`. A web edit has a far longer window. The user's form was built from version 1; someone else saved version 2; the save handler loads the product again, gets version 2, copies the form onto it, and its `UPDATE … WHERE RowVersion = <version 2>` matches one row. Nothing throws, and the other user's change is gone. The fix is to make the original value the one the user saw: send the row version with the form (or as an `ETag`) and set it before saving.
 
 ```csharp
@@ -5703,9 +5619,7 @@ catch (DbUpdateConcurrencyException)
 
 A **view** is a saved query you can select from like a table — useful for encapsulating a complex join or presenting a simplified shape. A **stored procedure** is precompiled SQL logic living in the database, callable by name.
 
-Raw SQL — via stored procs, `FromSqlRaw`, or Dapper — is justified when: the query is too complex or too performance-critical for LINQ to express well; you need database-specific features EF does not surface; or you are doing bulk set-based operations (updating a million rows in one statement rather than loading and tracking them).
-
-> **Note:** For the *bulk write* case you usually no longer need raw SQL: `ExecuteUpdate`/`ExecuteDelete` ([Set-Based Updates and Deletes](#set-based-updates-and-deletes-executeupdate-and-executedelete)) issue one set-based statement without loading or tracking. Reserve raw SQL for genuinely complex queries or provider-specific features.
+Raw SQL — via stored procs, `FromSqlRaw`, or Dapper — is justified when: the query is too complex or too performance-critical for LINQ to express well, or you need database-specific features EF does not surface. Bulk writes no longer need it: `ExecuteUpdate`/`ExecuteDelete` ([Set-Based Updates and Deletes](#set-based-updates-and-deletes-executeupdate-and-executedelete)) issue one set-based statement.
 
 ```csharp
 // EF calling raw SQL while staying in the entity model
@@ -5841,8 +5755,6 @@ That `GetOrCreateAsync` above is cache-aside in one call. It is simple and robus
 
 ### Invalidation and Stampede
 
-> "There are only two hard things in computer science: cache invalidation and naming things." — Phil Karlton
-
 **Invalidation** is deciding when cached data is stale. Two broad strategies: **expiration** (time-based — simple, but serves stale data for up to the TTL) and **explicit eviction** (remove the key when the underlying data changes — accurate, but you must remember every place that writes). Most systems combine both: evict on write, and set a TTL as a safety net for the writes you missed.
 
 A **cache stampede** (or "dog-pile") happens when a popular key expires and hundreds of concurrent requests all miss simultaneously, all hammering the database at once to rebuild it — potentially overwhelming it exactly when traffic is highest. Defences include a **lock** so only one request rebuilds while others wait, **early/probabilistic refresh** (rebuild slightly before expiry), and serving slightly stale data during a refresh.
@@ -5869,14 +5781,6 @@ The strategic question is *when* migrations run in your pipeline. Options:
 - **Standalone migration tools — DbUp or Flyway** — apply plain, hand-written, ordered SQL scripts. Teams that want full control over the exact SQL (and want DBAs to review it) often prefer these over EF's generated migrations. **DbUp** is a .NET library; **Flyway** is a language-agnostic tool. Both track applied scripts in a metadata table, just like EF.
 
 > **Best practice:** Make schema changes **backward compatible** so the old and new app versions can run against the new schema at once during a rolling deploy. Add a nullable column now; make it required in a *later* migration after all code writes to it. This "expand then contract" approach lets you deploy schema and code independently with zero downtime; [Chapter 18](#migrations-at-scale-zero-downtime) does it on tables too big to lock.
-
-## Summary
-
-The database is not a black box. Normalization keeps each fact in one place, and constraints keep bad data out whatever the application does. A query's clauses run in a fixed logical order, a join pairs rows and pads the misses with NULLs, and a comparison with NULL is unknown: most wrong query results come from forgetting one of the three. An index is a sorted copy of some columns, so a query seeks only when its predicate pins a leftmost prefix with values the index stores; the actual plan and its logical reads show whether it did. A transaction makes a group of statements all-or-nothing, and its isolation level decides what concurrent transactions see.
-
-EF Core is a productivity multiplier only if you know the SQL it sends: tracking only where you save, related rows in one round trip through `Include` or a projection, one short-lived `DbContext` per request, set-based statements for bulk writes, and a concurrency token whose original value is the one the user saw. Raw SQL and Dapper take the queries LINQ expresses badly, caching removes load you understand, and expand-then-contract migrations let the schema change under a running system. The question to keep asking is *what is actually happening at the database, and is it the least work required to be correct?*
-
-> **Capstone tie-in:** This chapter is exercised by ShopCore Steps 1 (The Honest Monolith) and 7 (Split Into Microservices) — you'd model products, carts, and orders with EF Core and PostgreSQL, creating the schema from migrations, and later add a transactional outbox table. See [Chapter 44](#chapter-44-capstone-one-project-growing-up).
 
 ## Prove it
 
@@ -6246,11 +6150,11 @@ Not necessarily: it is a named subquery. SQL Server expands it at every referenc
 
 # Chapter 8: Testing
 
-_⏱️ Estimated read time: ~45 min · 6537 words (study pace)_
+_⏱️ Estimated read time: ~45 min · 6068 words (study pace)_
 
-Most developers can write a test. Far fewer can explain *why* one test is worth writing and another is worth deleting, why a green suite can still be worthless, or why the team that mocks everything ends up trusting nothing. This chapter makes you able to write and fix the tests of one service without help: put each test at the level that can prove its claim, choose the right test double, test the HTTP surface and the database for real, and remove a flaky test's cause instead of retrying it.
+Most developers can write a test. Far fewer can explain *why* one test is worth writing and another is worth deleting, why a green suite can still be worthless, or why the team that mocks everything ends up trusting nothing.
 
-One idea ties the sections together: **a test is only as true as the things it runs for real, and only as repeatable as the inputs it controls.** The pyramid and xUnit come first: what each level proves, and how xUnit isolates one test from the next. Test doubles, mocking libraries, assertions and test data follow, which is where a test decides what it replaces and therefore what it can no longer catch. Integration testing puts the real pipeline and the real database engine back. TDD and BDD are ways of working with all of that; the craft section (names, structure, smells, flakiness) and deterministic time and data make a failure repeatable and readable. Contract, property-based, end-to-end, load and mutation testing are in [Chapter 25: Observability and Testing at Scale](#chapter-25-observability-and-testing-at-scale).
+One idea ties the sections together: **a test is only as true as the things it runs for real, and only as repeatable as the inputs it controls.** Contract, property-based, end-to-end, load and mutation testing are in [Chapter 25: Observability and Testing at Scale](#chapter-25-observability-and-testing-at-scale).
 
 ## Why We Test At All
 
@@ -6272,7 +6176,7 @@ The classic anti-pattern is the **ice cream cone**: lots of manual and E2E testi
 
 ## Unit Testing with xUnit
 
-.NET has three mainstream test frameworks: **xUnit**, **NUnit**, and **MSTest**. They are more alike than different, but xUnit has become the de facto default for new projects, partly because it was written by people reacting against perceived design mistakes in the others. We'll use xUnit as our primary vehicle and note the differences as we go.
+.NET has three mainstream test frameworks: **xUnit**, **NUnit**, and **MSTest**. They are more alike than different, but xUnit has become the de facto default for new projects, partly because it was written by people reacting against perceived design mistakes in the others.
 
 ### Facts and Theories
 
@@ -6333,7 +6237,7 @@ public void ApplyDiscount_Cases(decimal price, decimal percent, decimal expected
 
 ### Lifecycle and Fixtures
 
-Here is xUnit's most important and most surprising design decision: **xUnit creates a new instance of your test class for every single test method.** There is no shared mutable state between tests unless you deliberately introduce it. This is a feature — it makes test isolation the default and kills a whole category of order-dependent bugs.
+xUnit's most surprising design decision: **xUnit creates a new instance of your test class for every single test method.** There is no shared mutable state between tests unless you deliberately introduce it. This is a feature — it makes test isolation the default and kills a whole category of order-dependent bugs.
 
 Because of this, xUnit has no `[SetUp]`/`[TearDown]` attributes like NUnit. Instead:
 
@@ -6508,7 +6412,7 @@ Many people find NSubstitute reads more cleanly because there's no `.Object` unw
 
 ### When NOT to Mock
 
-This is the senior-level point of the whole section. Mocking is a sharp tool that is routinely overused.
+Mocking is a sharp tool that is routinely overused.
 
 - **Don't mock types you don't own.** Mocking `HttpClient`, `DbContext`, or a third-party SDK couples your test to *your assumptions* about how that library behaves, which may be wrong. Wrap it in your own thin interface and mock *that*, or use a real/fake implementation.
 - **Don't mock value objects or pure logic.** If a class has no external dependencies, just use the real thing. Mocking a `Money` or a `DateRange` is absurd.
@@ -6623,8 +6527,6 @@ The most consequential integration-test decision is what to do about the databas
 
 > **Pay attention.** **The in-memory provider never generates SQL, so nothing a database enforces can fail.** It runs your LINQ over .NET collections. `HasIndex(...).IsUnique()` is metadata only a relational provider turns into `CREATE UNIQUE INDEX`, so two rows with the same email both save (this chapter's *Prove it* program shows it next to SQLite, which rejects the second). String comparison is C#'s, case-sensitive, where SQL Server's default collation is not. A query the real provider can't translate never reaches a translator. Beginning a transaction throws by default; suites that silence that warning get a transaction that does nothing, so a rollback test passes for the wrong reason. Fix: run anything that touches SQL against the production engine.
 
-> **Best practice:** test business logic against fast fakes, but test anything that touches SQL — queries, migrations, constraints, concurrency — against the *same engine you run in production*.
-
 ### Testcontainers for .NET
 
 Testcontainers spins up **real** services in Docker containers, programmatically, from your test code — a genuine Postgres, Redis, RabbitMQ, whatever — and tears them down afterwards. You get production fidelity with unit-test-like ergonomics and no shared-environment contention.
@@ -6732,7 +6634,7 @@ public static string From(int n)
 }
 ```
 
-**Refactor** — the code is already clean; the tests stay green; we're done. Notice what TDD gave us: we never wrote a line of production code that wasn't justified by a test, our design emerged from the examples, and we have a full regression suite for free.
+**Refactor** — the code is already clean; the tests stay green; we're done.
 
 > **What TDD is really for:** it's a design tool disguised as a testing tool. Writing the test first forces you to use your own API before it exists, which surfaces awkward interfaces immediately. The tests are a valuable by-product; the *design pressure* is the main event. TDD is not mandatory, and it shines most on logic-heavy code with clear inputs and outputs, less so on exploratory or UI-glue work.
 
@@ -6776,7 +6678,7 @@ public class OrderSteps
 
 ## Craft: Naming, Structure, and Smells
 
-The techniques above are worthless if the tests themselves are unreadable or unreliable. Test code is production code — it is read far more often than it is written, and it is the first documentation a new developer meets.
+Test code is production code — it is read far more often than it is written, and it is the first documentation a new developer meets.
 
 ### Test Naming
 
@@ -6867,14 +6769,6 @@ The real power: `FakeTimeProvider` also controls `Task.Delay` and timers created
 ### Seeded test data
 
 A random generator is an input too. One seeded from the clock produces a suite that passes 99 runs and fails the 100th, because the generator happened to produce an edge case. That isn't a flaky test, it's an *undiscovered bug*, but without the seed nobody can reproduce it. Seed generators with a fixed value in tests (Bogus: a fixed `Randomizer.Seed`), and if you vary the seed on purpose to explore more inputs, log it on failure so any failure *is* reproducible. Then treat each such failure as a real finding.
-
-## Bringing It Together
-
-Testing maturity is not measured in a coverage percentage or a count of tests. It's measured in a single capability: **can your team change the code with confidence and speed?** Everything in this chapter serves that. The pyramid tells you where to invest. Unit tests with clean AAA structure and honest names give fast, precise feedback. Test doubles, used with the judgment to know when *not* to mock, isolate units without ossifying them. Integration tests with Testcontainers verify the seams against real infrastructure. TDD applies design pressure; BDD aligns with stakeholders when there's an audience for it. Controlled time and seeded data keep the suite repeatable, and relentless hygiene around flakiness protects the trust that makes the whole edifice worthwhile. Whether the tests actually verify anything is the question mutation testing answers, in [Chapter 25](#chapter-25-observability-and-testing-at-scale).
-
-Write tests that would fail if the behaviour broke, that read clearly when they do, and that survive a refactor of the code they cover. Do that, and your test suite stops being a chore you maintain and becomes the thing that lets you move fast without breaking things.
-
-> **Capstone tie-in:** This chapter is exercised by ShopCore Step 2 (Prove It Works: Tests) — you'd unit-test the domain rules with xUnit and place an order through the HTTP surface against a Testcontainers PostgreSQL via `WebApplicationFactory`. See [Chapter 44](#chapter-44-capstone-one-project-growing-up).
 
 ## Prove it
 
@@ -6981,11 +6875,9 @@ Fast, isolated/independent (no order dependence, no shared state), deterministic
 
 # Chapter 9: Exceptions, Logging and First Diagnosis
 
-_⏱️ Estimated read time: ~1 h 10 min · 11807 words (study pace)_
+_⏱️ Estimated read time: ~1 h 10 min · 11372 words (study pace)_
 
-Every service fails, and what decides how fast a failure gets fixed is the trail it leaves: one log entry carrying the whole exception, a response that tells the caller what they can do about it, and one id that joins the two. This chapter teaches the habits that leave that trail, and the first measurements to take when the complaint is not an error but slowness.
-
-It starts with the tool every later section uses: `ILogger` and structured logging, where a message template keeps typed properties a log store can query, a level says who has to act, and secrets stay out. The exception-handling strategy then settles where a failure is caught (almost nowhere), what gets logged (once, at the boundary) and what the caller sees (a ProblemDetails body with a stable code and a trace id). On your own machine, the debugger then finds a reproducible failure faster than any log: conditional breakpoints and tracepoints, why it stops on an exception your code catches, async stacks, attaching to a running process, and when it is the wrong tool. Next comes the trace id itself: the wiring that gives every request one, and how it follows the request across services and queues so the logs of five services read as one story. The chapter closes with a method for a slow endpoint — CPU-bound or waiting, and the fingerprint of a starved thread pool — and then two programs to run, three questions, checks for your own service and interview questions.
+Every service fails, and what decides how fast a failure gets fixed is the trail it leaves: one log entry carrying the whole exception, a response that tells the caller what they can do about it, and one id that joins the two.
 
 ## Logging with Microsoft.Extensions.Logging
 
@@ -7067,8 +6959,6 @@ builder.Host.UseSerilog((context, services, configuration) => configuration
 var app = builder.Build();
 ```
 
-Let's dissect each concept.
-
 **Message templates** are the heart of Serilog. When you write `logger.LogInformation("Order {OrderId} shipped", orderId)`, Serilog stores the raw template *and* the property. This means events with the same template but different IDs are recognized as the same *kind* of event, which is enormously valuable for grouping and analysis.
 
 A subtle but powerful feature is the `@` destructuring operator:
@@ -7131,7 +7021,7 @@ NLog is the other mature structured logging library for .NET. It is configuratio
 
 ## Exception Handling Strategy
 
-Most codebases have a *style* of exception handling — `try`/`catch` wherever someone was once burned, a `catch (Exception ex) { _logger.LogError(ex.Message); throw; }` copied from file to file, a global handler that returns `"An error occurred"` — and no *strategy*. A strategy answers three questions: **where do I catch, what do I log, and what do I surface?** Each answer depends on a prior question: what kind of failure is this? The logging rules above are the tool; this section decides where it is used.
+Most codebases have a *style* of exception handling — `try`/`catch` wherever someone was once burned, a `catch (Exception ex) { _logger.LogError(ex.Message); throw; }` copied from file to file, a global handler that returns `"An error occurred"` — and no *strategy*. A strategy answers three questions: **where do I catch, what do I log, and what do I surface?** Each answer depends on a prior question: what kind of failure is this?
 
 ### Classify the Failure First
 
@@ -7160,13 +7050,13 @@ A `Result<T>` is a return value that holds either the success value or an error,
 
 Now the performance, with the mechanism rather than folklore. A throw/catch pair costs a few **microseconds** on .NET 10: about 4 µs when the catch is one frame above the throw, 8–10 µs ten frames up, 12–19 µs twenty frames up and about 30 µs fifty frames up. Returning a failure value through the same frames costs well under a microsecond. (Release build, no debugger, 4 vCPU Xeon, .NET 10.0.12; the program and its raw runs are in [`verify/measurements/ExceptionCost`](https://github.com/malyna2/dotnet-handbook/tree/main/verify/measurements/ExceptionCost).) Two things dominate. First, **the stack walk**: throwing does not simply jump. The runtime walks frames outward looking for a handler whose filter matches, unwinding as it goes, so the same `throw` is cheap in a leaf method and expensive from twenty frames down a request pipeline. Second, **the stack trace string**: while unwinding, the runtime records only the raw frames. It resolves them to method names and formats the text when something reads `StackTrace` or calls `ToString()`, and logging the exception does exactly that. In the same runs, catching *and* reading the trace cost 13 µs at one frame, 38–48 µs at ten and 150–165 µs at fifty, three to five times the bare throw.
 
-Put that in context, because context is the whole point. Ten microseconds once per failed HTTP request, against a budget of tens of milliseconds, is *noise* — nobody has ever had an outage because a 404 threw. Ten microseconds per row across 200,000 rows is **two seconds of pure overhead**, and logging each one multiplies it again: that is a genuine, career-defining performance bug.
+Ten microseconds once per failed HTTP request, against a budget of tens of milliseconds, is *noise* — nobody has ever had an outage because a 404 threw. Ten microseconds per row across 200,000 rows is **two seconds of pure overhead**, and logging each one multiplies it again: that is a genuine, career-defining performance bug.
 
 > **Best practice.** Use exceptions for the exceptional and for anything a caller must not be able to ignore. Use `Result<T>` for expected alternate outcomes — especially inside loops and hot paths, where the per-item cost of throwing is the thing that kills you. The tell for a misuse is a `try`/`catch` *inside* a `foreach`: that is control flow wearing an exception costume.
 
 ### Where to Catch
 
-Here is the rule that replaces a thousand scattered `try` blocks: **catch only where you can add value — and there are exactly three ways to add value.**
+**Catch only where you can add value — and there are exactly three ways to add value.**
 
 - **Translate it.** Wrap a low-level exception into one that means something in your abstraction, so callers do not end up depending on `SqlException` or `HttpRequestException` leaking out of a repository. The interface promised an `IOrderRepository`; it should not fail in ADO.NET vocabulary. Always pass the original as the inner exception — translation preserves, it does not discard.
 - **Handle it.** Actually do something: retry, fall back to a cache, compensate a half-finished workflow, degrade gracefully. If your `catch` block does not change the outcome, it is not handling anything.
@@ -7470,15 +7360,11 @@ A dump (`dotnet-dump collect`) is the debugger's view frozen at one moment, take
 
 ## Why Observability, and How It Differs from Monitoring
 
-Everything so far ends a failure in one log entry and a response carrying a trace id. The rest of the chapter is about that id and the telemetry around it, because in production you cannot attach a debugger, step through a request as it hops across five services, or ask a customer to reproduce the bug while you watch: what the running system emits is your only window into it.
-
-The words *monitoring* and *observability* are often used interchangeably, but the distinction matters and it reveals a shift in how we operate systems.
+In production you cannot attach a debugger, step through a request as it hops across five services, or ask a customer to reproduce the bug while you watch: what the running system emits is your only window into it.
 
 **Monitoring** answers questions you already knew to ask. You decide in advance that CPU above 90% is bad, that a 500-error rate above 1% is bad, and you build dashboards and alerts for those known failure modes. Monitoring is a checklist of "known unknowns."
 
 **Observability** is the property of a system that lets you ask *new* questions without shipping new code. It is about handling "unknown unknowns" — the failure you never anticipated. When a customer reports that checkout is slow, but only for users who paid with a specific gateway, only on mobile, only after 6 p.m., you did not build a dashboard for that. An observable system carries enough rich, high-cardinality data that you can slice and pivot your way to the answer after the fact.
-
-> **Key distinction:** Monitoring tells you *that* something is wrong. Observability helps you understand *why* it is wrong. You need both, but as systems grow more distributed, observability becomes the dominant concern.
 
 The foundation of observability rests on **three pillars**: **logs**, **metrics**, and **traces**. Each answers a different kind of question, and their real power emerges when you correlate them.
 
@@ -7486,7 +7372,7 @@ The foundation of observability rests on **three pillars**: **logs**, **metrics*
 - **Metrics** are numeric measurements aggregated over time. "Requests per second," "p99 latency," "queue depth." They are cheap to store and perfect for trends and alerting.
 - **Traces** follow a single request as it travels through your system, showing where time was spent across service boundaries. They are the story of one journey.
 
-Think of it this way: metrics are the vital signs on the patient monitor (heart rate, blood pressure), logs are the doctor's detailed notes on each symptom, and a trace is the timeline of the patient's entire visit from admission to discharge. A good diagnostician uses all three. This chapter wires them up and joins them by the trace id; [Chapter 25: Observability and Testing at Scale](#chapter-25-observability-and-testing-at-scale) designs metrics, custom spans and alerts.
+This chapter wires them up and joins them by the trace id; [Chapter 25: Observability and Testing at Scale](#chapter-25-observability-and-testing-at-scale) designs metrics, custom spans and alerts.
 
 ## Observability Wiring
 
@@ -7507,7 +7393,7 @@ builder.Services.AddOpenTelemetry()
 
 With those few lines, every request produces a trace: a root span from the ASP.NET Core instrumentation, child spans for each `HttpClient` call, all exported over OTLP to whatever backend you run (Jaeger, Tempo, an APM vendor — the wire format is standard). Better still, propagation is automatic: `HttpClient` injects the **W3C trace-context** `traceparent` header on outbound calls and ASP.NET Core reads it on inbound ones, so when service A calls service B, both ends land in the *same* trace without either team writing propagation code. Combine that with the [`IHttpClientFactory`](#ihttpclientfactory-resilience-with-polly) discipline from Chapter 5 and a slow endpoint stops being a mystery — the trace shows you exactly which downstream call ate the time budget.
 
-The point is that the web framework *participates natively*: a few lines in `Program.cs` and every request carries a trace. Custom `ActivitySource` spans and metrics design are Part 2 material, in Chapter 25; the next sections put the trace id to work in your logs.
+Custom `ActivitySource` spans and metrics design are Part 2 material, in Chapter 25.
 
 ## Centralized Logging
 
@@ -7519,7 +7405,7 @@ In a fleet of containers, SSHing into a box to `tail` a log file is hopeless —
 
 ## Correlation Across Services
 
-The logging, the exception boundary and the tracing above all serve one goal: given a single symptom, reconstruct the whole story. That requires **correlation** — the ability to jump from a metric spike to the exact traces behind it, and from a trace to the exact logs of each span.
+Given a single symptom, reconstruct the whole story: that requires **correlation**, the ability to jump from a metric spike to the exact traces behind it, and from a trace to the exact logs of each span.
 
 The unifying key is the **trace ID**. W3C Trace Context propagates it over HTTP, and `Activity.Current` holds it for the code handling the request, so logs only need to record it. With `Microsoft.Extensions.Logging` under the generic host this is on by default: the host sets `ActivityTrackingOptions` to `TraceId | SpanId | ParentId`, which adds them to every entry's scope (a provider prints scopes only if configured to, such as the console's `IncludeScopes`). Current Serilog versions read `Activity.Current` themselves and store `TraceId` and `SpanId` on every event; older code used the `Serilog.Enrichers.Span` package for this. To add it by hand:
 
@@ -7530,7 +7416,7 @@ using (LogContext.PushProperty("TraceId", Activity.Current?.TraceId.ToString()))
 }
 ```
 
-Now a single trace ID lets you pivot: see the slow trace in Jaeger, copy its ID, paste it into Seq, and read every log line from every service for that exact request. This is the payoff of observability.
+Now a single trace ID lets you pivot: see the slow trace in Jaeger, copy its ID, paste it into Seq, and read every log line from every service for that exact request.
 
 **Messaging** needs the same discipline, and whether the framework helps depends on the client library. A broker stores bytes and properties; the trace context crosses a queue only if the producer's client writes it into the message and the consumer's client reads it back. The Azure Service Bus SDK does both. On send it writes the current activity's W3C id into the message's `Diagnostic-Id` application property (and into `traceparent` as well once activity-source tracing is on), and `ServiceBusProcessor` makes that context the parent of its processing span. Its tracing is still experimental, so OpenTelemetry sees those spans only after `AppContext.SetSwitch("Azure.Experimental.EnableActivitySource", true)` and `AddSource("Azure.Messaging.ServiceBus.*")`. With a client that doesn't propagate (check yours, for RabbitMQ and Kafka alike) or a hand-rolled transport, you **inject** the trace context into the message headers, and the consumer **extracts** it to continue the trace:
 
@@ -7865,13 +7751,13 @@ Monitoring answers questions you decided on in advance: dashboards and alerts fo
 
 # Chapter 10: Design Basics
 
-_⏱️ Estimated read time: ~1 h 20 min · 10969 words (study pace)_
+_⏱️ Estimated read time: ~1 h 15 min · 10347 words (study pace)_
 
-A senior developer is not someone who has memorized twenty-three patterns from a book. It is someone who can look at a tangle of code and *feel* where the seams should be, who reaches for a pattern the way a carpenter reaches for the right chisel, and who — crucially — knows when to leave the chisel in the box and just drive the nail. This chapter is about that judgment: the force that pushes you toward a design, the cost the design extracts, and the point at which the cure becomes worse than the disease.
+This chapter is about design judgment: the force that pushes you toward a design, the cost the design extracts, and the point at which the cure becomes worse than the disease.
 
-It makes you able to explain each SOLID principle by what breaks without it, to choose between a plain `if`, a Strategy and a Decorator (including when no pattern is the right answer), to name the smell in a piece of code and the refactoring that removes it, and to place code in layers so the business rules don't depend on the database. Every rule here is a bet on where the next change will land: it gathers the code that changes for one reason into one place, behind a seam, and the indirection is repaid only if that change actually comes.
+Every rule here is a bet on where the next change will land: it gathers the code that changes for one reason into one place, behind a seam, and the indirection is repaid only if that change actually comes.
 
-The principles come first, because they are what the rest applies. The classic patterns follow as those principles turned into code, then the application patterns you meet daily in .NET. Clean code and code smells bring the same forces down to a single name or method, and the last sections scale them up to a whole solution: layered and clean architecture. Their depth — DDD, CQRS, vertical slices, monoliths and microservices — is [Chapter 21: Architecture](#chapter-21-architecture).
+The depth of the architecture sections — DDD, CQRS, vertical slices, monoliths and microservices — is [Chapter 21: Architecture](#chapter-21-architecture).
 
 ## Principles: The Foundation Under the Patterns
 
@@ -7992,11 +7878,9 @@ Patterns also give teams a shared vocabulary. When a colleague says "let's put a
 
 ### The Danger of Overusing Patterns
 
-Here is the uncomfortable truth that separates mid-level from senior: **most code does not need a pattern, and reaching for one prematurely is a form of harm.**
+**Most code does not need a pattern, and reaching for one prematurely is a form of harm.**
 
 The failure mode has a name in the community — "pattern-itis" or "architecture astronautics." It looks like this: a developer learns the patterns, gets excited, and starts seeing them everywhere. A simple `if/else` becomes a Strategy with three classes and a factory. A two-method service grows an interface, an abstract base, and a decorator "for flexibility." Six months later, tracing a single request means opening eleven files, and nobody can find where the actual work happens.
-
-> **Overuse warning:** Every pattern adds indirection, and indirection is a cost paid by every future reader of the code. A pattern is justified only when the flexibility it buys is flexibility you will actually use. Speculative flexibility — "we might need to swap the database someday" — is usually a bad trade. This is YAGNI (You Aren't Gonna Need It), and it is the single most important principle in this chapter.
 
 The right mental model: patterns are a response to *pain you already feel*, not insurance against pain you imagine. Write the simple version first. When it starts to hurt — when you find yourself editing the same `switch` in five places, when a class has grown three unrelated reasons to change — *then* refactor toward the pattern that relieves that specific pain. This is why patterns are best learned alongside refactoring: they are destinations, and refactoring is the road.
 
@@ -8380,7 +8264,7 @@ The controller and handler are fully decoupled — neither references the other'
 
 ## Enterprise & Application Patterns
 
-These aren't in the original GoF catalog, but they dominate day-to-day .NET architecture. This is where senior-level judgment shows most. The heavier ones, Specification and CQRS, are in [Chapter 21](#chapter-21-architecture).
+These aren't in the original GoF catalog, but they dominate day-to-day .NET architecture. The heavier ones, Specification and CQRS, are in [Chapter 21](#chapter-21-architecture).
 
 ### Repository & Unit of Work
 
@@ -8400,8 +8284,6 @@ public interface IUnitOfWork
     Task<int> SaveChangesAsync();   // commit everything atomically
 }
 ```
-
-Here is the senior-level nuance you must understand:
 
 > **The great Repository-over-EF-Core debate.** EF Core's `DbContext` is *already* a Unit of Work (it tracks changes and commits them via `SaveChanges`, as [DbContext and Change Tracking](#dbcontext-and-change-tracking) in Chapter 7 shows), and `DbSet<T>` is *already* a repository (a queryable collection abstraction). So wrapping EF Core in your own repository and unit-of-work layer often means building an abstraction over an abstraction.
 
@@ -8468,9 +8350,7 @@ return result.IsSuccess
 
 ## Clean Code & Code Smells
 
-Code is read far more often than it is written, so the reader, not the compiler, is the customer. The principles above are the *structural* side of good code; clean code is the *local* side — what a single name, method or file looks like up close — and messy code taxes every future change and every estimate.
-
-> **Clarity beats cleverness.** The compiler does not reward you for a dense one-liner, and the next developer will silently curse you for it. Optimize for the person who has to understand this code under pressure at 2 a.m.
+Code is read far more often than it is written, so the reader, not the compiler, is the customer. Messy code taxes every future change and every estimate.
 
 ### Naming: the cheapest documentation you will ever write
 
@@ -8610,8 +8490,6 @@ Two closing habits round this out. The **Boy-Scout Rule**: leave the code a litt
 
 A **code smell** — the term popularized by Martin Fowler and Kent Beck — is a surface-level symptom that hints at a deeper design problem. A smell is not a bug (the code may work perfectly) and not automatically wrong; it is a *heuristic*, something worth a second look. Its real value is vocabulary: when you can name what bothers you ("this is Feature Envy"), you also know the standard refactorings that address it.
 
-> **Smells guide, they do not dictate.** A smell is a prompt to *consider* a refactoring, not a rule that forces one. Sometimes the smelly version is genuinely the clearest option, and forcing a "clean" structure onto it makes things worse.
-
 | Smell | The pain you feel | Refactor toward |
 |---|---|---|
 | **Long Method** | You scroll, lose the plot, can't test the middle | Extract Method; Decompose Conditional |
@@ -8630,7 +8508,7 @@ A **code smell** — the term popularized by Martin Fowler and Kent Beck — is 
 | **Comments as deodorant** | Prose apologizing for code that can't explain itself | Extract Method with a good name; Rename |
 | **Magic Numbers / Strings** | Unexplained literals nobody dares to change | Named Constant; enum |
 
-Several of these are the local, code-level face of the principles above: Divergent Change is SRP violated, Duplicated Code is DRY violated, Message Chains break the Law of Demeter, Speculative Generality is YAGNI ignored. The smell vocabulary and the principle vocabulary describe the same forces from different distances.
+Several of these are the local, code-level face of the principles above: Divergent Change is SRP violated, Duplicated Code is DRY violated, Message Chains break the Law of Demeter, Speculative Generality is YAGNI ignored.
 
 ### A worked refactoring: Primitive Obsession → Value Object
 
@@ -8676,7 +8554,7 @@ The other two headline refactorings you have already seen in this chapter. **Lon
 
 ### Refactor under tests, in tiny steps
 
-Notice that the right-hand column of the smells table reduces to a small vocabulary of named moves — Extract Method/Class, Move Method, Parameter Object, Value Object, Replace Conditional with Polymorphism, Named Constant — that you will use constantly. The non-negotiable discipline around all of them: **refactor under test coverage, in tiny steps.** Refactoring by definition preserves behavior, and the only way you *know* behavior is preserved is a green test suite ([Chapter 8: Testing](#chapter-8-testing)). Make one small move, run the tests, commit; make the next. The catastrophic refactor is the one done in a single giant, untested edit — that is not refactoring, that is rewriting with extra confidence and no safety net.
+The non-negotiable discipline around every move in the smells table's right-hand column: **refactor under test coverage, in tiny steps.** Refactoring by definition preserves behavior, and the only way you *know* behavior is preserved is a green test suite ([Chapter 8: Testing](#chapter-8-testing)). Make one small move, run the tests, commit; make the next. The catastrophic refactor is the one done in a single giant, untested edit — that is not refactoring, that is rewriting with extra confidence and no safety net.
 
 You also do not have to sniff out every smell by hand: **Roslyn analyzers** flag many issues at build time, **SonarQube**/SonarLint track duplication, complexity, and a large smell ruleset across the codebase, and cyclomatic-complexity metrics put a number on "this method is too tangled." Wire them into the pipeline ([Static Analysis Gates in CI](#static-analysis-gates-in-ci), Chapter 13) so smells surface in pull requests rather than in production incidents.
 
@@ -8708,7 +8586,7 @@ This is a perfectly reasonable default for many applications, and dismissing it 
 
 ## Clean, Onion, and Hexagonal Architecture
 
-Clean Architecture, Onion Architecture, and Hexagonal Architecture (Ports & Adapters) are three names that arrived from different authors but describe essentially the same idea. Rather than treat them as rivals, understand the shared principle and note where the vocabulary differs.
+Clean Architecture, Onion Architecture, and Hexagonal Architecture (Ports & Adapters) are three names that arrived from different authors but describe essentially the same idea.
 
 ### The Dependency Rule
 
@@ -8783,12 +8661,6 @@ public sealed class EfOrderRepository : IOrderRepository { /* ... uses DbContext
 ```
 
 > **Trade-off:** Clean Architecture buys you testability, flexibility, and a domain that reads like the business rather than the database schema. It costs you indirection and ceremony — more projects, more interfaces, more mapping between DTOs and entities. For a CRUD admin tool it is over-engineering. For a system with rich, long-lived business rules it pays for itself many times over. **Match the ceremony to the complexity of the domain, not to fashion.**
-
-## Closing Thought
-
-Notice how many of these patterns dissolved into ordinary C# — Iterator became `yield`, Prototype became `with`, Observer became `event`, Strategy became `Func<>`, Singleton became a DI lifetime. That is not a coincidence. As a language and its ecosystem mature, yesterday's patterns become today's built-in features. The patterns worth carrying in your head are the ones the language *hasn't* absorbed and the *principles* underneath all of them.
-
-So hold the patterns lightly and the principles tightly. When you feel real pain — a growing `switch`, a class with three jobs, a test you can't write because a dependency is hard-wired — let a pattern relieve exactly that pain and no more. Resist the urge to build cathedrals of indirection for problems you don't yet have, and match an architecture's ceremony to the domain's complexity in the same way. The mark of a senior developer is not how many patterns they can deploy, but how much needless complexity they can keep out of the codebase.
 
 ## Three questions
 
@@ -8905,13 +8777,13 @@ The direction of one arrow. In layers, business logic references the data layer,
 
 # Chapter 11: Messaging and Background Work
 
-_⏱️ Estimated read time: ~1 h · 8799 words (study pace)_
+_⏱️ Estimated read time: ~1 h · 8338 words (study pace)_
 
-Sooner or later a request has to do something it shouldn't wait for: send an email, notify another service, build a report that takes minutes. Doing it inline couples the user's latency, and the request's success, to work that has no business being on the hot path. This chapter makes you able to move that work out of the request without losing it or doing it twice: put a queue between two parts of a system, write a handler that stays correct when a message arrives twice, late or out of order, and run long work in a worker behind `202 Accepted`.
+Sooner or later a request has to do something it shouldn't wait for: send an email, notify another service, build a report that takes minutes. Doing it inline couples the user's latency, and the request's success, to work that has no business being on the hot path.
 
 One mechanism ties the chapter together. **A queue hands out leases, not messages:** a message is gone only when a handler settles it while its lock still holds, and every other path (an exception, a crash, a lost acknowledgement, an expired lock) is a redelivery. Delivery is therefore at-least-once, and the handler must make its effect happen once by claiming the message's ID atomically with the effect.
 
-The sections build in that order. First why messaging at all, the vocabulary of events and commands, the brokers and the patterns they share, and MassTransit as the .NET way to use them. Then the guarantees a broker actually gives, and the two patterns that make them safe: the idempotent consumer on the receiving side and the transactional outbox on the sending side. Then the same ideas inside one service: `BackgroundService` workers, graceful shutdown, and the asynchronous request-reply contract for work longer than a request. Sagas, resilience patterns and scheduling across instances come later, in [Chapter 20: Distributed Systems](#chapter-20-distributed-systems).
+Sagas, resilience patterns and scheduling across instances are in [Chapter 20: Distributed Systems](#chapter-20-distributed-systems).
 
 ## Why Messaging at All?
 
@@ -8957,7 +8829,7 @@ Call synchronously when you need the answer *now* to proceed ("is this coupon va
 
 ## Event-Driven Architecture: Events, Commands, and Messages
 
-These three words get used interchangeably and it causes real confusion. Let's be precise.
+These three words get used interchangeably and it causes real confusion.
 
 - A **message** is the generic envelope — any data moving through the broker.
 - A **command** is a message that *instructs* a specific recipient to do something. Imperative, present tense: `ChargePayment`, `ShipOrder`. It has **one** logical handler. The sender expects it to be acted upon and often cares whether it succeeded.
@@ -8974,7 +8846,7 @@ The distinction decides how a message travels. A command goes to one queue that 
 
 ## Message Brokers Compared
 
-A broker is the post office in the middle. All the major ones move messages, but their internal models differ enough that picking the wrong one causes real pain. Each implements the command and event shapes above differently, and Kafka adds a third: the stream, an ordered and replayable history of facts. Let's understand each on its own terms.
+A broker is the post office in the middle. All the major ones move messages, but their internal models differ enough that picking the wrong one causes real pain. Each implements the command and event shapes above differently, and Kafka adds a third: the stream, an ordered and replayable history of facts.
 
 ### RabbitMQ — The Smart Router (AMQP)
 
@@ -9079,7 +8951,7 @@ That table compares products; the more important comparison is between the three
 
 ## Core Messaging Patterns
 
-Regardless of broker, the same handful of patterns recur. Learn them once and you can map them onto any technology.
+Regardless of broker, the same handful of patterns recur.
 
 ### Publish/Subscribe
 
@@ -9232,8 +9104,6 @@ Notice how little broker-specific code there is. `Publish` vs `Send`: **Publish*
 - **NServiceBus** (from Particular Software) is the commercial, batteries-included, enterprise-grade option. It has the deepest saga tooling, excellent monitoring (ServiceInsight/ServicePulse), and strong support contracts. If you're a large enterprise that wants a vendor to call, this is it.
 - **Rebus** is the lightweight, free, "just enough" alternative. Smaller API surface, easy to learn, fewer bells and whistles. Great when MassTransit feels like too much.
 
-All three share the same conceptual model, so skills transfer.
-
 ## Delivery Guarantees
 
 Getting this wrong loses or duplicates data. There are three possible guarantees:
@@ -9328,7 +9198,7 @@ The mirror image is the **inbox**: the processed-message claims from *Idempotent
 
 ## Background Processing in .NET
 
-The queue's consumer, the outbox relay and every other piece of work no request waits on run in-process, inside the Generic Host that [Chapter 3: The Generic Host and Background Services](#the-generic-host-and-background-services) introduced as the owner of DI, configuration, logging and the application's lifetime. This section is the full treatment of the work the host runs: the hosted-service contract, the worker loop, shutdown, and what changes when several instances run it.
+The queue's consumer, the outbox relay and every other piece of work no request waits on run in-process, inside the Generic Host that [Chapter 3: The Generic Host and Background Services](#the-generic-host-and-background-services) introduced as the owner of DI, configuration, logging and the application's lifetime.
 
 ### `IHostedService` and `BackgroundService`
 
@@ -9420,7 +9290,7 @@ builder.Services.AddHostedService<EmailDispatchWorker>();
 
 ### The outbox-driven worker
 
-In-memory channels have a fatal flaw for anything that matters: **if the process dies, the queue dies with it.** When a user places an order, you write the order to the database *and* you want to publish an `OrderPlaced` event - and doing that as two separate operations means a crash between them loses one side. That is the dual write from [The Transactional Outbox](#the-transactional-outbox) above, which covers the table, the atomic commit and MassTransit's built-in support. Here the point is the other half of the pattern: the background worker that actually drains the table.
+In-memory channels have a fatal flaw for anything that matters: **if the process dies, the queue dies with it.** The fix is [The Transactional Outbox](#the-transactional-outbox) above; this is the background worker that drains its table.
 
 The worker polls unprocessed rows and publishes them, marking each as done only after the broker acknowledges:
 
@@ -9472,7 +9342,7 @@ builder.Services.Configure<HostOptions>(o =>
 
 The moment you run more than one instance of your service - and in any serious deployment you will, for availability alone - two copies of that outbox worker are polling the same table. Both may grab the same row. Your message gets published twice.
 
-You cannot engineer this possibility away entirely. Distributed systems give you **at-least-once** delivery as the practical default; exactly-once is a comforting fiction that, when you look closely, is always at-least-once plus idempotent processing (*Why Exactly-Once Is (Almost) a Myth* above). So stop fighting duplicates and make processing **idempotent**: claim a natural or supplied key under a unique index, in the same transaction as the effect, exactly as in [Idempotent Consumers](#idempotent-consumers). Apply it to every handler a worker runs.
+You cannot engineer this away entirely (*Why Exactly-Once Is (Almost) a Myth* above), so make processing **idempotent**: claim a natural or supplied key under a unique index, in the same transaction as the effect, exactly as in [Idempotent Consumers](#idempotent-consumers). Apply it to every handler a worker runs.
 
 For the polling contention itself, options range from a `SELECT ... FOR UPDATE SKIP LOCKED` (PostgreSQL) to claiming rows with an atomic `UPDATE ... SET LockedBy = @me WHERE ...`, to simply electing a single leader so only one instance polls at all ([Chapter 20: Ensuring a job runs once across instances](#ensuring-a-job-runs-once-across-instances)). The right answer depends on throughput, but the principle is constant: **assume duplicates and design so they don't hurt.**
 
@@ -9542,12 +9412,6 @@ if (claimed == 0) return;   // another delivery owns it or finished it: complete
 The lease lets a redelivery take over a job whose worker died mid-run, so a rerun must be safe: write the result keyed by the job ID, overwriting any partial one. A transient failure throws, and the broker redelivers the message; a permanent one, such as input that validation couldn't catch, is dead-lettered at once. Either way the job must end `Failed`, with a reason someone can act on: set by the worker on a permanent failure or on the last attempt, by whatever drains the dead-letter queue, or by a sweeper that fails jobs whose `LastUpdatedAt` has stopped moving. A status stuck at `Running` is the HTTP face of a dead-letter queue nobody watches.
 
 **Clients poll, or get called back.** A polling client waits `Retry-After` between `GET`s and gives up at a deadline. A callback (a webhook, a SignalR message) saves the polling, but needs a reachable, authenticated endpoint on the client's side and is itself delivered at-least-once ([Chapter 15: Notifications](#notifications-push-sms-and-webhooks) covers webhook signatures), so keep polling as the fallback. Expose `DELETE /jobs/{id}` if a job can be cancelled, and delete old jobs and results on a retention schedule.
-
-## Bringing It Together
-
-Every section of this chapter negotiates with one fact: the network and the process can fail between any two steps, and nobody can be certain whether the other side finished. Messaging decouples a request from the work that follows it, so a downstream outage waits in a queue instead of failing the customer. The broker delivers at-least-once, because an acknowledgement is a lease that can expire; so every consumer claims the message's ID in the same transaction as its effect. The producer writes its message into the same transaction as its data, through the outbox, because a commit and a publish are two operations. And work longer than a request becomes a job: a `202 Accepted`, a status resource, and a `BackgroundService` that observes its cancellation token and can safely run twice.
-
-Coordinating several services through one business process (sagas and compensation), protecting callers with retries, circuit breakers and bulkheads, and running scheduled jobs exactly once across instances build on this foundation in [Chapter 20: Distributed Systems](#chapter-20-distributed-systems).
 
 ## Prove it
 
@@ -9774,13 +9638,13 @@ On SIGTERM or Ctrl+C the host cancels the `stoppingToken` and waits for `Execute
 
 # Chapter 12: Security Essentials
 
-_⏱️ Estimated read time: ~45 min · 8096 words (study pace)_
+_⏱️ Estimated read time: ~45 min · 7602 words (study pace)_
 
-Security is not a feature you bolt on at the end of a sprint. It is a property of a system that emerges from thousands of small decisions: how you parse input, where you store a connection string, which overload of a crypto API you call, and whether you trusted a value that came from the network. This chapter makes you able to write and review an endpoint so that it checks who the caller is and what this caller may do to *this* record, treats every input as data, keeps secrets out of the repository, and doesn't carry one of the handful of configuration lines that quietly switch a defence off.
+Security is a property of a system that emerges from thousands of small decisions: how you parse input, where you store a connection string, which overload of a crypto API you call, and whether you trusted a value that came from the network.
 
 One rule runs under every section: **the server trusts only what it verifies itself, on every request.** The caller's identity comes from a credential it validates, access is decided per resource, and input is only ever data, never code. Each trap in the chapter is a place where something unverified gets trusted.
 
-The sections build from the mindset to the machinery. First the four decision rules, then authentication and authorization as ASP.NET Core wires them, then the OWASP Top 10 as the map of what goes wrong, each with its .NET mitigation. Then the parts you will configure yourself: OAuth 2.0, OpenID Connect and JWT validation, identity providers, secrets, the cryptography you use (hashing, encryption, Data Protection), TLS from the handshake to HSTS, the browser-facing defences, and dependency scanning. Workload identity, zero trust, the depth of cryptography and the software supply chain continue in [Chapter 27: Security in Depth and the Supply Chain](#chapter-27-security-in-depth-and-the-supply-chain).
+Workload identity, zero trust, the depth of cryptography and the software supply chain continue in [Chapter 27: Security in Depth and the Supply Chain](#chapter-27-security-in-depth-and-the-supply-chain).
 
 ## The Security Mindset
 
@@ -9798,8 +9662,6 @@ Four principles, used as decision procedures when the "how" is unclear:
 
 ## Authentication vs. Authorization
 
-The mindset becomes concrete at the first question every request raises: who is calling, and may they do this?
-
 - **Authentication (AuthN)** answers *"Who are you?"* — it establishes and verifies identity. Logging in with a password, presenting a certificate, or validating a JWT are authentication. In ASP.NET Core it produces a `ClaimsPrincipal`.
 - **Authorization (AuthZ)** answers *"What are you allowed to do?"* — it decides whether an already-identified principal may perform an action. Checking a role, a scope, or resource ownership is authorization.
 
@@ -9811,8 +9673,6 @@ Authentication always comes first; you cannot authorize an unknown principal. In
 app.UseAuthentication(); // figures out WHO — populates HttpContext.User
 app.UseAuthorization();  // figures out WHAT — enforces [Authorize] policies
 ```
-
-A `401 Unauthorized` means "I don't know who you are" (authentication failed). A `403 Forbidden` means "I know who you are, but you can't do this" (authorization failed). Despite its name, `401` is about authentication.
 
 **Which authentication scheme.** For APIs, the dominant scheme is **JWT bearer tokens**: the client sends `Authorization: Bearer <token>`, and the server validates a signed set of claims without a lookup (configured in *Validating JWTs Correctly* below). For server-rendered apps, **cookie authentication** stores an encrypted session identifier in a cookie. For delegated identity — "log in with Google/Microsoft/your corporate IdP" — you configure `.AddOpenIdConnect(...)` and let the middleware handle the redirect dance of the flows described under *OAuth 2.0, OpenID Connect, and JWTs*. The design rule: your API should *trust tokens from a known issuer*, not manage passwords itself.
 
@@ -9870,8 +9730,6 @@ public async Task<IActionResult> GetInvoice(int id)
 ```
 
 > **Pitfall:** Returning `403 Forbidden` for a resource the user doesn't own leaks its existence. Prefer `404` for cross-tenant access so attackers can't enumerate valid IDs.
-
-For anything beyond trivial checks, use ASP.NET Core's resource-based authorization (`IAuthorizationService.AuthorizeAsync`) so the ownership logic lives in a reusable handler rather than being copy-pasted into every action.
 
 > **Pay attention.** **Why `[Authorize]` can't stop an IDOR.** Attributes and endpoint policies run before the action, against the principal and the route, and the record hasn't been loaded yet. They can answer "may this caller use this endpoint?", never "does invoice 1005 belong to this caller?", because ownership is a column of the row. So the check has to sit where the row is: in the query itself (`Where(i => i.Id == id && i.OwnerId == userId)`, or an EF Core global query filter on the tenant), or in a resource-based check after loading. A query that filters by owner can't forget the check on the next endpoint that loads the same entity.
 
@@ -9976,7 +9834,7 @@ Your server fetches a URL supplied by the user, and an attacker points it at int
 
 ## OAuth 2.0, OpenID Connect, and JWTs
 
-Modern applications rarely handle passwords directly. Instead they delegate to an identity provider using **OAuth 2.0** (an authorization framework) and **OpenID Connect** (an authentication layer on top of OAuth). Understanding the roles and flows is essential.
+Modern applications rarely handle passwords directly. Instead they delegate to an identity provider using **OAuth 2.0** (an authorization framework) and **OpenID Connect** (an authentication layer on top of OAuth).
 
 The actors: the **resource owner** (the user), the **client** (your app), the **authorization server** (the IdP that issues tokens), and the **resource server** (your API that accepts tokens).
 
@@ -10210,8 +10068,6 @@ Here is a **TLS 1.3** handshake, the modern default, which is faster than its pr
 3. **Certificate** — The server sends its **X.509 certificate**, which binds its domain name to a public key and is signed by a **Certificate Authority (CA)** the client trusts. The client verifies the signature chain up to a trusted root in its store, checks the domain matches, and checks expiry/revocation.
 4. **Finished** — Both sides confirm they derived the same keys. From here, all application data is encrypted with fast **symmetric** encryption (e.g., AES-GCM).
 
-The elegant trick: **asymmetric** cryptography (slow) is used only to authenticate and to agree on a shared secret; then **symmetric** cryptography (fast) does the bulk encryption. You get the security of public-key crypto with the speed of symmetric ciphers.
-
 **TLS 1.3** also supports **0-RTT resumption**, where a returning client can send data in its very first packet — great for latency, but 0-RTT data is vulnerable to replay, so never use it for non-idempotent requests.
 
 Step 3 is the only thing that tells the client it isn't talking to an attacker in the middle. That is why disabling certificate validation is never a fix:
@@ -10236,8 +10092,6 @@ app.UseHsts(); // production only
 Use modern TLS (1.2 minimum, prefer 1.3), and automate certificate issuance and renewal (Let's Encrypt / ACME, or your cloud's managed certificates).
 
 ## Web-Facing Defenses
-
-Beyond the fundamentals, the browser threat model demands specific defenses.
 
 ### Input Validation and Output Encoding
 
@@ -10335,12 +10189,6 @@ Scanning tells you about *known* vulnerabilities in packages you already trust. 
 
 > **Capstone tie-in:** This chapter is exercised by ShopCore Step 5 (Caching, Auth, and Observability) — you'd add JWT authentication and role-based authorization so only authenticated users check out and only admins mutate the catalog. See [Chapter 44](#chapter-44-capstone-one-project-growing-up).
 
-## Summary
-
-Security is a discipline of layered, deliberate decisions. Adopt the mindset — defense in depth, least privilege, secure by default, never trust input — and it informs every line you write. Distinguish authentication (who you are) from authorization (what you may do), and check access per resource, where the record is. Know the OWASP Top 10 as *categories* of failure and the .NET mitigation for each. Delegate identity to OAuth 2.0 / OIDC with the Authorization Code + PKCE flow, and validate JWTs on signature, algorithm, issuer, audience and lifetime — every time, without switching a check off to make a `401` go away. Keep secrets out of source and in a managed vault reached with a managed identity; hash passwords with a slow salted algorithm you didn't write; reach for `IDataProtector` instead of raw crypto; enforce TLS and never disable certificate validation; and defend the browser boundary with validation, encoding, anti-forgery tokens, tight CORS, and a strong CSP. Finally, scan your dependencies continuously — because the vulnerability you didn't write is still yours to fix.
-
-[Chapter 27: Security in Depth and the Supply Chain](#chapter-27-security-in-depth-and-the-supply-chain) takes the next step: replacing stored secrets with workload identity and short-lived tokens, zero trust between services, algorithm agility, and the software supply chain.
-
 ## Three questions
 
 **1.** A database backup leaks. Passwords were stored as SHA-256 with a unique random salt per user. Why does the salt not protect them, and what exactly does a slow hash change?
@@ -10429,13 +10277,13 @@ Out of source control and out of plain config: use a secrets manager / vault (Az
 
 # Chapter 13: Git and CI/CD
 
-_⏱️ Estimated read time: ~40 min · 6830 words (study pace)_
+_⏱️ Estimated read time: ~40 min · 6381 words (study pace)_
 
-The people who write software and the people who run it share one piece of machinery: version control that lets many people change the same codebase safely, and pipelines that build and test every change the same way on every machine. This chapter makes you able to keep a branch current, clean and reviewable without losing anyone's work, get back commits that look lost, and set up the SDK, its tools, the analyzers and the formatter so that your laptop and the CI build apply the same rules, then read and write a GitHub Actions pipeline for a .NET service.
+The people who write software and the people who run it share one piece of machinery: version control that lets many people change the same codebase safely, and pipelines that build and test every change the same way on every machine.
 
 Each half rests on one mechanism. **A commit is an immutable snapshot whose ID is a hash of its content, parent IDs included; a branch is only a movable name for one commit.** Merge versus rebase, the reflog, what `.gitignore` can't undo and why long branches hurt all follow from that sentence. And **the `dotnet` CLI is a driver**: the same commands, tools and compiler-hosted analyzers run on every machine, so a pipeline is your local build, written down and run on every push.
 
-The chapter goes from Git's model to the pipeline: Git first, then what CI and CD mean, the `dotnet` CLI and MSBuild that every pipeline calls, a complete GitHub Actions workflow, versioning, secrets and the analysis gates, and finally the everyday tools around them. Azure Pipelines, NuGet publishing, deployment strategies, feature flags and platform engineering build on this in [Chapter 26: Delivery and Platform](#chapter-26-delivery-and-platform).
+Azure Pipelines, NuGet publishing, deployment strategies, feature flags and platform engineering build on this in [Chapter 26: Delivery and Platform](#chapter-26-delivery-and-platform).
 
 ## Git, Properly Understood
 
@@ -10618,7 +10466,7 @@ The command line is essential, but a good GUI makes history, staging, and confli
 
 ## What CI/CD Actually Means
 
-The acronym conflates three distinct practices. Precision here separates people who understand the pipeline from those who parrot the buzzword.
+The acronym conflates three distinct practices.
 
 **Continuous Integration (CI)** is the discipline of merging every developer's work into a shared mainline frequently—at least daily—and verifying each merge with an automated build and test run. The goal is to catch integration problems within minutes of introducing them, while the change is small and fresh in the author's mind. CI is fundamentally a *human* practice (integrate often) supported by automation (build and test on every push).
 
@@ -10626,11 +10474,9 @@ The acronym conflates three distinct practices. Precision here separates people 
 
 **Continuous Deployment** removes even that final button. Every change that passes all automated gates goes to production automatically, with no human in the loop. This demands very high confidence in your test suite and safe deployment techniques (feature flags, canaries, fast rollback).
 
-> **The distinction that matters in interviews and in practice:** Continuous *Delivery* keeps a human gate before production; continuous *Deployment* does not. Both require the same rigorous automated pipeline underneath.
-
 ## Build Automation with the dotnet CLI
 
-Every pipeline in this chapter leans on the `dotnet` CLI, which is the same tool you use locally. Learn it first: consistency between local and CI builds eliminates a whole class of "works on my machine" problems.
+Every pipeline in this chapter leans on the `dotnet` CLI, which is the same tool you use locally. Consistency between local and CI builds eliminates a whole class of "works on my machine" problems.
 
 ```bash
 dotnet restore                       # download NuGet dependencies
@@ -10708,11 +10554,7 @@ Several platforms implement these ideas. They differ in hosting model and syntax
 
 **Jenkins** is the veteran open-source automation server. It is enormously flexible via its plugin ecosystem and `Jenkinsfile` pipelines, self-hosted, and still widespread in organizations with established infrastructure. The tradeoff is operational overhead: you run, patch, and secure the server and its agents yourself.
 
-The concepts—triggers, jobs, steps, artifacts, caching, secrets, environments—exist in all four. Learn them once and you can read any of these platforms' configuration.
-
 ## A Complete GitHub Actions Workflow for .NET
-
-Let's build a real pipeline that restores, builds, tests, publishes, containerizes, and deploys a .NET application. We'll then dissect it.
 
 ```yaml
 name: build-test-deploy
@@ -10918,8 +10760,6 @@ A typical quality-gate stage in the pipeline runs the Sonar scanner around the b
 
 ## The Everyday Toolbox
 
-The tools below are the ones a modern .NET team reaches for around the build. Know what each one solves, so you pick deliberately rather than by habit.
-
 ### IDEs: Visual Studio, Rider, and VS Code
 
 **Visual Studio** (Windows) is the heavyweight. Its debugger is best-in-class, especially for tricky scenarios: mixed-mode debugging, memory dumps, IntelliTrace, and the diagnostic tooling for CPU and allocation profiling. If you work on WPF/WinForms, complex MSBuild setups, or need the deepest debugging experience, it is hard to beat. The cost is that it is heavy and Windows-only.
@@ -10927,8 +10767,6 @@ The tools below are the ones a modern .NET team reaches for around the build. Kn
 **JetBrains Rider** is cross-platform and, for many, the day-to-day sweet spot. It combines ReSharper's analysis engine with a fast solution model, excellent refactoring, and strong support for EF Core, Docker, databases, and unit test runners in one product. Rider tends to feel snappier than VS on large solutions and works identically on macOS, Linux, and Windows.
 
 **VS Code + C# Dev Kit** is the lightweight, extensible option. Backed by the Roslyn language server, C# Dev Kit gives you a solution explorer, test integration, and IntelliSense that is now genuinely good for everyday work. It shines for microservices, polyglot repos (a .NET API next to a React front end), and remote/container development via Dev Containers and SSH.
-
-> **Tip:** Match the tool to the task, not to tribal loyalty. Many seniors keep VS Code open for quick edits and scripts, and reach for Rider or Visual Studio when they need heavy refactoring or serious debugging.
 
 ### API Testing
 
@@ -10945,17 +10783,9 @@ Options for poking at HTTP endpoints:
 
 Diagrams-as-code beat drag-and-drop tools because they diff and version. **Mermaid** renders directly in GitHub/GitLab markdown, so sequence and flow diagrams live next to the code. **PlantUML** is more powerful for detailed UML. The **C4 model** (Context, Container, Component, Code) gives you a shared vocabulary for architecture at different zoom levels; tooling like Structurizr or C4-PlantUML renders it.
 
-> **Tip:** A Mermaid sequence diagram in your README saves ten minutes of whiteboard explanation for every new joiner.
-
 ### Local Dev Tooling
 
 Reliable local environments prevent "works on my machine." **Testcontainers** spins up real dependencies (Postgres, Redis, Kafka) in Docker for integration tests, then tears them down; no more shared, drifting test databases ([Chapter 8: Testcontainers for .NET](#testcontainers-for-net) shows how). **Azurite** emulates Azure Storage (Blob, Queue, Table) locally, and **LocalStack** emulates a broad range of AWS services. These let you develop and test cloud integrations offline and in CI.
-
-## Bringing It Together
-
-Command of Git and CI is a chain of small, well-understood decisions. You keep branches short-lived and integrate constantly, because a branch is just a pointer and deferred integration is where pain accumulates. You curate history with interactive rebase before review and treat shared history as immutable, trusting the reflog to catch your mistakes. You express your build as `dotnet` commands that run identically on your laptop and in CI, pin the tools in a manifest, centralize configuration with `Directory.Build.props` and Central Package Management, and version artifacts deterministically with SemVer and GitVersion. Your pipeline restores with caching, tests across a matrix, gates on analyzers, formatting, coverage and static analysis, keeps every secret in the platform's store, and produces one immutable artifact.
-
-None of these practices is exotic. Their power is cumulative: together they turn shipping software from a nerve-wracking event into a routine, boring, reversible non-event. How that artifact reaches production safely (deployment strategies, feature flags, Azure Pipelines and measuring delivery) is [Chapter 26: Delivery and Platform](#chapter-26-delivery-and-platform).
 
 ## Three questions
 
@@ -11079,17 +10909,17 @@ Drift. MSBuild imports the nearest `Directory.Build.props` above each project, s
 
 # Chapter 14: Containers and Linux
 
-_⏱️ Estimated read time: ~55 min · 7719 words (study pace)_
+_⏱️ Estimated read time: ~50 min · 6996 words (study pace)_
 
-For most of its life, .NET meant Windows: Visual Studio, F5, IIS. That world still exists, but it is no longer where most new .NET code *runs*. The default target for a cloud deployment is a Linux container, and "it works on my machine" fails there in specific, explainable ways: a file the app can't write, a shutdown that loses requests, a port nobody can reach. This chapter makes you able to work on Linux from the shell, containerize a .NET service into a small, non-root image, run a local multi-service stack with Docker Compose, and diagnose a container that won't start, won't write or won't answer.
+The default target for a cloud deployment is a Linux container, and "it works on my machine" fails there in specific, explainable ways: a file the app can't write, a shutdown that loses requests, a port nobody can reach.
 
 The chapter has one through-line: **a container is an ordinary Linux process** with a restricted view of the system (namespaces) and a capped share of it (cgroups), started from a layered, read-only image. Everything that goes wrong inside one is a Linux behaviour: file permissions decide what it can write, signals decide whether it shuts down gracefully, environment variables carry its configuration, and stdout carries its logs.
 
-So the sections start with Linux itself: the shell, the filesystem, the everyday commands and pipes, then the three mechanisms containers lean on hardest (permissions, processes and signals, environment variables). Then containers: what one actually is, how Docker builds images, a production Dockerfile for ASP.NET Core, Compose for local development, and registries. The chapter ends with the tools for reading logs and checking the network. Running containers at scale (Kubernetes, Helm, service meshes, .NET Aspire) and running .NET under systemd continue in [Chapter 26: Delivery and Platform](#chapter-26-delivery-and-platform).
+Running containers at scale (Kubernetes, Helm, service meshes, .NET Aspire) and running .NET under systemd continue in [Chapter 26: Delivery and Platform](#chapter-26-delivery-and-platform).
 
 ## Why Linux Matters for Modern .NET
 
-Three forces pushed .NET onto Linux, and understanding them tells you *why* the skills in this chapter pay off.
+Three forces pushed .NET onto Linux.
 
 **Containers.** Docker images are almost always built `FROM` a Linux base. Microsoft ships `mcr.microsoft.com/dotnet/aspnet:10.0` as a Debian-based Linux image by default, with Alpine and Ubuntu variants. When you `docker build` and `docker run`, you are running your app on a tiny Linux system, even if your laptop is Windows. Kubernetes — the industry standard orchestrator — schedules Linux containers.
 
@@ -11145,8 +10975,6 @@ cd -                # jump back to the previous directory
 ```
 
 ## Essential Commands
-
-These are the verbs of daily Linux life. Learn them until they're muscle memory.
 
 ```bash
 ls -lah                 # list: long format, all files, human-readable sizes
@@ -11248,8 +11076,6 @@ dotnet restore ; dotnet build        # run both regardless (';' just sequences)
 `&&` = "and then, if the previous succeeded." `||` = "or else, if it failed." You'll write these constantly in Dockerfiles and CI scripts.
 
 ## Permissions: Why Your Container App Can't Write That File
-
-This is the single most common Linux surprise for Windows developers, so we'll go deep.
 
 Every file and directory has an **owner** (a user), a **group**, and a set of permission bits for three classes: the owner (`u`), the group (`g`), and everyone else (`o`). Each class gets three bits: **read (r)**, **write (w)**, and **execute (x)**. Run `ls -l` and read the first column:
 
@@ -11427,13 +11253,11 @@ For .NET work this is close to ideal: build and run your app inside WSL2's Linux
 
 ## What a Container Actually Is
 
-With the Linux basics in place, containers turn out to be a combination of things you have already seen: processes, a filesystem tree and a few kernel features. The single most common misconception is that a container is a lightweight virtual machine. It is not, and understanding the difference is the foundation for everything else.
+A container is a combination of things you have already seen: processes, a filesystem tree and a few kernel features. The single most common misconception is that a container is a lightweight virtual machine. It is not.
 
 A **virtual machine** virtualizes *hardware*. A hypervisor (VMware, Hyper-V, KVM) presents fake CPUs, fake network cards, and fake disks to a **complete guest operating system**, kernel and all. If you run five VMs on a host, you are running five separate kernels, each consuming hundreds of megabytes of RAM before your application starts, each booting for tens of seconds.
 
 A **container** virtualizes the *operating system*. There is no guest kernel. Every container on a host shares the **host's single Linux kernel**. What makes a container feel isolated — its own process list, its own network interfaces, its own root filesystem — is a set of kernel features, not a separate machine.
-
-> **Analogy:** A VM is a detached house — its own foundation, plumbing, and electrical panel. A container is an apartment in a building: it has its own locked front door and feels private, but it shares the building's foundation, water main, and structure (the kernel) with every other apartment. Apartments are cheaper to build and faster to move into, but they all depend on the same building holding up.
 
 ### The two kernel features that make it work
 
@@ -11446,8 +11270,6 @@ A **container** virtualizes the *operating system*. There is no guest kernel. Ev
 - **User namespace** — maps user IDs, so root *inside* the container can map to an unprivileged user *outside*.
 
 **Control groups (cgroups)** provide *limits* — they control what a process can *use*. A cgroup caps CPU shares, memory, and I/O bandwidth for a group of processes. When you tell Kubernetes a pod may use "500m CPU and 512Mi memory," that limit is ultimately enforced by cgroups.
-
-Put simply: **namespaces decide what you can see; cgroups decide what you can consume.** A container is just a normal Linux process (or process tree) wrapped in namespaces for isolation and cgroups for resource limits. That's why containers start in milliseconds and cost almost nothing at idle — there's no second kernel to boot.
 
 > **Pitfall:** Because containers share the host kernel, a Linux container cannot run natively on Windows or macOS. Docker Desktop quietly runs a lightweight Linux VM in the background and starts your containers *inside* it. On a Linux server there is no such VM — containers run directly on the host kernel.
 
@@ -11471,8 +11293,6 @@ Every instruction in a Dockerfile that changes the filesystem produces a new **l
 When Docker executes a build, for each instruction it checks whether it has already built an identical layer (same instruction, same input). If so, it reuses the cached layer and skips the work. The moment one instruction's input changes, that layer and **every layer after it** are invalidated and rebuilt.
 
 This single rule dictates how you should order a Dockerfile: **put the things that change rarely near the top, and the things that change constantly near the bottom.** For a .NET app, your project files and restored NuGet packages change far less often than your source code. So you copy the `.csproj` and restore *first*, then copy the rest of the source. That way, editing a `.cs` file doesn't force a full package restore.
-
-> **Best practice:** Copy dependency manifests and restore packages *before* copying application source. This keeps the expensive `dotnet restore` layer cached across the many builds where only your code changed.
 
 ### Common Dockerfile instructions
 
@@ -11510,11 +11330,7 @@ README.md
 
 Here is the tension: to *build* a .NET app you need the whole SDK (compilers, NuGet, MSBuild) — hundreds of megabytes. To *run* it you need only the much smaller runtime. A **multi-stage build** lets you use a fat SDK image to compile, then copy just the published output into a slim runtime image, discarding the SDK entirely. The final image contains none of the build tooling.
 
-Think of it as a workshop and a display case: you do all the messy cutting and welding in the workshop (the build stage), then move only the finished product to the clean display case (the runtime stage). Nobody ships the workshop.
-
 ## Containerizing a .NET Application
-
-Let's build a production-grade Dockerfile for an ASP.NET Core service. We'll layer in every best practice: multi-stage, cache-friendly ordering, non-root user, and a minimal final image.
 
 ```dockerfile
 # syntax=docker/dockerfile:1
@@ -11582,16 +11398,6 @@ ENTRYPOINT ["dotnet", "MyApi.dll"]
 ```
 
 The payoffs are substantial: images are tens of megabytes smaller, there's a far smaller surface for CVEs, and non-root is the default. The trade-off is that you **cannot `docker exec` a shell into the container** to poke around — there is no `/bin/sh`. For debugging you attach an ephemeral debug container or rely on logs and metrics.
-
-> **Best practice:** For production, prefer chiseled/distroless runtime images. Smaller images pull faster, cost less to store, and present a smaller attack surface. Keep a shell-equipped image variant only if your ops workflow genuinely needs one.
-
-### Image size optimization, summarized
-
-- Use multi-stage builds so build tooling never reaches the final image.
-- Choose the smallest viable base (`-alpine`, `-chiseled`).
-- Order instructions for cache friendliness; restore before copying source.
-- Add a thorough `.dockerignore`.
-- Combine related `RUN` commands and clean up in the same layer (a file deleted in a *later* layer still occupies space in the earlier one).
 
 ## Docker Compose for Local Development
 
@@ -11713,14 +11519,6 @@ curl -v http://localhost:8080/health     # -v shows the connection + headers
 ```
 
 If `curl` from inside the box works but external access fails, the problem is networking (port mapping, firewall, security group), not your app.
-
-## Putting It Together
-
-Containers are ordinary processes wrapped in kernel **namespaces** (isolation) and **cgroups** (limits), not miniature VMs, which is why they're fast and cheap. **Docker** builds them from layered, cache-friendly Dockerfiles; **multi-stage builds** and **chiseled, non-root** images give you small, secure .NET containers. **Docker Compose** runs a local multi-service stack, while **registries** distribute your images under immutable tags.
-
-Linux is the *native habitat* of production .NET, and the filesystem tree, permission bits, signals, environment variables and pipes aren't trivia: they are the exact concepts that explain why a container won't start, why an app can't write a file, why a deployment hangs or loses requests on shutdown, and why the port isn't reachable. When you can reason about these from the shell, you stop depending on someone else to diagnose production.
-
-Practice by doing: spin up an Ubuntu container (`docker run -it ubuntu bash`), poke around `/etc` and `/var`, break a permission and fix it, run your app as a non-root user, and read its logs with `docker logs`. The commands become reflexes faster than you'd expect. At scale, Kubernetes takes over from Compose; [Chapter 26: Delivery and Platform](#chapter-26-delivery-and-platform) covers it, and [Chapter 35: Live-Container Triage](#live-container-triage-a-walkthrough) walks through diagnosing a misbehaving container in production.
 
 ## Sources & Further Reading
 
@@ -11854,13 +11652,11 @@ What it listens on. `ss -tlnp` inside the container shows the bound address: an 
 
 # Chapter 15: Dates, Money and Strings
 
-_⏱️ Estimated read time: ~40 min · 5490 words (study pace)_
+_⏱️ Estimated read time: ~35 min · 5057 words (study pace)_
 
-Most textbook code lives in a fantasy world. The clock is always noon, everyone speaks American English, prices are round dollar amounts, files fit in memory, and email "just sends." Production is where those assumptions go to die. The incidents that wake engineers at 3 a.m. are rarely caused by clever algorithms gone wrong — they are caused by a timestamp stored in the server's local time, a `double` that lost a penny, a `ToUpper()` that mangled a Turkish username, or a 2 GB upload that pinned a web server's memory.
+The incidents that wake engineers at 3 a.m. are rarely caused by clever algorithms gone wrong — they are caused by a timestamp stored in the server's local time, a `double` that lost a penny, a `ToUpper()` that mangled a Turkish username, or a 2 GB upload that pinned a web server's memory.
 
-This chapter is a field guide to those details. None of them are conceptually hard. All of them are easy to get subtly wrong, and the wrongness only surfaces under real-world conditions: a customer in another time zone, a currency you didn't anticipate, a locale you never tested. Getting them right without being told is a large part of what a middle developer is trusted with.
-
-One mechanism ties the sections together: **a value is correct only together with the context that gives it meaning.** An instant needs UTC or an offset, a wall-clock time needs a zone, an amount needs a currency and a rounding rule, a string comparison needs a declared kind. When that context is left implicit, the machine supplies one — the server's zone, the thread's culture, the binary fraction nearest to your decimal — and every trap below is that substitution. The chapter walks through dates and times, then money and numbers, then culture and strings, and ends with the integrations almost every app needs (files, email, notifications, PDFs) and why their heavy work belongs off the request path. The *Prove it* program at the end makes the money traps visible on your own machine.
+One mechanism ties the sections together: **a value is correct only together with the context that gives it meaning.** An instant needs UTC or an offset, a wall-clock time needs a zone, an amount needs a currency and a rounding rule, a string comparison needs a declared kind. When that context is left implicit, the machine supplies one — the server's zone, the thread's culture, the binary fraction nearest to your decimal — and every trap below is that substitution.
 
 ## Date and Time Done Right
 
@@ -11958,27 +11754,7 @@ Use NodaTime when time is core to your domain (scheduling, calendars, finance, a
 
 ### `TimeProvider`: testable time (.NET 8+)
 
-Code that calls `DateTimeOffset.UtcNow` directly can't be tested at a fixed "now", or at midnight. .NET 8 standardized the homegrown `IClock` as **`TimeProvider`**.
-
-```csharp
-public class SubscriptionService
-{
-    private readonly TimeProvider _time;
-    public SubscriptionService(TimeProvider time) => _time = time;
-
-    public bool IsExpired(Subscription sub) =>
-        _time.GetUtcNow() >= sub.ExpiresAtUtc;
-}
-
-// Production: register TimeProvider.System in DI.
-// Tests: use FakeTimeProvider from Microsoft.Extensions.TimeProvider.Testing.
-var fake = new FakeTimeProvider(
-    new DateTimeOffset(2026, 7, 21, 12, 0, 0, TimeSpan.Zero));
-var svc = new SubscriptionService(fake);
-fake.Advance(TimeSpan.FromDays(1)); // deterministically move time forward
-```
-
-`TimeProvider` also abstracts timers and `Task.Delay`, so you can test timeout and retry logic without real waiting. **Inject `TimeProvider` everywhere you'd otherwise reach for `DateTimeOffset.UtcNow`.**
+Code that calls `DateTimeOffset.UtcNow` directly can't be tested at a fixed "now", or at midnight. **Inject `TimeProvider` everywhere you'd otherwise reach for `DateTimeOffset.UtcNow`**: production registers `TimeProvider.System`, and tests use `FakeTimeProvider`, which also drives timers and `Task.Delay` ([Fake time with TimeProvider](#fake-time-with-timeprovider-net-8) in Chapter 8).
 
 ### Parsing and formatting across cultures
 
@@ -12147,8 +11923,6 @@ Console.WriteLine(composed.Normalize() == decomposed.Normalize()); // True
 
 ## Common Integrations Every App Needs
 
-You will wire these into almost every real system. The goal here is the *shape* of doing them safely, not exhaustive API tours.
-
 ### File and blob storage: stream, don't buffer
 
 The number-one file-handling incident is **loading a large file entirely into memory**. `IFormFile.CopyToAsync`, `ReadAllBytesAsync`, or `new byte[file.Length]` on a multi-gigabyte upload will spike memory and can OOM the process under concurrent load.
@@ -12224,22 +11998,8 @@ Document.Create(doc =>
 
 Notice the through-line: sending email, resizing/processing uploads, generating PDFs, delivering push notifications, and calling flaky third-party APIs are all **slow, failure-prone, and retry-worthy.** Doing them synchronously inside an HTTP request couples the user's response time to a system you don't control and turns a transient provider outage into a user-facing 500.
 
-The senior instinct is to **offload them to background processing** ([Chapter 11](#chapter-11-messaging-and-background-work)): accept the request, persist the intent, enqueue a job (via a hosted service, `Channel`, or a durable queue like Azure Service Bus / RabbitMQ backed by a worker), and return immediately. The background worker owns the retries, the idempotency, and the dead-letter handling.
+Offload them to background processing ([Chapter 11](#chapter-11-messaging-and-background-work)): accept the request, persist the intent, answer `202 Accepted` with a `Location` to poll, and let a worker own the retries, the idempotency and the dead-letter handling. [Async Request-Reply](#async-request-reply-202-a-status-resource-and-retry-after) in Chapter 11 walks through the whole contract.
 
-```csharp
-// The controller does the minimum and returns fast.
-[HttpPost("orders/{id}/invoice")]
-public async Task<IActionResult> Invoice(int id)
-{
-    Job job = await _jobs.EnqueueAsync(new GenerateInvoiceJob(id));  // durable: a job row and an outbox message
-    Response.Headers.RetryAfter = "5";
-    return AcceptedAtAction(nameof(GetJob), new { jobId = job.Id }, job);  // 202 + Location: where to check back
-}
-```
-
-A bare `Accepted()` says "check back later" without saying where. The `Location` header names the job's status resource, which the client polls until it redirects to the result. [Async Request-Reply](#async-request-reply-202-a-status-resource-and-retry-after) in Chapter 11 walks through the whole contract: the status resource, `303 See Other`, failures, and the idempotency key that makes a retried `POST` safe.
-
-This is the pattern behind every resilient real-world app: **the request path stays thin and fast; anything slow, external, or flaky moves to a background worker that can retry safely.** Combine that with the earlier rules — UTC everywhere, `decimal` for money, ordinal comparisons for internal logic, streamed file bodies, verified webhooks — and you have eliminated the large majority of the mundane bugs that actually take production down.
 
 ## Sources & Further Reading
 
@@ -12369,21 +12129,19 @@ Always with its currency, since the number of decimal places depends on it (none
 
 # Chapter 16: Working Like a Middle Developer
 
-_⏱️ Estimated read time: ~50 min · 8116 words (study pace)_
+_⏱️ Estimated read time: ~50 min · 7856 words (study pace)_
 
-The previous fifteen chapters are about code. This one is about the work around it, which decides how much of that code ends up useful: a message that gets read and acted on, a pull request reviewed so the author leaves smarter rather than smaller, an estimate for work you have never done, a bug found by method rather than luck, a change made safely in code you don't fully understand, and an outcome owned from the ticket to the alert. The chapter makes you able to take a vague ticket, a request for an estimate or a pull request, and send back something a teammate can act on without a meeting.
+This chapter is about the work around code: how to take a vague ticket, a request for an estimate or a pull request, and send back something a teammate can act on without a meeting.
 
 One habit ties it together: **turn every guess into a claim someone else can check, with the condition or assumption it rests on, in writing, before anyone builds on it.** People act on a claim they can verify in a minute and ignore or argue with one they can't; and a misunderstanding costs more with every step built on it, from one reply before the code exists to an incident after release. A problem statement makes your reading of a ticket checkable, a range names the assumption that drives an estimate, a review comment states the condition, mechanism, cost and fix, and a request for help shows what you already ruled out.
 
-The sections follow a piece of work through a team: from throughput to leverage, communication, code review, estimation, technical writing, debugging, safe change and tech debt, agile ceremonies, and ownership. Then the practice: four written tasks, three questions, a check at work and two judgment exercises. Mentoring, influence and the path to senior continue in [Chapter 36: Senior Behaviours, Career and Interviews](#chapter-36-senior-behaviours-career-and-interviews).
+Mentoring, influence and the path to senior continue in [Chapter 36: Senior Behaviours, Career and Interviews](#chapter-36-senior-behaviours-career-and-interviews).
 
 ## From Solving Tickets to Creating Leverage
 
 A middle engineer is measured by **throughput**: how many tickets they close, how fast, how correctly. That is real and valuable. But it scales linearly — you can only type so fast, and there are only so many hours in a week.
 
 A senior engineer is measured by **leverage**: how much better everyone *around* them performs because of their presence. Leverage compounds. A good design doc saves ten engineers a week of rework. A sharp code review teaches a pattern that a junior then applies fifty more times without you. A well-run incident post-mortem prevents a class of outages forever.
-
-> **The core shift: you stop being judged by the code you personally wrote, and start being judged by the good outcomes you caused — including ones where you wrote no code at all.**
 
 Concretely, the behaviors change like this:
 
@@ -12394,8 +12152,6 @@ Concretely, the behaviors change like this:
 | "I finished my part." | "The feature isn't done until the user is unblocked." |
 | "Someone should fix this." | "I filed it, tagged the owner, and proposed a fix." |
 | "That's not my code." | "I'll leave it a little better than I found it." |
-
-None of this needs a title or permission; the title tends to follow the behavior.
 
 ## Communication: The Real Superpower
 
@@ -12430,7 +12186,7 @@ The translation pattern: **Options → consequences in their terms → your reco
 
 > **Same thing, to a PM:** "The dashboards are slowing down the checkout database, which is why some users saw errors on Black Friday. I see two paths. **Option A:** a two-day fix that solves 80% of it, ships this sprint. **Option B:** a proper solution that also prepares us for next year's traffic — about a week, needs one more engineer. Given the holiday deadline, I recommend A now and we schedule B for Q1. I need you to confirm the deadline and whether the extra engineer is available."
 
-Notice: no jargon, quantified impact, framed as a choice, with a clear recommendation and a specific ask. That is the senior move.
+Notice: no jargon, quantified impact, framed as a choice, with a clear recommendation and a specific ask.
 
 ### Tailoring the message to the audience
 
@@ -12484,7 +12240,7 @@ That framing invites information rather than triggering defense. And when the de
 
 ## Code Review Mastery
 
-Code review is where craft, teaching, and team culture intersect every single day. Done well it spreads knowledge and raises the floor. Done badly it becomes a gauntlet of ego and bikeshedding.
+Code review done well spreads knowledge and raises the floor. Done badly it becomes a gauntlet of ego and bikeshedding.
 
 ### Finding What to Say in a Review
 
@@ -12556,8 +12312,6 @@ Your code is not you. A comment on your PR is a gift of someone's attention. Pra
 - Say "good catch" and mean it. Fix it, or explain your reasoning and open a discussion.
 - If a reviewer misunderstood, that's often a signal the *code* is unclear — consider a comment or rename rather than just replying in the thread.
 - Don't argue every nit. Take most, push back on the few that matter, move on.
-
-> **Review is teaching in both directions. Every PR is a chance to make the other person — author or reviewer — a slightly better engineer. Optimize for that, not for winning.**
 
 ## Estimation & Planning
 
@@ -12668,8 +12422,6 @@ When something breaks in production, the goal is to fix the *system*, not to fin
 A lightweight structure: **what happened** (timeline), **impact** (who/how much), **root cause** (the *why*, dug several levels deep — the deploy wasn't the root cause, the *lack of a canary* was), and **action items** (concrete, owned, dated). Focus every action on making the failure impossible or detectable, not on "be more careful."
 
 ## Safe Change, Refactoring & Tech Debt
-
-Changing code you don't fully understand is where careers are made or dented. The senior approach is disciplined.
 
 - **Refactor under a green test suite.** Refactoring means changing structure *without* changing behavior — and the only way to know behavior didn't change is tests. No coverage on the code you're about to refactor? Write **characterization tests** first: tests that pin down what the code *currently* does (even if it's wrong), so you'll notice if you change it.
 - **Separate refactoring commits from behavior changes.** A PR that both moves code around *and* changes what it does is nearly impossible to review. "Refactor: extract `PriceCalculator`" and "Fix: apply loyalty discount before tax" should be two commits, ideally two PRs.
@@ -12874,7 +12626,7 @@ days and the history follow.
 
 ## Exercises
 
-The drills in the technical chapters have answers you can check against a compiler. These do not, which is the point — the skills in this chapter are judgment, and judgment is practised by reasoning through situations before you are in them.
+These drills have no answer a compiler can check: judgment is practised by reasoning through situations before you are in them.
 
 ### What would you do — the estimate
 
@@ -13039,7 +12791,7 @@ _⏱️ Estimated read time: ~10 min · 1579 words (study pace)_
 
 # Part 2: Middle → Senior
 
-_⏱️ Estimated read time: ~5 min · 622 words (study pace)_
+_⏱️ Estimated read time: ~5 min · 620 words (study pace)_
 
 > **What Part 2 makes you able to do.** Explain why the platform behaves the way it does under load, keep data and messages consistent across services and over time, choose an architecture and defend its trade-offs, run what you build in production and in the cloud, build with and around AI, and make the decisions a team trusts a senior with: what to build, what to defer, and what to write down.
 
@@ -13057,27 +12809,27 @@ Before an interview, reread [Part 2 · Pay Attention To](#part-2-pay-attention-t
 
 | Chapter | | Reading |
 |---|---|---|
-| 17 | [Runtime Internals and Performance](#chapter-17-runtime-internals-and-performance) | 1 h |
-| 18 | [Data in Depth](#chapter-18-data-in-depth) | 1 h |
+| 17 | [Runtime Internals and Performance](#chapter-17-runtime-internals-and-performance) | 55 min |
+| 18 | [Data in Depth](#chapter-18-data-in-depth) | 55 min |
 | 19 | [The Slow-Query Lab — Reading Execution Plans](#chapter-19-the-slow-query-lab-reading-execution-plans) | 40 min |
 | 20 | [Distributed Systems](#chapter-20-distributed-systems) | 1 h 15 min |
 | 21 | [Architecture](#chapter-21-architecture) | 30 min |
 | 22 | [API Evolution, Real-Time and Serialization](#chapter-22-api-evolution-real-time-and-serialization) | 1 h |
 | 23 | [System Design](#chapter-23-system-design) | 1 h |
-| 24 | [Working with Legacy & Brownfield Code](#chapter-24-working-with-legacy-brownfield-code) | 50 min |
-| 25 | [Observability and Testing at Scale](#chapter-25-observability-and-testing-at-scale) | 1 h 5 min |
-| 26 | [Delivery and Platform](#chapter-26-delivery-and-platform) | 1 h 30 min |
-| 27 | [Security in Depth and the Supply Chain](#chapter-27-security-in-depth-and-the-supply-chain) | 55 min |
+| 24 | [Working with Legacy & Brownfield Code](#chapter-24-working-with-legacy-brownfield-code) | 45 min |
+| 25 | [Observability and Testing at Scale](#chapter-25-observability-and-testing-at-scale) | 1 h |
+| 26 | [Delivery and Platform](#chapter-26-delivery-and-platform) | 1 h 25 min |
+| 27 | [Security in Depth and the Supply Chain](#chapter-27-security-in-depth-and-the-supply-chain) | 50 min |
 | 28 | [Cloud Fundamentals — AWS & Azure](#chapter-28-cloud-fundamentals-aws-azure) | 30 min |
 | 29 | [Azure in Depth for .NET Developers](#chapter-29-azure-in-depth-for-net-developers) | 1 h 35 min |
 | 30 | [The Azure Casebook — Real Incidents, Real Fixes](#chapter-30-the-azure-casebook-real-incidents-real-fixes) | 55 min |
 | 31 | [Compliance, Data Privacy & Cloud Cost (FinOps)](#chapter-31-compliance-data-privacy-cloud-cost-finops) | 30 min |
-| 32 | [The AI-Native Developer — Thriving in the AI Era](#chapter-32-the-ai-native-developer-thriving-in-the-ai-era) | 1 h 10 min |
+| 32 | [The AI-Native Developer — Thriving in the AI Era](#chapter-32-the-ai-native-developer-thriving-in-the-ai-era) | 1 h 5 min |
 | 33 | [Building AI-Powered Systems](#chapter-33-building-ai-powered-systems) | 1 h 25 min |
 | 34 | [Frontend and Full-Stack in Depth](#chapter-34-frontend-and-full-stack-in-depth) | 50 min |
-| 35 | [Production Incidents](#chapter-35-production-incidents) | 1 h 35 min |
-| 36 | [Senior Behaviours, Career and Interviews](#chapter-36-senior-behaviours-career-and-interviews) | 25 min |
-| 37 | [The Story Bank & Evidence Portfolio](#chapter-37-the-story-bank-evidence-portfolio) | 55 min |
+| 35 | [Production Incidents](#chapter-35-production-incidents) | 1 h 30 min |
+| 36 | [Senior Behaviours, Career and Interviews](#chapter-36-senior-behaviours-career-and-interviews) | 20 min |
+| 37 | [The Story Bank & Evidence Portfolio](#chapter-37-the-story-bank-evidence-portfolio) | 50 min |
 | 38 | [Having a Point of View](#chapter-38-having-a-point-of-view) | 1 h 5 min |
 | 39 | [Discovery and Diagnosis](#chapter-39-discovery-and-diagnosis) | 55 min |
 | 40 | [Lab — The .NET Health Check](#chapter-40-lab-the-net-health-check) | 35 min |
@@ -13091,21 +12843,19 @@ Before an interview, reread [Part 2 · Pay Attention To](#part-2-pay-attention-t
 
 # Chapter 17: Runtime Internals and Performance
 
-_⏱️ Estimated read time: ~1 h · 9245 words (study pace)_
+_⏱️ Estimated read time: ~55 min · 8248 words (study pace)_
 
-Every request a .NET service handles shares two runtime resources: a small pool of threads and a generational heap. Both are tuned for short work. A thread held while it waits, or an object kept a little too long, becomes a delay for every other request. This chapter makes you able to predict how a service behaves when its threads block or its heap churns, prove it from counters, a trace and a dump, and choose between tuning the runtime and changing the code, with the cost of each spelled out for the team that will live with the choice.
+Every request a .NET service handles shares two runtime resources: a small pool of threads and a generational heap. Both are tuned for short work. A thread held while it waits, or an object kept a little too long, becomes a delay for every other request.
 
-It builds on Part 1: the stack, the heap and the GC's generations from [Chapter 3](#chapter-3-how-net-runs-your-code), the state machine, the thread pool and sync-over-async from [Chapter 4](#chapter-4-async-essentials), and value types, boxing and closures from [Chapter 1](#chapter-1-c-essentials). The chapter opens with the discipline (measure first, then benchmark and profile), because everything after it is a lever you pull only when a measurement points at it. Then come the mechanisms those measurements point at: the GC in depth, allocations and the tools that avoid them, the thread pool and the memory model under load, `ValueTask`, parallelism and channels. Last come the parts of the runtime that decide startup and deployment: reflection and source generators, the JIT, ReadyToRun and Native AOT, and assembly loading. Data-access performance (EF Core, caching) is in [Chapter 18](#chapter-18-data-in-depth).
+It builds on Part 1: the stack, the heap and the GC's generations from [Chapter 3](#chapter-3-how-net-runs-your-code), the state machine, the thread pool and sync-over-async from [Chapter 4](#chapter-4-async-essentials), and value types, boxing and closures from [Chapter 1](#chapter-1-c-essentials). Every lever after the first section is one you pull only when a measurement points at it. Data-access performance (EF Core, caching) is in [Chapter 18](#chapter-18-data-in-depth).
 
 ## The Golden Rule: Measure, Don't Guess
 
-Human intuition about performance is famously, almost comically, unreliable. The CPU your code runs on is a machine of staggering complexity — out-of-order execution, multiple cache layers, branch predictors, a JIT compiler that rewrites your IL on the fly, and a garbage collector that pauses threads at moments you cannot predict by reading source code. Reasoning about all of this in your head is like trying to predict the weather by staring at a single cloud.
+Human intuition about performance is unreliable. The CPU your code runs on is a machine of staggering complexity — out-of-order execution, multiple cache layers, branch predictors, a JIT compiler that rewrites your IL on the fly, and a garbage collector that pauses threads at moments you cannot predict by reading source code.
 
 > **The single most important sentence in this chapter:** Measure first, optimize second. If you optimize before measuring, you are not engineering — you are gambling with your own time as the stake.
 
 Donald Knuth's line, "premature optimization is the root of all evil," is quoted so often it has lost its teeth. People forget the surrounding sentence, which says we *should* forgo optimizations in "the critical 3%." The point is not that optimization is bad — it is that optimizing the wrong thing is worse than doing nothing, because it costs time, adds complexity, introduces bugs, and makes the code harder to read, all while the actual bottleneck sits untouched.
-
-Think of it like triage in an emergency room. A patient walks in and you do not immediately start treating the visible bruise on their arm. You take vitals, identify the life-threatening problem, and treat *that*. Code is the same: the slow part is almost never where you think it is. The famous "90/10 rule" holds that 90% of execution time is spent in about 10% of the code. Your job is to find that 10% before you touch anything.
 
 > **Best practice:** Establish a performance *budget* and a *baseline* before optimizing. "This endpoint must respond in under 200ms at the 95th percentile under 500 concurrent users" is a goal you can measure against. "Make it faster" is not.
 
@@ -13117,8 +12867,6 @@ A disciplined optimization workflow looks like this:
 4. **Form a hypothesis and change one thing.** Only one.
 5. **Measure again.** Did it actually improve? By how much? Is the improvement worth the added complexity?
 6. **Repeat or stop.** Stop when you hit the budget. Do not gold-plate.
-
-The next two sections equip you for steps 2, 3 and 5: benchmarking a piece of code you suspect, and profiling a running system to find what to suspect. The rest of the chapter is the mechanics behind step 4, so that when the profiler points somewhere you know which lever to pull.
 
 ## Benchmarking with BenchmarkDotNet
 
@@ -13193,7 +12941,7 @@ BenchmarkDotNet prints a table that looks roughly like this (numbers illustrativ
 | StringJoin          | 1000 |     4.100 us |    0.02 |     4.30 KB |
 ```
 
-Learn to read this table like a doctor reads a chart:
+How to read the table:
 
 - **Mean** is the average time per operation. `us` is microseconds, `ns` nanoseconds, `ms` milliseconds — check the unit, it changes per table.
 - **Ratio** compares each row to the `Baseline = true` benchmark. `0.03` means StringBuilder took 3% of the naive version's time — over 30x faster.
@@ -13240,7 +12988,7 @@ dotnet-gcdump collect -p 12345
 
 ## Garbage Collection — in depth
 
-[Chapter 3](#chapter-3-how-net-runs-your-code) taught the model: a tracing, generational, compacting collector; gen0, gen1 and gen2; what triggers a collection; finalization and why `GC.Collect()` is almost always wrong. This section is what that model does under a server's load: where large objects go, how the two GC flavours split the work across cores, and how a full collection avoids freezing the application.
+[Chapter 3](#chapter-3-how-net-runs-your-code) taught the model; this section is what it does under a server's load: where large objects go, how the two GC flavours split the work across cores, and how a full collection avoids freezing the application.
 
 ### The Large Object Heap (LOH)
 
@@ -13291,15 +13039,11 @@ The problem with Gen 2 collections is that scanning the whole heap can take a lo
 
 ## Memory and Allocations: The Quiet Performance Killer
 
-In managed .NET, you do not manually free memory; the garbage collector does. That is a productivity feature and, at the same time, the source of the most common non-obvious performance problems. This section turns the GC's mechanics into the question a profiler makes you ask: which allocations can this hot path stop making?
-
 ### Why Allocations Cost
 
 Allocating a small object on the managed heap is itself cheap: it is basically a pointer bump. The cost comes *later*, when the GC has to reclaim it, and a collection can pause your application threads (the generations are in [Chapter 3](#chapter-3-how-net-runs-your-code); the LOH, Server GC and DATAS in the section above).
 
 So the real cost of allocations is **GC pressure**: the more garbage you produce, the more often the GC runs, the more CPU it burns, and the more latency spikes ("pauses") your users feel. A hot path that allocates a temporary object per iteration can trigger thousands of Gen0 collections per second. The allocation was cheap; the aggregate collection cost is not.
-
-> **Mental model:** Every allocation is a small loan from the GC that must be repaid with interest at an unpredictable time. A little borrowing is fine. Borrowing millions of times per second means the collector is constantly working — and it does that work by stealing CPU cycles and occasionally freezing your threads.
 
 The goal in hot paths is therefore not "never allocate" but "**do not allocate needlessly and repeatedly**." One lever is the type itself: a small `struct` used inline costs no heap allocation, and boxing it costs one every time ([Chapter 1](#chapter-1-c-essentials) covers both). Here are the other tools .NET gives you.
 
@@ -13399,8 +13143,6 @@ finally
 
 Strings in .NET are immutable, so every "modification" creates a new string. As the earlier benchmark showed, concatenating in a loop with `+=` is quadratic in both time and allocations. `StringBuilder` maintains a growable internal buffer and only materializes the final string once, turning that O(n²) allocation storm into a linear one.
 
-The nuance seniors know: for a **small, fixed number of concatenations**, `StringBuilder` is *slower* due to its own setup overhead. `"Hello, " + name + "!"` compiles to a single efficient `string.Concat` call — do not "optimize" it into a StringBuilder. Reach for StringBuilder when the number of appends is large or unbounded (loops). Also prefer **string interpolation** (`$"..."`) for readability; modern C# lowers it efficiently, and interpolated string handlers even avoid intermediate allocations in APIs like logging.
-
 ### Closures and LINQ in Hot Paths
 
 LINQ is expressive and, in the vast majority of code, its cost is negligible and readability wins. But in a genuine hot path it hides allocations: each query allocates enumerator state machines, and any lambda that **captures** a variable allocates a closure object to hold the captured state.
@@ -13417,7 +13159,7 @@ foreach (var x in items)
     if (x.Value > threshold) count++;
 ```
 
-> **Best practice:** Write LINQ by default — it is clearer and the cost rarely matters. Rewrite to explicit loops *only* in code a profiler has flagged as hot. This is measure-first in miniature: do not preemptively strip LINQ from your whole codebase because you read it is slow. Ninety percent of your code does not care.
+> **Best practice:** Write LINQ by default — it is clearer and the cost rarely matters. Rewrite to explicit loops *only* in code a profiler has flagged as hot.
 
 ## The Thread Pool Under Load
 
@@ -13592,8 +13334,6 @@ Reflection powers serializers, DI containers, ORMs, and validators. But it's **s
 
 A **source generator** is a compiler plugin that runs *during compilation*, inspects your code (via the Roslyn syntax and semantic model), and *emits additional C# source* that gets compiled alongside your own. It's the modern answer to problems previously solved with runtime reflection or reflection-emit.
 
-The mental model: instead of discovering metadata and building behavior at *runtime* (slow, AOT-hostile), a source generator does that discovery at *compile time* and writes plain code you could have written by hand. The result is faster, trimming-friendly, and debuggable.
-
 ```csharp
 // You write a partial declaration with an attribute:
 [JsonSerializable(typeof(Person))]
@@ -13697,30 +13437,6 @@ Two assemblies with the *same name* loaded into *two different ALCs* are conside
 ### Strong naming
 
 A **strong name** is a cryptographic identity for an assembly: the assembly is signed with a private key, and its identity becomes name + version + culture + **public key token**. Historically this was required for the Global Assembly Cache (GAC) and to prevent name collisions. In modern cross-platform .NET the GAC is gone and strong naming is far less important — it's mainly relevant for library authors who need a stable public identity or must be referenced by other strong-named assemblies. It is *not* a security feature (the public key is embedded and verifiable, but it doesn't prevent tampering the way Authenticode does). Don't rely on strong naming for security; use it for identity stability if you publish widely-consumed libraries.
-
-## Common .NET Performance Anti-Patterns
-
-A consolidated field guide to the recurring offenders, most of which this chapter has met:
-
-- **Optimizing without measuring.** The meta-anti-pattern. You cannot fix what you have not measured.
-- **String concatenation with `+=` in loops.** Quadratic allocations. Use `StringBuilder` or `string.Join`.
-- **The N+1 query.** One query becomes hundreds via lazy navigation access. Use `Include` or projection ([Chapter 7](#chapter-7-data-access); EF Core performance in depth is in [Chapter 18](#chapter-18-data-in-depth)).
-- **Sync-over-async (`.Result`/`.Wait()`).** Blocks threads, causes thread-pool starvation under load.
-- **`List.Contains` inside a loop.** O(n²), fine on 100 dev rows and fatal on 100,000. Build a `HashSet` or `Dictionary` once, before the loop; [Chapter 2](#chapter-2-data-structures-and-algorithms-essentials) has the collections and their costs.
-- **Fetching whole entities and unbounded result sets.** Project to DTOs; always paginate.
-- **Catching exceptions for control flow.** Throwing is expensive (stack capture). Do not use `try/catch` where a `TryParse` or a null check works. Exceptions are for the exceptional.
-- **Hidden boxing.** Value types silently heap-allocated by `object`/interface conversions and non-generic collections.
-- **LINQ and closures in genuinely hot loops.** Fine everywhere else; a real cost in the flagged 10%.
-- **Excessive logging in hot paths.** String formatting and I/O per request adds up; use structured logging with level checks and interpolated string handlers.
-- **Not disposing / leaking IDisposables.** Undisposed `HttpClient` per request exhausts sockets; unclosed DB connections exhaust the pool. Use `IHttpClientFactory` and `using`.
-
-## Putting It All Together
-
-Performance engineering is not a bag of tricks to sprinkle everywhere — it is a discipline of *evidence*. The senior engineer's edge is not knowing more optimizations than the mid-level one; it is the restraint to not apply them until measurement demands it, and the tooling fluency to measure quickly and correctly when it does.
-
-Internalize the loop: **define a goal, measure a baseline, profile to find the real bottleneck, change one thing, measure again, stop when you hit the budget.** Keep the mechanical knowledge (allocations create GC pressure, a large buffer per request is gen2 work per request, a blocked thread is a delay for everyone, the right collection changes the cost curve's shape, EF can turn one line into a thousand queries) in your back pocket so that when the profiler points at the hot 10%, you know exactly which lever to pull.
-
-Above all, remember the golden rule from the start of this chapter, because it is the one you will be tempted to break every single time: **measure first. Don't guess.** The code you were *sure* was slow almost never is. Let the evidence, not your intuition, decide where you spend your effort.
 
 ## Practice
 
@@ -13864,15 +13580,15 @@ Each box is a heap allocation and a copy, feeding gen-0 GC. In a tight loop that
 
 # Chapter 18: Data in Depth
 
-_⏱️ Estimated read time: ~1 h · 10398 words (study pace)_
+_⏱️ Estimated read time: ~55 min · 10034 words (study pace)_
 
-[Chapter 7](#chapter-7-data-access) made you able to use EF Core and SQL correctly inside one service: tracking, loading, projections, indexes, isolation levels, caching and migrations. This chapter is what comes after: making one database fast when the obvious levers are already pulled, and then deciding what to do when one database is no longer enough. It makes you able to read a PostgreSQL plan and fix the mechanism behind it, design a Redis cache that fails as a slowdown rather than an outage, and choose between replicas, sharding and tenant isolation with the cost of each spelled out.
+This chapter starts where [Chapter 7](#chapter-7-data-access) stops: making one database fast when the obvious levers are already pulled, and then deciding what to do when one database is no longer enough.
 
-The sections run from one query to the whole fleet. First the depth of the single node: EF Core's remaining performance tools (pagination, compiled queries, bulk loads), PostgreSQL's storage model, indexes and plans, and Redis in practice. Then scale, ordered from least to most invasive: scaling up, read replicas, connection pooling under load, partitioning and sharding, zero-downtime migrations, change data capture, polyglot persistence, and finally multi-tenancy, where both pressures meet. Both halves come down to the same question: *where does the data live, and who is allowed to touch it?* [Chapter 19](#chapter-19-the-slow-query-lab-reading-execution-plans) is the hands-on lab for the plan-reading half.
+[Chapter 19](#chapter-19-the-slow-query-lab-reading-execution-plans) is the hands-on lab for the plan-reading half.
 
 ## Entity Framework Core: The Object-Relational Mapper — in depth
 
-Entity Framework Core is where business services most often bleed performance, because one innocent line of C# can generate a catastrophic SQL pattern. [Chapter 7](#chapter-7-data-access) covers the levers that fix most of it: `AsNoTracking`, projection to DTOs, killing the N+1 with `Include` or a projection, split queries, and `ExecuteUpdate`/`ExecuteDelete`. Three more matter once those are in place.
+Entity Framework Core is where business services most often bleed performance, because one innocent line of C# can generate a catastrophic SQL pattern. [Chapter 7](#chapter-7-data-access) covers the levers that fix most of it. Three more matter once those are in place.
 
 > **Best practice.** Log and inspect the actual SQL EF generates (`LogTo`, or a profiler) before changing anything. Most EF performance problems are invisible in C# and obvious the moment you see the SQL.
 
@@ -13962,7 +13678,7 @@ Libraries such as **EFCore.BulkExtensions** and **linq2db.EntityFrameworkCore** 
 
 ## PostgreSQL in Practice: Indexes and Query Plans
 
-[Chapter 7](#chapter-7-data-access)'s SQL is engine-agnostic. PostgreSQL is now the default relational database for new .NET services, and it differs from SQL Server in ways that change how you index and how you diagnose a slow query. The good news is that Postgres will tell you exactly what it did, in plain text, if you know how to ask.
+[Chapter 7](#chapter-7-data-access)'s SQL is engine-agnostic. PostgreSQL is now the default relational database for new .NET services, and it differs from SQL Server in ways that change how you index and how you diagnose a slow query.
 
 ### The Storage Model That Explains Everything Else
 
@@ -14124,7 +13840,7 @@ Finally, three mapping choices that prevent whole categories of problem: store t
 
 ## Caching — in depth
 
-[Chapter 7](#chapter-7-data-access) teaches the basics: `IMemoryCache` against `IDistributedCache`, cache-aside, invalidation, stampedes and HybridCache. The senior judgment on top is *when* to cache at all: data that is **read far more than written** and **tolerates some staleness** (reference data, computed aggregates, rendered fragments). Rapidly changing, per-user-critical or must-be-consistent data is not a cache candidate, and every cache needs an expiry, a size bound and a story for how stale data gets refreshed. The rest of this section is what it takes to run the shared tier, Redis, well.
+[Chapter 7](#chapter-7-data-access) teaches the basics. The senior judgment on top is *when* to cache at all: data that is **read far more than written** and **tolerates some staleness** (reference data, computed aggregates, rendered fragments). Rapidly changing, per-user-critical or must-be-consistent data is not a cache candidate, and every cache needs an expiry, a size bound and a story for how stale data gets refreshed.
 
 ### Redis in Practice: Key Design, Data Types, and Eviction
 
@@ -14191,15 +13907,11 @@ Configure ASP.NET Core sessions to use the distributed cache and any instance ca
 
 For most of a system's life, a single well-tuned database is enough. You add indexes, you cache the hot paths, you buy a bigger machine, and the graphs stay green. Then one day they don't. The write-ahead log can't flush fast enough, a nightly report locks a table that customers need, connections pile up faster than the pool can hand them out, and your biggest customer's traffic starts starving everyone else. Scaling data is the art of pushing that day as far into the future as possible, and knowing what to do when it finally arrives.
 
-There are only two directions you can scale, and the choice colors every decision that follows.
-
 **Vertical scaling** (scaling *up*) means giving one machine more resources: more CPU cores, more RAM, faster NVMe disks. It is gloriously simple. Your application doesn't change, your transactions stay ACID, your joins still work. The ceiling is real, though — the biggest cloud database instance is finite, and the price curve is exponential. Doubling from a medium box to a large one is cheap; doubling from the largest box to *twice that* is impossible at any price.
 
 **Horizontal scaling** (scaling *out*) means adding more machines and spreading the load across them. The ceiling is effectively unbounded, but you pay for it in complexity: data now lives in more than one place, and the comforting guarantees of a single node — a global transaction, a cheap join, a unique index — start to fray.
 
 > **Best practice:** Scale *up* until it genuinely hurts before you scale *out*. A single Postgres instance on modern hardware can serve enormous workloads. Horizontal scaling is a one-way door that permanently raises your operational complexity; walk through it deliberately, not reflexively.
-
-The sections that follow are a tour of horizontal-scaling techniques, ordered roughly from least to most invasive.
 
 ## Scaling Reads with Replication
 
@@ -14286,8 +13998,6 @@ The shard key is the most consequential choice in the whole design, because it d
 
 That third point is the crux. In a multi-tenant SaaS, `TenantId` is often the ideal shard key: virtually every query is already scoped to one tenant, so it naturally lands on one shard. Shard by the wrong key and your most common query becomes a **scatter-gather** across every shard.
 
-> **Best practice:** Pick the shard key by looking at your *read* patterns, not your data model. The question is not "how is this data structured?" but "what does 95% of my traffic filter by?"
-
 ### The Pain: Cross-Shard Queries, Joins, and Transactions
 
 Once data is split, three things that used to be free become expensive or impossible:
@@ -14340,8 +14050,6 @@ The relay can poll the outbox table — or, elegantly, **CDC can read the outbox
 
 So how do outbox and CDC relate? The outbox is *your application deliberately writing events you designed*; CDC is *infrastructure capturing raw row changes*. Use the **outbox** when you want clean, intentional domain events with a stable contract. Use **raw CDC** when you want to replicate or react to table changes without touching the application — for example, feeding a data warehouse. They compose beautifully: CDC is often the *transport* for outbox rows.
 
-> **Best practice:** Never dual-write to a database and a message broker in application code hoping both succeed. Use the outbox pattern so the event and the state change share one transaction, then ship the events with CDC or a relay.
-
 ## NoSQL and Polyglot Persistence
 
 No single database is good at everything, and some data shapes fit other models better than tables:
@@ -14353,8 +14061,6 @@ No single database is good at everything, and some data shapes fit other models 
 **Polyglot persistence** means using the right store for each job: Postgres for transactional integrity, Elasticsearch for full-text search, Redis for ephemeral session data, a columnar warehouse for analytics, a graph database for relationship queries. CDC is the glue that keeps these stores in sync from a single source of truth.
 
 The same idea, applied to one service's own data, is a **CQRS read store** ([Chapter 21](#chapter-21-architecture) teaches the pattern): writes go to a normalized transactional model, reads are served from stores shaped exactly for how they are queried (pre-joined, denormalized, indexed for one screen), kept up to date asynchronously, often from the same event or CDC stream. You accept eventual consistency in exchange for read models that are fast and don't compete with writes. And under all of it sit the caching layers (in-process, Redis, HTTP and CDN at the edge); CDC can drive precise cache invalidation too, by streaming the exact rows that changed.
-
-> **Rule of thumb.** Choose storage by access pattern, not by hype. Most systems are polyglot: a relational database as the source of truth, Redis for caching, Elasticsearch for search. NoSQL is a specialization, not a replacement.
 
 ## Multi-Tenancy
 
@@ -15203,13 +14909,11 @@ SQL Server handles the OR form (script 4 of the SQL Server track). It is a genui
 
 # Chapter 20: Distributed Systems
 
-_⏱️ Estimated read time: ~1 h 15 min · 12647 words (study pace)_
+_⏱️ Estimated read time: ~1 h 15 min · 12023 words (study pace)_
 
 A single-process program lives in a comfortable universe. Memory reads are instantaneous, function calls always return, and if something crashes, the whole thing crashes together: you never have to reason about *half* your program being alive while the other half is dead. The moment you split that program across two machines connected by a network, you leave that universe for good. Messages get lost. Clocks disagree. One node thinks another is dead when it is merely slow. And **you can never tell the difference between a slow node and a dead one**; that single fact is the source of most of the pain in this chapter.
 
-[Chapter 11](#chapter-11-messaging-and-background-work) gave you the working tools inside that world: brokers, at-least-once delivery, idempotent consumers, the outbox and background workers. This chapter makes you able to say *why* those tools are shaped the way they are, to design a multi-service flow whose guarantees you can state (what is ordered, what is deduplicated, what happens on every failure), and to prove that its resilience code works before an incident does it for you.
-
-It builds up in four steps. First the limits: the fallacies, CAP and PACELC, consistency models, consensus, time and locks, the physics no framework can repeal. Then the patterns that live within those limits: idempotency (from a retried `POST` to a replayed message), sagas, and retries that don't make an outage worse. Then reliability as an engineering practice: error budgets, graceful degradation, a layered Polly pipeline, disaster recovery, and chaos engineering to verify all of it. Last, two runtime models for work across many machines: job schedulers that must run a job once across instances, and actors, which remove shared state instead of guarding it.
+[Chapter 11](#chapter-11-messaging-and-background-work) gave you the working tools inside that world: brokers, at-least-once delivery, idempotent consumers, the outbox and background workers.
 
 ## The Eight Fallacies of Distributed Computing
 
@@ -15223,8 +14927,6 @@ In the 1990s, engineers at Sun Microsystems (L. Peter Deutsch and colleagues) ca
 6. **There is one administrator.** In reality, the network team, the cloud provider, and three other squads all touch the path between your services.
 7. **Transport cost is zero.** Serialization, TLS handshakes, and marshaling all burn CPU and time.
 8. **The network is homogeneous.** Different protocols, MTUs, and hardware behave differently.
-
-> **Best practice.** Treat every remote call as a *fallible operation that can hang forever*, not as a method call that happens to be slow. This single mindset shift ("the call might never return") forces you toward timeouts, retries and circuit breakers instead of hopeful synchronous code. Assume each call is unreliable, slow, expensive and insecure, then be pleasantly surprised when it works.
 
 ## CAP and PACELC: The Physics of Distributed State
 
@@ -15246,7 +14948,7 @@ There is no universally correct answer. A shopping cart wants availability (PA/E
 
 ## Consistency Models: What "The Data Is Correct" Even Means
 
-"Consistency" in CAP is a specific, strong guarantee (linearizability). But there is a whole spectrum, and choosing the right point on it is a core senior-level skill.
+"Consistency" in CAP is a specific, strong guarantee (linearizability). But there is a whole spectrum.
 
 - **Strong consistency (linearizability):** Every read sees the most recent write, as if there were a single copy of the data. Intuitive, but expensive — it requires coordination on every operation.
 - **Eventual consistency:** If writes stop, all replicas *eventually* converge. Cheap and highly available, but a read right after a write may return the old value. Amazon's shopping cart and DNS are classic examples.
@@ -15273,7 +14975,7 @@ The two canonical algorithms are **Paxos** (Lamport) and **Raft** (Ongaro and Ou
 
 ## Distributed Time: Why You Can't Trust the Clock
 
-Here is a trap that snares even experienced engineers: using wall-clock timestamps to order events across machines. Every server's clock drifts. NTP corrects it, but corrections can jump the clock *backwards*, and two servers can easily disagree by tens or hundreds of milliseconds — sometimes seconds. If you decide "the write with the later timestamp wins," you can silently discard a newer write because the machine that made it had a slightly slow clock.
+Never order events across machines by wall-clock timestamps. Every server's clock drifts. NTP corrects it, but corrections can jump the clock *backwards*, and two servers can easily disagree by tens or hundreds of milliseconds — sometimes seconds. If you decide "the write with the later timestamp wins," you can silently discard a newer write because the machine that made it had a slightly slow clock.
 
 > **Pitfall:** "Last write wins" using `DateTime.UtcNow` from different servers is a data-corruption bug waiting to happen. Physical clocks tell you *roughly when*, never reliably *what happened before what*.
 
@@ -15416,8 +15118,6 @@ Two loose ends remain.
 
 The idempotency key is the HTTP-facing sibling of the **idempotent consumer** in [Chapter 11](#idempotent-consumers), which dedupes on a message ID with the same unique-index backstop, inside the same transaction as the effect. One mechanism (record the operation's identity atomically with its effect, *before* the effect), several transports. It is also what turns delivery guarantees into business guarantees: networks and brokers give you *at-least-once* delivery in practice ([Chapter 11](#chapter-11-messaging-and-background-work) explains why exactly-once delivery is largely a myth), so duplicates *will* happen, and idempotent handlers turn at-least-once delivery into the exactly-once *processing* you actually want. Stripe's API famously works this way.
 
-> **Best practice.** Make every message consumer and every mutating API endpoint idempotent. It is the single most impactful reliability pattern in a message-driven system, because it lets you retry aggressively without fear.
-
 The one place idempotency is not enough is ordering: a consumer that applies `OrderAmended` after `OrderCancelled` is idempotent and still wrong. This chapter's *Decide* exercise weighs the fixes (sessions, per-aggregate versions).
 
 ## Sagas: Long-Running Distributed Transactions
@@ -15527,7 +15227,7 @@ Retry is one of three client-side defences; [Chapter 5](#chapter-5-http-and-web-
 
 ## From Theory to Practice: Reliability & SRE
 
-Everything so far tells you *why* things fail and which patterns live within the limits. **Site Reliability Engineering** (codified by Google) tells you how to *run* systems that fail gracefully. The shift in thinking is from "prevent all failure" (impossible) to "engineer for failure and control its impact."
+**Site Reliability Engineering** (codified by Google) tells you how to *run* systems that fail gracefully. The shift in thinking is from "prevent all failure" (impossible) to "engineer for failure and control its impact."
 
 The target for all of it is an SLO and the error budget it leaves, which turns "reliability vs. velocity" from an argument into arithmetic; [Chapter 25](#alerting-slis-slos-slas-and-error-budgets) defines the terms and alerts on the burn rate. Don't chase 100%: it is infinitely expensive, and users can't tell 99.99% from 100% because their own network is less reliable than that. Pick the SLO users actually need and spend the rest of the budget on shipping. The patterns below are how you stay inside it.
 
@@ -15575,8 +15275,6 @@ Read the layering carefully. The *inner* timeout (2s) bounds each individual att
 
 ### Blast Radius
 
-Every resilience pattern above is a claim about behaviour under failure, and claims need verifying — the *Verifying Resilience* section below is about how. What every experiment is bounded by, and what most reliability work is ultimately about, is blast radius.
-
 **Blast radius** is the amount of the system a single failure can damage. Great reliability engineering is largely *blast-radius reduction*: cell-based / sharded architectures, bulkheads, per-tenant isolation, and gradual (canary) rollouts all exist to ensure that when — not if — something breaks, it breaks *small*.
 
 ### Redundancy, Failover, and Disaster Recovery
@@ -15592,10 +15290,6 @@ An RPO near zero demands synchronous replication (and CAP/PACELC latency costs �
 ## Verifying Resilience: Chaos Engineering in Practice
 
 Look back at the Polly pipeline earlier in this chapter. Timeout, retry with jitter, circuit breaker, fallback, bulkhead — perhaps forty lines of configuration, sitting in the request path of every call your service makes.
-
-Now answer honestly: **when did that code last run?**
-
-Not "when was it deployed." When did the circuit breaker last open? When did the fallback last return a degraded response? For most services, the answer is "during an incident, which is also when we discovered the breaker's threshold was wrong."
 
 Resilience code is the only code we routinely ship without executing. Its failure paths run rarely by design, unit tests exercise the happy path, and integration tests run against dependencies that are up. So the retry policy that retries a non-idempotent operation, the circuit breaker whose threshold is so high it never trips, the fallback that throws a `NullReferenceException`, and the timeout that is longer than the caller's timeout — all of these sit in production, untested, until the day they are needed and don't work. Frequently they make the incident *worse*: a retry storm turning a slow dependency into a dead one is one of the most common ways a partial outage becomes a total one.
 
@@ -15823,8 +15517,6 @@ builder.Services.AddQuartzHostedService(o => o.WaitForJobsToComplete = true);
 
 Quartz's cron format is the six-field Quartz variant (note the leading seconds field and the `?` in a day-of-week/day-of-month slot). Its trigger model is richer than Hangfire's: misfire policies (what to do if the scheduler was down when a trigger should have fired), calendars to exclude holidays, and priority ordering. With `AddPersistentStore` (an ADO.NET job store), Quartz persists schedules and, crucially, uses database locks so that in a clustered deployment **a given trigger fires on exactly one node**.
 
-> Choose Quartz.NET when you need precise, complex scheduling semantics and are comfortable with more configuration. Choose Hangfire when you want fire-and-forget/delayed jobs plus a dashboard with minimal setup. They are not mutually exclusive - some systems run both.
-
 ### Hosted service vs Hangfire vs cloud scheduler
 
 | Need | Reach for |
@@ -15984,14 +15676,6 @@ Orleans is not the only actor game in .NET. **Akka.NET** is a faithful port of t
 
 **Dapr** (Distributed Application Runtime) offers actors as one building block among many, delivered as a **language-agnostic sidecar**. Dapr's virtual-actor model is conceptually close to Orleans (turn-based single-threaded access, automatic activation, state persistence) but you interact with it over HTTP/gRPC from any language, and it slots into a broader platform of pub/sub, state stores, and service invocation. Choose Dapr when polyglot services and a portable, infrastructure-managed runtime matter more than the deep, .NET-native ergonomics Orleans provides.
 
-## Putting It Together
-
-The through-line of this chapter is a single, humbling idea: **in a distributed system, partial failure is the normal state, not an exception.** The theory (CAP, PACELC, consistency models, consensus, logical clocks) tells you precisely which guarantees are *achievable* and what they cost. The engineering (idempotency, sagas, backoff with jitter, circuit breakers, bulkheads, error budgets, chaos testing, measured RTO/RPO) builds systems that stay *useful* while individual parts fail underneath them.
-
-The same maturation runs through "later" work. Job frameworks like Hangfire and Quartz.NET give you persistence, retries, cron and single-execution guarantees across a cluster, so you stop hand-rolling schedulers. The actor model, realized in Orleans' virtual grains, inverts the concurrency problem: instead of guarding shared state with locks, you partition state into single-threaded islands where races cannot occur by construction.
-
-The mid-level instinct is to make the network invisible and hope. The senior instinct is to assume the network is actively trying to ruin your day, to design as if every process will crash mid-operation and run twice (because in production, eventually, it will), and to build a system that shrugs, degrades gracefully, retries safely and keeps its promises anyway, right up to, but not past, the reliability you actually promised.
-
 ## Practice
 
 **1. The batch that outlives its locks (45 min).** [Chapter 30](#chapter-30-the-azure-casebook-real-incidents-real-fixes)'s second *Find the bug*: answer it before opening the answer, then read the verified code in [`verify/exercises/Ch51`](https://github.com/malyna2/dotnet-handbook/tree/main/verify/exercises/Ch51). The reference run (a 5-second lock, a 1-second handler) turned 12 messages into 14 handler calls with the batch, and exactly 12 with `ServiceBusProcessor`. To run it yourself you need Docker and the Service Bus emulator:
@@ -16144,17 +15828,17 @@ A pattern for a long-running business transaction spanning multiple services wit
 
 # Chapter 21: Architecture
 
-_⏱️ Estimated read time: ~30 min · 5306 words (study pace)_
+_⏱️ Estimated read time: ~30 min · 4929 words (study pace)_
 
-You can write correct code and still build a system that becomes miserable to change. Correctness is about whether a single function returns the right answer; architecture is about whether, six months from now, a new feature takes an afternoon or a fortnight. Architecture is the cost of change, decided in advance: every boundary makes change cheap on one side of it and expensive across it. This chapter makes you able to put boundaries where the business changes independently, to choose between a modular monolith and microservices with the cost of each spelled out, and to defend the choice in a design review and write it down so the next team knows why.
+You can write correct code and still build a system that becomes miserable to change. Correctness is about whether a single function returns the right answer; architecture is about whether, six months from now, a new feature takes an afternoon or a fortnight. Architecture is the cost of change, decided in advance: every boundary makes change cheap on one side of it and expensive across it.
 
-[Chapter 10](#chapter-10-design-basics) covered the code-level foundations: SOLID, the common patterns, Repository and Unit of Work, layered and Clean architecture. Here those become system-level choices. The chapter starts with the two forces every choice trades (coupling and cohesion), then the boundaries inside a domain (DDD's aggregates and bounded contexts, the Specification pattern for query rules), then the split between the write model and the read model (CQRS and event sourcing), then the styles that draw the boundary somewhere else (vertical slices, the modular monolith, microservices), and finally the edge where clients meet the services (gateways and BFFs). Once a boundary becomes a network boundary, [Chapter 20](#chapter-20-distributed-systems) takes over; how the contracts that cross a boundary evolve is [Chapter 22](#chapter-22-api-evolution-real-time-and-serialization).
+[Chapter 10](#chapter-10-design-basics) covered the code-level foundations: SOLID, the common patterns, Repository and Unit of Work, layered and Clean architecture. Here those become system-level choices. Once a boundary becomes a network boundary, [Chapter 20](#chapter-20-distributed-systems) takes over; how the contracts that cross a boundary evolve is [Chapter 22](#chapter-22-api-evolution-real-time-and-serialization).
 
 There is no "correct" architecture, only architectures that fit a particular set of forces: team size, deployment cadence, domain complexity, and how much uncertainty you're carrying. Through every section, keep asking the only question that matters: *what problem does this solve, and do I actually have that problem?*
 
 ## Why Architecture Matters: Coupling and Cohesion
 
-Every discussion of architecture eventually reduces to two words: **coupling** and **cohesion**. Master these and everything else is commentary.
+Every discussion of architecture eventually reduces to two words: **coupling** and **cohesion**.
 
 **Cohesion** measures how much the things inside a module belong together. A class called `OrderProcessor` that validates orders, charges payment, and sends emails has *low* cohesion — three unrelated responsibilities crammed together. Split it so each unit does one thing well and cohesion goes up.
 
@@ -16162,16 +15846,12 @@ Every discussion of architecture eventually reduces to two words: **coupling** a
 
 > **The golden rule: aim for high cohesion and low coupling.** Related things live together; unrelated things can change independently. Almost every architectural pattern in this chapter is a specific technique for achieving that one goal.
 
-An analogy: think of a well-organized kitchen. The knives are together (cohesion), and rearranging the spice rack doesn't require moving the refrigerator (low coupling). A badly organized kitchen has forks in three drawers and requires you to empty the pantry to reach the salt. Software rots the same way — one careless dependency at a time.
-
 Coupling isn't binary; it comes in flavors, roughly from worst to least harmful:
 
 - **Content coupling** — one module reaches into another's private data. Avoid entirely.
 - **Common coupling** — modules share global mutable state. Fragile.
 - **Control coupling** — one module passes a flag that dictates another's control flow (`DoThing(isPreview: true)`).
 - **Data coupling** — modules communicate only through simple parameters. This is the goal.
-
-The cost of getting this wrong compounds. Cheap-to-change software wins in the long run not because it's elegant but because businesses change their minds, and the system that bends survives.
 
 ## Domain-Driven Design
 
@@ -16238,7 +15918,7 @@ public sealed record OrderPlaced(OrderId OrderId, CustomerId CustomerId, DateTim
 
 ### Strategic Design: Bounded Contexts
 
-Here's the insight that separates senior DDD from junior DDD. The word "Customer" means different things in different parts of a business. To Sales, a Customer is a lead with a pipeline stage. To Shipping, a Customer is an address and a delivery preference. To Billing, a Customer is a payment method and a credit limit. Forcing all of these into one universal `Customer` class creates a bloated, contradictory model that nobody can change safely.
+The word "Customer" means different things in different parts of a business. To Sales, a Customer is a lead with a pipeline stage. To Shipping, a Customer is an address and a delivery preference. To Billing, a Customer is a payment method and a credit limit. Forcing all of these into one universal `Customer` class creates a bloated, contradictory model that nobody can change safely.
 
 A **Bounded Context** is an explicit boundary within which a particular model and its Ubiquitous Language apply consistently. Inside the Sales context, "Customer" means the sales meaning — full stop. Different contexts can have their own `Customer`, and they connect through well-defined contracts (a *Context Map* describes these relationships — shared kernel, customer/supplier, anti-corruption layer, etc.).
 
@@ -16431,12 +16111,6 @@ A **Backend for Frontend (BFF)** takes this further: instead of one general-purp
 
 > **Trade-off:** BFFs eliminate over- and under-fetching and let frontend teams move fast without waiting on a shared API. The cost is more services to maintain and potential logic duplication across BFFs. The BFF is also a natural home for the OAuth token-handling pattern in modern SPAs (keeping tokens server-side). Use BFFs when your clients genuinely diverge; a single gateway suffices when they don't.
 
-## Bringing It Together
-
-If you take one thing from this chapter, let it be this: **architecture is the art of deferring and containing change.** Every pattern here is a way to draw a boundary so that a change on one side doesn't force a change on the other. Coupling and cohesion are the physics; Clean Architecture, DDD bounded contexts, CQRS, vertical slices and modular monoliths are the engineering; and the distributed patterns of [Chapter 20](#chapter-20-distributed-systems) (sagas, the outbox, idempotency, eventual consistency) are what you need once a boundary becomes a network boundary.
-
-The senior move is restraint. Reach for the simplest structure that fits the forces in play, and add ceremony only when a real force demands it. A modular monolith with clean domain boundaries will serve the vast majority of systems far longer than most engineers expect — and it leaves every more-complex option open when, and only when, you actually need it.
-
 ## Practice
 
 **1. An ADR for one decision (1 h).** Take a decision your team made, or the one in *Decide* below, and write it in the shape of [Chapter 16's Architecture Decision Records](#architecture-decision-records-adrs): context, the options with their costs, the decision, the consequences, and what would make you revisit it. Keep it to one page; an ADR is read by someone in a hurry.
@@ -16564,11 +16238,9 @@ Small teams, early-stage products, unclear domain boundaries, or when the operat
 
 # Chapter 22: API Evolution, Real-Time and Serialization
 
-_⏱️ Estimated read time: ~1 h · 10243 words (study pace)_
+_⏱️ Estimated read time: ~1 h · 9767 words (study pace)_
 
-Every non-trivial system eventually stops being a single process holding objects in memory. The moment your data crosses a boundary — a socket, a message broker, a file on disk, a cache, an HTTP response — those in-memory objects have to be flattened into a sequence of bytes and reconstructed on the other side. That flattening is *serialization*, and the reconstruction is *deserialization*. It sounds mechanical, almost beneath a senior engineer's attention. It is not. The decisions you make here quietly determine how fast your service is, how much you pay for network and storage, whether two teams can deploy independently, and whether a schema change ships smoothly on a Tuesday or triggers a 2 a.m. incident.
-
-This chapter makes those decisions deliberate. It runs in three movements. First the **encodings** you will actually meet in .NET — JSON, XML, Protocol Buffers, MessagePack, Avro — and what each one uses as a field's identity, because that single property decides how the format evolves. Then the hard part that formats alone don't solve: **evolving a contract over time without breaking the systems that already depend on it** — the compatibility rules, the tolerant reader, versioning and retiring an HTTP API, and versioning events that live for years. Last, the **transports beyond request/response JSON**: gRPC for internal calls, and WebSockets, Server-Sent Events and SignalR for pushing data to clients.
+Every non-trivial system eventually stops being a single process holding objects in memory. The moment your data crosses a boundary — a socket, a message broker, a file on disk, a cache, an HTTP response — those in-memory objects have to be flattened into a sequence of bytes and reconstructed on the other side. That flattening is *serialization*, and the reconstruction is *deserialization*. The decisions you make here quietly determine how fast your service is, how much you pay for network and storage, whether two teams can deploy independently, and whether a schema change ships smoothly on a Tuesday or triggers a 2 a.m. incident.
 
 It builds on [Chapter 5: HTTP and Web APIs](#chapter-5-http-and-web-apis), which covers `System.Text.Json`, REST, status codes and OpenAPI, and leans on [Chapter 11: Messaging and Background Work](#chapter-11-messaging-and-background-work) for the messages whose schemas evolve here.
 
@@ -16591,11 +16263,9 @@ A useful mental model: the format is the *encoding*; the schema is the *contract
 
 **Binary formats** (Protobuf, MessagePack, Avro, and the built-in binary paths) encode data compactly using length prefixes, integer tags, and native numeric layouts. They're smaller and faster but opaque — you generally need the schema (or at least a decoder) to make sense of the bytes.
 
-The rule of thumb: **text at the edges where humans and heterogeneous clients live; binary in the interior where machines talk to machines at volume.**
-
 ## JSON in Modern .NET: `System.Text.Json`
 
-[Chapter 5](#chapter-5-http-and-web-apis) covers the basics: what `System.Text.Json` (STJ) is, how it differs from Newtonsoft.Json, the options you set, custom converters, and the web defaults ASP.NET Core applies. This section is the depth that matters at a boundary that has to last: compiling the serializer ahead of time, the defaults that bite when you migrate, and polymorphic payloads, whose discriminators are contract like any field.
+[Chapter 5](#chapter-5-http-and-web-apis) covers the basics of `System.Text.Json` (STJ); this section is the depth that matters at a boundary that has to last.
 
 ### Source Generators: JSON Without Reflection
 
@@ -16745,11 +16415,9 @@ Don't over-index on any single microbenchmark — your data shape, object sizes,
 
 > **Best practice:** Measure with *your* payloads using BenchmarkDotNet ([Chapter 17](#benchmarking-with-benchmarkdotnet)) before you optimize. But as a default: JSON (source-generated) for public/edge APIs, Protobuf for gRPC and cross-language internal services, MessagePack for internal .NET-to-.NET RPC and caching, Avro for Kafka data pipelines with a schema registry.
 
-The format is the encoding; from here on the chapter is about the contract.
-
 ## The Core Topic: Schema and Contract Evolution
 
-Here's the situation that makes all of this hard. You deploy version 1 of a producer and version 1 of a consumer. They agree. Then you need to change the data. But you **cannot atomically upgrade every producer and consumer at once** — that's the whole point of a distributed system. During the rollout, and often for a long time after, old and new versions coexist. Old producers send data new consumers read; new producers send data old consumers read. Your job is to change the schema so that *every* combination keeps working.
+You deploy version 1 of a producer and version 1 of a consumer. They agree. Then you need to change the data. But you **cannot atomically upgrade every producer and consumer at once** — that's the whole point of a distributed system. During the rollout, and often for a long time after, old and new versions coexist. Old producers send data new consumers read; new producers send data old consumers read. Your job is to change the schema so that *every* combination keeps working.
 
 ### Compatibility Directions
 
@@ -17033,8 +16701,6 @@ Chain upcasters (V1→V2→V3) so each step is small and independently testable,
 
 ## A Concrete Example: Evolving an Order Event Safely
 
-Let's evolve a protobuf `OrderPlaced` event through three realistic changes and see the discipline in action.
-
 **Version 1** — the original:
 
 ```proto
@@ -17073,11 +16739,9 @@ message OrderPlaced {
 }
 ```
 
-Field 5 stayed 5. We never renumbered, never reused, never changed a type. Each step was independently deployable. That is what safe schema evolution looks like in practice: a sequence of additive changes, a deliberate deprecation window, and permanent reservations — never a big-bang rename.
+Field 5 stayed 5. We never renumbered, never reused, never changed a type. Each step was independently deployable.
 
 > **Contract testing** — verifying that a specific consumer and producer actually agree on the contract, using tools like **Pact** — is a complementary safety net to everything in this chapter so far. Schema compatibility rules prove your schemas *can* evolve safely; contract tests prove two concrete services *do* agree right now. [Chapter 25](#contract-testing-killing-the-integration-test-explosion) covers Pact and consumer-driven contract testing in depth.
-
-So far the chapter has been about *what* goes over the wire and how it changes. The rest is about *how* it travels when request/response JSON is the wrong shape: high-volume internal calls, and data the server has to push.
 
 ## gRPC
 
@@ -17201,10 +16865,6 @@ Reach for SignalR for dashboards, chat, live collaboration, notifications, and p
 | Internal service-to-service calls, strict contract, performance, streaming | gRPC |
 | Server push to browsers (dashboards, chat, notifications) | SignalR |
 | Server→client streaming only, minimal moving parts | SSE (see *Real-Time* above) |
-
-## Summary
-
-Serialization is where your data model meets the outside world, and the format you choose trades off interoperability, size, speed, and evolvability. Use text (JSON via `System.Text.Json`, ideally source-generated) at edges where humans and diverse clients live; use binary (Protobuf for gRPC and cross-language, MessagePack for fast internal .NET, Avro for Kafka pipelines) in the machine-to-machine interior. But the format is only the encoding — the durable challenge is evolving the *contract* without breaking the systems already depending on it. Master the compatibility directions, keep field identities permanent, add optional fields with defaults, ignore what you don't understand, and reach for expand–contract before a new version. When a version is unavoidable, pick one scheme, advertise deprecation in the responses, and tag telemetry with version and consumer so you can retire it. For events, let schema registries and upcasters enforce and absorb change. And choose the transport for the boundary: REST at the edge, gRPC inside, SSE or SignalR when the server has to push. Do that, and your contracts can grow for years without a single 2 a.m. page.
 
 ## Practice
 
@@ -17364,15 +17024,9 @@ A SignalR connection lives on one server, so an instance can push only to its ow
 
 # Chapter 23: System Design
 
-_⏱️ Estimated read time: ~1 h · 9943 words (study pace)_
+_⏱️ Estimated read time: ~1 h · 9785 words (study pace)_
 
 A design prompt gives you forty-five minutes and one vague sentence: "design a URL shortener", "design checkout". There is no single right answer, and nobody is grading the diagram. In an interview or an architecture review, people check three things: that every box traces back to a requirement or a number, that you know what each box costs, and that you can say what breaks first when the numbers grow.
-
-This chapter prepares you for that conversation. It starts with a repeatable process and its arithmetic: back-of-the-envelope estimation, Little's law, and the latency numbers that decide where a call can afford to go. Then a short map of the building blocks and scaling moves, each taught in depth elsewhere: caching in [Chapter 7](#chapter-7-data-access) and [Chapter 18](#chapter-18-data-in-depth), queues in [Chapter 11](#chapter-11-messaging-and-background-work) and [Chapter 20](#chapter-20-distributed-systems), sharding in Chapter 18, consistency in Chapter 20, observability in [Chapter 25](#chapter-25-observability-and-testing-at-scale), delivery in [Chapter 26](#chapter-26-delivery-and-platform), Azure in [Chapter 29](#chapter-29-azure-in-depth-for-net-developers). This chapter links to them instead of teaching them again.
-
-The core is four worked designs in one shape: a URL shortener, a distributed rate limiter, a notification service and checkout with payment. Then a design for you to do, three questions, a storage decision, and the questions interviewers use to probe a design.
-
-The thread through all of it: **numbers first, then the architecture those numbers justify, then the failure each choice brings in.**
 
 ## A Repeatable Approach
 
@@ -18089,17 +17743,15 @@ The four worked designs above are the answers, and each one's *hard parts* are w
 
 # Chapter 24: Working with Legacy & Brownfield Code
 
-_⏱️ Estimated read time: ~50 min · 7620 words (study pace)_
+_⏱️ Estimated read time: ~45 min · 7217 words (study pace)_
 
-Most professional work happens on systems that already exist, and the senior skill is changing them safely while understanding only a slice. This chapter makes you able to do that: pin a system's current behaviour before you touch it, find the seams where it can be changed without editing everything at once, decide between incremental strangling and a rewrite, move a .NET Framework system to modern .NET, and keep the platform under it from going out of support again.
+Most professional work happens on systems that already exist, and the senior skill is changing them safely while understanding only a slice.
 
-The sections build in that order. First the mindset and the techniques for code you don't understand (characterization tests, seams, breaking dependencies, sprouting and wrapping new code beside the old); then modernization at the scale of a whole system (the strangler fig against the big rewrite), the .NET Framework migration in practice, and living with a big ball of mud, where hotspots tell you which debt is worth paying; then the data, downtime and progress-measurement side of a migration; and last the end-of-life treadmill that makes legacy a verb rather than a noun. It builds on the refactoring and tech-debt basics of [Chapter 16](#chapter-16-working-like-a-middle-developer) and the testing basics of [Chapter 8](#chapter-8-testing).
+The chapter builds on the refactoring and tech-debt basics of [Chapter 16](#chapter-16-working-like-a-middle-developer) and the testing basics of [Chapter 8](#chapter-8-testing).
 
 ## The Myth of the Greenfield
 
-Somewhere early in your career you probably imagined that senior engineers spend their days architecting elegant new systems from a blank editor. The reality is almost the exact opposite. The overwhelming majority of professional software work happens on systems that already exist, already have users, already generate revenue, and already carry years of decisions — good and bad — baked into their code. This is *brownfield* development: building on land that has already been developed, where you must account for existing structures rather than pouring a fresh foundation.
-
-The move from mid-level to senior is, more than anything, the ability to be effective in this environment. Junior developers freeze in front of a million-line codebase they don't understand. Senior developers have a systematic approach for changing code safely even when they only understand a small slice of it. That approach — the mindset, the techniques, and the tooling — is what this chapter is about.
+Systems that already exist have users, generate revenue, and carry years of decisions — good and bad — baked into their code. This is *brownfield* development: building on land that has already been developed, where you must account for existing structures rather than pouring a fresh foundation.
 
 ### What "Legacy" Actually Means
 
@@ -18117,9 +17769,7 @@ Two attitudes will sink you before you write a line of code.
 
 The first is contempt. It is tempting to look at legacy code and assume the people who wrote it were incompetent. Almost always they were not. They were working under deadlines you don't know about, with framework versions that no longer exist, satisfying requirements that have since changed. That "insane" workaround was probably a rational response to a constraint that has been forgotten. Approach the code as an archaeologist, not a critic.
 
-The second is the urge to rewrite. We'll return to this, but hold the thought: the ugly code that's still running is doing something valuable. It encodes thousands of bug fixes and edge cases — the accumulated learning of the business — that exist *nowhere else*, certainly not in any specification. That value is real, and throwing it away is expensive.
-
-> **Best practice:** Before changing legacy code, assume it is the way it is for a reason you don't yet see. Your job is to understand that reason, then make it better, not to prove you're smarter than your predecessors.
+The second is the urge to rewrite. The ugly code that's still running is doing something valuable. It encodes thousands of bug fixes and edge cases — the accumulated learning of the business — that exist *nowhere else*, certainly not in any specification. That value is real, and throwing it away is expensive.
 
 ## Changing Code You Don't Understand
 
@@ -18274,7 +17924,7 @@ Every existing caller of `Pay` now gets the audit log for free, and you never to
 
 ## Modernizing at Scale: Strangler Fig vs. the Big Rewrite
 
-The techniques above operate at the method and class level. When the goal is to modernize an entire system — say, move a .NET Framework monolith to modern .NET — you need a strategy at the architecture level. Here the field has essentially settled on one answer, and it has a memorable name.
+The techniques above operate at the method and class level. When the goal is to modernize an entire system — say, move a .NET Framework monolith to modern .NET — you need a strategy at the architecture level.
 
 ### Why Big-Bang Rewrites Usually Fail
 
@@ -18284,8 +17934,6 @@ The seductive plan is: freeze the old system, build a shiny new one in parallel,
 - **The target keeps moving.** The business can't stop for two years. Every feature added to the old system must also be added to the new one, so you're maintaining two systems and never catching up.
 - **Value arrives only at the end** — if it arrives. For years there's no return on the investment, which makes the project a prime target for cancellation the moment budgets tighten.
 - **Cutover is all-or-nothing.** You flip the switch and either it works or the business stops. There is no gentle rollback.
-
-> **Pitfall:** "We'll just rewrite it, it'll be faster the second time" is one of the most expensive sentences in software. The second time you'll rediscover why the first version was complicated — the hard way, in production.
 
 ### The Strangler Fig Pattern
 
@@ -18324,7 +17972,7 @@ app.MapWhen(
 app.Run(async ctx => await _legacyProxy.ForwardAsync(ctx));
 ```
 
-The strategic advantages mirror the rewrite's failures point for point: **value ships continuously** (each migrated slice is in production immediately), **risk is bounded** (if the new Orders service misbehaves, you re-route that one path back to legacy), and **you can stop anytime** with a coherent, working system. Strangler Fig is not merely "nicer"; it is a fundamentally lower-risk bet.
+The strategic advantages mirror the rewrite's failures point for point: **value ships continuously** (each migrated slice is in production immediately), **risk is bounded** (if the new Orders service misbehaves, you re-route that one path back to legacy), and **you can stop anytime** with a coherent, working system.
 
 > **Best practice:** Migrate along seams that matter to the business — a whole capability like "checkout" or "reporting" — not arbitrary technical layers. A migrated slice should be independently valuable and independently deployable.
 
@@ -18524,7 +18172,7 @@ public decimal Price(Cart cart)
 
 ## The EOL Treadmill: Legacy Is a Verb
 
-This chapter has treated legacy as a state you inherit. It is worth ending on the observation that it is also a process you are subject to, continuously, whether or not you write any code.
+Legacy is not only a state you inherit; it is also a process you are subject to, continuously, whether or not you write any code.
 
 Consider what a single ASP.NET Core service actually depends on, and who controls the clock on each:
 
@@ -18584,7 +18232,7 @@ The deepest version of this point: **the maintenance cadence you can sustain is 
 
 Forty microservices means forty runtime upgrades, forty base images, forty dependency graphs. That is a real, recurring cost, and it is one of the strongest arguments for the modular monolith ([Chapter 21](#chapter-21-architecture)) at team sizes that cannot staff forty upgrade paths. Similarly, every additional language, framework, database engine and cloud service you adopt adds its own independent expiry schedule.
 
-The question to ask when adopting anything new is not only "does this solve our problem?" but "**who will upgrade this in three years, and will they know why we chose it?**" A team that asks this consistently ends up with fewer, better-understood technologies — and considerably less of the legacy this chapter is about.
+The question to ask when adopting anything new is not only "does this solve our problem?" but "**who will upgrade this in three years, and will they know why we chose it?**"
 
 ## Practice
 
@@ -18748,13 +18396,9 @@ Because the cost isn't linear. Consecutive versions have a documented path; four
 
 # Chapter 25: Observability and Testing at Scale
 
-_⏱️ Estimated read time: ~1 h 5 min · 10585 words (study pace)_
+_⏱️ Estimated read time: ~1 h · 9893 words (study pace)_
 
-[Chapter 9: Exceptions, Logging and First Diagnosis](#chapter-9-exceptions-logging-and-first-diagnosis) gave you the log line, and [Chapter 8: Testing](#chapter-8-testing) gave you unit and integration tests inside one service. This chapter starts where a request leaves the process and where a codebase outgrows one team. It makes you able to decide what a service must emit so that a page at 3 a.m. leads to a cause in minutes, to set an SLO and alert on how fast its budget burns instead of on CPU, and to choose which expensive tests — contract, property-based, end-to-end, load, mutation, evals — earn their cost for the system in front of you.
-
-The first half is observability beyond logs. **Metrics** are aggregates: they keep a number per time series and throw the requests away, so they are cheap enough to keep always on and to alert on, and through bounded tags they say *that* something is wrong and *where*. **Traces** keep one request's detail across every hop, so they are sampled, and they say *which hop*. Together with the logs of Chapter 9 they meet in the SLO, the alert that fires on it, and a walk through one incident from metric to trace to log line — joined by a single propagated trace ID.
-
-The second half is testing what unit tests can't see: interface drift between independently deployed services, inputs nobody thought to write, whole-stack breakage through a real browser, latency under concurrency, tests that execute code but assert nothing, and model output that no fixed assertion can pin. The through-line is one habit of mind: **treat your telemetry and your tests as systems to be engineered, with their own costs, failure modes, and return on investment** — and measure both against the same yardstick, the user-visible SLI.
+[Chapter 9: Exceptions, Logging and First Diagnosis](#chapter-9-exceptions-logging-and-first-diagnosis) gave you the log line, and [Chapter 8: Testing](#chapter-8-testing) gave you unit and integration tests inside one service. This chapter starts where a request leaves the process and where a codebase outgrows one team.
 
 ## Metrics
 
@@ -18989,7 +18633,7 @@ So you pick one victim. In Jaeger you query for slow traces on that route (tail 
 
 But a span only shows *that* the call took 3.8 seconds, not *why*. So you copy the trace ID from Jaeger, paste it into Seq, and — because every service stamps its logs with the trace ID ([Chapter 9](#correlation-across-services)) — you get every structured log line from every service for that exact request. There they are: three warnings, `Payment gateway returned 429, retrying in 800ms (attempt 3)`. The gateway was not slow; it was rejecting you, and your own retries were stacking inside the span. A quick pivot on the same query shows the 429s started at 2:52 — right when the nightly reconciliation job began hammering the gateway with the same API key. Kill the job, latency recovers, go back to bed.
 
-Walk the chain again: the metric said *something is wrong and where*, the trace said *which hop*, the logs said *why*. Three tools, one investigation — and the only thing that connected them was the trace ID, propagated in every hop's `traceparent` header, recorded on every span, and stamped onto every log line. That correlation is not luck. It exists because the propagation, the enricher, and the sampler were wired up on a quiet afternoon, exactly as this chapter prescribes. At 3 a.m. you can only harvest what you instrumented at 3 p.m.
+Walk the chain again: the metric said *something is wrong and where*, the trace said *which hop*, the logs said *why*. Three tools, one investigation — and the only thing that connected them was the trace ID, propagated in every hop's `traceparent` header, recorded on every span, and stamped onto every log line.
 
 One more step exists when the trace points inside a single process — a span that is slow but makes no outbound calls. Then the next tool is a profiler on that process: `dotnet-counters` first, then whatever its reading points to ([Chapter 17: Profiling](#profiling-finding-the-bottleneck-in-a-running-system)).
 
@@ -19322,7 +18966,7 @@ export default function () {
 }
 ```
 
-The key discipline is reading **percentiles, not averages**. An average latency of 50ms can hide a p99 of 3 seconds — meaning one request in a hundred is agonizingly slow, which at scale is thousands of unhappy users. Averages lie; percentiles tell the truth about tail behavior, and tail behavior is what users actually feel.
+The key discipline is reading **percentiles, not averages**. An average latency of 50ms can hide a p99 of 3 seconds — meaning one request in a hundred is agonizingly slow, which at scale is thousands of unhappy users.
 
 In NBomber you express load as a *scenario* with an injection rate:
 
@@ -19424,23 +19068,6 @@ Every testing technique in this chapter earns its keep by catching a defect clas
 | Mutation testing (Stryker.NET) | Assertion-free "covered" code — tests that execute but verify nothing | Reruns the suite once per mutant; very CPU-expensive | Core domain logic; run on the diff or nightly |
 | Eval suites (Microsoft.Extensions.AI.Evaluation) | Quality regressions in nondeterministic output that no assertion can pin | Token spend per run; a curated, maintained case set; threshold tuning | Any shipped feature whose output comes from a model |
 | Fake time + fixed seeds (`TimeProvider`, Chapter 8) | Expiry/scheduling bugs; irreproducible time- and randomness-based flakes | Retrofitting injection into legacy code | Anything touching clocks, delays, timers, or random data |
-
-## Bringing It Together
-
-Observability is not a library you install; it is a design property you cultivate. The senior mindset treats telemetry as a first-class feature, budgeted for and reviewed like any other. Record **metrics** chosen by RED and USE, guarding against cardinality explosions. Trace requests end to end with **OpenTelemetry**, propagating context across HTTP and messaging so a single trace ID unlocks the whole story — including the structured logs of Chapter 9. Feed **SLIs** into **SLOs** with **error budgets** that turn reliability into a shared, quantitative decision, and alert on how fast the budget burns, not on noise. Build the cockpit before you need it: when the 3 a.m. page arrives, the difference between a five-minute fix and a five-hour outage is the instrumentation you had the discipline to add while the skies were still clear.
-
-Each testing technique in this chapter targets a specific weakness of the foundational testing you already know:
-
-- **Contract testing** replaces slow, brittle cross-service integration tests with fast, independent verification of interfaces — and, wired to a broker, becomes a safe-deployment gate that makes schema evolution auditable.
-- **Snapshot testing** locks down large outputs such as serialized responses, provided someone actually reviews the diffs.
-- **Property-based testing** finds the inputs your example tests never imagined, and shrinking hands you a minimal reproduction.
-- **Playwright and API-level E2E** prove the assembled system works through the user's eyes, while the pyramid-versus-trophy debate reminds you to shape the suite around where bugs actually live.
-- **k6 and NBomber** answer the questions functional tests can't, provided you assert on thresholds and run against realistic environments.
-- **Mutation testing** audits the auditors, exposing the tests that execute code without actually checking it.
-- **Eval suites** extend the portfolio to output no assertion can pin, trading exact expectations for a tracked pass rate — the only way to change a prompt or a model with confidence.
-- Underneath all of them, **`TimeProvider`, deterministic seeding, and disciplined test data** ([Chapter 8](#deterministic-tests-time-async-and-test-data)) are the unglamorous infrastructure that makes every other test trustworthy.
-
-The senior mindset that unifies both halves: **every test and every signal is an investment with a cost and a return.** Fast, deterministic, and targeted at where failure is likely and expensive — that is the portfolio you are building.
 
 ## Sources & Further Reading
 
@@ -19555,11 +19182,9 @@ Checkout calls Payments and Inventory, each owned by another team and deployed o
 
 # Chapter 26: Delivery and Platform
 
-_⏱️ Estimated read time: ~1 h 30 min · 14465 words (study pace)_
+_⏱️ Estimated read time: ~1 h 25 min · 13962 words (study pace)_
 
-Part 1 taught you to build, test and containerize one service ([Chapter 13: Git and CI/CD](#chapter-13-git-and-cicd), [Chapter 14: Containers and Linux](#chapter-14-containers-and-linux)). This chapter is about everything between that image and a user, and about doing it for many services and many teams. It makes you able to run a .NET service on a VM or a Kubernetes cluster and know what each probe, limit and manifest does; to read and fix an Azure Pipelines build and promote one artifact through gated environments; to release safely with rolling, blue-green and canary deployments and feature flags; to put the right box in front of your servers and defend it against traffic that is trying to hurt you; and to judge a platform team and its delivery metrics.
-
-The sections follow the path of a release. First the contract a service must honour to run anywhere — the twelve factors — then where it runs: a Linux VM under systemd, then Kubernetes with its manifests, Helm and Kustomize, a service mesh, and .NET Aspire for the inner loop. Then how changes get there: Azure Pipelines, NuGet, deployment strategies and feature flags. Then the edge between users and your servers: load balancers, reverse proxies, CDNs, rate limiting, and abuse traffic. Last, the organizational layer above all the machinery: platform engineering, and how to measure delivery without destroying the measurement.
+Part 1 taught you to build, test and containerize one service ([Chapter 13: Git and CI/CD](#chapter-13-git-and-cicd), [Chapter 14: Containers and Linux](#chapter-14-containers-and-linux)). This chapter is about everything between that image and a user, and about doing it for many services and many teams.
 
 ## The 12-Factor App
 
@@ -19586,10 +19211,6 @@ Four of these carry the .NET-specific weight:
 - **Statelessness + backing services (4, 6).** Nothing persisted in local memory or disk between requests; sessions and caches live in attached resources. This is the precondition for horizontal scaling (8).
 - **Disposability (9).** Handle `SIGTERM`, finish in-flight work, release resources — the generic host's [graceful-shutdown pipeline](#processes-signals-graceful-shutdown) exists for this; it is what makes rolling deploys and elastic scaling safe.
 - **Logs (11).** Structured logs to stdout ([Chapter 9](#chapter-9-exceptions-logging-and-first-diagnosis)); the platform aggregates. An app managing its own log files fights every orchestrator it runs under.
-
-> **Why this matters for a senior .NET dev:** these factors are the contract that makes an app cloud-native. Violate them and no amount of Kubernetes will save you.
-
-The simplest place to honour those factors is a single Linux machine. Containers are the usual target today, but plenty of .NET services still run on plain VMs, and the mechanics are worth knowing either way.
 
 ## systemd: Running a .NET App as a Service
 
@@ -19666,9 +19287,7 @@ exit 1
 
 Key ideas: the **shebang** picks the interpreter; **`set -euo pipefail`** is the single most important line for robust scripts (fail fast, fail loud); `$VAR` reads variables; the `for` loop with `curl -sf` (silent, fail-on-error) polls the health endpoint; a non-zero `exit` tells CI the deploy failed.
 
-> **Best practice:** Start every non-trivial script with `set -euo pipefail`. Without it, a failed command in the middle is silently ignored and the script marches on, often making things worse. This one line turns sloppy scripts into safe ones.
-
-A VM and a restart policy carry one machine. A fleet needs something that decides where each process runs and keeps it running.
+> **Best practice:** Start every non-trivial script with `set -euo pipefail`. Without it, a failed command in the middle is silently ignored and the script marches on, often making things worse.
 
 ## Kubernetes Fundamentals
 
@@ -19692,8 +19311,6 @@ Each **worker node** runs:
 - **kubelet** — the node's agent. It talks to the API server, starts the containers assigned to its node, and reports their health back.
 - **Container runtime** — the software that actually runs containers (containerd, CRI-O).
 - **kube-proxy** — programs the node's networking so that Service traffic reaches the right pods.
-
-> **Analogy:** The control plane is a shipping company's dispatch office; the nodes are the trucks. You file a shipping order (a manifest) with dispatch (the API server). Dispatch records it (etcd), assigns it to a truck (scheduler), and the driver (kubelet) carries it out. If a truck breaks down, dispatch reassigns its load to another truck — you never had to know which truck.
 
 ### The core objects, from smallest to largest
 
@@ -19721,7 +19338,7 @@ Each **worker node** runs:
 
 ## Kubernetes YAML for a .NET Deployment
 
-Let's deploy the API. We'll define a ConfigMap, a Secret, a Deployment, and a Service. Kubernetes manifests are declarative YAML; you apply them with `kubectl apply -f`.
+The manifests below define a ConfigMap, a Secret, a Deployment and a Service for the API; apply them with `kubectl apply -f`.
 
 ```yaml
 # configmap.yaml
@@ -19979,11 +19596,7 @@ Run it, and Aspire starts your projects, spins up Postgres and Redis in containe
 
 > **Where Aspire fits:** it is primarily a **development-time and composition** layer that nudges you toward 12-Factor practices. It is *not* itself a production runtime, nor a service mesh. For a team building a modular monolith or a handful of services, it dramatically lowers the friction of doing distributed .NET *well*.
 
-> **Best practice:** Use Aspire to make local multi-service development pleasant and observable, and to standardize resilient, instrumented client configuration across services. Still learn Kubernetes and its manifests — that's where your app ultimately runs, and Aspire complements that knowledge rather than replacing it.
-
 > **Capstone tie-in:** The sections so far are exercised by ShopCore Steps 3 (Dockerize) and [8 (Deploy with Infrastructure as Code)](#step-8-deploy-with-infrastructure-as-code) in [Chapter 44](#chapter-44-capstone-one-project-growing-up) — you'd package the API with a multi-stage Dockerfile and Compose, then run the services on a managed Kubernetes cluster or cloud container service.
-
-That is where a service runs. The next sections are how a change gets there: the pipeline that builds and promotes it, the packages it depends on, and the strategies that replace the running version without users noticing.
 
 ## Azure Pipelines in Practice
 
@@ -20247,7 +19860,7 @@ The pragmatic middle ground is common and works well: keep the code and pull-req
 
 ## NuGet in Depth
 
-NuGet is .NET's package manager. As a senior engineer you should be comfortable on both sides: consuming packages and producing them.
+NuGet is .NET's package manager.
 
 **Consuming.** `PackageReference` items in a `.csproj` declare dependencies. `dotnet restore` reads them, resolves the dependency graph, and downloads packages into the global cache. Adding a lock file (`RestorePackagesWithLockFile` true) produces `packages.lock.json`, pinning the exact resolved versions so CI restores are deterministic and reproducible—which also makes your cache keys stable.
 
@@ -20325,11 +19938,9 @@ Flags are configured externally—`appsettings.json`, Azure App Configuration, o
 
 > **Pitfall:** Feature flags are debt if you never remove them. A codebase littered with stale flags becomes an unreadable maze of dead branches. Track flags and delete both the flag and the losing code path once a feature is fully rolled out and stable.
 
-A released version still sits behind a stack of infrastructure before any user reaches it — and in front of every user who should not.
-
 ## Load Balancers, Reverse Proxies, API Gateways, and CDNs
 
-Between your users and your servers sits a stack of infrastructure whose job is to distribute, protect, and accelerate traffic. Senior engineers need to know what each box does.
+Between your users and your servers sits a stack of infrastructure whose job is to distribute, protect, and accelerate traffic.
 
 ### Load Balancers: L4 vs L7
 
@@ -20544,7 +20155,7 @@ Then choose your priority order in advance, because you will not design it well 
 
 ## Platform Engineering and Measuring Delivery
 
-Everything so far in this chapter is machinery: pipelines, artifacts, gates, secrets, clusters, proxies. This section is about the two questions that sit above the machinery and get asked of senior engineers rather than of pipelines — **who builds and owns this for everyone?** and **how do we know any of it is working?**
+Two questions sit above the machinery and get asked of senior engineers rather than of pipelines: **who builds and owns this for everyone?** and **how do we know any of it is working?**
 
 ### The problem platform engineering exists to solve
 
@@ -20789,11 +20400,9 @@ Deployment frequency, lead time for changes, change failure rate and failed depl
 
 # Chapter 27: Security in Depth and the Supply Chain
 
-_⏱️ Estimated read time: ~55 min · 9845 words (study pace)_
+_⏱️ Estimated read time: ~50 min · 9285 words (study pace)_
 
-[Chapter 12: Security Essentials](#chapter-12-security-essentials) covered what every middle developer must get right inside one application: authentication and authorization, the OWASP Top 10, storing secrets, TLS, the cryptography you call, and scanning dependencies for known CVEs. This chapter is the depth above that, where the decisions span services, pipelines and years. It makes you able to remove long-lived credentials instead of guarding them, to plan a cryptographic migration before it is forced on you, and to defend the chain of code and builds that ends in the artifact you ship.
-
-Three threads, in that order. **Zero trust and workload identity** replace "this request came from inside the network" and "this service holds a secret" with identities the platform attests and credentials that expire in minutes — in production and in CI. **Crypto agility** takes the algorithms themselves off the list of things you assume, because the post-quantum migration has already started. And the **software supply chain** applies the same thinking to the packages you consume, the build that assembles them, and the artifacts you publish, ending with what to do on the day an advisory lands and where to start.
+[Chapter 12: Security Essentials](#chapter-12-security-essentials) covered what every middle developer must get right inside one application. This chapter is the depth above that, where the decisions span services, pipelines and years.
 
 ## Zero Trust and Workload Identity
 
@@ -20975,11 +20584,7 @@ Open your solution and count the projects. Now run `dotnet list package --includ
 
 That is the software supply chain, and for most of the last two decades our profession treated it as somebody else's problem. It isn't any more. Attackers worked out that compromising one popular package buys them access to thousands of downstream organizations, which is a far better return than attacking those organizations one at a time. The 2025 revision of the OWASP Top 10 promoted supply chain failures to their own category. The EU's Cyber Resilience Act turns parts of what follows into a legal obligation for anyone selling software into Europe.
 
-The rest of this chapter is about the three places that trust can be violated — **what you consume**, **where you build**, and **what you publish** — and the specific controls that close each gap in a .NET shop. As always, the point is the mechanism. "Use a lockfile" is advice; understanding *which attack a lockfile actually stops, and which it doesn't*, is knowledge you can apply when the next attack looks slightly different.
-
 ## The Shape of the Problem
-
-Start with the arithmetic, because it explains why intuition fails here.
 
 You add one package. That package depends on four others; each of those depends on a handful more. Three levels down you are trusting perhaps two hundred distinct pieces of code and — this is the part that matters — perhaps a hundred distinct *human beings*, any one of whom can be phished, bribed, coerced, or simply have their laptop stolen. Your security posture is not the average of those hundred people's practices. It's the **minimum**.
 
@@ -21018,8 +20623,6 @@ An LLM asked for a package to do X will occasionally invent one that doesn't exi
 > **Pitfall.** "The assistant suggested it and it installed fine" is not evidence a package exists legitimately. Before adding any package you have not used before, look at it on nuget.org: download count, repository link, publication history, whether the source repo actually corresponds. This takes fifteen seconds and is the single highest-value habit in this chapter.
 
 ### Dependency confusion, and why pinning does not fix it
-
-This one is worth understanding precisely, because the obvious fix is the wrong one.
 
 Suppose your company has an internal package, `Contoso.Billing.Client`, published to a private Azure Artifacts feed. Your `nuget.config` lists two sources: the private feed and nuget.org. You ask for version `2.1.0`.
 
@@ -21165,7 +20768,7 @@ A workable middle:
 
 ## The Build Is Part of the Attack Surface
 
-Here is the row people skip. Your CI runner checks out your source, has credentials to your registries and clouds, and produces the artifact that goes to production. It is, in effect, a production machine with a shell exposed to anyone who can influence a workflow file.
+Your CI runner checks out your source, has credentials to your registries and clouds, and produces the artifact that goes to production. It is, in effect, a production machine with a shell exposed to anyone who can influence a workflow file.
 
 ### Pin your actions by commit SHA, not by tag
 
@@ -21328,14 +20931,6 @@ You cannot do all of this next sprint. Ordered by value per hour of effort, for 
 | 8 | Signing + provenance + admission control | ~1 week | Artifacts that never came from your build |
 
 Items 1, 2 and 4 together take an afternoon and remove the three most commonly exploited paths. Do those first, then argue about the rest.
-
-## Summary
-
-Two habits run under the whole chapter. First, prefer *not having* a secret to guarding one: zero trust means network position confers no trust, workload identity lets the platform vouch for a service instead of the service holding a password, and OIDC federation removes the last static credential from CI — provided the trust policy pins the subject exactly. Second, assume your current choices will have to change: inventory where cryptography lives, version your ciphertext, turn on hybrid key exchange where the switch exists, and automate certificates before shrinking lifetimes make manual renewal an outage.
-
-Your dependency graph is a list of people who can reach production, and it is longer than you think. Three surfaces need defending, not one: what you consume, the build that assembles it, and what you publish onward. Package source mapping structurally eliminates dependency confusion; lockfiles make graph changes visible and incident response a query rather than an excavation; signature verification with named owners raises the cost of impersonation. In CI, pin actions by SHA because tags are mutable pointers into someone else's repository, cut token permissions to the floor, replace long-lived cloud credentials with short-lived OIDC, and remember that a build runner is a production machine holding your secrets. On the way out, an SBOM tells you what you shipped and provenance proves where it came from — but only if something verifies them at deploy time, and only if you actually query them when the advisory lands.
-
-None of this makes an untrusted dependency trustworthy. That is not the goal. The goal is that when — not if — one of those hundred maintainers has a bad day, you find out fast, you know exactly what you shipped, and the blast radius stops well short of production.
 
 ## Practice
 
@@ -21501,11 +21096,11 @@ An SBOM lists what is inside an artifact, so "are we affected?" becomes a query;
 
 # Chapter 28: Cloud Fundamentals — AWS & Azure
 
-_⏱️ Estimated read time: ~30 min · 5535 words (study pace)_
+_⏱️ Estimated read time: ~30 min · 4931 words (study pace)_
 
-For most of computing history, running software meant owning hardware. You bought servers, racked them in a room with expensive cooling, hired people to replace failed disks at 3 a.m., and paid for enough capacity to survive your busiest day of the year — capacity that sat idle the other 364 days. The cloud rewired this economic model. Instead of buying a power station, you plug into the grid and pay for the kilowatt-hours you actually use. That single shift in mindset — from *owning capacity* to *renting capability* — is the thread that runs through everything in this chapter.
+Owning hardware means paying for enough capacity to survive your busiest day of the year, capacity that sits idle the other 364 days. The cloud meters it instead: you pay for what you actually use. That shift — from *owning capacity* to *renting capability* — is the thread that runs through everything in this chapter.
 
-As a .NET developer moving toward senior level, you don't need to become a network engineer. But you do need to understand what these services *are*, *why* they exist, and *when* to reach for each one. This chapter builds that mental map for both AWS and Azure, maps one provider's services onto the other's, and shows you how to provision it all as code. It ends with the trade-offs that decide how you use the cloud: serverless cold starts, the cost and security habits that matter, and the honest economics of lock-in. [Chapter 29](#chapter-29-azure-in-depth-for-net-developers) then takes Azure in depth, [Chapter 30](#chapter-30-the-azure-casebook-real-incidents-real-fixes) works through real incidents, and [Chapter 31](#chapter-31-compliance-data-privacy-cloud-cost-finops) covers compliance and cloud cost.
+[Chapter 29](#chapter-29-azure-in-depth-for-net-developers) then takes Azure in depth, [Chapter 30](#chapter-30-the-azure-casebook-real-incidents-real-fixes) works through real incidents, and [Chapter 31](#chapter-31-compliance-data-privacy-cloud-cost-finops) covers compliance and cloud cost.
 
 ## Cloud Fundamentals
 
@@ -21643,7 +21238,7 @@ Console.WriteLine($"Uploaded, ETag: {response.ETag}");
 
 ## Azure Core Services
 
-Azure is Microsoft's cloud and the natural home for .NET. The tooling, documentation, and identity model are built with .NET developers in mind. Here's the equivalent map. For the mechanisms behind it, and real incidents, see [Chapter 29](#chapter-29-azure-in-depth-for-net-developers) and [Chapter 30](#chapter-30-the-azure-casebook-real-incidents-real-fixes).
+Azure is Microsoft's cloud and the natural home for .NET. The tooling, documentation, and identity model are built with .NET developers in mind. For the mechanisms behind it, and real incidents, see [Chapter 29](#chapter-29-azure-in-depth-for-net-developers) and [Chapter 30](#chapter-30-the-azure-casebook-real-incidents-real-fixes).
 
 ### Compute
 
@@ -21710,8 +21305,6 @@ Database=AppDb;
 Authentication=Active Directory Default;
 Encrypt=True;
 ```
-
-> **Best practice:** Managed Identity plus Key Vault plus `DefaultAzureCredential` is the gold-standard pattern for Azure .NET apps. There is no reason to ship a password in a connection string or an `appsettings.json` in 2026.
 
 > **Security note:** The whole point is that there is *no secret to leak*. A leaked connection-string password is a breach; a managed identity has nothing to steal because the credential lives only inside Azure's control plane and rotates constantly.
 
@@ -21866,31 +21459,11 @@ Serverless (Lambda, Azure Functions, Container Apps scaling to zero) is genuinel
 
 The senior judgment call: **serverless for event-driven and bursty work; managed containers or App Service for steady, latency-sensitive, always-on traffic.** A busy API serving thousands of requests per second is often cheaper and faster on an always-warm container than on per-invocation functions.
 
-## Cost Awareness and Security: The Habits That Matter
-
-Everything in this chapter comes back to two disciplines that separate a mid-level engineer from a senior one in the cloud.
-
-**On cost:**
-
-- **Right-size, then reserve.** Start small and scale up based on real metrics — don't guess large. For predictable steady workloads, commit to reserved capacity (Reserved Instances / Savings Plans) for large discounts over on-demand pricing.
-- **Kill zombies.** Automate the shutdown of dev/test resources outside business hours and clean up orphaned disks, snapshots, and IPs.
-- **Set budget alerts** at the account level from day one. Nobody should learn about a runaway bill from the invoice.
-- **Mind egress and cross-region traffic** — the quiet budget killers.
-
-**On security:**
-
-- **Least privilege, always.** Grant the minimum permissions, scoped to specific resources. Audit and prune regularly.
-- **Never hardcode credentials.** No access keys in code, config files, or environment variables committed to git. Use **IAM roles** on AWS and **Managed Identity** on Azure so applications carry no static secrets at all.
-- **Store secrets in a vault** (Secrets Manager / Key Vault) with rotation, and reference them at runtime — never inline.
-- **Encrypt in transit and at rest** (usually a checkbox or default now — make sure it's on).
-- **Isolate the network.** Databases in private subnets/VNets, never exposed to the public internet; access controlled by security groups.
-- **Respect the shared responsibility model.** The provider secures the platform; the config, the data, and the access policy are always yours.
-
 ## Lock-In, and the Honest Economics of Leaving
 
 Every architecture discussion involving a managed service eventually reaches someone saying "but that locks us in," at which point the conversation usually stops. It shouldn't, because "locked in" is not a binary state and the objection is frequently used to justify building something worse.
 
-Here is the reframe that makes the discussion productive: **lock-in is not a yes/no property, it is a switching cost — and switching cost is worth paying for capability you get now.** You are already locked into your programming language, your database engine, your identity provider, and your ORM. Nobody proposes writing SQL that runs identically on six engines. The question is never "are we locked in," it is "what would leaving cost, and is the thing we get worth that price?"
+**Lock-in is not a yes/no property, it is a switching cost — and switching cost is worth paying for capability you get now.** You are already locked into your programming language, your database engine, your identity provider, and your ORM. Nobody proposes writing SQL that runs identically on six engines. The question is never "are we locked in," it is "what would leaving cost, and is the thing we get worth that price?"
 
 ### The gradient
 
@@ -21942,26 +21515,18 @@ And what you give up is real: capacity you can't get in an hour, DR that isn't a
 - **Write down what leaving would cost** for the two or three services you depend on most. Not a plan — an estimate, one paragraph each, in an ADR ([Chapter 16](#chapter-16-working-like-a-middle-developer)). This converts a recurring argument into a known number, and the number is usually smaller than the loudest person in the room thinks.
 - **Revisit when the shape changes.** The right answer at 10 engineers and spiky traffic is different at 200 engineers and a flat baseline. Lock-in decisions should be reviewed when the business changes, not defended forever.
 
-## Summary
-
-The cloud replaces owned capacity with metered capability, along a spectrum from IaaS (you manage almost everything) to serverless (you manage almost nothing). Regions and Availability Zones give you locality and resilience; the shared responsibility model draws the line between the provider's job and yours; and metered billing rewards vigilance.
-
-AWS and Azure solve the same set of problems — compute, storage, databases, messaging, identity, observability — with different names, and the mapping table lets you translate fluently between them. For a .NET developer, Azure's native integration (App Service, Azure SQL, Entra ID, Managed Identity, Application Insights) offers a remarkably smooth path, while AWS's breadth and maturity make it the industry's default.
-
-Two habits underpin real seniority in the cloud: define everything as code (Terraform, Bicep, Pulumi, or CDK — with careful attention to state), and design for credential-free identity and least privilege from the very first line. Master those, and you're no longer just deploying to the cloud — you're engineering on it.
-
 
 ---
 
 # Chapter 29: Azure in Depth for .NET Developers
 
-_⏱️ Estimated read time: ~1 h 35 min · 15129 words (study pace)_
+_⏱️ Estimated read time: ~1 h 35 min · 14711 words (study pace)_
 
 [Chapter 28](#chapter-28-cloud-fundamentals-aws-azure) gave you the map: what App Service, Functions, Cosmos DB and Service Bus *are*, and how they line up against AWS. A map gets you through a conversation. It does not get you through the first week of owning a production system on Azure, where the questions sound like this: *why does the app get a 403 from Blob Storage when its identity is a Contributor on the subscription? Why did the slot swap cause a minute of 500s? Why does Cosmos DB throttle at 3,000 RU/s when we provisioned 20,000?*
 
-This chapter is the territory. For each service a .NET developer touches every week, it explains the **mechanism** (what actually happens when you call it), shows the **.NET code** you would write, lists the **limits that bite**, and ends with a **decision table**. The level it aims for is a strong middle developer who can build, ship and debug an Azure system without a platform team holding their hand, and who can explain their choices in an interview. [Chapter 30](#chapter-30-the-azure-casebook-real-incidents-real-fixes) then puts all of it to work on real incidents.
+[Chapter 30](#chapter-30-the-azure-casebook-real-incidents-real-fixes) then puts all of it to work on real incidents.
 
-One idea runs under every section: in production your code runs inside platform mechanisms it never calls — a front end with a timeout, a NAT with a port budget, a token endpoint, a DNS zone, a scheduler that scales, kills and moves it — and most cloud incidents are one of them doing exactly what its documentation says. The practice at the end of the chapter turns that into hands-on work: the casebook's two verified bugs, two design decisions, and a deployment pipeline whose rollback is a slot swap.
+One idea runs under every section: in production your code runs inside platform mechanisms it never calls — a front end with a timeout, a NAT with a port budget, a token endpoint, a DNS zone, a scheduler that scales, kills and moves it — and most cloud incidents are one of them doing exactly what its documentation says.
 
 ```
                         how a typical .NET system on Azure is layered
@@ -21986,7 +21551,7 @@ Read the cross-cutting row carefully. Most developers learn the services in the 
 
 ## Certifications: What They Measure, and Where This Chapter Stands
 
-A certification proves you have the vocabulary. An interview, and your first incident, test whether you understand the mechanism behind it. This chapter aims at the second, but it is laid out so that the first comes along for free.
+A certification proves you have the vocabulary. An interview, and your first incident, test whether you understand the mechanism behind it.
 
 The landscape changed in 2026, so check the current state yourself before you book anything. As of September 2026, the official study-guide pages on Microsoft Learn could not be opened from the environment this chapter was written in, so the table below comes from several independent third-party summaries that agree with each other. Confirm it on the official study guide before you rely on it.
 
@@ -21998,7 +21563,7 @@ The landscape changed in 2026, so check the current state yourself before you bo
 
 The practical takeaway: **AZ-900 is a reasonable one-weekend goal** once you have read this chapter, and it is useful when your CV has to get past a recruiter's keyword filter. The developer-level exam has moved towards AI workloads, but the platform underneath it is exactly what this chapter teaches: containers, Cosmos DB, messaging, Functions, Key Vault, RBAC and KQL. Learn the platform first. The AI-specific parts are thin layers on top of it.
 
-> **Best practice.** Use the free Microsoft Learn sandbox and the exam's official practice assessment rather than a question dump. Dumps teach you to recognise answers. This chapter's *Self-check* section at the end, and Chapter 30's cases, teach you to derive them, which is also what an interviewer checks.
+> **Best practice.** Use the free Microsoft Learn sandbox and the exam's official practice assessment rather than a question dump: dumps teach you to recognise answers, not to derive them.
 
 ## The Control Plane: How Azure Is Organised
 
@@ -23099,16 +22664,6 @@ A **3-year reservation** for the database: the biggest discount, for a committed
 (a) **Event Hubs**: a partitioned log, with a consumer group per team, and replay within retention. (b) **Service Bus**: a command that needs exactly one competing consumer, with peek-lock, dead-lettering and possibly sessions. (c) **Event Grid** (the `BlobCreated` system event), delivered to the Function directly, or via a Service Bus queue for buffering and retries.
 </details>
 
-## Summary
-
-Azure is organised as a hierarchy of tenant, management groups, subscriptions, resource groups and resources. All of it is managed through one API, ARM. RBAC decides *who*, Policy decides *what*, and locks protect resources but not data. The one distinction to carry everywhere is **control plane versus data plane**: managing a resource and using it are different permissions.
-
-Identity is the foundation. Managed identities replace secrets. `DefaultAzureCredential` is a convenience for development, and production should name its credential. Role assignments take time to propagate, and Cosmos DB's data-plane roles are different from everyone else's. Once identity works, turn off keys.
-
-For compute, App Service is the default for web workloads: learn the slot swap sequence, the 230-second limit and SNAT ports. Functions are for events: use the isolated worker model on Flex Consumption, remember that scale multiplies concurrency, and keep Durable orchestrators deterministic. Container Apps covers containerised systems without a cluster to run. For data, Blob Storage wants the right redundancy, tiers, user delegation SAS and ETags. Cosmos DB is a partitioning decision with a price on every operation. Azure SQL is SQL Server that fails over, so retry. Service Bus, Event Hubs and Event Grid are three different tools: commands, streams and notifications. All of them deliver at least once.
-
-Around everything sit Key Vault and App Configuration (load once, reload deliberately), private endpoints (whose failures are almost always DNS), Application Insights (sampling and KQL), infrastructure as code that grants access in the same pull request as the resource, and the costs only a developer can see. [Chapter 30](#chapter-30-the-azure-casebook-real-incidents-real-fixes) takes all of this into production and breaks it.
-
 ## Practice
 
 **1. Chapter 30's two *Find the bug* samples (1 h).** In the *Exercises* of [Chapter 30](#chapter-30-the-azure-casebook-real-incidents-real-fixes), review both samples as pull requests before you open the answers: the lost update on a shared blob, and the batch that outlives its locks. Then run the tests that show each defect on the buggy code and its absence on the fix, against Azurite and the Service Bus emulator ([`verify/exercises/Ch51`](https://github.com/malyna2/dotnet-handbook/tree/main/verify/exercises/Ch51); needs the .NET 10 SDK and Docker, and both emulators have EULAs):
@@ -23200,7 +22755,7 @@ Orders (App Service) calls Pricing (Container Apps); both are your team's and si
 
 # Chapter 30: The Azure Casebook — Real Incidents, Real Fixes
 
-_⏱️ Estimated read time: ~55 min · 9492 words (study pace)_
+_⏱️ Estimated read time: ~55 min · 9313 words (study pace)_
 
 [Chapter 29](#chapter-29-azure-in-depth-for-net-developers) explains how Azure works. This chapter is about what happens when it meets production. Each case is a situation that .NET teams on Azure run into again and again. They are composites of common incidents, not one company's post-mortem. For each one you get the same six parts:
 
@@ -23211,7 +22766,7 @@ _⏱️ Estimated read time: ~55 min · 9492 words (study pace)_
 - **Fix**: what to change now, and what to change properly.
 - **Prevent it** and **Interview angle**: the habit that stops it happening again, and how to tell the story.
 
-Read a case's *Situation* and *What you see*, then stop and write down your own diagnosis before you read on. That habit is the one that pays off at 3 a.m. and in system-design interviews alike. [Chapter 35](#chapter-35-production-incidents) does the same for cloud-agnostic scenarios. This chapter is specific to Azure.
+Read a case's *Situation* and *What you see*, then stop and write down your own diagnosis before you read on. [Chapter 35](#chapter-35-production-incidents) does the same for cloud-agnostic scenarios. This chapter is specific to Azure.
 
 ## The Azure Triage Card
 
@@ -23877,20 +23432,14 @@ Answer these from your own system, not from memory:
 
 Each "I don't know" is a candidate for a small, measurable improvement, and for a story in your evidence portfolio ([Chapter 37](#chapter-37-the-story-bank-evidence-portfolio)). Keep stories about a real employer private, and anonymise the numbers you share.
 
-## Summary
-
-The Azure incidents that cost the most time are rarely exotic. They come from a handful of mechanisms: **control plane versus data plane** permissions and their propagation delay; a **credential chain** that picks an unexpected identity; **SNAT ports** and connections that are not reused; the **slot swap sequence** and settings that move with it; **peek-lock** semantics, lock expiry and dead-letter queues nobody watches; **elastic compute in front of inelastic databases**; **hot partitions** in Cosmos DB; **private endpoints without DNS**; the **230-second** request limit; **replay** in Durable Functions; **secret rotation** without overlap; **transient SQL faults**; **telemetry caps**; and **multi-region diagrams** that stop at the compute tier.
-
-Each case follows the same discipline: read the symptom, name the mechanism, confirm it with a specific check, fix the cause rather than the symptom, and add the guardrail that keeps it fixed. That discipline, more than any service name, is what an interviewer is listening for, and what your team relies on at 3 a.m.
-
 
 ---
 
 # Chapter 31: Compliance, Data Privacy & Cloud Cost (FinOps)
 
-_⏱️ Estimated read time: ~30 min · 5434 words (study pace)_
+_⏱️ Estimated read time: ~30 min · 5196 words (study pace)_
 
-For most of your early career, "the requirements" arrive from a product owner as user stories. Somewhere on the road to senior engineer, a second and third set of requirements appear that nobody writes on a sticky note but everybody expects you to honor: the law, and the invoice. A feature that leaks personal data or quietly triples the cloud bill is not "done," no matter how green the tests are. This chapter is about those invisible stakeholders — the regulator, the CFO, and increasingly the sustainability report — and the concrete engineering decisions that keep all of them satisfied. The third turns out to want mostly what the second wants, which is the most useful fact in the chapter. Part A turns privacy law into engineering decisions (classification, minimization, erasure, residency, audit); Part B does the same for the invoice, from the cost model to the levers only a developer can pull; Part C shows that green software is mostly those same levers. The pieces build on the cloud map of [Chapter 28](#chapter-28-cloud-fundamentals-aws-azure).
+Two sets of requirements never arrive as user stories, yet everybody expects you to honor them: the law, and the invoice. A feature that leaks personal data or quietly triples the cloud bill is not "done," no matter how green the tests are. This chapter is about those invisible stakeholders — the regulator, the CFO, and increasingly the sustainability report — and the concrete engineering decisions that keep all of them satisfied. The third turns out to want mostly what the second wants, which is the most useful fact in the chapter. The pieces build on the cloud map of [Chapter 28](#chapter-28-cloud-fundamentals-aws-azure).
 
 > **This chapter is general engineering guidance, not legal advice.** Regulations differ by jurisdiction, change over time, and depend on facts specific to your organization. When a real compliance question is on the table, involve your legal, privacy, and security teams. Your job as an engineer is to build systems that *can* comply and to speak the language well enough to collaborate.
 
@@ -24034,7 +23583,7 @@ For EU→US transfers specifically, the **EU–US Data Privacy Framework** (an a
 
 ### Encryption ties it all together
 
-Encryption is the backstop for most of the above (and Chapter coverage on security elsewhere goes deeper). Two axes:
+Encryption is the backstop for most of the above. Two axes:
 
 - **In transit** — TLS everywhere, including *internal* service-to-service traffic. "It's behind the firewall" is not a threat model.
 - **At rest** — database TDE, encrypted disks, encrypted blob storage. Managed cloud databases give you this with a checkbox; use it. For the highest-sensitivity fields, add application-level encryption so that even a DBA with raw table access sees ciphertext — this is also what makes crypto-shredding possible.
@@ -24119,8 +23668,6 @@ In the on-prem era, capacity was someone else's capital-expenditure problem, dec
 2. **Optimize** — reduce waste and match resources to real demand.
 3. **Operate (accountability)** — teams own their spend as a normal engineering metric.
 
-The mindset shift senior engineers champion: **cost is a shared, engineering-owned responsibility, not something finance reconciles after the fact.**
-
 ### Where the money actually goes
 
 You cannot optimize what you don't understand. The major cost drivers:
@@ -24156,7 +23703,7 @@ But the model has edges a senior engineer weighs:
 
 ### Architecture as a cost driver: chatty services and N+1
 
-This is where application design meets the bill, and where senior engineers add the most value.
+This is where application design meets the bill.
 
 - **Chatty microservices** — decomposing a system into many services multiplies network calls. Each hop adds latency and, if it crosses an AZ or region, *egress cost*. A request that fans out to twelve services, each making its own database and cache calls, can be an order of magnitude more expensive per operation than a well-placed monolithic path. Co-locate chatty services, batch calls, and question service boundaries that force high-frequency cross-service chatter.
 - **N+1 at scale** — the classic ORM N+1 (one query for the list, then one per item) is a correctness non-issue and a *cost* catastrophe at scale. A thousand-item page issuing a thousand-and-one queries multiplies database load, which drives you to a bigger (pricier) database tier to cope. The fix — projection and eager loading — is the same one that fixes latency; **performance optimization and cost optimization are usually the same optimization.**
@@ -24208,8 +23755,6 @@ There is a third stakeholder arriving alongside the regulator and the CFO, and t
 
 **The connection is direct.** A cloud bill is, to a first approximation, an invoice for electricity, hardware amortization, and the datacenter around them. An idle instance burns power. An oversized VM burns power in proportion to its size. A chatty service moves bytes through switches that draw current. Almost every FinOps lever in Part B is also a carbon lever, which makes this an unusually easy argument to win internally: you are not asking anyone to trade money for virtue.
 
-That framing matters because the topic attracts a lot of hand-waving. Here is the engineering version.
-
 **The Green Software Foundation's SCI** (Software Carbon Intensity) specification gives a usable mental model:
 
 ```
@@ -24249,12 +23794,6 @@ Three consequences fall straight out of that formula, and they are not the ones 
 
 ---
 
-## Bringing the three together
-
-Compliance, cost and carbon look like three different departments' problems — lawyers, accountants, and the sustainability report — but they share a spine: **both reward knowing exactly what data and resources you have, why they exist, and being able to prove it.** A well-classified, well-tagged, well-inventoried system is simultaneously easier to audit for privacy, cheaper to run, and — as Part C argues — lower-emission, because all three questions are answered from the same inventory. The senior engineer's edge is treating the regulator and the CFO as first-class stakeholders from the design stage — because retrofitting either one is always more painful and more expensive than building it in.
-
----
-
 ## Sources & Further Reading
 
 *Reminder: this chapter is general engineering guidance and not legal advice. Consult qualified legal and privacy professionals for your specific obligations.*
@@ -24275,19 +23814,17 @@ Compliance, cost and carbon look like three different departments' problems — 
 
 # Chapter 32: The AI-Native Developer — Thriving in the AI Era
 
-_⏱️ Estimated read time: ~1 h 10 min · 13576 words (study pace)_
+_⏱️ Estimated read time: ~1 h 5 min · 12150 words (study pace)_
 
-For most of your career the deal has been simple: you learn to write code, and in exchange the industry pays you well to write it. That deal is being renegotiated in real time. By 2025 and into 2026, a competent AI coding assistant can produce a working REST endpoint, a unit test suite, an EF Core migration, or a plausible refactor faster than you can open the file. The raw act of turning a clear specification into syntactically correct C# — the thing you spent years getting good at — has largely been commoditized. That is not a threat to be defended against. It is a promotion, if you understand what you are being promoted into.
+For most of your career the deal has been simple: you learn to write code, and in exchange the industry pays you well to write it. That deal is being renegotiated in real time. By 2025 and into 2026, a competent AI coding assistant can produce a working REST endpoint, a unit test suite, an EF Core migration, or a plausible refactor faster than you can open the file. The raw act of turning a clear specification into syntactically correct C# — the thing you spent years getting good at — has largely been commoditized.
 
-This chapter makes you able to answer two questions with evidence rather than slogans. The first is about *value*: where your worth as a developer comes from when the machine can type, and how to build the judgment, context and design sense that appreciate rather than depreciate. The second is about *craft*: how to drive AI coding agents well day to day — context engineering, plan-first specs, parallel and background agents, and a reviewer's rubric for the predictable ways generated .NET code goes wrong — without letting them make you slower or erode the judgment the first half says you now trade on. Building AI *into* the software you ship is a different discipline, and it is [Chapter 33: Building AI-Powered Systems](#chapter-33-building-ai-powered-systems).
-
-The value question comes first because it is the foundation: if you keep competing on the axis the machine now dominates, no workflow will save you. If you get it right, the rest is leverage.
+Building AI *into* the software you ship is a different discipline, and it is [Chapter 33: Building AI-Powered Systems](#chapter-33-building-ai-powered-systems).
 
 ## Becoming Valuable When AI Can Write the Code
 
 ### The value shift: what commoditizes and what appreciates
 
-Here is the uncomfortable truth stated plainly: **"I can write code" is no longer a moat. It is table stakes, and increasingly it is not even that.** For twenty years, the ability to translate an idea into correct, working software was scarce enough to command a premium. Scarcity created leverage; leverage created salary. AI is dissolving that particular scarcity. The translation step — intent to implementation — is becoming cheap, fast, and available to everyone, including people who cannot code at all.
+**"I can write code" is no longer a moat. It is table stakes, and increasingly it is not even that.** For twenty years, the ability to translate an idea into correct, working software was scarce enough to command a premium. Scarcity created leverage; leverage created salary. AI is dissolving that particular scarcity. The translation step — intent to implementation — is becoming cheap, fast, and available to everyone, including people who cannot code at all.
 
 When a resource becomes abundant, its price falls and value migrates to whatever is still scarce around it. So the real question for your career is not "can AI do what I do?" It is "when the typing is free, what is still scarce?" A useful way to think about it is to sort the parts of your job into two buckets: what *commoditizes* and what *appreciates*.
 
@@ -24295,11 +23832,7 @@ Things that commoditize — that get cheaper as AI improves — include: produci
 
 Things that appreciate — that get *more* valuable as code gets cheaper — include: knowing *which* code should exist in the first place, understanding what the business actually needs, sensing what will break in production at 3 a.m., holding the messy history of why a system is the way it is, framing an ambiguous problem so it can be solved at all, and deciding what *not* to build. Notice a pattern: the commoditizing skills are about producing output; the appreciating skills are about *judgment*.
 
-> When code becomes cheap, judgment becomes expensive. Move your identity from "the person who writes the code" to "the person who decides what code is worth writing and whether it's any good."
-
-**Isn't this just the next abstraction shift?** Developers love to point out — correctly — that we have been here before. We moved from toggling switches to assembly, from assembly to C, from C to managed languages like C#, from writing our own data structures to pulling in NuGet packages, from hand-rolled infrastructure to the cloud. Every one of those shifts commoditized a layer of labor, and every time the doomsayers were wrong: demand for developers went *up*, because cheaper software meant more software was worth building (this is Jevons' paradox — efficiency gains increase total consumption). There is real truth here, and it should make you optimistic. More software will be built, not less.
-
-But there is something genuinely different this time, and pretending otherwise is a mistake. Every previous abstraction moved us *up a rung on the same ladder*: from managing memory to managing objects, from managing servers to managing services. The human was always still the one specifying the behavior precisely; the tool just executed a lower level for us deterministically. AI is different in two ways. First, it operates at the level of *intent expressed in natural language* — it is not a more powerful deterministic compiler, it is a non-deterministic collaborator that guesses. Second, it does not just execute the layer below faster; it can increasingly do the *design and reasoning* work that used to sit above the code. A compiler never proposed an architecture. So the honest synthesis is: yes, this is another abstraction shift and demand for people who can build valuable software will likely grow — *and* the specific skills that thrive are further up the stack than ever before, in exactly the judgment-heavy territory the machine is worst at.
+**Isn't this just the next abstraction shift?** Partly. Every earlier shift — assembly to C, C to managed languages like C#, hand-rolled infrastructure to the cloud — commoditized a layer of labor and still raised demand for developers, because cheaper software made more software worth building (Jevons' paradox: efficiency gains increase total consumption). Two things differ this time. Earlier tools executed a lower layer deterministically while a human specified the behavior precisely; AI works from *intent expressed in natural language* and guesses. And it reaches *up* into the design and reasoning work that used to sit above the code: a compiler never proposed an architecture. So demand for people who build valuable software will likely grow, but the skills that hold their value sit further up the stack, in the judgment-heavy work the machine is worst at.
 
 ### Bringing business value: outcomes, not output
 
@@ -24309,13 +23842,11 @@ The single most reliable way to be valuable in the AI era is embarrassingly old-
 
 Which leads to a skill most developers are actively bad at: **saying no and killing low-value work.** In a world where building anything used to be expensive, the constraint was capacity, so prioritization happened naturally — you couldn't build everything, so you built the loudest thing. AI collapses the cost of building, which sounds great but is a trap: now you *can* build the low-value thing, quickly, and feel productive doing it. The developer who ships ten AI-generated features nobody needed has produced negative value — every one of those features is now code someone has to maintain, secure, and understand. The developer who talked the team out of eight of them and shipped the two that mattered created enormous value and has almost nothing to show for it in a commit graph. Learn to be the second developer, and learn to make that value legible to the people who evaluate you.
 
-> Your job is not to maximize the code you produce. It's to maximize the value the system delivers per unit of complexity it carries. Often the highest-value move is deletion, a well-placed "we shouldn't build this," or a smaller solution than the one requested.
-
 Finally, **measure impact and say it out loud** — instrument your features, know the before-and-after number, and get comfortable with "this work resulted in X." [Chapter 36](#chapter-36-senior-behaviours-career-and-interviews) covers why this matters for your career; here it doubles as training yourself to think in outcomes.
 
 ### Bringing expertise AI doesn't have: the context moat
 
-Here is the good news buried in all of this. The AI knows an astonishing amount about software *in general* and almost nothing about *your* software in particular. It has never sat in your incident retros. It does not know that the `Orders` service and the `Billing` service disagree about what a "cancelled" order means, and that this ambiguity has caused three production incidents, and that the fix everyone keeps proposing would break the reconciliation job that finance depends on every month-end. That knowledge — specific, hard-won, undocumented — is a moat, and it is a moat AI actively strengthens rather than erodes, because it is exactly the thing that cannot be pretrained.
+The AI knows an astonishing amount about software *in general* and almost nothing about *your* software in particular. It has never sat in your incident retros. It does not know that the `Orders` service and the `Billing` service disagree about what a "cancelled" order means, and that this ambiguity has caused three production incidents, and that the fix everyone keeps proposing would break the reconciliation job that finance depends on every month-end. That knowledge — specific, hard-won, undocumented — is a moat, and it is a moat AI actively strengthens rather than erodes, because it is exactly the thing that cannot be pretrained.
 
 Call it a **context moat**: the accumulated, mostly-tacit knowledge of a specific system, organization, and domain that makes your judgment correct where a brilliant outsider's would be plausible but wrong. It has several deposits worth mining deliberately:
 
@@ -24340,8 +23871,6 @@ The core mental move is **failure-mode thinking**: for any proposed change, ask 
 A concrete practice worth adopting is the **pre-mortem** — the forward-looking sibling of the blameless post-mortem from [Chapter 16](#chapter-16-working-like-a-middle-developer): before building, imagine the project has failed catastrophically six months from now and write the story of *why*. It inverts your brain from "how do I make this work" to "what would kill this," while the risks are still cheap to address.
 
 > AI is confidently wrong more often than it is uncertainly wrong. Its failure mode is fluent plausibility. The scarce, valuable skill is *calibrated suspicion* — knowing which parts of a confident answer to trust and which to interrogate.
-
-This is really the meta-skill of the era: **asking the right questions.** When the AI hands you a solution, the valuable move is rarely "does it compile" — it's "what did it assume, what did it silently leave out, what happens under the conditions it didn't consider, and is this even the right problem to be solving?" The engineer who asks sharper questions of the AI extracts far more value from it than the one who accepts fluent answers.
 
 ### Designing high-value solutions: taste, framing, and leverage
 
@@ -24368,17 +23897,9 @@ Notice these are the classic markers of *seniority*, just intensified. That is t
 
 For career strategy, a few deliberate bets. Aim to be a **force multiplier** — someone whose context, judgment, and design sense make an AI-augmented team of five as effective as a team of twenty. That is where the outsized value and compensation will sit. Cultivate a **T-shape**: deep enough in something real (your domain, a system, a technical area) to have genuine expertise AI can't fake, and broad enough to connect the dots across business, product, and operations. And double down on the **ownership** and **trust** that Chapters 16 and 36 make central — the AI-era twist is that accountability is precisely the thing you cannot delegate to a model, and in a world drowning in cheap plausible output, a person whose "this is good, ship it" or "no, this is wrong" is reliable becomes disproportionately valuable.
 
-What should you deliberately practice? Reviewing code critically. Writing clear specs and design docs. Learning your business domain like it's a technology. Doing pre-mortems. Framing problems before solving them. Saying "we shouldn't build this." Measuring the impact of your work in business terms. None of these require the AI's permission, and every one of them appreciates as the code gets cheaper.
-
-> The developers who thrive in this era won't be the ones who resist AI or the ones who blindly accept its output. They'll be the ones who use it to operate a level higher than they could alone — trading the keyboard for judgment, and typing for taste.
-
-With that foundation in place — a clear-eyed view of where your value actually comes from — we can turn to the daily craft: working productively *with* these tools: how to drive them, review them, and integrate them into your workflow without letting them erode the very judgment that now defines your worth.
-
 ## Working Productively with AI: The Agentic Developer Workflow
 
-The first half of this chapter was about staying valuable. This half is about the other side of the equation: becoming dramatically more productive by working *with* AI instead of merely near it. The difference between a developer who has an AI subscription and one who has an AI *workflow* is enormous — often several times the throughput on the same hardware, the same codebase, and the same brain. The skills below are the ones that separate the two.
-
-None of this replaces the engineering judgment you spent years building. It amplifies it. A senior engineer with a disciplined agentic workflow is, in 2025-2026, one of the most leveraged individual contributors that has ever existed. Let's build that workflow.
+The difference between a developer who has an AI subscription and one who has an AI *workflow* is large, and it comes from the skills below.
 
 ### From autocomplete to agents: the spectrum of assistance
 
@@ -24393,10 +23914,6 @@ AI coding assistance has moved through four broad generations, and understanding
 4. **Agentic (autonomous multi-step) coding.** This is the shift that matters. You give a *goal* — "add rate limiting to the public API, configurable per tenant, with tests" — and the agent plans, reads files across the repo, edits multiple files, runs the build, runs the tests, reads the failures, and iterates until the goal is met or it gets stuck. It uses *tools*: a file editor, a shell, a test runner, sometimes a browser or a database client.
 
 The jump from 3 to 4 is qualitative, not incremental. Modes 1-3 make *you* faster at operations you were already doing. Mode 4 lets you *delegate a unit of work* and change what you spend your attention on. You stop thinking in keystrokes and start thinking in tasks, specifications, and review.
-
-> **Key shift:** With agentic coding, your job moves up the stack — from writing every line to *specifying intent, supplying context, and verifying results*. Your scarcest resource is no longer typing speed; it's the quality of your instructions and the rigor of your review.
-
-That reframing drives everything else in this half of the chapter.
 
 ### The tools of the era
 
@@ -24416,7 +23933,7 @@ You don't need to master all of these, but you should know the categories so you
 
 ### Context engineering: the core skill
 
-If you take one thing from this half of the chapter, take this. The community's center of gravity has moved from *prompt engineering* (wording a single clever request) to **context engineering** (assembling the right information in the model's working set at the right time). Modern models are strong reasoners; they rarely fail because you phrased a sentence poorly. They fail because they lack — or are drowning in — context.
+The community's center of gravity has moved from *prompt engineering* (wording a single clever request) to **context engineering** (assembling the right information in the model's working set at the right time). Modern models are strong reasoners; they rarely fail because you phrased a sentence poorly. They fail because they lack — or are drowning in — context.
 
 The model only knows what's in its context window: your message, the files it has read, tool outputs, and any standing instructions. Everything else is a guess based on training data that may be stale or generic. Context engineering is the discipline of curating that window.
 
@@ -24440,7 +23957,7 @@ Keep it short and true. A bloated, aspirational rules file is worse than none be
 
 ### Workflow assets: making the setup a team artifact
 
-Everything in this half so far is a technique *you* apply. The step that separates a productive individual from a productive team is turning those techniques into **artifacts that live in the repository**, reviewed and versioned like code. The test is simple: if a new hire clones the repo and starts an agent, do they get your team's workflow, or do they get the defaults?
+The step that separates a productive individual from a productive team is turning those techniques into **artifacts that live in the repository**, reviewed and versioned like code. The test is simple: if a new hire clones the repo and starts an agent, do they get your team's workflow, or do they get the defaults?
 
 Four kinds of asset are worth maintaining:
 
@@ -24464,8 +23981,6 @@ The reliable way to get good agentic output is to stop firing off one-line reque
 **Break work into verifiable increments.** Rather than one giant task, decompose: (1) add the config model and bind it; (2) add the rate-limit middleware with unit tests; (3) wire it into the pipeline; (4) integration tests. Each step ends at a green build and passing tests — a safe checkpoint you can commit and, if needed, roll back to. Small reversible steps are the backbone of trustworthy AI work.
 
 **Let the agent write tests first.** Test-driven development turns out to be a superb fit for agents because tests are an executable specification the agent can iterate against. Have it write the failing tests from your acceptance criteria (review them — this is where you confirm it understood the requirement), then implement until green. The tests become both the target and the proof.
-
-> **Takeaway:** The quality of agentic output is capped by the quality of the spec. Ten minutes writing acceptance criteria and reviewing a plan routinely saves hours of reviewing wrong code.
 
 ### Multiple sub-agents and orchestration
 
@@ -24559,8 +24074,6 @@ The most valuable practices aren't individual tricks; they're *systemic* — AI 
 - **Evals for internal agents.** As teams build their own agents (a support bot, a code-review bot), they treat them like software: a suite of test cases with expected outcomes, run in CI, so a prompt or model change that regresses quality is caught before it ships. If you build an internal agent, build its eval harness alongside it — untested agents rot silently.
 
 Leading engineering orgs, including Anthropic itself, have written publicly about running large fleets of coding agents internally, treating agent instructions and evals as first-class artifacts, and using agents heavily in their own development. The transferable lesson isn't any single proprietary detail; it's the *posture*: make AI a maintained part of your platform and process, with the same rigor — version control, review, testing, evals — you apply to code.
-
-> **Takeaway:** The biggest wins come from putting AI into shared infrastructure — review bots, CI, golden paths — not just individual laptops. That's where a team's productivity compounds.
 
 ### Measuring whether any of this is working
 
@@ -24755,11 +24268,7 @@ Only then read line by line — and only the parts that survived. Most weak diff
 
 > **Gotcha — scrutiny is usually applied backwards.** The least reliable thing a model produces is the part the compiler can't check. Code has a brutal feedback loop: it builds or it doesn't, tests pass or they don't, and every stage of training pushed it toward code that survives that loop. Prose has no such loop. So the numbers in the explanation ("this cuts allocations by about 40%", "dictionary lookup is O(1) so this scales fine"), the benchmark claims, the version facts, and the citations are exactly the outputs with no corrective pressure behind them — and they arrive in the same confident register as the code. Most reviewers do the reverse of what they should: they interrogate the code, which already has three safety nets, and nod along at the performance claim, which has none. Treat every unverified number in an AI explanation as a hypothesis, and either attach a benchmark to it ([Chapter 17](#chapter-17-runtime-internals-and-performance)) or delete it.
 
-That rubric is what makes "never merge what you haven't read" survive contact with volume. It is not a substitute for understanding the diff — it's what buys you the time to understand the parts that deserve it.
-
 ### Anti-patterns and failure modes
-
-Name them so you recognize them early:
 
 - **Over-trusting output.** The code is confident, well-formatted, and wrong. Confidence of presentation is uncorrelated with correctness. *Fix:* verify against tests and your own reading, never against how plausible it looks — the rubric above is the checklist for doing that quickly.
 - **Context rot.** In a long session the agent starts contradicting earlier decisions or re-introducing removed code. *Fix:* start fresh sessions per task; compact long threads; keep the working set clean.
@@ -24767,24 +24276,6 @@ Name them so you recognize them early:
 - **Agent thrash.** The agent loops — fixing test A breaks test B, fixing B breaks A — burning tokens and going nowhere. *Fix:* stop it, read what's actually happening, give it the missing context or the constraint it's ignoring, or take the wheel. Thrash usually means the agent lacks a key piece of context or the task is under-specified.
 - **Cost blowups.** Parallel agents, huge contexts, and long autonomous runs multiply token spend fast. *Fix:* right-size the model to the task (a smaller/faster model for routine edits), watch usage, prefer focused context over kitchen-sink pastes, and don't parallelize what doesn't need it.
 - **Skill atrophy.** Delegating everything erodes the judgment you need to review the delegations — the exact problem the first half of this chapter warned about. *Fix:* keep doing hard problems by hand sometimes; understand what the agent produced well enough to have written it.
-
-### A day in the life
-
-Here's how the pieces fit together for a senior .NET developer on a normal Tuesday.
-
-**Morning.** You review two pull requests that background agents opened overnight — one bumping dependencies and fixing the fallout, one adding integration tests to an under-covered controller. CI is green on both. You read the dependency PR carefully (a transitive package had a breaking API change; the fix looks right, you approve). The test PR has one test asserting buggy current behavior — you leave a comment, the agent revises it, you merge.
-
-**Mid-morning.** Your real task: add per-tenant rate limiting to the public API. You open your IDE agent, point it at the ticket via the Jira MCP server, and ask for a **plan** — no edits. It proposes middleware, a config-bound options model, and a test strategy. Good, except it planned an in-memory counter that won't survive your multi-instance deployment. You correct it: use the distributed cache. Plan updated. You have it write the **tests first** from the ticket's acceptance criteria, review those tests closely (this is where you confirm the requirement), then let it implement to green. You read the final diff — small, focused — and open the PR, where the review bot and CI add their checks.
-
-**Afternoon.** A bigger, parallelizable job lands: migrate the `Billing` module to EF Core. You set up a **worktree**, kick off an orchestrated run — a researcher inventories the queries, an implementer builds the entities, a tester scaffolds comparison tests against a database container — and *walk away* to a design meeting. You come back, read the researcher's inventory to sanity-check scope, and review the diffs piece by piece rather than all at once.
-
-**Late afternoon.** A production alert. Your on-call copilot has already correlated it with the morning's dependency deploy and drafted a timeline. You read logs with the agent's help, confirm the hypothesis, and revert — a two-line change you write and verify by hand, because in an incident you want zero ambiguity about what you're shipping.
-
-**End of day.** You queue two well-scoped background tasks — docs for a public API, a flaky-test fix — for overnight, sandboxed, PR-only. You log off having shipped more than you could have alone, and having read every line that carries your name on the merge.
-
-That's the shape of it. The AI wrote much of the code; you did the engineering — specifying, contextualizing, verifying, deciding. The tools will keep changing. The discipline underneath — clear specs, curated context, small reversible steps, relentless verification, a human accountable at the merge — is what makes an AI-native developer productive *and* trustworthy. Master that, and the next tool is just a faster way to do what you already know how to do well.
-
-So far the AI has been your collaborator. The next chapter flips the relationship: the model becomes a *component inside* the software you ship — and that changes how you design, test, and operate everything around it.
 
 ## Practice
 
@@ -24923,11 +24414,11 @@ Break the code on purpose (invert a condition, delete a line, make a guard retur
 
 # Chapter 33: Building AI-Powered Systems
 
-_⏱️ Estimated read time: ~1 h 25 min · 15457 words (study pace)_
+_⏱️ Estimated read time: ~1 h 25 min · 14835 words (study pace)_
 
 [Chapter 32](#chapter-32-the-ai-native-developer-thriving-in-the-ai-era) was about *using* AI to write software. This chapter flips the relationship: now the AI model is a *component inside* the software you ship. This is a different discipline. When you use an assistant to write a function, you review the output once and move on. When you embed a model in a running system, that model produces fresh, non-deterministic output on every request, for every user, forever — and you own the consequences. That single fact reshapes how you design, test, and operate the application.
 
-This chapter is a practical field guide to the popular AI system archetypes of 2025–2026 — retrieval-augmented generation (RAG), chatbots, workflows, and agents — with a .NET focus. We will build up from fundamentals (how to reason about an LLM as a component) through the modern .NET AI stack, and finish with the unglamorous production concerns that separate a demo from a product: evaluation, observability, cost, and safety. A theme worth flagging up front, because it shapes half the decisions in this chapter: the interesting engineering question is rarely *which model*, it is **how much of the control flow you keep in your own code** — and the answer is almost always "more than the demo suggests".
+Across RAG, chatbots, workflows and agents, the interesting engineering question is rarely *which model*, it is **how much of the control flow you keep in your own code** — and the answer is almost always "more than the demo suggests".
 
 ## Thinking about an LLM as a component
 
@@ -25377,8 +24868,6 @@ Minimally, the loop is just tool-calling run until completion — which is exact
 
 **When agents help vs. a workflow.** This is a judgment senior engineers must get right, because agents are seductive and often overkill. The previous section is the alternative: if the task fits any row above the last one in that decision table, build the workflow. Agents earn their complexity only when the path is *genuinely dynamic* — the number and order of steps depends on what's discovered along the way, and can't be enumerated in advance. The honest test is to try to write the workflow: if you can sketch the stages, you don't need an agent, and if you genuinely can't, you have your answer.
 
-> **Rule of thumb:** don't reach for an autonomous agent when a directed workflow will do. A hard-coded chain of three LLM calls is more reliable, cheaper, faster, and far easier to debug than a free-running loop. Add autonomy only where the branching genuinely can't be predetermined.
-
 **Reliability challenges.** Agents compound error: a 90%-reliable step run ten times in sequence is only ~35% reliable end to end. They can loop forever, thrash between the same two tools, or wander off task. Essential controls:
 
 - **Bounded iterations** — hard cap the number of loop steps and total cost/tokens per run.
@@ -25521,11 +25010,7 @@ The caching advice above is about *your* cache — you store the response and sk
 
 **Reasoning models and thinking budgets.** Models that spend extra tokens reasoning before answering do measurably better on multi-step logic, planning, and hard debugging — and worse on everything else, in the sense that you pay for tokens you never see and wait longer for them. Most providers expose a budget or effort setting. Treat it as a per-task-type decision, not a global default: high effort for the planning step of an agent or a complex diagnosis, minimum or off for extraction, classification, routing, and formatting. A router that also picks the thinking budget per branch is doing the same job as the model cascade, on a second axis.
 
-> **Best practice.** These three levers are worth an afternoon before any prompt micro-optimization, because they're structural: reorder your prompt for caching, move your non-interactive work to batch, and match thinking budget to task type. Together they routinely cut a bill by more than half without touching a single word of a prompt — and they change nothing about output quality, which is more than can be said for most cost work.
-
 ## Evaluation and observability
-
-This is the section that separates a demo from a product. It is also the part most teams skip and most regret.
 
 ### Evaluation
 
@@ -25536,8 +25021,6 @@ You cannot improve — or safely change — what you don't measure. Build an **e
 - **Human review** — the gold standard for high-stakes features; sample production traffic for periodic human grading.
 
 Microsoft ships **Microsoft.Extensions.AI.Evaluation**, a .NET library for building exactly these eval suites in your test project — so LLM evals can live beside your unit tests and run in CI.
-
-> **Takeaway:** treat evals as the regression suite for your AI features. No eval set, no confident change. A model or prompt update without a re-run is a blind deploy.
 
 **Evals are not the whole test suite.** The temptation is to conclude that because the output is nondeterministic, the feature can only be evaluated. That's backwards: an AI feature is mostly ordinary code — prompt assembly, retrieval, chunking, tool implementations, schema validation, budget enforcement, control flow — and that code carries most of the bugs. Program against `IChatClient` and a fake client makes all of it unit-testable in the normal way: assert the prompt you built, the branch you took, the budget you enforced, the malformed tool argument you rejected. Save the eval suite for the one thing a unit test genuinely cannot pin, which is the quality of the generated text. [Chapter 25](#chapter-25-observability-and-testing-at-scale) covers the full portfolio — faking the model, gating CI on an aggregate pass rate rather than individual cases, and keeping the eval set growing from production failures.
 
@@ -25608,7 +25091,7 @@ The user did nothing wrong. Your prompt is fine. Your code has no bug in the tra
 
 ### The lethal trifecta
 
-Here is the design rule worth committing to memory. An AI system becomes dangerous when it has all three of:
+An AI system becomes dangerous when it has all three of:
 
 1. **Access to private data** — your database, the user's mailbox, the internal wiki, another tenant's rows.
 2. **Exposure to untrusted content** — anything you did not author: retrieved documents, web pages, incoming email, tool responses, user uploads.
@@ -25723,22 +25206,6 @@ A short review you can run in fifteen minutes:
 ### Responsible AI, briefly
 
 Distinct from security, but it lives in the same review. Be transparent that the user is talking to AI; provide a path to a human; watch for bias in outputs that affect people differently; and keep a named human accountable for consequential decisions. Do not let a model make the final call on credit, hiring, medical or safety outcomes unaided — quite apart from the ethics, the EU AI Act's risk tiers ([Chapter 31](#chapter-31-compliance-data-privacy-cloud-cost-finops)) attach real obligations to exactly those use cases.
-
-> **Takeaway:** you cannot make a model immune to being talked into things. You can make it so that being talked into things doesn't matter — by giving it less to reach, authorizing every reach in code, and putting a human in front of anything you cannot undo.
-
-## Bringing it together: production concerns
-
-The threads of this chapter converge on four production priorities:
-
-**Cost optimization.** Route by difficulty — a cheap small model handles the easy 80% of requests, escalating to an expensive model only when needed (**model routing / cascades**). Cache aggressively, on both sides: your own response cache, and the provider's prompt cache via a stable prefix. Move non-interactive work to a batch API. Prefer the smallest model that passes your evals, and spend a thinking budget only where the task rewards it; the frontier model at full effort is rarely required. Trim prompts and context ruthlessly — you pay per token, every call.
-
-**Latency.** Stream to cut perceived latency. Parallelize independent calls (retrieve while you prepare the prompt; fan out multiple tool calls at once). Pick smaller/faster models for latency-critical paths. Cache the hot paths.
-
-**Reliability.** Timeouts, bounded retries with backoff, fallbacks, and circuit breakers around every provider call. Bound agent loops. Validate all output. Degrade gracefully — a slower or simpler answer beats an error page.
-
-**Versioning.** Pin and version both models and prompts. When a provider updates a model or you change a prompt, re-run your eval set *before* rolling out, and keep the ability to roll back instantly. Model and prompt versions belong in your telemetry so you can attribute any quality shift to the change that caused it.
-
-The recurring theme across this chapter: an LLM is a powerful but unreliable component, and the engineering discipline is in the *scaffolding you build around it* — grounding it with retrieval, constraining it with schemas and tools, budgeting its cost and latency, measuring it with evals, watching it with observability, and containing it with safety layers. Master that scaffolding and you can build AI-native systems that are not just impressive in a demo, but dependable in production. That is the leap from mid-level to senior in the AI-native era.
 
 ## Practice
 
@@ -25890,11 +25357,11 @@ When your capabilities must be usable from AI clients you don't control, or shar
 
 # Chapter 34: Frontend and Full-Stack in Depth
 
-_⏱️ Estimated read time: ~50 min · 8893 words (study pace)_
+_⏱️ Estimated read time: ~50 min · 8735 words (study pace)_
 
-[Chapter 6: Frontend Essentials](#chapter-6-frontend-essentials) gave you the browser's mechanisms: the rendering pipeline, the event loop, React's render-and-effect model, CORS and cookies from the browser's side. This chapter is about the decisions a senior full-stack developer makes on top of them, usually for a team: where HTML gets rendered, where state lives and how it is cached, what makes a frontend slow and how to prove it is fast, how to test a UI without a flaky suite, how to keep injected script from running, and how a SPA should authenticate against your API.
+[Chapter 6: Frontend Essentials](#chapter-6-frontend-essentials) gave you the browser's mechanisms. This chapter is about the decisions a senior full-stack developer makes on top of them, usually for a team.
 
-The first half is frontend architecture: rendering strategies, state management at scale, performance in depth, testing, and Content Security Policy. The second half is the full-stack boundary seen from the .NET side: SPA authentication and the Backend-for-Frontend, REST versus GraphQL, file uploads, the browser end of SignalR, then Blazor and native clients for when the UI itself is C#, and accessibility in depth. As in Chapter 6, the JavaScript and TypeScript samples run in the repository (`verify/frontend/ch34`), except the few that need a real browser or a running server, which say so.
+As in Chapter 6, the JavaScript and TypeScript samples run in the repository (`verify/frontend/ch34`), except the few that need a real browser or a running server, which say so.
 
 ## Rendering Strategies: CSR, SSR, SSG, Streaming and Hydration
 
@@ -26304,7 +25771,7 @@ Interop crosses a serialization boundary and is asynchronous (in Interactive Ser
 
 ## Native Clients from C#: MAUI, Uno, Avalonia
 
-Native desktop and mobile UI is its own discipline, and a backend-leaning book does not need a deep tour of it. What you need is to recognize the three frameworks a .NET shop reaches for, because sooner or later one of them will be calling your API:
+Native desktop and mobile UI is its own discipline. What you need is to recognize the three frameworks a .NET shop reaches for, because sooner or later one of them will be calling your API:
 
 - **.NET MAUI** is the evolution of Xamarin.Forms: iOS, Android, Windows, and macOS apps from a single C#/XAML codebase, rendered to real native controls. The typical encounter is a line-of-business mobile app maintained by the same .NET team that owns the backend. (Its **Blazor Hybrid** variant hosts your existing Blazor web components inside the native shell via `BlazorWebView`, trading platform look-and-feel for web-UI reuse.)
 - **Uno Platform** targets mobile, desktop, *and* the browser (via WASM) from WinUI/XAML — broader reach than MAUI.
@@ -26314,7 +25781,7 @@ The senior-relevant point is that all three are *API consumers*. What they depen
 
 ## Accessibility: The Part That Is Now Law — in depth
 
-[Chapter 6](#accessibility-the-part-that-is-now-law) covered the law, WCAG's principles, semantic HTML before ARIA, keyboard operability and accessible forms. This section covers what changes in a SPA, how to test, and the Blazor-specific traps.
+[Chapter 6](#accessibility-the-part-that-is-now-law) covered the basics; this section is what changes in a SPA.
 
 WCAG 2.2 added a handful of criteria worth knowing because they catch modern UI patterns: focus must not be entirely hidden behind sticky headers, drag operations need a single-pointer alternative, click targets need a minimum size, and users must not be forced to re-enter information they already gave you in the same process.
 
@@ -26482,17 +25949,15 @@ Logic in unit tests; components with Testing Library, querying by role and label
 
 # Chapter 35: Production Incidents
 
-_⏱️ Estimated read time: ~1 h 35 min · 17780 words (study pace)_
+_⏱️ Estimated read time: ~1 h 30 min · 16744 words (study pace)_
 
-Every senior engineer eventually learns that the hard part of the job is not writing code — it is deciding what to do when the code you already shipped meets reality. Reality shows up as a traffic spike you did not plan for, a "successful" request that silently lost data, a p99 latency graph that looks like a seismograph, and a dependency that vanishes at the worst possible moment. This chapter is a war-room playbook: it makes you able to go from a symptom to a working theory, stop the bleeding, and then name the architectural decision the incident is pushing you toward — and to tell that story well in an interview.
+The hard part of the job is deciding what to do when the code you already shipped meets reality: a traffic spike you did not plan for, a "successful" request that silently lost data, a p99 latency graph that looks like a seismograph, a dependency that vanishes at the worst possible moment.
 
-It opens with method. *The Debugging Map* turns a production symptom into the piece of distributed-systems theory that explains it, and *Live-Container Triage* shows how the OS view and the runtime view of one failing container are read against each other. Then comes *the incident cheat-card*, one row per scenario, and twelve scenarios you could plausibly live through on an on-call rotation. Each follows the same shape: the situation, how you notice it, how to stop the bleeding, the root causes, the durable fix and its trade-offs, and how to talk about it.
+Each of the twelve scenarios follows the same shape: the situation, how you notice it, how to stop the bleeding, the root causes, the durable fix and its trade-offs, and how to talk about it.
 
-The building blocks come from earlier chapters — cloud and statelessness ([Chapter 28](#chapter-28-cloud-fundamentals-aws-azure)), Kubernetes ([Chapter 26](#chapter-26-delivery-and-platform)), data at scale ([Chapter 18](#chapter-18-data-in-depth)), messaging ([Chapter 11](#chapter-11-messaging-and-background-work)), distributed theory and SRE ([Chapter 20](#chapter-20-distributed-systems)), and the runtime, GC and performance tooling ([Chapter 17](#chapter-17-runtime-internals-and-performance)). They are not re-taught here; they are put to work under fire.
+The building blocks come from earlier chapters — cloud and statelessness ([Chapter 28](#chapter-28-cloud-fundamentals-aws-azure)), Kubernetes ([Chapter 26](#chapter-26-delivery-and-platform)), data at scale ([Chapter 18](#chapter-18-data-in-depth)), messaging ([Chapter 11](#chapter-11-messaging-and-background-work)), distributed theory and SRE ([Chapter 20](#chapter-20-distributed-systems)), and the runtime, GC and performance tooling ([Chapter 17](#chapter-17-runtime-internals-and-performance)). They are not re-taught here.
 
 ## How to Triage: From Symptom to Theory
-
-Two habits make the scenarios below fast to work through. The first is recognising which piece of theory a symptom belongs to; the second is reading a sick process from two levels at once.
 
 ### The Debugging Map: Symptom → Theory → Mitigation
 
@@ -26633,8 +26098,6 @@ For high-value or scarce goods, **reservation** is the senior answer; for commod
 - **Feature-flag the non-critical surface** in advance so shedding load is a toggle, not a deploy.
 - **Game-day the failure** — run a load test that simulates the push notification and rehearse the runbook.
 
-> **In an interview:** "I separate what must stay up from what's optional. First I make the app tier stateless so I can scale it horizontally and put load-shedding and rate limiting at the edge, returning fast 429s instead of failing slowly. Then I protect the database — the usual bottleneck — with layered caching, read replicas, and queue-based load leveling so checkout accepts orders fast and finalizes them asynchronously. For inventory I use an atomic conditional decrement or a reservation window to avoid overselling. And critically, I load-test to failure and pre-provision *before* Black Friday — you can't autoscale your way out of a design that isn't horizontally scalable."
-
 ---
 
 ## Scenario 2 — The lost write: the user got 200 but the data never saved
@@ -26697,8 +26160,6 @@ If the relay crashes after publishing but before marking a row processed, it rep
 - **Make `200` mean durably committed.** If you must go async, return `202 Accepted` with a status URL, and back it with a durable queue/outbox — not a fire-and-forget `Task` ([Async Request-Reply](#async-request-reply-202-a-status-resource-and-retry-after) in Chapter 11 has the full contract).
 - **Reconciliation jobs as a standing safety net.** A scheduled job that compares counts/checksums across services and alerts (or auto-heals) on drift. Even a perfect design benefits from a smoke detector.
 - **Idempotency everywhere** writes can be retried — from the public API down to internal consumers.
-
-> **In an interview:** "The root cause is almost always a dual-write — updating the database and the message broker without a shared transaction, so a crash between them loses or orphans data. The fix is the Transactional Outbox: write the business row and an outbox row in one DB transaction, then a relay publishes at-least-once and consumers dedup by message ID, giving effectively-once processing. Exactly-once delivery is a myth, so I design for duplicates instead of pretending they can't happen. And I never let a 200 mean 'I'll try later' — either it's durably committed, or I return 202 backed by a durable queue, plus a reconciliation job as a safety net."
 
 ---
 
@@ -26795,8 +26256,6 @@ GC.Collect(); // deliberate, rare, e.g. after a large batch job — never in the
 - **Pick Server + background GC intentionally** for services and document why.
 - **Watch container memory limits** — GC frequency is a function of headroom; a too-tight limit manufactures GC pressure.
 
-> **In an interview:** "First I confirm it's actually GC with dotnet-counters — if GC pause time is low, the spikes are thread-pool starvation or contention wearing a GC mask, and I chase that instead. If it is GC, I make sure I'm on Server GC with background collection so Gen 2 doesn't stop the world, then I attack the real cause: allocation pressure. I pool buffers with ArrayPool, use Span and structs to cut per-request garbage, and kill LOH churn since large arrays trigger expensive Gen 2 collections. GC tuning caps the symptom; reducing allocations removes it. And I know exactly-once GC tricks like LOH compaction are last resorts, not hot-path tools."
-
 ---
 
 ## Scenario 4 — The broker is down: a critical dependency has failed
@@ -26868,8 +26327,6 @@ builder.Services.AddHealthChecks()
 - **Adopt the outbox for anything you cannot afford to lose** — it doubles as your broker-outage insurance.
 - **Chaos-test dependency failure** (kill the broker in staging) and rehearse recovery, including DLQ replay.
 - **Readiness probes that report degraded, not dead,** for optional dependencies.
-
-> **In an interview:** "The failure I'm most afraid of isn't the broker dying — it's that death cascading into a full outage because threads hang on it and starve the pool. So I fail fast with a circuit breaker and timeouts, isolate it behind a bulkhead so it can't consume resources the rest of the service needs, and retry with exponential backoff plus jitter to avoid a retry storm on recovery. The architectural key is the Transactional Outbox: I write orders to my own database and relay to the broker asynchronously, so a broker outage becomes a delay, not data loss. Poison messages go to a dead-letter queue, and readiness probes report degraded rather than dead for optional dependencies so Kubernetes doesn't yank healthy pods."
 
 ## Scenario 5 — Disaster: the database is gone. How backups should really be done
 
@@ -27340,8 +26797,6 @@ The full treatment is [Chapter 27](#chapter-27-security-in-depth-and-the-supply-
 - Write the response runbook *now*, while nothing is on fire, and make step one "grep the lockfiles."
 - Rehearse it. A game day ([Chapter 20](#chapter-20-distributed-systems)) using a real advisory from last year will find that nobody knows which repos exist, which is the finding.
 
-> **In an interview:** "First I'd scope exposure, not impact — grep committed lockfiles across all repos and branches for the affected version, then check SBOMs and restore logs to see whether it ever reached a build. If it executed on a runner, I'd assume every credential that machine could see is compromised and rotate, rather than reasoning about what the payload probably took. Then purge package and layer caches, because yanking doesn't clear them, and pin forward rather than rolling back — attackers backport. The reason I can answer the first question in minutes is that lockfiles are committed and SBOMs are stored per release; without those, the same incident is a week of archaeology. And the control that would most likely have prevented it entirely is a cooldown window on dependency updates, since these releases are usually pulled within hours."
-
 ---
 
 ## Scenario 11 — The agent leaked customer data through a tool call
@@ -27399,8 +26854,6 @@ Six weeks ago, someone opened a support ticket whose body contained instructions
 - **Budget the loop** — max iterations, max tool calls, wall-clock timeout — so an injected instruction hits a wall.
 - Full treatment in [Chapter 33](#chapter-33-building-ai-powered-systems)'s *Securing AI features and agents*.
 
-> **In an interview:** "I'd contain it by disabling the outbound tool rather than the assistant, then scope exposure from tool-call logs — which only works if you logged arguments, so that's a design decision made months earlier. The root cause isn't a bug in the prompt; it's that the agent had all three legs of the lethal trifecta: private data, untrusted content from retrieved tickets, and an egress tool with a free-form recipient. Prompt hardening can't fix that, because instructions and data are the same tokens. The durable fix is architectural — authorize the data tool against the end user's identity in code so it can only ever return that caller's orders, and constrain or remove the egress. And I'd treat it as a data breach from minute one, because it is one."
-
 ---
 
 ## Scenario 12 — The invisible customer: an AI crawler tripled the egress bill
@@ -27456,8 +26909,6 @@ Traffic is up roughly 4×. Signups are flat.
 - **Make autoscaling scale down** and alert when a floor changes. Ratchets that only go up are a recurring, silent cost.
 - **Normalize cache keys at the edge** and strip unknown query parameters, as a standing rule.
 - **Know your egress paths** ([Chapter 31](#chapter-31-compliance-data-privacy-cloud-cost-finops)) — the same inventory that serves FinOps answers this in minutes.
-
-> **In an interview:** "The first thing I'd flag is that this is a cost incident with no availability signal, so the real failure is in the alerting — a monthly budget alarm surfaces it four weeks late, where a spend-velocity alert surfaces it the same day. Technically I'd characterise before blocking: user agent, ASN, asset-to-HTML ratio, URL breadth. Then the cheap high-value moves are edge caching for unauthenticated traffic and fixing any cache key that varies on a client-controlled parameter, which is often the whole problem. Blocking by user agent is the thing everyone reaches for and the least effective, since it's a string the client chooses — and it risks de-indexing you. Longer term it's a policy question, not just an engineering one: which crawlers do we actually want, given some of them send us customers?"
 
 ---
 
@@ -27651,11 +27102,9 @@ A reference kept by mistake: the GC frees only unreachable objects, so anything 
 
 # Chapter 36: Senior Behaviours, Career and Interviews
 
-_⏱️ Estimated read time: ~25 min · 4633 words (study pace)_
+_⏱️ Estimated read time: ~20 min · 4114 words (study pace)_
 
 A senior's output is decisions that other people act on. The cost of a wrong decision grows with how much is built on it and how many people follow it, so every senior behaviour either moves a check earlier or makes a decision cheaper to revisit: the design reviewed before the lines exist, the decision written down so it can be superseded rather than relitigated, the estimate checked against how long similar work really took, the legacy behaviour pinned before it is changed. Influence runs on the same mechanism over a longer time: trust compounds from estimates that were honest, reviews that were fair and commitments that landed or were renegotiated early.
-
-This chapter makes you able to work that way and to show it. It starts with the behaviours that multiply your impact through other people — mentoring, judgment and influence without authority — and how to steer your own growth toward senior and staff. Then it turns those behaviours into interview answers: how to approach any question, and the behavioural questions every senior loop asks. It closes with how to keep learning once the book ends. The practice at the end draws on the tools taught elsewhere: ADRs and the single review comment from [Chapter 16: Working Like a Middle Developer](#chapter-16-working-like-a-middle-developer), characterization tests, seams and hotspots from [Chapter 24](#chapter-24-working-with-legacy-brownfield-code), reference-class and PERT estimates from [Chapter 41](#chapter-41-recommendations-proposals-and-estimates), the reviewer's rubric for generated code from [Chapter 32](#chapter-32-the-ai-native-developer-thriving-in-the-ai-era), and the story bank you build in [Chapter 37](#chapter-37-the-story-bank-evidence-portfolio).
 
 ## Mentoring, Pairing & Growing Others
 
@@ -27712,8 +27161,6 @@ Your influence comes from the same sources as inside a team (trust, data and bri
 
 ## Career Growth: Toward Senior and Staff
 
-Finally, steer your own growth deliberately instead of hoping it happens.
-
 **Seek feedback actively** rather than waiting for the annual review. Ask specific questions: "What's one thing I could do that would have the most impact on the team?" or "What would you need to see for me to be considered senior?" Vague questions ("any feedback?") get vague answers; specific ones get gold.
 
 **Find sponsors, not just mentors.** A mentor advises you; a sponsor advocates for you in rooms you're not in. Do visible, high-value work, make sure the right people know you did it (without bragging — let the results and a clear write-up speak), and build relationships with people who have influence over your trajectory.
@@ -27726,10 +27173,6 @@ Finally, steer your own growth deliberately instead of hoping it happens.
 - **Right Hand:** operates as an extension of an engineering leader, carrying organizational leverage.
 
 You don't have to pick forever, but knowing which one energizes you tells you which skills to lean into. A Solver invests in debugging and systems depth; a Tech Lead in communication and planning; an Architect in design and cross-team influence.
-
-> **The through-line: senior engineering is the multiplication of impact through other people and good judgment, not the maximization of your personal code output. Every skill here — clear writing, kind reviews, honest estimates, blameless post-mortems, deliberate mentoring, sound judgment, real ownership — is a lever. Master the levers, and your impact stops being bounded by your own two hands.**
-
-Start with one lever — pick the weakest one — and practice it deliberately this week.
 
 ## Interviews: Turning Behaviour into Answers
 
@@ -27780,15 +27223,13 @@ Bring data, not complaints: present the estimate, the trade-offs, and options (c
 
 > **Follow-up:** *Tell me about a time you had to make a decision without complete information.* Show how you bounded the risk: made a reversible choice, shipped small to learn, set a checkpoint to re-evaluate, and communicated the uncertainty rather than pretending certainty.
 
-Practice out loud, time yourself, and remember: interviewers hire for *reasoning you can hear*, not just answers you happen to know.
-
 ## How to Keep Learning
 
 [Chapter 16](#chapter-16-working-like-a-middle-developer) set up the habit: a few high-signal sources, release notes, learning by building and teaching. At senior level the question changes from *how to keep up* to *where to go deep*, and the sources get closer to the metal.
 
 ### Where to Learn From
 
-A book ends; the field does not. The half-life of a specific framework detail is short, but the habit of continuous, deliberate learning is what keeps a career compounding. Build a routine from these sources.
+Build a routine from these sources.
 
 **Read code, not just articles.** The fastest way to level up is to read software written by people better than you. Clone Microsoft's [eShop](https://github.com/dotnet/eShop) reference application and trace how it wires up services, messaging, and .NET Aspire. When you hit a behavior you cannot explain, step into [dotnet/runtime](https://github.com/dotnet/runtime) itself — the source is public, and reading how `List<T>`, `Task`, or the GC is implemented demystifies things you have used for years.
 
@@ -27802,11 +27243,9 @@ A book ends; the field does not. The half-life of a specific framework detail is
 
 **Practice deliberately.** Use [Microsoft Learn](https://learn.microsoft.com) for structured, up-to-date modules when you adopt a new technology. Use [Exercism](https://exercism.org)'s C# track to sharpen fundamentals with mentored feedback. Contribute to open source — even a documentation fix or a small bug on a library you use teaches you how real projects are governed.
 
-The goal is not to consume everything. It is to build a steady, sustainable habit: read a little real code every week, follow a few people whose judgment you trust, and always have one small learning project on the side.
-
 ### A Short Shelf of Great Books
 
-Videos and blogs keep you current; books give you depth that lasts. These have earned permanent spots on many senior engineers' shelves. Read them slowly.
+Videos and blogs keep you current; books give you depth that lasts. Read them slowly.
 
 - **C# in Depth** — Jon Skeet
 - **Dependency Injection Principles, Practices, and Patterns** — Mark Seemann
@@ -27820,13 +27259,9 @@ You do not need to read them all at once, and you should not. Pick the one that 
 
 ### Depth Versus Breadth, and Why You Will Return
 
-This book gave you breadth: a map of the whole territory a senior .NET engineer is expected to traverse. Breadth is what lets you hold a conversation about anything in it and know where to dig. But breadth alone is shallow. The engineers people trust are the ones who, on top of that broad map, have gone deep in a few areas — deep enough to debug the hard cases, to make the non-obvious trade-off, to teach it to others.
-
 So the aim is a T-shape: a wide base of competence, with a few tall spikes of genuine mastery. You cannot go deep everywhere, and trying to will only leave you exhausted and mediocre. Choose your spikes deliberately — maybe performance and the runtime, maybe distributed systems and messaging — and let the rest stay at working competence, refreshed as needed.
 
-Come back to this book. In six months, reread the *Pay attention to* pages at the end of each part and ask honestly where you now stand. You will find that chapters which once felt abstract have become obvious, and that new chapters have quietly become relevant because your work changed. A book like this is not a certificate you earn once; it is a compass you consult repeatedly, and each time it points a little further than before.
-
-You have the map and the habits; [Chapter 44: Capstone](#chapter-44-capstone-one-project-growing-up) gives you the project. The only thing left is to open your editor and start ShopCore. Build the thing. That is how senior engineers are made — not by finishing books, but by shipping systems and reflecting on what they cost. Go build.
+You have the map and the habits; [Chapter 44: Capstone](#chapter-44-capstone-one-project-growing-up) gives you the project.
 
 ## Sources & Further Reading
 
@@ -27925,9 +27360,9 @@ git log --since="12 months ago" --name-only --pretty=format: \
 
 # Chapter 37: The Story Bank & Evidence Portfolio
 
-_⏱️ Estimated read time: ~50 min · 7487 words (study pace)_
+_⏱️ Estimated read time: ~50 min · 7455 words (study pace)_
 
-This is a lab: a chapter you *do* rather than read, which leaves something behind that you can show. That second half is the one people skip, and it is the one that decides interviews and promotions. The gap between a middle and a senior engineer is rarely knowledge — plenty of middle engineers could pass a written exam on this book. The gap is **proof**: incidents you handled, decisions you defended, systems you measured, things you wrote that other people acted on.
+This is a lab: a chapter you *do* rather than read, which leaves something behind that you can show. The gap between a middle and a senior engineer is rarely knowledge; it is **proof**: incidents you handled, decisions you defended, systems you measured, things you wrote that other people acted on.
 
 This lab builds the place where all of that proof goes, and it follows [Chapter 36](#chapter-36-senior-behaviours-career-and-interviews), which explains the behaviours the stories show and the questions they answer. You will set up a private **story bank** and a weekly **brag doc**, turn your real work into STAR stories that survive follow-up questions, rewrite your CV as claims backed by evidence, start a public **portfolio repo**, and rehearse with an AI interviewer that asks follow-ups and scores you honestly. The book's other labs — the slow-query lab in [Chapter 19](#chapter-19-the-slow-query-lab-reading-execution-plans) and the health check in [Chapter 40](#chapter-40-lab-the-net-health-check) — end with an *Evidence to keep* list and an *Interview hook*; both feed the bank you build here.
 
@@ -28503,13 +27938,13 @@ Structure carries more of the weight than vocabulary. Open with a one-line headl
 
 # Chapter 38: Having a Point of View
 
-_⏱️ Estimated read time: ~1 h 5 min · 11179 words (study pace)_
+_⏱️ Estimated read time: ~1 h 5 min · 11074 words (study pace)_
 
-Chapters 38–43 are about a shift that no certification measures: going from being the person a client hands tickets to, to being the person a client *asks*. For a .NET engineer placed through an outsourcing or outstaffing firm, that shift decides a lot. It decides whether you are renewed or rotated, whether you are invited to the architecture meeting or told its outcome, and whether the client's CTO asks for you by name when the next contract is signed. The vendor sells your hours. What the client comes to value, or fails to find, is your judgment.
+Chapters 38–43 are about a shift that no certification measures: going from being the person a client hands tickets to, to being the person a client *asks*. For a .NET engineer placed through an outsourcing or outstaffing firm, that shift decides whether you are renewed or rotated. The vendor sells your hours. What the client comes to value, or fails to find, is your judgment.
 
-This chapter is about the first ingredient of that judgment: **having a point of view**. That means positions you hold on purpose, can defend with a mechanism, and would drop for a stated reason. The next chapters build on it. [Chapter 39](#chapter-39-discovery-and-diagnosis) turns a point of view into a diagnosis of a specific client's system, [Chapter 40](#chapter-40-lab-the-net-health-check) practises that diagnosis on a real codebase, [Chapter 41](#chapter-41-recommendations-proposals-and-estimates) turns it into written recommendations and estimates, [Chapter 42](#chapter-42-the-advisory-casebook) walks through worked engagements, and [Chapter 43](#chapter-43-positioning-and-public-proof) makes all of it visible.
+This chapter is about the first ingredient of that judgment: **having a point of view**. That means positions you hold on purpose, can defend with a mechanism, and would drop for a stated reason.
 
-What this chapter does **not** repeat is how to move a decision: stakeholder communication, disagreeing productively and ADRs are covered in [Chapter 16](#chapter-16-working-like-a-middle-developer), and influence without authority in [Chapter 36](#chapter-36-senior-behaviours-career-and-interviews). Those chapters are about how to move a decision. This chapter is about having something worth moving.
+What this chapter does **not** repeat is how to move a decision: stakeholder communication, disagreeing productively and ADRs are covered in [Chapter 16](#chapter-16-working-like-a-middle-developer), and influence without authority in [Chapter 36](#chapter-36-senior-behaviours-career-and-interviews). This chapter is about having something worth moving.
 
 ```
                   what the client sees
@@ -29029,7 +28464,7 @@ That last cell is the professional move when the client decides against your adv
 
 ## Exercises
 
-These exercises don't have a compiler, which is why they're here. Each one practises a move from this chapter on a realistic artefact or situation.
+Each exercise practises a move from this chapter on a realistic artefact or situation.
 
 ### Find the bug: the canon entry
 
@@ -29147,11 +28582,11 @@ Log it as a prediction ("the first extraction will take longer than planned, 70%
 
 # Chapter 39: Discovery and Diagnosis
 
-_⏱️ Estimated read time: ~55 min · 9197 words (study pace)_
+_⏱️ Estimated read time: ~55 min · 9120 words (study pace)_
 
 A client says "we want microservices." A middle engineer hears a specification and starts sketching service boundaries. A senior engineer hears a *symptom*, and asks what hurts. Six weeks later the first engineer is splitting a monolith that was never the problem, and the second has found out that three teams share a single release train, that every deploy needs a Friday change board, and that what the client wanted all along was to ship on a Tuesday without asking permission. That can be fixed with a pipeline and a module boundary. A network doesn't have to come into it.
 
-This chapter is about the work that comes before advice: finding out what the problem actually is. [Chapter 38](#chapter-38-having-a-point-of-view) argued that clients hire an expert for a point of view. This chapter is about earning the right to give one. A point of view given before diagnosis is just an opinion, and clients can tell the difference. What the doctor does before prescribing, the consultant has to do too, for the same reason: a correct treatment for the wrong disease is still malpractice.
+This chapter is about the work that comes before advice: finding out what the problem actually is. [Chapter 38](#chapter-38-having-a-point-of-view) argued that clients hire an expert for a point of view. A point of view given before diagnosis is just an opinion, and clients can tell the difference.
 
 ```
    the request            discovery                    diagnosis              advice
@@ -29161,7 +28596,7 @@ This chapter is about the work that comes before advice: finding out what the pr
                           └──── "that's not quite it" ────┘
 ```
 
-The loop in the middle matters. A diagnosis that the client has not recognised as their own is not finished. The rest of this chapter is the toolkit for getting round that loop quickly and without making the client feel interrogated.
+The loop in the middle matters. A diagnosis that the client has not recognised as their own is not finished.
 
 ## The Request Is Not the Need
 
@@ -29638,7 +29073,7 @@ A lot of discovery now happens over video, across time zones, and in English as 
 
 ## Exercises
 
-These exercises have no compiler to check them against. They exercise judgment, which is the skill this chapter is about. Put your worked answers, your own question bank and your own problem-statement template in your public portfolio repo. Anything drawn from a real client stays private.
+Put your worked answers, your own question bank and your own problem-statement template in your public portfolio repo. Anything drawn from a real client stays private.
 
 ### Find the bug: the discovery call
 
@@ -30168,9 +29603,9 @@ Good, that's the point. Sort their objections into three piles: *facts* ("that s
 
 # Chapter 41: Recommendations, Proposals and Estimates
 
-_⏱️ Estimated read time: ~1 h · 9980 words (study pace)_
+_⏱️ Estimated read time: ~1 h · 9916 words (study pace)_
 
-Clients don't hire a senior contractor for answers they could find themselves. They hire one to turn partial information into a decision they can act on and defend to the people above them. [Chapter 39](#chapter-39-discovery-and-diagnosis) covered finding out what is wrong. This chapter covers what comes after: saying what to do about it, writing it so a busy executive can act, putting a shape and a price on the work, and keeping that shape intact once delivery starts.
+Clients don't hire a senior contractor for answers they could find themselves. They hire one to turn partial information into a decision they can act on and defend to the people above them. [Chapter 39](#chapter-39-discovery-and-diagnosis) covered finding out what is wrong. This chapter covers what comes after.
 
 These are four skills, but they form one pipeline, and a weak link breaks the rest:
 
@@ -30186,7 +29621,7 @@ These are four skills, but they form one pipeline, and a weak link breaks the re
 
 A good recommendation with a vague SOW turns into a dispute. A careful SOW built on a point estimate nobody believed turns into a death march. A perfect estimate for the wrong option wastes the client's money efficiently.
 
-[Chapter 16](#chapter-16-working-like-a-middle-developer) covered the basics: bottom line up front, trade-offs for a product manager, ADRs, and estimation within a team. The audience here is a client who pays by the day, can end the engagement, and may have been burned by the last vendor. The habits are the same, but the stakes and the incentives are different.
+[Chapter 16](#chapter-16-working-like-a-middle-developer) covered the basics. The audience here is a client who pays by the day, can end the engagement, and may have been burned by the last vendor. The habits are the same, but the stakes and the incentives are different.
 
 ## Why "It Depends" Is Not Advice
 
@@ -30712,8 +30147,6 @@ Options memos, one-pagers, proposals and estimates show senior judgment directly
 - **Real client documents stay private.** That includes their structure, prices and estimates, and any "anonymized" version in which the client can still be identified from its industry, stack and numbers. When in doubt, leave it out.
 - **Stories about real engagements** go in your private story bank ([Chapter 37](#chapter-37-the-story-bank-evidence-portfolio)), with metrics as [placeholders] until they're verified and you're allowed to use them.
 
-[Chapter 42](#chapter-42-the-advisory-casebook) walks through advisory situations end to end. [Chapter 43](#chapter-43-positioning-and-public-proof) turns artifacts like these into public proof.
-
 ## Exercises
 
 No compiler checks these. The *Find the bug* samples are documents, and their defects are in the reasoning.
@@ -30863,7 +30296,7 @@ Avoid lobbying the CTO to reverse it, and avoid quietly steering the rewrite bac
 
 # Chapter 42: The Advisory Casebook
 
-_⏱️ Estimated read time: ~1 h · 11556 words (study pace)_
+_⏱️ Estimated read time: ~1 h · 11538 words (study pace)_
 
 [Chapter 35](#chapter-35-production-incidents) and [Chapter 30](#chapter-30-the-azure-casebook-real-incidents-real-fixes) are casebooks about systems: a database that falls over, a lock that expires, a private endpoint without DNS. This chapter is a casebook about the people who pay for those systems. The incidents here don't show up in a dashboard. A client asks for something that won't solve their problem, a CTO contradicts you in front of the team, an account manager has sold a feature that can't exist, or you broke production yourself.
 
@@ -30915,8 +30348,6 @@ Two other books give you vocabulary the cases rely on. Peter Block's *Flawless C
 > **Best practice.** When a client conversation goes badly, debug it with the equation. Did you lose credibility (you were wrong or vague), reliability (you missed something), intimacy (they didn't feel safe) or raise self-orientation (you looked like you were protecting yourself or selling)? The fix differs for each, so name the term before you try to repair it.
 
 ## Outsourcing, Outstaffing and Who You Are Speaking For
-
-Before the cases, get one structural fact right, because it changes the correct move in several of them.
 
 ```
    OUTSTAFFING                               OUTSOURCING
@@ -31445,13 +30876,13 @@ Keep everything about a real client, vendor or colleague private. What goes into
 
 # Chapter 43: Positioning and Public Proof
 
-_⏱️ Estimated read time: ~1 h 5 min · 10351 words (study pace)_
+_⏱️ Estimated read time: ~1 h 5 min · 10300 words (study pace)_
 
-The five chapters before this one are about being an advisor *inside* an engagement: having a point of view ([Chapter 38](#chapter-38-having-a-point-of-view)), diagnosing before prescribing ([Chapter 39](#chapter-39-discovery-and-diagnosis)), running an assessment ([Chapter 40](#chapter-40-lab-the-net-health-check)), turning it into a proposal ([Chapter 41](#chapter-41-recommendations-proposals-and-estimates)), and handling the situations that go wrong ([Chapter 42](#chapter-42-the-advisory-casebook)). This chapter is about what happens *before* the engagement: why a client, or the agency that places you, would think of you as an expert before you have said a word in the meeting — and, when you do get the meeting, how to pass the interview the end client runs.
+Chapters 38–42 are about being an advisor *inside* an engagement. This chapter is about what happens *before* the engagement: why a client, or the agency that places you, would think of you as an expert before you have said a word in the meeting — and, when you do get the meeting, how to pass the interview the end client runs.
 
 That reputation is built from two things. **Positioning** is a short, specific claim about who you help and with what. **Public proof** is evidence of that claim that a stranger can check without asking you. Together they change the buyer's question from "which of these five CVs is cheapest?" to "is this the person who writes about exactly our problem?"
 
-[Chapter 37](#chapter-37-the-story-bank-evidence-portfolio) built the private side: a story bank, a brag doc, evidence-backed CV bullets and a public portfolio repo. That chapter is about getting *hired*. This one reuses the same material to get *chosen*: by a client comparing specialists, by an agency's sales team deciding whom to put forward, and by people in a community who mention your name when you are not in the room.
+[Chapter 37](#chapter-37-the-story-bank-evidence-portfolio) built the private side. That chapter is about getting *hired*. This one reuses the same material to get *chosen*: by a client comparing specialists, by an agency's sales team deciding whom to put forward, and by people in a community who mention your name when you are not in the room.
 
 ```
             Chapter 37 (hired)                     Chapter 43 (chosen)
@@ -32159,7 +31590,7 @@ Most engineers find that the brag doc has more post candidates than they expecte
 
 # Chapter 44: Capstone — One Project, Growing Up
 
-_⏱️ Estimated read time: ~5 min · 1423 words (study pace)_
+_⏱️ Estimated read time: ~5 min · 1392 words (study pace)_
 
 Reading about architecture teaches you vocabulary. Evolving a single real system teaches you judgment. This chapter is one project carried through every stage of its life, so that you feel the pain that motivates each technique before you reach for it. You will build **ShopCore**, a small e-commerce backend — products, carts, orders, and payments. The domain is deliberately familiar so your attention stays on the engineering.
 
@@ -32258,8 +31689,6 @@ Take the system to a real environment. Write Terraform to provision the infrastr
 - All three services run in the target platform, reachable through a single ingress or gateway.
 - Secrets come from a managed secret store, never from committed files.
 - Traces and metrics from Step 5 flow to a hosted backend, so you can watch a real request cross service boundaries.
-
-By the end of Step 8 you have not read about distributed systems — you have built, broken, and operated one. That experience is what interviewers and teammates recognize as senior.
 
 
 ---
@@ -32392,6 +31821,57 @@ Native AOT (Ahead-Of-Time) compiles your app directly to a self-contained native
 # What's New
 
 This page is the handbook's changelog. When a new release lands, a popup announces it on your next visit. Under each release, **Site & functionality** items are plain notes, while **Content updates** link to every chapter that changed — a link is ticked off (✓, stored locally in your browser) once you visit it, so you can work through an update at your own pace and see what's still unread.
+
+## Release — October 24, 2026
+
+**🔧 Site & functionality**
+
+- Reading-time estimates and the total study time on the part pages and in the preface were recomputed for the shorter chapters.
+
+**📖 Content updates**
+
+- [Chapter 1: C# Essentials](#chapter-1-c-essentials) — Trimmed roadmaps, recaps and repeated explanations.
+- [Chapter 2: Data Structures and Algorithms Essentials](#chapter-2-data-structures-and-algorithms-essentials) — Trimmed roadmaps, recaps and repeated explanations.
+- [Chapter 3: How .NET Runs Your Code](#chapter-3-how-net-runs-your-code) — Trimmed roadmaps, recaps and repeated explanations.
+- [Chapter 4: Async Essentials](#chapter-4-async-essentials) — Trimmed roadmaps, recaps and repeated explanations.
+- [Chapter 5: HTTP and Web APIs](#chapter-5-http-and-web-apis) — Trimmed roadmaps, recaps and repeated explanations.
+- [Chapter 6: Frontend Essentials](#chapter-6-frontend-essentials) — Trimmed roadmaps, recaps and repeated explanations.
+- [Chapter 7: Data Access](#chapter-7-data-access) — Trimmed roadmaps, recaps and repeated explanations.
+- [Chapter 8: Testing](#chapter-8-testing) — Trimmed roadmaps, recaps and repeated explanations.
+- [Chapter 9: Exceptions, Logging and First Diagnosis](#chapter-9-exceptions-logging-and-first-diagnosis) — Trimmed roadmaps, recaps and repeated explanations.
+- [Chapter 10: Design Basics](#chapter-10-design-basics) — Trimmed roadmaps, recaps and repeated explanations.
+- [Chapter 11: Messaging and Background Work](#chapter-11-messaging-and-background-work) — Trimmed roadmaps, recaps and repeated explanations.
+- [Chapter 12: Security Essentials](#chapter-12-security-essentials) — Trimmed roadmaps, recaps and repeated explanations.
+- [Chapter 13: Git and CI/CD](#chapter-13-git-and-cicd) — Trimmed roadmaps, recaps and repeated explanations.
+- [Chapter 14: Containers and Linux](#chapter-14-containers-and-linux) — Trimmed roadmaps, recaps and repeated explanations.
+- [Chapter 15: Dates, Money and Strings](#chapter-15-dates-money-and-strings) — Trimmed roadmaps, recaps and repeated explanations.
+- [Chapter 16: Working Like a Middle Developer](#chapter-16-working-like-a-middle-developer) — Trimmed roadmaps, recaps and repeated explanations.
+- [Chapter 17: Runtime Internals and Performance](#chapter-17-runtime-internals-and-performance) — Trimmed roadmaps, recaps and repeated explanations.
+- [Chapter 18: Data in Depth](#chapter-18-data-in-depth) — Trimmed roadmaps, recaps and repeated explanations.
+- [Chapter 20: Distributed Systems](#chapter-20-distributed-systems) — Trimmed roadmaps, recaps and repeated explanations.
+- [Chapter 21: Architecture](#chapter-21-architecture) — Trimmed roadmaps, recaps and repeated explanations.
+- [Chapter 22: API Evolution, Real-Time and Serialization](#chapter-22-api-evolution-real-time-and-serialization) — Trimmed roadmaps, recaps and repeated explanations.
+- [Chapter 23: System Design](#chapter-23-system-design) — Trimmed roadmaps, recaps and repeated explanations.
+- [Chapter 24: Working with Legacy & Brownfield Code](#chapter-24-working-with-legacy-brownfield-code) — Trimmed roadmaps, recaps and repeated explanations.
+- [Chapter 25: Observability and Testing at Scale](#chapter-25-observability-and-testing-at-scale) — Trimmed roadmaps, recaps and repeated explanations.
+- [Chapter 26: Delivery and Platform](#chapter-26-delivery-and-platform) — Trimmed roadmaps, recaps and repeated explanations.
+- [Chapter 27: Security in Depth and the Supply Chain](#chapter-27-security-in-depth-and-the-supply-chain) — Trimmed roadmaps, recaps and repeated explanations.
+- [Chapter 28: Cloud Fundamentals — AWS & Azure](#chapter-28-cloud-fundamentals-aws-azure) — Trimmed roadmaps, recaps and repeated explanations.
+- [Chapter 29: Azure in Depth for .NET Developers](#chapter-29-azure-in-depth-for-net-developers) — Trimmed roadmaps, recaps and repeated explanations.
+- [Chapter 30: The Azure Casebook — Real Incidents, Real Fixes](#chapter-30-the-azure-casebook-real-incidents-real-fixes) — Trimmed roadmaps, recaps and repeated explanations.
+- [Chapter 31: Compliance, Data Privacy & Cloud Cost (FinOps)](#chapter-31-compliance-data-privacy-cloud-cost-finops) — Trimmed roadmaps, recaps and repeated explanations.
+- [Chapter 32: The AI-Native Developer — Thriving in the AI Era](#chapter-32-the-ai-native-developer-thriving-in-the-ai-era) — Trimmed roadmaps, recaps and repeated explanations.
+- [Chapter 33: Building AI-Powered Systems](#chapter-33-building-ai-powered-systems) — Trimmed roadmaps, recaps and repeated explanations.
+- [Chapter 34: Frontend and Full-Stack in Depth](#chapter-34-frontend-and-full-stack-in-depth) — Trimmed roadmaps, recaps and repeated explanations.
+- [Chapter 35: Production Incidents](#chapter-35-production-incidents) — Trimmed roadmaps, recaps and repeated explanations.
+- [Chapter 36: Senior Behaviours, Career and Interviews](#chapter-36-senior-behaviours-career-and-interviews) — Trimmed roadmaps, recaps and repeated explanations.
+- [Chapter 37: The Story Bank & Evidence Portfolio](#chapter-37-the-story-bank-evidence-portfolio) — Trimmed roadmaps, recaps and repeated explanations.
+- [Chapter 38: Having a Point of View](#chapter-38-having-a-point-of-view) — Trimmed roadmaps, recaps and repeated explanations.
+- [Chapter 39: Discovery and Diagnosis](#chapter-39-discovery-and-diagnosis) — Trimmed roadmaps, recaps and repeated explanations.
+- [Chapter 41: Recommendations, Proposals and Estimates](#chapter-41-recommendations-proposals-and-estimates) — Trimmed roadmaps, recaps and repeated explanations.
+- [Chapter 42: The Advisory Casebook](#chapter-42-the-advisory-casebook) — Trimmed roadmaps, recaps and repeated explanations.
+- [Chapter 43: Positioning and Public Proof](#chapter-43-positioning-and-public-proof) — Trimmed roadmaps, recaps and repeated explanations.
+- [Chapter 44: Capstone — One Project, Growing Up](#chapter-44-capstone-one-project-growing-up) — Trimmed roadmaps, recaps and repeated explanations.
 
 ## Release — October 15, 2026
 

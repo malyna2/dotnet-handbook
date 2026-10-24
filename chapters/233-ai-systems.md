@@ -2,7 +2,7 @@
 
 [Chapter 32](#chapter-32-the-ai-native-developer-thriving-in-the-ai-era) was about *using* AI to write software. This chapter flips the relationship: now the AI model is a *component inside* the software you ship. This is a different discipline. When you use an assistant to write a function, you review the output once and move on. When you embed a model in a running system, that model produces fresh, non-deterministic output on every request, for every user, forever — and you own the consequences. That single fact reshapes how you design, test, and operate the application.
 
-This chapter is a practical field guide to the popular AI system archetypes of 2025–2026 — retrieval-augmented generation (RAG), chatbots, workflows, and agents — with a .NET focus. We will build up from fundamentals (how to reason about an LLM as a component) through the modern .NET AI stack, and finish with the unglamorous production concerns that separate a demo from a product: evaluation, observability, cost, and safety. A theme worth flagging up front, because it shapes half the decisions in this chapter: the interesting engineering question is rarely *which model*, it is **how much of the control flow you keep in your own code** — and the answer is almost always "more than the demo suggests".
+Across RAG, chatbots, workflows and agents, the interesting engineering question is rarely *which model*, it is **how much of the control flow you keep in your own code** — and the answer is almost always "more than the demo suggests".
 
 ## Thinking about an LLM as a component
 
@@ -452,8 +452,6 @@ Minimally, the loop is just tool-calling run until completion — which is exact
 
 **When agents help vs. a workflow.** This is a judgment senior engineers must get right, because agents are seductive and often overkill. The previous section is the alternative: if the task fits any row above the last one in that decision table, build the workflow. Agents earn their complexity only when the path is *genuinely dynamic* — the number and order of steps depends on what's discovered along the way, and can't be enumerated in advance. The honest test is to try to write the workflow: if you can sketch the stages, you don't need an agent, and if you genuinely can't, you have your answer.
 
-> **Rule of thumb:** don't reach for an autonomous agent when a directed workflow will do. A hard-coded chain of three LLM calls is more reliable, cheaper, faster, and far easier to debug than a free-running loop. Add autonomy only where the branching genuinely can't be predetermined.
-
 **Reliability challenges.** Agents compound error: a 90%-reliable step run ten times in sequence is only ~35% reliable end to end. They can loop forever, thrash between the same two tools, or wander off task. Essential controls:
 
 - **Bounded iterations** — hard cap the number of loop steps and total cost/tokens per run.
@@ -596,11 +594,7 @@ The caching advice above is about *your* cache — you store the response and sk
 
 **Reasoning models and thinking budgets.** Models that spend extra tokens reasoning before answering do measurably better on multi-step logic, planning, and hard debugging — and worse on everything else, in the sense that you pay for tokens you never see and wait longer for them. Most providers expose a budget or effort setting. Treat it as a per-task-type decision, not a global default: high effort for the planning step of an agent or a complex diagnosis, minimum or off for extraction, classification, routing, and formatting. A router that also picks the thinking budget per branch is doing the same job as the model cascade, on a second axis.
 
-> **Best practice.** These three levers are worth an afternoon before any prompt micro-optimization, because they're structural: reorder your prompt for caching, move your non-interactive work to batch, and match thinking budget to task type. Together they routinely cut a bill by more than half without touching a single word of a prompt — and they change nothing about output quality, which is more than can be said for most cost work.
-
 ## Evaluation and observability
-
-This is the section that separates a demo from a product. It is also the part most teams skip and most regret.
 
 ### Evaluation
 
@@ -611,8 +605,6 @@ You cannot improve — or safely change — what you don't measure. Build an **e
 - **Human review** — the gold standard for high-stakes features; sample production traffic for periodic human grading.
 
 Microsoft ships **Microsoft.Extensions.AI.Evaluation**, a .NET library for building exactly these eval suites in your test project — so LLM evals can live beside your unit tests and run in CI.
-
-> **Takeaway:** treat evals as the regression suite for your AI features. No eval set, no confident change. A model or prompt update without a re-run is a blind deploy.
 
 **Evals are not the whole test suite.** The temptation is to conclude that because the output is nondeterministic, the feature can only be evaluated. That's backwards: an AI feature is mostly ordinary code — prompt assembly, retrieval, chunking, tool implementations, schema validation, budget enforcement, control flow — and that code carries most of the bugs. Program against `IChatClient` and a fake client makes all of it unit-testable in the normal way: assert the prompt you built, the branch you took, the budget you enforced, the malformed tool argument you rejected. Save the eval suite for the one thing a unit test genuinely cannot pin, which is the quality of the generated text. [Chapter 25](#chapter-25-observability-and-testing-at-scale) covers the full portfolio — faking the model, gating CI on an aggregate pass rate rather than individual cases, and keeping the eval set growing from production failures.
 
@@ -683,7 +675,7 @@ The user did nothing wrong. Your prompt is fine. Your code has no bug in the tra
 
 ### The lethal trifecta
 
-Here is the design rule worth committing to memory. An AI system becomes dangerous when it has all three of:
+An AI system becomes dangerous when it has all three of:
 
 1. **Access to private data** — your database, the user's mailbox, the internal wiki, another tenant's rows.
 2. **Exposure to untrusted content** — anything you did not author: retrieved documents, web pages, incoming email, tool responses, user uploads.
@@ -798,22 +790,6 @@ A short review you can run in fifteen minutes:
 ### Responsible AI, briefly
 
 Distinct from security, but it lives in the same review. Be transparent that the user is talking to AI; provide a path to a human; watch for bias in outputs that affect people differently; and keep a named human accountable for consequential decisions. Do not let a model make the final call on credit, hiring, medical or safety outcomes unaided — quite apart from the ethics, the EU AI Act's risk tiers ([Chapter 31](#chapter-31-compliance-data-privacy-cloud-cost-finops)) attach real obligations to exactly those use cases.
-
-> **Takeaway:** you cannot make a model immune to being talked into things. You can make it so that being talked into things doesn't matter — by giving it less to reach, authorizing every reach in code, and putting a human in front of anything you cannot undo.
-
-## Bringing it together: production concerns
-
-The threads of this chapter converge on four production priorities:
-
-**Cost optimization.** Route by difficulty — a cheap small model handles the easy 80% of requests, escalating to an expensive model only when needed (**model routing / cascades**). Cache aggressively, on both sides: your own response cache, and the provider's prompt cache via a stable prefix. Move non-interactive work to a batch API. Prefer the smallest model that passes your evals, and spend a thinking budget only where the task rewards it; the frontier model at full effort is rarely required. Trim prompts and context ruthlessly — you pay per token, every call.
-
-**Latency.** Stream to cut perceived latency. Parallelize independent calls (retrieve while you prepare the prompt; fan out multiple tool calls at once). Pick smaller/faster models for latency-critical paths. Cache the hot paths.
-
-**Reliability.** Timeouts, bounded retries with backoff, fallbacks, and circuit breakers around every provider call. Bound agent loops. Validate all output. Degrade gracefully — a slower or simpler answer beats an error page.
-
-**Versioning.** Pin and version both models and prompts. When a provider updates a model or you change a prompt, re-run your eval set *before* rolling out, and keep the ability to roll back instantly. Model and prompt versions belong in your telemetry so you can attribute any quality shift to the change that caused it.
-
-The recurring theme across this chapter: an LLM is a powerful but unreliable component, and the engineering discipline is in the *scaffolding you build around it* — grounding it with retrieval, constraining it with schemas and tools, budgeting its cost and latency, measuring it with evals, watching it with observability, and containing it with safety layers. Master that scaffolding and you can build AI-native systems that are not just impressive in a demo, but dependable in production. That is the leap from mid-level to senior in the AI-native era.
 
 ## Practice
 

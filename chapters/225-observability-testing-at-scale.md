@@ -1,10 +1,6 @@
 # Chapter 25: Observability and Testing at Scale
 
-[Chapter 9: Exceptions, Logging and First Diagnosis](#chapter-9-exceptions-logging-and-first-diagnosis) gave you the log line, and [Chapter 8: Testing](#chapter-8-testing) gave you unit and integration tests inside one service. This chapter starts where a request leaves the process and where a codebase outgrows one team. It makes you able to decide what a service must emit so that a page at 3 a.m. leads to a cause in minutes, to set an SLO and alert on how fast its budget burns instead of on CPU, and to choose which expensive tests — contract, property-based, end-to-end, load, mutation, evals — earn their cost for the system in front of you.
-
-The first half is observability beyond logs. **Metrics** are aggregates: they keep a number per time series and throw the requests away, so they are cheap enough to keep always on and to alert on, and through bounded tags they say *that* something is wrong and *where*. **Traces** keep one request's detail across every hop, so they are sampled, and they say *which hop*. Together with the logs of Chapter 9 they meet in the SLO, the alert that fires on it, and a walk through one incident from metric to trace to log line — joined by a single propagated trace ID.
-
-The second half is testing what unit tests can't see: interface drift between independently deployed services, inputs nobody thought to write, whole-stack breakage through a real browser, latency under concurrency, tests that execute code but assert nothing, and model output that no fixed assertion can pin. The through-line is one habit of mind: **treat your telemetry and your tests as systems to be engineered, with their own costs, failure modes, and return on investment** — and measure both against the same yardstick, the user-visible SLI.
+[Chapter 9: Exceptions, Logging and First Diagnosis](#chapter-9-exceptions-logging-and-first-diagnosis) gave you the log line, and [Chapter 8: Testing](#chapter-8-testing) gave you unit and integration tests inside one service. This chapter starts where a request leaves the process and where a codebase outgrows one team.
 
 ## Metrics
 
@@ -239,7 +235,7 @@ So you pick one victim. In Jaeger you query for slow traces on that route (tail 
 
 But a span only shows *that* the call took 3.8 seconds, not *why*. So you copy the trace ID from Jaeger, paste it into Seq, and — because every service stamps its logs with the trace ID ([Chapter 9](#correlation-across-services)) — you get every structured log line from every service for that exact request. There they are: three warnings, `Payment gateway returned 429, retrying in 800ms (attempt 3)`. The gateway was not slow; it was rejecting you, and your own retries were stacking inside the span. A quick pivot on the same query shows the 429s started at 2:52 — right when the nightly reconciliation job began hammering the gateway with the same API key. Kill the job, latency recovers, go back to bed.
 
-Walk the chain again: the metric said *something is wrong and where*, the trace said *which hop*, the logs said *why*. Three tools, one investigation — and the only thing that connected them was the trace ID, propagated in every hop's `traceparent` header, recorded on every span, and stamped onto every log line. That correlation is not luck. It exists because the propagation, the enricher, and the sampler were wired up on a quiet afternoon, exactly as this chapter prescribes. At 3 a.m. you can only harvest what you instrumented at 3 p.m.
+Walk the chain again: the metric said *something is wrong and where*, the trace said *which hop*, the logs said *why*. Three tools, one investigation — and the only thing that connected them was the trace ID, propagated in every hop's `traceparent` header, recorded on every span, and stamped onto every log line.
 
 One more step exists when the trace points inside a single process — a span that is slow but makes no outbound calls. Then the next tool is a profiler on that process: `dotnet-counters` first, then whatever its reading points to ([Chapter 17: Profiling](#profiling-finding-the-bottleneck-in-a-running-system)).
 
@@ -572,7 +568,7 @@ export default function () {
 }
 ```
 
-The key discipline is reading **percentiles, not averages**. An average latency of 50ms can hide a p99 of 3 seconds — meaning one request in a hundred is agonizingly slow, which at scale is thousands of unhappy users. Averages lie; percentiles tell the truth about tail behavior, and tail behavior is what users actually feel.
+The key discipline is reading **percentiles, not averages**. An average latency of 50ms can hide a p99 of 3 seconds — meaning one request in a hundred is agonizingly slow, which at scale is thousands of unhappy users.
 
 In NBomber you express load as a *scenario* with an injection rate:
 
@@ -674,23 +670,6 @@ Every testing technique in this chapter earns its keep by catching a defect clas
 | Mutation testing (Stryker.NET) | Assertion-free "covered" code — tests that execute but verify nothing | Reruns the suite once per mutant; very CPU-expensive | Core domain logic; run on the diff or nightly |
 | Eval suites (Microsoft.Extensions.AI.Evaluation) | Quality regressions in nondeterministic output that no assertion can pin | Token spend per run; a curated, maintained case set; threshold tuning | Any shipped feature whose output comes from a model |
 | Fake time + fixed seeds (`TimeProvider`, Chapter 8) | Expiry/scheduling bugs; irreproducible time- and randomness-based flakes | Retrofitting injection into legacy code | Anything touching clocks, delays, timers, or random data |
-
-## Bringing It Together
-
-Observability is not a library you install; it is a design property you cultivate. The senior mindset treats telemetry as a first-class feature, budgeted for and reviewed like any other. Record **metrics** chosen by RED and USE, guarding against cardinality explosions. Trace requests end to end with **OpenTelemetry**, propagating context across HTTP and messaging so a single trace ID unlocks the whole story — including the structured logs of Chapter 9. Feed **SLIs** into **SLOs** with **error budgets** that turn reliability into a shared, quantitative decision, and alert on how fast the budget burns, not on noise. Build the cockpit before you need it: when the 3 a.m. page arrives, the difference between a five-minute fix and a five-hour outage is the instrumentation you had the discipline to add while the skies were still clear.
-
-Each testing technique in this chapter targets a specific weakness of the foundational testing you already know:
-
-- **Contract testing** replaces slow, brittle cross-service integration tests with fast, independent verification of interfaces — and, wired to a broker, becomes a safe-deployment gate that makes schema evolution auditable.
-- **Snapshot testing** locks down large outputs such as serialized responses, provided someone actually reviews the diffs.
-- **Property-based testing** finds the inputs your example tests never imagined, and shrinking hands you a minimal reproduction.
-- **Playwright and API-level E2E** prove the assembled system works through the user's eyes, while the pyramid-versus-trophy debate reminds you to shape the suite around where bugs actually live.
-- **k6 and NBomber** answer the questions functional tests can't, provided you assert on thresholds and run against realistic environments.
-- **Mutation testing** audits the auditors, exposing the tests that execute code without actually checking it.
-- **Eval suites** extend the portfolio to output no assertion can pin, trading exact expectations for a tracked pass rate — the only way to change a prompt or a model with confidence.
-- Underneath all of them, **`TimeProvider`, deterministic seeding, and disciplined test data** ([Chapter 8](#deterministic-tests-time-async-and-test-data)) are the unglamorous infrastructure that makes every other test trustworthy.
-
-The senior mindset that unifies both halves: **every test and every signal is an investment with a cost and a return.** Fast, deterministic, and targeted at where failure is likely and expensive — that is the portfolio you are building.
 
 ## Sources & Further Reading
 

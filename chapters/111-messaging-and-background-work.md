@@ -1,10 +1,10 @@
 # Chapter 11: Messaging and Background Work
 
-Sooner or later a request has to do something it shouldn't wait for: send an email, notify another service, build a report that takes minutes. Doing it inline couples the user's latency, and the request's success, to work that has no business being on the hot path. This chapter makes you able to move that work out of the request without losing it or doing it twice: put a queue between two parts of a system, write a handler that stays correct when a message arrives twice, late or out of order, and run long work in a worker behind `202 Accepted`.
+Sooner or later a request has to do something it shouldn't wait for: send an email, notify another service, build a report that takes minutes. Doing it inline couples the user's latency, and the request's success, to work that has no business being on the hot path.
 
 One mechanism ties the chapter together. **A queue hands out leases, not messages:** a message is gone only when a handler settles it while its lock still holds, and every other path (an exception, a crash, a lost acknowledgement, an expired lock) is a redelivery. Delivery is therefore at-least-once, and the handler must make its effect happen once by claiming the message's ID atomically with the effect.
 
-The sections build in that order. First why messaging at all, the vocabulary of events and commands, the brokers and the patterns they share, and MassTransit as the .NET way to use them. Then the guarantees a broker actually gives, and the two patterns that make them safe: the idempotent consumer on the receiving side and the transactional outbox on the sending side. Then the same ideas inside one service: `BackgroundService` workers, graceful shutdown, and the asynchronous request-reply contract for work longer than a request. Sagas, resilience patterns and scheduling across instances come later, in [Chapter 20: Distributed Systems](#chapter-20-distributed-systems).
+Sagas, resilience patterns and scheduling across instances are in [Chapter 20: Distributed Systems](#chapter-20-distributed-systems).
 
 ## Why Messaging at All?
 
@@ -50,7 +50,7 @@ Call synchronously when you need the answer *now* to proceed ("is this coupon va
 
 ## Event-Driven Architecture: Events, Commands, and Messages
 
-These three words get used interchangeably and it causes real confusion. Let's be precise.
+These three words get used interchangeably and it causes real confusion.
 
 - A **message** is the generic envelope — any data moving through the broker.
 - A **command** is a message that *instructs* a specific recipient to do something. Imperative, present tense: `ChargePayment`, `ShipOrder`. It has **one** logical handler. The sender expects it to be acted upon and often cares whether it succeeded.
@@ -67,7 +67,7 @@ The distinction decides how a message travels. A command goes to one queue that 
 
 ## Message Brokers Compared
 
-A broker is the post office in the middle. All the major ones move messages, but their internal models differ enough that picking the wrong one causes real pain. Each implements the command and event shapes above differently, and Kafka adds a third: the stream, an ordered and replayable history of facts. Let's understand each on its own terms.
+A broker is the post office in the middle. All the major ones move messages, but their internal models differ enough that picking the wrong one causes real pain. Each implements the command and event shapes above differently, and Kafka adds a third: the stream, an ordered and replayable history of facts.
 
 ### RabbitMQ — The Smart Router (AMQP)
 
@@ -172,7 +172,7 @@ That table compares products; the more important comparison is between the three
 
 ## Core Messaging Patterns
 
-Regardless of broker, the same handful of patterns recur. Learn them once and you can map them onto any technology.
+Regardless of broker, the same handful of patterns recur.
 
 ### Publish/Subscribe
 
@@ -325,8 +325,6 @@ Notice how little broker-specific code there is. `Publish` vs `Send`: **Publish*
 - **NServiceBus** (from Particular Software) is the commercial, batteries-included, enterprise-grade option. It has the deepest saga tooling, excellent monitoring (ServiceInsight/ServicePulse), and strong support contracts. If you're a large enterprise that wants a vendor to call, this is it.
 - **Rebus** is the lightweight, free, "just enough" alternative. Smaller API surface, easy to learn, fewer bells and whistles. Great when MassTransit feels like too much.
 
-All three share the same conceptual model, so skills transfer.
-
 ## Delivery Guarantees
 
 Getting this wrong loses or duplicates data. There are three possible guarantees:
@@ -421,7 +419,7 @@ The mirror image is the **inbox**: the processed-message claims from *Idempotent
 
 ## Background Processing in .NET
 
-The queue's consumer, the outbox relay and every other piece of work no request waits on run in-process, inside the Generic Host that [Chapter 3: The Generic Host and Background Services](#the-generic-host-and-background-services) introduced as the owner of DI, configuration, logging and the application's lifetime. This section is the full treatment of the work the host runs: the hosted-service contract, the worker loop, shutdown, and what changes when several instances run it.
+The queue's consumer, the outbox relay and every other piece of work no request waits on run in-process, inside the Generic Host that [Chapter 3: The Generic Host and Background Services](#the-generic-host-and-background-services) introduced as the owner of DI, configuration, logging and the application's lifetime.
 
 ### `IHostedService` and `BackgroundService`
 
@@ -513,7 +511,7 @@ builder.Services.AddHostedService<EmailDispatchWorker>();
 
 ### The outbox-driven worker
 
-In-memory channels have a fatal flaw for anything that matters: **if the process dies, the queue dies with it.** When a user places an order, you write the order to the database *and* you want to publish an `OrderPlaced` event - and doing that as two separate operations means a crash between them loses one side. That is the dual write from [The Transactional Outbox](#the-transactional-outbox) above, which covers the table, the atomic commit and MassTransit's built-in support. Here the point is the other half of the pattern: the background worker that actually drains the table.
+In-memory channels have a fatal flaw for anything that matters: **if the process dies, the queue dies with it.** The fix is [The Transactional Outbox](#the-transactional-outbox) above; this is the background worker that drains its table.
 
 The worker polls unprocessed rows and publishes them, marking each as done only after the broker acknowledges:
 
@@ -565,7 +563,7 @@ builder.Services.Configure<HostOptions>(o =>
 
 The moment you run more than one instance of your service - and in any serious deployment you will, for availability alone - two copies of that outbox worker are polling the same table. Both may grab the same row. Your message gets published twice.
 
-You cannot engineer this possibility away entirely. Distributed systems give you **at-least-once** delivery as the practical default; exactly-once is a comforting fiction that, when you look closely, is always at-least-once plus idempotent processing (*Why Exactly-Once Is (Almost) a Myth* above). So stop fighting duplicates and make processing **idempotent**: claim a natural or supplied key under a unique index, in the same transaction as the effect, exactly as in [Idempotent Consumers](#idempotent-consumers). Apply it to every handler a worker runs.
+You cannot engineer this away entirely (*Why Exactly-Once Is (Almost) a Myth* above), so make processing **idempotent**: claim a natural or supplied key under a unique index, in the same transaction as the effect, exactly as in [Idempotent Consumers](#idempotent-consumers). Apply it to every handler a worker runs.
 
 For the polling contention itself, options range from a `SELECT ... FOR UPDATE SKIP LOCKED` (PostgreSQL) to claiming rows with an atomic `UPDATE ... SET LockedBy = @me WHERE ...`, to simply electing a single leader so only one instance polls at all ([Chapter 20: Ensuring a job runs once across instances](#ensuring-a-job-runs-once-across-instances)). The right answer depends on throughput, but the principle is constant: **assume duplicates and design so they don't hurt.**
 
@@ -635,12 +633,6 @@ if (claimed == 0) return;   // another delivery owns it or finished it: complete
 The lease lets a redelivery take over a job whose worker died mid-run, so a rerun must be safe: write the result keyed by the job ID, overwriting any partial one. A transient failure throws, and the broker redelivers the message; a permanent one, such as input that validation couldn't catch, is dead-lettered at once. Either way the job must end `Failed`, with a reason someone can act on: set by the worker on a permanent failure or on the last attempt, by whatever drains the dead-letter queue, or by a sweeper that fails jobs whose `LastUpdatedAt` has stopped moving. A status stuck at `Running` is the HTTP face of a dead-letter queue nobody watches.
 
 **Clients poll, or get called back.** A polling client waits `Retry-After` between `GET`s and gives up at a deadline. A callback (a webhook, a SignalR message) saves the polling, but needs a reachable, authenticated endpoint on the client's side and is itself delivered at-least-once ([Chapter 15: Notifications](#notifications-push-sms-and-webhooks) covers webhook signatures), so keep polling as the fallback. Expose `DELETE /jobs/{id}` if a job can be cancelled, and delete old jobs and results on a retention schedule.
-
-## Bringing It Together
-
-Every section of this chapter negotiates with one fact: the network and the process can fail between any two steps, and nobody can be certain whether the other side finished. Messaging decouples a request from the work that follows it, so a downstream outage waits in a queue instead of failing the customer. The broker delivers at-least-once, because an acknowledgement is a lease that can expire; so every consumer claims the message's ID in the same transaction as its effect. The producer writes its message into the same transaction as its data, through the outbox, because a commit and a publish are two operations. And work longer than a request becomes a job: a `202 Accepted`, a status resource, and a `BackgroundService` that observes its cancellation token and can safely run twice.
-
-Coordinating several services through one business process (sagas and compensation), protecting callers with retries, circuit breakers and bulkheads, and running scheduled jobs exactly once across instances build on this foundation in [Chapter 20: Distributed Systems](#chapter-20-distributed-systems).
 
 ## Prove it
 

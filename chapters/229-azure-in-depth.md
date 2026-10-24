@@ -2,9 +2,9 @@
 
 [Chapter 28](#chapter-28-cloud-fundamentals-aws-azure) gave you the map: what App Service, Functions, Cosmos DB and Service Bus *are*, and how they line up against AWS. A map gets you through a conversation. It does not get you through the first week of owning a production system on Azure, where the questions sound like this: *why does the app get a 403 from Blob Storage when its identity is a Contributor on the subscription? Why did the slot swap cause a minute of 500s? Why does Cosmos DB throttle at 3,000 RU/s when we provisioned 20,000?*
 
-This chapter is the territory. For each service a .NET developer touches every week, it explains the **mechanism** (what actually happens when you call it), shows the **.NET code** you would write, lists the **limits that bite**, and ends with a **decision table**. The level it aims for is a strong middle developer who can build, ship and debug an Azure system without a platform team holding their hand, and who can explain their choices in an interview. [Chapter 30](#chapter-30-the-azure-casebook-real-incidents-real-fixes) then puts all of it to work on real incidents.
+[Chapter 30](#chapter-30-the-azure-casebook-real-incidents-real-fixes) then puts all of it to work on real incidents.
 
-One idea runs under every section: in production your code runs inside platform mechanisms it never calls — a front end with a timeout, a NAT with a port budget, a token endpoint, a DNS zone, a scheduler that scales, kills and moves it — and most cloud incidents are one of them doing exactly what its documentation says. The practice at the end of the chapter turns that into hands-on work: the casebook's two verified bugs, two design decisions, and a deployment pipeline whose rollback is a slot swap.
+One idea runs under every section: in production your code runs inside platform mechanisms it never calls — a front end with a timeout, a NAT with a port budget, a token endpoint, a DNS zone, a scheduler that scales, kills and moves it — and most cloud incidents are one of them doing exactly what its documentation says.
 
 ```
                         how a typical .NET system on Azure is layered
@@ -29,7 +29,7 @@ Read the cross-cutting row carefully. Most developers learn the services in the 
 
 ## Certifications: What They Measure, and Where This Chapter Stands
 
-A certification proves you have the vocabulary. An interview, and your first incident, test whether you understand the mechanism behind it. This chapter aims at the second, but it is laid out so that the first comes along for free.
+A certification proves you have the vocabulary. An interview, and your first incident, test whether you understand the mechanism behind it.
 
 The landscape changed in 2026, so check the current state yourself before you book anything. As of September 2026, the official study-guide pages on Microsoft Learn could not be opened from the environment this chapter was written in, so the table below comes from several independent third-party summaries that agree with each other. Confirm it on the official study guide before you rely on it.
 
@@ -41,7 +41,7 @@ The landscape changed in 2026, so check the current state yourself before you bo
 
 The practical takeaway: **AZ-900 is a reasonable one-weekend goal** once you have read this chapter, and it is useful when your CV has to get past a recruiter's keyword filter. The developer-level exam has moved towards AI workloads, but the platform underneath it is exactly what this chapter teaches: containers, Cosmos DB, messaging, Functions, Key Vault, RBAC and KQL. Learn the platform first. The AI-specific parts are thin layers on top of it.
 
-> **Best practice.** Use the free Microsoft Learn sandbox and the exam's official practice assessment rather than a question dump. Dumps teach you to recognise answers. This chapter's *Self-check* section at the end, and Chapter 30's cases, teach you to derive them, which is also what an interviewer checks.
+> **Best practice.** Use the free Microsoft Learn sandbox and the exam's official practice assessment rather than a question dump: dumps teach you to recognise answers, not to derive them.
 
 ## The Control Plane: How Azure Is Organised
 
@@ -1141,16 +1141,6 @@ A **3-year reservation** for the database: the biggest discount, for a committed
 
 (a) **Event Hubs**: a partitioned log, with a consumer group per team, and replay within retention. (b) **Service Bus**: a command that needs exactly one competing consumer, with peek-lock, dead-lettering and possibly sessions. (c) **Event Grid** (the `BlobCreated` system event), delivered to the Function directly, or via a Service Bus queue for buffering and retries.
 </details>
-
-## Summary
-
-Azure is organised as a hierarchy of tenant, management groups, subscriptions, resource groups and resources. All of it is managed through one API, ARM. RBAC decides *who*, Policy decides *what*, and locks protect resources but not data. The one distinction to carry everywhere is **control plane versus data plane**: managing a resource and using it are different permissions.
-
-Identity is the foundation. Managed identities replace secrets. `DefaultAzureCredential` is a convenience for development, and production should name its credential. Role assignments take time to propagate, and Cosmos DB's data-plane roles are different from everyone else's. Once identity works, turn off keys.
-
-For compute, App Service is the default for web workloads: learn the slot swap sequence, the 230-second limit and SNAT ports. Functions are for events: use the isolated worker model on Flex Consumption, remember that scale multiplies concurrency, and keep Durable orchestrators deterministic. Container Apps covers containerised systems without a cluster to run. For data, Blob Storage wants the right redundancy, tiers, user delegation SAS and ETags. Cosmos DB is a partitioning decision with a price on every operation. Azure SQL is SQL Server that fails over, so retry. Service Bus, Event Hubs and Event Grid are three different tools: commands, streams and notifications. All of them deliver at least once.
-
-Around everything sit Key Vault and App Configuration (load once, reload deliberately), private endpoints (whose failures are almost always DNS), Application Insights (sampling and KQL), infrastructure as code that grants access in the same pull request as the resource, and the costs only a developer can see. [Chapter 30](#chapter-30-the-azure-casebook-real-incidents-real-fixes) takes all of this into production and breaks it.
 
 ## Practice
 

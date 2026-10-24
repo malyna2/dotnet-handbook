@@ -2,19 +2,15 @@
 
 This chapter explains the machinery around your code that every .NET service shares: where the runtime puts what you allocate and how the garbage collector gets it back, how settings reach your classes, how the dependency-injection container builds and disposes your objects, and how the Generic Host starts and stops the application. With it you can explain why memory climbs and comes back, why a misspelt setting fails silently, and why a `Scoped` service inside a singleton serves stale data to every request.
 
-The sections go from the bottom up. **Memory and garbage collection** come first, because allocation cost, disposal and object lifetimes all rest on them. **Configuration** and **dependency injection** are the two systems that wire an application together; the options pattern joins them, and service lifetimes decide which objects live how long. The **Generic Host** owns both, plus the lifecycle of background work. The chapter ends with the **release cadence**, which decides which runtime version you should be on.
-
 [Chapter 1](#chapter-1-c-essentials) covers value and reference types and boxing at the language level, and this chapter builds on it. The depth (the Large Object Heap, Server and Workstation GC, background GC, the JIT and Native AOT) is in [Chapter 17: Runtime Internals and Performance](#chapter-17-runtime-internals-and-performance); logging is in [Chapter 9](#chapter-9-exceptions-logging-and-first-diagnosis), and JSON serialization in [Chapter 5](#serialization-systemtextjson-vs-newtonsoftjson).
 
 ## The Memory Model: Stack vs Managed Heap
 
-The .NET runtime gives every managed program two fundamentally different regions of memory to work with: the **stack** and the **managed heap**. Understanding which values live where is the single most useful mental model for reasoning about allocation, garbage collection, and performance.
+The .NET runtime gives every managed program two fundamentally different regions of memory to work with: the **stack** and the **managed heap**.
 
 The **stack** is a thread-local, last-in-first-out region. Each thread gets its own stack (by default 1 MB on Windows). When you call a method, the runtime pushes a *stack frame* containing the method's parameters, its local variables, and bookkeeping like the return address. When the method returns, the frame is popped — instantly, with zero cleanup cost. There is no garbage collector involved in stack memory; deallocation is just moving a pointer back down.
 
 The **managed heap** is a process-wide region shared by all threads, and it's where reference-type objects live. When you write `new Customer()`, the runtime carves space out of the heap and hands you back a *reference* (essentially a pointer) to it. That reference might sit on the stack (as a local variable) or inside another heap object (as a field), but the `Customer` instance itself is always on the heap.
-
-Which of the two holds a given piece of data depends on where the variable is declared, not only on its type: a local `int` is in the stack frame, an `int` field of a class is inside the object on the heap, and a reference variable on the stack points to an object on the heap. [Chapter 1](#stack-vs-heap-where-the-bytes-actually-live) gives the rules.
 
 ```csharp
 public void Example()
@@ -33,13 +29,11 @@ public class Customer { public int Id; public string Name = ""; }
 
 When `Example` returns, the stack frame — `localValue`, `p`, the references `c` and `numbers` — vanishes for free. But the `Customer` and the `int[]` remain on the heap until the garbage collector proves nobody can reach them anymore. That "proving unreachability and reclaiming" is the job of the GC.
 
-> **Why this matters:** every heap allocation has a cost — not just the allocation itself, but the eventual GC work to reclaim it. High-performance .NET code minimizes heap allocations by favoring `structs` for small, short-lived data, using `Span<T>` for slicing without copying, and avoiding hidden allocations (boxing, closures, LINQ in hot paths); [Chapter 17](#chapter-17-runtime-internals-and-performance) shows how to measure them.
-
 **Boxing** is where the two meet: a value type assigned to `object` or an interface is copied into a new heap object, an allocation the code doesn't show ([Chapter 1](#boxing-and-unboxing-the-hidden-tax)).
 
 ## Garbage Collection
 
-The .NET garbage collector is a **tracing, generational, compacting** collector. Let's unpack each of those words, because each represents a deliberate design decision that shapes how your programs behave.
+The .NET garbage collector is a **tracing, generational, compacting** collector.
 
 **Tracing** means the GC determines liveness by starting from a set of *roots* — static fields, local variables and CPU registers on every thread's stack, and GC handles — and following references transitively. Any object reachable from a root is *live*; everything else is *garbage*. The GC never needs the program to tell it what to free; it discovers it.
 
@@ -94,8 +88,6 @@ A **finalizer** (`~ClassName()`) is a method the GC calls before reclaiming an o
 2. A dedicated **finalizer thread** later runs the finalizer.
 3. Only on the *next* GC can the object actually be collected.
 
-So a finalizable object survives at least one extra generation and requires two collection cycles to die. Overusing finalizers is a real performance problem.
-
 **`IDisposable`** provides *deterministic* cleanup: you (or a `using` block) call `Dispose()` at a precise, known point rather than waiting for the GC. This is the preferred mechanism, and [Chapter 1](#idisposable-iasyncdisposable-and-the-dispose-pattern) covers using it.
 
 The canonical pattern combines both — `Dispose()` for deterministic cleanup, a finalizer as a backstop if the caller forgets, and `GC.SuppressFinalize` to skip the expensive finalizer when `Dispose` already did the work:
@@ -144,8 +136,6 @@ public sealed class NativeBufferOwner : IDisposable
 - It introduces a synchronous pause exactly when you didn't need one.
 
 Legitimate uses are rare: benchmarking (to establish a clean baseline), a one-time cleanup after loading a huge dataset that you know created long-lived garbage, or immediately before taking a memory snapshot for diagnostics. If you find yourself reaching for `GC.Collect()` to "fix" a memory problem, the real fix is almost always to allocate less or to dispose properly.
-
-That is the GC a middle developer needs: generations, what triggers a collection, and why finalizers are a backstop. Which GC flavour a server runs, how the Large Object Heap fragments and how to read GC counters under load are in [Chapter 17](#chapter-17-runtime-internals-and-performance).
 
 ## The Configuration System
 
@@ -311,15 +301,6 @@ Versions and their dates, as of October 2026 (`releases-index.json` in the `dotn
 - **.NET 11** (STS) — at release candidate (RC1, September 2026, supported in production as "go-live"); GA is due in November 2026.
 
 > **Best practice for teams:** standardize on **LTS releases** for products with long maintenance horizons — you get three years before a forced upgrade and a smaller upgrade treadmill. Choose **STS** only when you specifically need a feature that shipped there. Whatever you pick, plan upgrades *before* the support window closes: running on an out-of-support runtime means no security patches, which is an audit and compliance problem.
-
-## Summary
-
-- **Memory** splits into the per-thread **stack**, reclaimed for free when a method returns, and the shared **managed heap**, reclaimed by the GC; every heap allocation is future GC work.
-- The **GC** is tracing, generational and compacting: Gen 0 collections are cheap and frequent, Gen 2 collections are expensive and should stay rare. Finalizers keep an object alive for an extra collection, so prefer `IDisposable`, and leave `GC.Collect()` alone.
-- **Configuration** layers providers, a later one overriding an earlier one; the **options pattern** binds a section to a class, and only validation (with `ValidateOnStart`) turns a missing key into an error.
-- The **DI container** builds the object graph with three lifetimes; a service may depend only on equal or longer lifetimes, and `ValidateScopes` catches the captive dependency only in Development.
-- The **Generic Host** composes configuration, DI and logging, starts and stops hosted services, and hands `BackgroundService` a stopping token to honor.
-- The **November release cadence** with **LTS (even) / STS (odd)** tracks lets you plan upgrades before support ends.
 
 ## Prove it
 

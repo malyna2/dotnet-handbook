@@ -1,8 +1,6 @@
 # Chapter 1: C# Essentials
 
-This chapter teaches you to predict what everyday C# does before you run it: what an assignment copies, what `==` compares, which method a call through a base class runs, where a null still gets past the compiler, when a LINQ query runs and where its filter executes, what a lambda captures, and what `Dispose` gives back. Two facts explain most of the answers. A variable holds either a value or a reference to a shared object. And the compiler turns many lines into something else: an operator or a method picked from the variable's declared type, a hidden object that holds captured variables, a state machine that runs later.
-
-The sections follow that order. Value and reference types come first, because copying, boxing and equality all follow from them; classes, inheritance and virtual dispatch build on reference types; generics remove boxing, and records, strings, tuples and pattern matching build on value equality and deconstruction. Nullable reference types show the limit of what the compiler checks. Delegates and closures, extension methods and iterators are the parts LINQ is made of, so LINQ comes after them and its two surprises, deferred execution and the `IEnumerable`/`IQueryable` split, read as consequences rather than rules; the everyday operators and their traps follow. `IDisposable` and the modern syntax close the teaching part; a runnable experiment, three questions and interview questions follow.
+Two facts explain most of what everyday C# does: what an assignment copies, what `==` compares, which method a call through a base class runs, where a null still gets past the compiler, when a LINQ query runs, what a lambda captures. A variable holds either a value or a reference to a shared object. And the compiler turns many lines into something else: an operator or a method picked from the variable's declared type, a hidden object that holds captured variables, a state machine that runs later.
 
 What the stack and the heap are, and how the garbage collector reclaims what you allocate, is [Chapter 3: How .NET Runs Your Code](#chapter-3-how-net-runs-your-code). `Span<T>`, reflection and source generators are in [Chapter 17: Runtime Internals and Performance](#chapter-17-runtime-internals-and-performance).
 
@@ -42,7 +40,7 @@ In brief: the **stack** is per-thread memory that grows and shrinks with method 
 - A value type **captured by a closure** or used in an `async` method or iterator is often hoisted into a compiler-generated heap object.
 - A reference type's **reference** (the pointer-sized handle) follows the same rules as a value type — a local reference variable sits on the stack — but the **object it points to** is on the heap.
 
-> **Gotcha:** "Value types are always on the stack" is false. Reason about *where the variable is declared*. The JIT is also free to keep values in registers, and since .NET 9 and 10 it stack-allocates some objects that provably don't outlive the method (boxes, small arrays, some delegates). The runtime decides, not the type.
+> **Gotcha:** The JIT is free to keep values in registers, and since .NET 9 and 10 it stack-allocates some objects that provably don't outlive the method (boxes, small arrays, some delegates). The runtime decides, not the type.
 
 It matters because heap allocations drive garbage collection: a higher allocation rate means more frequent collections, with pauses and CPU spent tracing objects. `Span<T>`, structs and object pooling exist to avoid them ([Chapter 17: Runtime Internals and Performance](#chapter-17-runtime-internals-and-performance)).
 
@@ -118,8 +116,6 @@ ref struct StackOnly
 // StackOnly cannot be a field of a class, cannot be boxed,
 // cannot be used inside an async method or a lambda closure.
 ```
-
-> **Rule of thumb:** `readonly struct` for immutable value semantics with zero defensive-copy overhead; `ref struct` for stack-only, allocation-free buffers like `Span<T>`.
 
 ## Classes, Inheritance and Virtual Dispatch
 
@@ -329,8 +325,6 @@ int i = Sum(new[] { 1, 2, 3 });          // 6
 double d = Sum(new[] { 1.5, 2.5 });      // 4.0
 ```
 
-This is a genuine leap: one algorithm, zero boxing, works for every numeric type including your own custom ones that implement the interface.
-
 ## Records, Value Equality, and with Expressions
 
 A struct compares by contents and a class by reference. A record gives a type contents-based comparison without hand-written code: it is a reference type (or `record struct` for a value type) for which the compiler generates **value-based equality**, a readable `ToString` and nondestructive mutation. Records are for *data* (DTOs, domain values, messages), where two instances with the same contents should be equal.
@@ -464,7 +458,7 @@ string desc = data switch
 };
 ```
 
-The `switch` *expression* (distinct from the older `switch` statement) returns a value, is exhaustive-checked by the compiler, and reads top-to-bottom with the first match winning. This is a functional, declarative style that replaces sprawling `if/else` ladders.
+The `switch` *expression* (distinct from the older `switch` statement) returns a value, is exhaustive-checked by the compiler, and reads top-to-bottom with the first match winning.
 
 ## Nullable Reference Types
 
@@ -566,11 +560,9 @@ public static class StringExtensions
 bool empty = "   ".IsNullOrBlank();   // reads like an instance call; compiles to a static call
 ```
 
-Extension methods are purely compile-time sugar — there's no runtime magic, just a static call the compiler rewrites. They can't access private members and are resolved by the `using` namespaces in scope.
+Extension methods can't access private members and are resolved by the `using` namespaces in scope.
 
 > **New in C# 14 (.NET 10):** *extension members* generalize this `static`-`this` form. Inside an `extension` block you can now declare extension **properties**, operators, and static extension members — not just instance methods. The classic `this`-parameter syntax still works and interoperates with the new blocks, so nothing here is obsolete (see *Modern Syntax You Should Be Using* below for the timeline).
-
-We covered **static abstract interface members** under generic math; the broader point is that interfaces can now declare `static` members (operators, factory methods, constants), which combined with generics enables abstractions that were previously impossible in C#.
 
 ## Iterators and yield return
 
@@ -714,8 +706,6 @@ record Order(int Id, string Customer, decimal Total);
 class Person(string name) { public string Name { get; } = name; }
 ```
 
-Multiple enumeration is the trap that crosses all of them: an operator that returns `IEnumerable<T>` hands back a recipe, so two terminal calls on it run the whole pipeline twice, as the earlier section showed.
-
 ## IDisposable, IAsyncDisposable, and the Dispose Pattern
 
 The GC reclaims *managed memory*, but knows nothing about file handles, sockets, database connections or native memory. `IDisposable` is the contract for releasing those deterministically, and `using` compiles to a `try/finally` that calls `Dispose`.
@@ -825,12 +815,6 @@ customer?.Email = LoadEmail();   // when customer is null, LoadEmail() is never 
 Compound assignment such as `+=` works the same way; `++` and `--` don't.
 
 > **Where the language is heading.** C# 13 (.NET 9) added **params collections** (`params` accepts `Span<T>`, `ReadOnlySpan<T>` and other collection types, not just arrays) and `lock` support for .NET 9's dedicated `System.Threading.Lock` type. C# 14 ships with .NET 10, the current LTS. Besides `field`, **extension members** and null-conditional assignment, it brings implicit conversions between arrays, `Span<T>` and `ReadOnlySpan<T>`, `nameof` on unbound generic types (`nameof(List<>)`), modifiers such as `out` on lambda parameters without declared types, partial constructors and events, and user-defined compound assignment operators. C# 15 ships with .NET 11, an STS release at release candidate 2 since October 13, 2026 and supported from November 10, 2026. Its documentation lists union types, `closed` class hierarchies (a `switch` that handles every derived type needs no default arm), extension indexers, arguments in collection expressions (`[with(capacity: 100), ..items]`), labeled `break` and `continue`, and the first step of new memory-safety rules for unsafe code. [The appendix](#appendix-net-version-comparison-cheat-sheet) has the full version timeline.
-
-## Bringing It Together
-
-C#'s surface features rest on a small number of mechanisms. The value/reference divide governs copying, boxing and equality; a virtual call is resolved at run time through the object's method table, while a non-virtual call, an operator and an extension method are fixed at compile time by the declared type; generics give reuse without boxing; records generate the equality a class doesn't have; nullable annotations are checked only where the compiler can see. Delegates, closures, extension methods and iterators combine into LINQ, which is lazy because its operators are iterators and translatable because `IQueryable<T>` takes expression trees. `Dispose` exists because the GC manages memory and nothing else. The modern syntax layered on top (records, patterns, primary constructors, collection expressions) is not cosmetic: each one states an intent, such as immutability or exhaustiveness, that the compiler can check.
-
-With these mechanisms you stop guessing: you know, before you run the profiler, which line boxes, which query hits the database twice and which struct is copied defensively. The rest of the book builds on that.
 
 ## Prove it
 

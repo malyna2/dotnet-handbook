@@ -1,8 +1,8 @@
 # Chapter 7: Data Access
 
-Almost every non-trivial application is, underneath its features, a machine for moving data in and out of a database safely and quickly. Flawless business logic doesn't survive a data layer that fires a thousand queries where one would do, scans an index it was meant to seek, or loses one user's update under another's. This chapter makes you able to write and review data access that sends the SQL you expect: you will read a query's actual plan and say why each index operator seeks or scans, write EF Core queries whose round trips you can count before running them, and protect a row against lost updates.
+Flawless business logic doesn't survive a data layer that fires a thousand queries where one would do, scans an index it was meant to seek, or loses one user's update under another's.
 
-The order runs from the database up. The schema and SQL come first (normalization; querying with joins, grouping, NULL logic, subqueries and window functions; indexes, execution plans, transactions), because EF Core generates SQL and you can only judge its output once you can read it. Then EF Core itself: change tracking, loading related data and the N+1 problem, projections, bulk writes and cascades, and the lifetime of a `DbContext`. Concurrency builds on both: a concurrency token is a column in the `UPDATE`'s `WHERE`. Raw SQL and Dapper cover the queries an ORM shouldn't write, caching the queries you shouldn't run at all, and migrations how the schema changes in a pipeline. Part 2 goes further in [Chapter 18: Data in Depth](#chapter-18-data-in-depth): compiled queries, bulk inserts, PostgreSQL's planner, Redis, NoSQL and scaling.
+Part 2 goes further in [Chapter 18: Data in Depth](#chapter-18-data-in-depth): compiled queries, bulk inserts, PostgreSQL's planner, Redis, NoSQL and scaling.
 
 ## Database Design and Normalization
 
@@ -11,8 +11,6 @@ Good schema design prevents whole classes of bugs. **Normalization** is the disc
 - **First Normal Form (1NF):** every column holds a single atomic value — no comma-separated lists, no repeating groups. One phone number per column, or a related table for many.
 - **Second Normal Form (2NF):** 1NF plus every non-key column depends on the *whole* primary key (relevant to composite keys). No column should depend on just part of the key.
 - **Third Normal Form (3NF):** 2NF plus no non-key column depends on another non-key column (no *transitive* dependencies). If you store `CustomerId` and also `CustomerCity`, the city depends on the customer, not the order — move it out.
-
-The intuition: **one fact, one place.** When a customer changes their city, you want to update one row, not hunt down every order that duplicated it. Duplication is how databases drift into inconsistency.
 
 **Foreign keys and constraints** are the database enforcing your rules so bad data cannot exist regardless of application bugs:
 
@@ -37,7 +35,7 @@ Normalization optimizes for correct writes; it can make reads slower by requirin
 
 ## SQL Fundamentals
 
-Every ORM call ends as SQL, so the SQL comes first: what a join, a grouping or a window function returns and where NULL changes the answer, how an index finds rows, how the plan shows which way it found them, and what a transaction guarantees. A senior developer reads the generated SQL and the execution plan, not just the C#.
+Every ORM call ends as SQL. A senior developer reads the generated SQL and the execution plan, not just the C#.
 
 ### Joins
 
@@ -302,7 +300,7 @@ A predicate can seek only if it is **sargable**: it compares the stored column i
 >
 > On SQL Server 2022 CU27 (16.0.4295.3, 200,000 rows, 4 vCPU, warm cache), the `nvarchar` parameter cost an Index Scan and 888 logical reads, the `varchar` one an Index Seek and 3; under a Windows collation the `nvarchar` parameter also read 3 ([`seek-vs-scan.txt`](https://github.com/malyna2/dotnet-handbook/blob/main/verify/path/reference-runs/seek-vs-scan.txt), [`collation.txt`](https://github.com/malyna2/dotnet-handbook/blob/main/verify/path/reference-runs/collation.txt)). The fix is a parameter of the column's type: in EF Core, `.IsUnicode(false).HasMaxLength(100)` on the property (`ToQueryString()` then shows `DECLARE @email varchar(100)` instead of `nvarchar(4000)`); in Dapper, `new DbString { Value = email, IsAnsi = true, Length = 100 }`; in ADO.NET, `SqlDbType.VarChar`. Or make the column `nvarchar`, so both sides agree.
 
-Reading plans is a skill worth acquiring properly rather than by pattern-matching, and it is easiest to learn on PostgreSQL, whose `EXPLAIN` output is plain text and tells you both what it *expected* and what actually *happened*. [Chapter 18: Data in Depth](#chapter-18-data-in-depth) reads it line by line, and [Chapter 19](#chapter-19-the-slow-query-lab-reading-execution-plans) is the hands-on lab.
+Plans are easiest to learn on PostgreSQL, whose `EXPLAIN` output is plain text and tells you both what it *expected* and what actually *happened*. [Chapter 18: Data in Depth](#chapter-18-data-in-depth) reads it line by line, and [Chapter 19](#chapter-19-the-slow-query-lab-reading-execution-plans) is the hands-on lab.
 
 ### Transactions and ACID
 
@@ -349,7 +347,7 @@ A deadlock occurs when transaction A holds a lock B needs, while B holds a lock 
 
 ## Entity Framework Core: The Object-Relational Mapper
 
-With the SQL in view, the ORM on top of it. An ORM's job is to bridge two worlds that think differently. Your C# code thinks in objects, references, and collections. A relational database thinks in tables, rows, and foreign keys. EF Core translates between them. The danger is that the translation is *so* smooth you forget it is happening — and every performance problem in EF comes from forgetting that a property access or a `foreach` might quietly become a database round trip.
+An ORM's job is to bridge two worlds that think differently. Your C# code thinks in objects, references, and collections. A relational database thinks in tables, rows, and foreign keys. EF Core translates between them. The danger is that the translation is *so* smooth you forget it is happening — and every performance problem in EF comes from forgetting that a property access or a `foreach` might quietly become a database round trip.
 
 ### DbContext and Change Tracking
 
@@ -643,8 +641,6 @@ catch (DbUpdateConcurrencyException)
 }
 ```
 
-> **Best practice:** Prefer optimistic concurrency for typical web apps — it scales because it holds no locks. Reserve pessimistic locking for genuinely high-contention hotspots.
-
 > **Pay attention.** **The window a concurrency token covers.** EF Core puts the token's *original* value, the one this context read, into the `WHERE`. The sample above therefore guards only the milliseconds between its own `Single` and `SaveChanges`. A web edit has a far longer window. The user's form was built from version 1; someone else saved version 2; the save handler loads the product again, gets version 2, copies the form onto it, and its `UPDATE … WHERE RowVersion = <version 2>` matches one row. Nothing throws, and the other user's change is gone. The fix is to make the original value the one the user saw: send the row version with the form (or as an `ETag`) and set it before saving.
 
 ```csharp
@@ -665,9 +661,7 @@ catch (DbUpdateConcurrencyException)
 
 A **view** is a saved query you can select from like a table — useful for encapsulating a complex join or presenting a simplified shape. A **stored procedure** is precompiled SQL logic living in the database, callable by name.
 
-Raw SQL — via stored procs, `FromSqlRaw`, or Dapper — is justified when: the query is too complex or too performance-critical for LINQ to express well; you need database-specific features EF does not surface; or you are doing bulk set-based operations (updating a million rows in one statement rather than loading and tracking them).
-
-> **Note:** For the *bulk write* case you usually no longer need raw SQL: `ExecuteUpdate`/`ExecuteDelete` ([Set-Based Updates and Deletes](#set-based-updates-and-deletes-executeupdate-and-executedelete)) issue one set-based statement without loading or tracking. Reserve raw SQL for genuinely complex queries or provider-specific features.
+Raw SQL — via stored procs, `FromSqlRaw`, or Dapper — is justified when: the query is too complex or too performance-critical for LINQ to express well, or you need database-specific features EF does not surface. Bulk writes no longer need it: `ExecuteUpdate`/`ExecuteDelete` ([Set-Based Updates and Deletes](#set-based-updates-and-deletes-executeupdate-and-executedelete)) issue one set-based statement.
 
 ```csharp
 // EF calling raw SQL while staying in the entity model
@@ -803,8 +797,6 @@ That `GetOrCreateAsync` above is cache-aside in one call. It is simple and robus
 
 ### Invalidation and Stampede
 
-> "There are only two hard things in computer science: cache invalidation and naming things." — Phil Karlton
-
 **Invalidation** is deciding when cached data is stale. Two broad strategies: **expiration** (time-based — simple, but serves stale data for up to the TTL) and **explicit eviction** (remove the key when the underlying data changes — accurate, but you must remember every place that writes). Most systems combine both: evict on write, and set a TTL as a safety net for the writes you missed.
 
 A **cache stampede** (or "dog-pile") happens when a popular key expires and hundreds of concurrent requests all miss simultaneously, all hammering the database at once to rebuild it — potentially overwhelming it exactly when traffic is highest. Defences include a **lock** so only one request rebuilds while others wait, **early/probabilistic refresh** (rebuild slightly before expiry), and serving slightly stale data during a refresh.
@@ -831,14 +823,6 @@ The strategic question is *when* migrations run in your pipeline. Options:
 - **Standalone migration tools — DbUp or Flyway** — apply plain, hand-written, ordered SQL scripts. Teams that want full control over the exact SQL (and want DBAs to review it) often prefer these over EF's generated migrations. **DbUp** is a .NET library; **Flyway** is a language-agnostic tool. Both track applied scripts in a metadata table, just like EF.
 
 > **Best practice:** Make schema changes **backward compatible** so the old and new app versions can run against the new schema at once during a rolling deploy. Add a nullable column now; make it required in a *later* migration after all code writes to it. This "expand then contract" approach lets you deploy schema and code independently with zero downtime; [Chapter 18](#migrations-at-scale-zero-downtime) does it on tables too big to lock.
-
-## Summary
-
-The database is not a black box. Normalization keeps each fact in one place, and constraints keep bad data out whatever the application does. A query's clauses run in a fixed logical order, a join pairs rows and pads the misses with NULLs, and a comparison with NULL is unknown: most wrong query results come from forgetting one of the three. An index is a sorted copy of some columns, so a query seeks only when its predicate pins a leftmost prefix with values the index stores; the actual plan and its logical reads show whether it did. A transaction makes a group of statements all-or-nothing, and its isolation level decides what concurrent transactions see.
-
-EF Core is a productivity multiplier only if you know the SQL it sends: tracking only where you save, related rows in one round trip through `Include` or a projection, one short-lived `DbContext` per request, set-based statements for bulk writes, and a concurrency token whose original value is the one the user saw. Raw SQL and Dapper take the queries LINQ expresses badly, caching removes load you understand, and expand-then-contract migrations let the schema change under a running system. The question to keep asking is *what is actually happening at the database, and is it the least work required to be correct?*
-
-> **Capstone tie-in:** This chapter is exercised by ShopCore Steps 1 (The Honest Monolith) and 7 (Split Into Microservices) — you'd model products, carts, and orders with EF Core and PostgreSQL, creating the schema from migrations, and later add a transactional outbox table. See [Chapter 44](#chapter-44-capstone-one-project-growing-up).
 
 ## Prove it
 

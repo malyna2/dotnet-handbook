@@ -1,10 +1,10 @@
 # Chapter 43: Positioning and Public Proof
 
-The five chapters before this one are about being an advisor *inside* an engagement: having a point of view ([Chapter 38](#chapter-38-having-a-point-of-view)), diagnosing before prescribing ([Chapter 39](#chapter-39-discovery-and-diagnosis)), running an assessment ([Chapter 40](#chapter-40-lab-the-net-health-check)), turning it into a proposal ([Chapter 41](#chapter-41-recommendations-proposals-and-estimates)), and handling the situations that go wrong ([Chapter 42](#chapter-42-the-advisory-casebook)). This chapter is about what happens *before* the engagement: why a client, or the agency that places you, would think of you as an expert before you have said a word in the meeting — and, when you do get the meeting, how to pass the interview the end client runs.
+Chapters 38–42 are about being an advisor *inside* an engagement. This chapter is about what happens *before* the engagement: why a client, or the agency that places you, would think of you as an expert before you have said a word in the meeting — and, when you do get the meeting, how to pass the interview the end client runs.
 
 That reputation is built from two things. **Positioning** is a short, specific claim about who you help and with what. **Public proof** is evidence of that claim that a stranger can check without asking you. Together they change the buyer's question from "which of these five CVs is cheapest?" to "is this the person who writes about exactly our problem?"
 
-[Chapter 37](#chapter-37-the-story-bank-evidence-portfolio) built the private side: a story bank, a brag doc, evidence-backed CV bullets and a public portfolio repo. That chapter is about getting *hired*. This one reuses the same material to get *chosen*: by a client comparing specialists, by an agency's sales team deciding whom to put forward, and by people in a community who mention your name when you are not in the room.
+[Chapter 37](#chapter-37-the-story-bank-evidence-portfolio) built the private side. That chapter is about getting *hired*. This one reuses the same material to get *chosen*: by a client comparing specialists, by an agency's sales team deciding whom to put forward, and by people in a community who mention your name when you are not in the room.
 
 ```
             Chapter 37 (hired)                     Chapter 43 (chosen)

@@ -1,8 +1,6 @@
 # Chapter 26: Delivery and Platform
 
-Part 1 taught you to build, test and containerize one service ([Chapter 13: Git and CI/CD](#chapter-13-git-and-cicd), [Chapter 14: Containers and Linux](#chapter-14-containers-and-linux)). This chapter is about everything between that image and a user, and about doing it for many services and many teams. It makes you able to run a .NET service on a VM or a Kubernetes cluster and know what each probe, limit and manifest does; to read and fix an Azure Pipelines build and promote one artifact through gated environments; to release safely with rolling, blue-green and canary deployments and feature flags; to put the right box in front of your servers and defend it against traffic that is trying to hurt you; and to judge a platform team and its delivery metrics.
-
-The sections follow the path of a release. First the contract a service must honour to run anywhere — the twelve factors — then where it runs: a Linux VM under systemd, then Kubernetes with its manifests, Helm and Kustomize, a service mesh, and .NET Aspire for the inner loop. Then how changes get there: Azure Pipelines, NuGet, deployment strategies and feature flags. Then the edge between users and your servers: load balancers, reverse proxies, CDNs, rate limiting, and abuse traffic. Last, the organizational layer above all the machinery: platform engineering, and how to measure delivery without destroying the measurement.
+Part 1 taught you to build, test and containerize one service ([Chapter 13: Git and CI/CD](#chapter-13-git-and-cicd), [Chapter 14: Containers and Linux](#chapter-14-containers-and-linux)). This chapter is about everything between that image and a user, and about doing it for many services and many teams.
 
 ## The 12-Factor App
 
@@ -29,10 +27,6 @@ Four of these carry the .NET-specific weight:
 - **Statelessness + backing services (4, 6).** Nothing persisted in local memory or disk between requests; sessions and caches live in attached resources. This is the precondition for horizontal scaling (8).
 - **Disposability (9).** Handle `SIGTERM`, finish in-flight work, release resources — the generic host's [graceful-shutdown pipeline](#processes-signals-graceful-shutdown) exists for this; it is what makes rolling deploys and elastic scaling safe.
 - **Logs (11).** Structured logs to stdout ([Chapter 9](#chapter-9-exceptions-logging-and-first-diagnosis)); the platform aggregates. An app managing its own log files fights every orchestrator it runs under.
-
-> **Why this matters for a senior .NET dev:** these factors are the contract that makes an app cloud-native. Violate them and no amount of Kubernetes will save you.
-
-The simplest place to honour those factors is a single Linux machine. Containers are the usual target today, but plenty of .NET services still run on plain VMs, and the mechanics are worth knowing either way.
 
 ## systemd: Running a .NET App as a Service
 
@@ -109,9 +103,7 @@ exit 1
 
 Key ideas: the **shebang** picks the interpreter; **`set -euo pipefail`** is the single most important line for robust scripts (fail fast, fail loud); `$VAR` reads variables; the `for` loop with `curl -sf` (silent, fail-on-error) polls the health endpoint; a non-zero `exit` tells CI the deploy failed.
 
-> **Best practice:** Start every non-trivial script with `set -euo pipefail`. Without it, a failed command in the middle is silently ignored and the script marches on, often making things worse. This one line turns sloppy scripts into safe ones.
-
-A VM and a restart policy carry one machine. A fleet needs something that decides where each process runs and keeps it running.
+> **Best practice:** Start every non-trivial script with `set -euo pipefail`. Without it, a failed command in the middle is silently ignored and the script marches on, often making things worse.
 
 ## Kubernetes Fundamentals
 
@@ -135,8 +127,6 @@ Each **worker node** runs:
 - **kubelet** — the node's agent. It talks to the API server, starts the containers assigned to its node, and reports their health back.
 - **Container runtime** — the software that actually runs containers (containerd, CRI-O).
 - **kube-proxy** — programs the node's networking so that Service traffic reaches the right pods.
-
-> **Analogy:** The control plane is a shipping company's dispatch office; the nodes are the trucks. You file a shipping order (a manifest) with dispatch (the API server). Dispatch records it (etcd), assigns it to a truck (scheduler), and the driver (kubelet) carries it out. If a truck breaks down, dispatch reassigns its load to another truck — you never had to know which truck.
 
 ### The core objects, from smallest to largest
 
@@ -164,7 +154,7 @@ Each **worker node** runs:
 
 ## Kubernetes YAML for a .NET Deployment
 
-Let's deploy the API. We'll define a ConfigMap, a Secret, a Deployment, and a Service. Kubernetes manifests are declarative YAML; you apply them with `kubectl apply -f`.
+The manifests below define a ConfigMap, a Secret, a Deployment and a Service for the API; apply them with `kubectl apply -f`.
 
 ```yaml
 # configmap.yaml
@@ -422,11 +412,7 @@ Run it, and Aspire starts your projects, spins up Postgres and Redis in containe
 
 > **Where Aspire fits:** it is primarily a **development-time and composition** layer that nudges you toward 12-Factor practices. It is *not* itself a production runtime, nor a service mesh. For a team building a modular monolith or a handful of services, it dramatically lowers the friction of doing distributed .NET *well*.
 
-> **Best practice:** Use Aspire to make local multi-service development pleasant and observable, and to standardize resilient, instrumented client configuration across services. Still learn Kubernetes and its manifests — that's where your app ultimately runs, and Aspire complements that knowledge rather than replacing it.
-
 > **Capstone tie-in:** The sections so far are exercised by ShopCore Steps 3 (Dockerize) and [8 (Deploy with Infrastructure as Code)](#step-8-deploy-with-infrastructure-as-code) in [Chapter 44](#chapter-44-capstone-one-project-growing-up) — you'd package the API with a multi-stage Dockerfile and Compose, then run the services on a managed Kubernetes cluster or cloud container service.
-
-That is where a service runs. The next sections are how a change gets there: the pipeline that builds and promotes it, the packages it depends on, and the strategies that replace the running version without users noticing.
 
 ## Azure Pipelines in Practice
 
@@ -690,7 +676,7 @@ The pragmatic middle ground is common and works well: keep the code and pull-req
 
 ## NuGet in Depth
 
-NuGet is .NET's package manager. As a senior engineer you should be comfortable on both sides: consuming packages and producing them.
+NuGet is .NET's package manager.
 
 **Consuming.** `PackageReference` items in a `.csproj` declare dependencies. `dotnet restore` reads them, resolves the dependency graph, and downloads packages into the global cache. Adding a lock file (`RestorePackagesWithLockFile` true) produces `packages.lock.json`, pinning the exact resolved versions so CI restores are deterministic and reproducible—which also makes your cache keys stable.
 
@@ -768,11 +754,9 @@ Flags are configured externally—`appsettings.json`, Azure App Configuration, o
 
 > **Pitfall:** Feature flags are debt if you never remove them. A codebase littered with stale flags becomes an unreadable maze of dead branches. Track flags and delete both the flag and the losing code path once a feature is fully rolled out and stable.
 
-A released version still sits behind a stack of infrastructure before any user reaches it — and in front of every user who should not.
-
 ## Load Balancers, Reverse Proxies, API Gateways, and CDNs
 
-Between your users and your servers sits a stack of infrastructure whose job is to distribute, protect, and accelerate traffic. Senior engineers need to know what each box does.
+Between your users and your servers sits a stack of infrastructure whose job is to distribute, protect, and accelerate traffic.
 
 ### Load Balancers: L4 vs L7
 
@@ -987,7 +971,7 @@ Then choose your priority order in advance, because you will not design it well 
 
 ## Platform Engineering and Measuring Delivery
 
-Everything so far in this chapter is machinery: pipelines, artifacts, gates, secrets, clusters, proxies. This section is about the two questions that sit above the machinery and get asked of senior engineers rather than of pipelines — **who builds and owns this for everyone?** and **how do we know any of it is working?**
+Two questions sit above the machinery and get asked of senior engineers rather than of pipelines: **who builds and owns this for everyone?** and **how do we know any of it is working?**
 
 ### The problem platform engineering exists to solve
 

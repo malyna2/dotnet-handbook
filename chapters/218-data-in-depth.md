@@ -1,12 +1,12 @@
 # Chapter 18: Data in Depth
 
-[Chapter 7](#chapter-7-data-access) made you able to use EF Core and SQL correctly inside one service: tracking, loading, projections, indexes, isolation levels, caching and migrations. This chapter is what comes after: making one database fast when the obvious levers are already pulled, and then deciding what to do when one database is no longer enough. It makes you able to read a PostgreSQL plan and fix the mechanism behind it, design a Redis cache that fails as a slowdown rather than an outage, and choose between replicas, sharding and tenant isolation with the cost of each spelled out.
+This chapter starts where [Chapter 7](#chapter-7-data-access) stops: making one database fast when the obvious levers are already pulled, and then deciding what to do when one database is no longer enough.
 
-The sections run from one query to the whole fleet. First the depth of the single node: EF Core's remaining performance tools (pagination, compiled queries, bulk loads), PostgreSQL's storage model, indexes and plans, and Redis in practice. Then scale, ordered from least to most invasive: scaling up, read replicas, connection pooling under load, partitioning and sharding, zero-downtime migrations, change data capture, polyglot persistence, and finally multi-tenancy, where both pressures meet. Both halves come down to the same question: *where does the data live, and who is allowed to touch it?* [Chapter 19](#chapter-19-the-slow-query-lab-reading-execution-plans) is the hands-on lab for the plan-reading half.
+[Chapter 19](#chapter-19-the-slow-query-lab-reading-execution-plans) is the hands-on lab for the plan-reading half.
 
 ## Entity Framework Core: The Object-Relational Mapper — in depth
 
-Entity Framework Core is where business services most often bleed performance, because one innocent line of C# can generate a catastrophic SQL pattern. [Chapter 7](#chapter-7-data-access) covers the levers that fix most of it: `AsNoTracking`, projection to DTOs, killing the N+1 with `Include` or a projection, split queries, and `ExecuteUpdate`/`ExecuteDelete`. Three more matter once those are in place.
+Entity Framework Core is where business services most often bleed performance, because one innocent line of C# can generate a catastrophic SQL pattern. [Chapter 7](#chapter-7-data-access) covers the levers that fix most of it. Three more matter once those are in place.
 
 > **Best practice.** Log and inspect the actual SQL EF generates (`LogTo`, or a profiler) before changing anything. Most EF performance problems are invisible in C# and obvious the moment you see the SQL.
 
@@ -96,7 +96,7 @@ Libraries such as **EFCore.BulkExtensions** and **linq2db.EntityFrameworkCore** 
 
 ## PostgreSQL in Practice: Indexes and Query Plans
 
-[Chapter 7](#chapter-7-data-access)'s SQL is engine-agnostic. PostgreSQL is now the default relational database for new .NET services, and it differs from SQL Server in ways that change how you index and how you diagnose a slow query. The good news is that Postgres will tell you exactly what it did, in plain text, if you know how to ask.
+[Chapter 7](#chapter-7-data-access)'s SQL is engine-agnostic. PostgreSQL is now the default relational database for new .NET services, and it differs from SQL Server in ways that change how you index and how you diagnose a slow query.
 
 ### The Storage Model That Explains Everything Else
 
@@ -258,7 +258,7 @@ Finally, three mapping choices that prevent whole categories of problem: store t
 
 ## Caching — in depth
 
-[Chapter 7](#chapter-7-data-access) teaches the basics: `IMemoryCache` against `IDistributedCache`, cache-aside, invalidation, stampedes and HybridCache. The senior judgment on top is *when* to cache at all: data that is **read far more than written** and **tolerates some staleness** (reference data, computed aggregates, rendered fragments). Rapidly changing, per-user-critical or must-be-consistent data is not a cache candidate, and every cache needs an expiry, a size bound and a story for how stale data gets refreshed. The rest of this section is what it takes to run the shared tier, Redis, well.
+[Chapter 7](#chapter-7-data-access) teaches the basics. The senior judgment on top is *when* to cache at all: data that is **read far more than written** and **tolerates some staleness** (reference data, computed aggregates, rendered fragments). Rapidly changing, per-user-critical or must-be-consistent data is not a cache candidate, and every cache needs an expiry, a size bound and a story for how stale data gets refreshed.
 
 ### Redis in Practice: Key Design, Data Types, and Eviction
 
@@ -325,15 +325,11 @@ Configure ASP.NET Core sessions to use the distributed cache and any instance ca
 
 For most of a system's life, a single well-tuned database is enough. You add indexes, you cache the hot paths, you buy a bigger machine, and the graphs stay green. Then one day they don't. The write-ahead log can't flush fast enough, a nightly report locks a table that customers need, connections pile up faster than the pool can hand them out, and your biggest customer's traffic starts starving everyone else. Scaling data is the art of pushing that day as far into the future as possible, and knowing what to do when it finally arrives.
 
-There are only two directions you can scale, and the choice colors every decision that follows.
-
 **Vertical scaling** (scaling *up*) means giving one machine more resources: more CPU cores, more RAM, faster NVMe disks. It is gloriously simple. Your application doesn't change, your transactions stay ACID, your joins still work. The ceiling is real, though — the biggest cloud database instance is finite, and the price curve is exponential. Doubling from a medium box to a large one is cheap; doubling from the largest box to *twice that* is impossible at any price.
 
 **Horizontal scaling** (scaling *out*) means adding more machines and spreading the load across them. The ceiling is effectively unbounded, but you pay for it in complexity: data now lives in more than one place, and the comforting guarantees of a single node — a global transaction, a cheap join, a unique index — start to fray.
 
 > **Best practice:** Scale *up* until it genuinely hurts before you scale *out*. A single Postgres instance on modern hardware can serve enormous workloads. Horizontal scaling is a one-way door that permanently raises your operational complexity; walk through it deliberately, not reflexively.
-
-The sections that follow are a tour of horizontal-scaling techniques, ordered roughly from least to most invasive.
 
 ## Scaling Reads with Replication
 
@@ -420,8 +416,6 @@ The shard key is the most consequential choice in the whole design, because it d
 
 That third point is the crux. In a multi-tenant SaaS, `TenantId` is often the ideal shard key: virtually every query is already scoped to one tenant, so it naturally lands on one shard. Shard by the wrong key and your most common query becomes a **scatter-gather** across every shard.
 
-> **Best practice:** Pick the shard key by looking at your *read* patterns, not your data model. The question is not "how is this data structured?" but "what does 95% of my traffic filter by?"
-
 ### The Pain: Cross-Shard Queries, Joins, and Transactions
 
 Once data is split, three things that used to be free become expensive or impossible:
@@ -474,8 +468,6 @@ The relay can poll the outbox table — or, elegantly, **CDC can read the outbox
 
 So how do outbox and CDC relate? The outbox is *your application deliberately writing events you designed*; CDC is *infrastructure capturing raw row changes*. Use the **outbox** when you want clean, intentional domain events with a stable contract. Use **raw CDC** when you want to replicate or react to table changes without touching the application — for example, feeding a data warehouse. They compose beautifully: CDC is often the *transport* for outbox rows.
 
-> **Best practice:** Never dual-write to a database and a message broker in application code hoping both succeed. Use the outbox pattern so the event and the state change share one transaction, then ship the events with CDC or a relay.
-
 ## NoSQL and Polyglot Persistence
 
 No single database is good at everything, and some data shapes fit other models better than tables:
@@ -487,8 +479,6 @@ No single database is good at everything, and some data shapes fit other models 
 **Polyglot persistence** means using the right store for each job: Postgres for transactional integrity, Elasticsearch for full-text search, Redis for ephemeral session data, a columnar warehouse for analytics, a graph database for relationship queries. CDC is the glue that keeps these stores in sync from a single source of truth.
 
 The same idea, applied to one service's own data, is a **CQRS read store** ([Chapter 21](#chapter-21-architecture) teaches the pattern): writes go to a normalized transactional model, reads are served from stores shaped exactly for how they are queried (pre-joined, denormalized, indexed for one screen), kept up to date asynchronously, often from the same event or CDC stream. You accept eventual consistency in exchange for read models that are fast and don't compete with writes. And under all of it sit the caching layers (in-process, Redis, HTTP and CDN at the edge); CDC can drive precise cache invalidation too, by streaming the exact rows that changed.
-
-> **Rule of thumb.** Choose storage by access pattern, not by hype. Most systems are polyglot: a relational database as the source of truth, Redis for caching, Elasticsearch for search. NoSQL is a specialization, not a replacement.
 
 ## Multi-Tenancy
 

@@ -1,10 +1,10 @@
 # Chapter 12: Security Essentials
 
-Security is not a feature you bolt on at the end of a sprint. It is a property of a system that emerges from thousands of small decisions: how you parse input, where you store a connection string, which overload of a crypto API you call, and whether you trusted a value that came from the network. This chapter makes you able to write and review an endpoint so that it checks who the caller is and what this caller may do to *this* record, treats every input as data, keeps secrets out of the repository, and doesn't carry one of the handful of configuration lines that quietly switch a defence off.
+Security is a property of a system that emerges from thousands of small decisions: how you parse input, where you store a connection string, which overload of a crypto API you call, and whether you trusted a value that came from the network.
 
 One rule runs under every section: **the server trusts only what it verifies itself, on every request.** The caller's identity comes from a credential it validates, access is decided per resource, and input is only ever data, never code. Each trap in the chapter is a place where something unverified gets trusted.
 
-The sections build from the mindset to the machinery. First the four decision rules, then authentication and authorization as ASP.NET Core wires them, then the OWASP Top 10 as the map of what goes wrong, each with its .NET mitigation. Then the parts you will configure yourself: OAuth 2.0, OpenID Connect and JWT validation, identity providers, secrets, the cryptography you use (hashing, encryption, Data Protection), TLS from the handshake to HSTS, the browser-facing defences, and dependency scanning. Workload identity, zero trust, the depth of cryptography and the software supply chain continue in [Chapter 27: Security in Depth and the Supply Chain](#chapter-27-security-in-depth-and-the-supply-chain).
+Workload identity, zero trust, the depth of cryptography and the software supply chain continue in [Chapter 27: Security in Depth and the Supply Chain](#chapter-27-security-in-depth-and-the-supply-chain).
 
 ## The Security Mindset
 
@@ -22,8 +22,6 @@ Four principles, used as decision procedures when the "how" is unclear:
 
 ## Authentication vs. Authorization
 
-The mindset becomes concrete at the first question every request raises: who is calling, and may they do this?
-
 - **Authentication (AuthN)** answers *"Who are you?"* — it establishes and verifies identity. Logging in with a password, presenting a certificate, or validating a JWT are authentication. In ASP.NET Core it produces a `ClaimsPrincipal`.
 - **Authorization (AuthZ)** answers *"What are you allowed to do?"* — it decides whether an already-identified principal may perform an action. Checking a role, a scope, or resource ownership is authorization.
 
@@ -35,8 +33,6 @@ Authentication always comes first; you cannot authorize an unknown principal. In
 app.UseAuthentication(); // figures out WHO — populates HttpContext.User
 app.UseAuthorization();  // figures out WHAT — enforces [Authorize] policies
 ```
-
-A `401 Unauthorized` means "I don't know who you are" (authentication failed). A `403 Forbidden` means "I know who you are, but you can't do this" (authorization failed). Despite its name, `401` is about authentication.
 
 **Which authentication scheme.** For APIs, the dominant scheme is **JWT bearer tokens**: the client sends `Authorization: Bearer <token>`, and the server validates a signed set of claims without a lookup (configured in *Validating JWTs Correctly* below). For server-rendered apps, **cookie authentication** stores an encrypted session identifier in a cookie. For delegated identity — "log in with Google/Microsoft/your corporate IdP" — you configure `.AddOpenIdConnect(...)` and let the middleware handle the redirect dance of the flows described under *OAuth 2.0, OpenID Connect, and JWTs*. The design rule: your API should *trust tokens from a known issuer*, not manage passwords itself.
 
@@ -94,8 +90,6 @@ public async Task<IActionResult> GetInvoice(int id)
 ```
 
 > **Pitfall:** Returning `403 Forbidden` for a resource the user doesn't own leaks its existence. Prefer `404` for cross-tenant access so attackers can't enumerate valid IDs.
-
-For anything beyond trivial checks, use ASP.NET Core's resource-based authorization (`IAuthorizationService.AuthorizeAsync`) so the ownership logic lives in a reusable handler rather than being copy-pasted into every action.
 
 > **Pay attention.** **Why `[Authorize]` can't stop an IDOR.** Attributes and endpoint policies run before the action, against the principal and the route, and the record hasn't been loaded yet. They can answer "may this caller use this endpoint?", never "does invoice 1005 belong to this caller?", because ownership is a column of the row. So the check has to sit where the row is: in the query itself (`Where(i => i.Id == id && i.OwnerId == userId)`, or an EF Core global query filter on the tenant), or in a resource-based check after loading. A query that filters by owner can't forget the check on the next endpoint that loads the same entity.
 
@@ -200,7 +194,7 @@ Your server fetches a URL supplied by the user, and an attacker points it at int
 
 ## OAuth 2.0, OpenID Connect, and JWTs
 
-Modern applications rarely handle passwords directly. Instead they delegate to an identity provider using **OAuth 2.0** (an authorization framework) and **OpenID Connect** (an authentication layer on top of OAuth). Understanding the roles and flows is essential.
+Modern applications rarely handle passwords directly. Instead they delegate to an identity provider using **OAuth 2.0** (an authorization framework) and **OpenID Connect** (an authentication layer on top of OAuth).
 
 The actors: the **resource owner** (the user), the **client** (your app), the **authorization server** (the IdP that issues tokens), and the **resource server** (your API that accepts tokens).
 
@@ -434,8 +428,6 @@ Here is a **TLS 1.3** handshake, the modern default, which is faster than its pr
 3. **Certificate** — The server sends its **X.509 certificate**, which binds its domain name to a public key and is signed by a **Certificate Authority (CA)** the client trusts. The client verifies the signature chain up to a trusted root in its store, checks the domain matches, and checks expiry/revocation.
 4. **Finished** — Both sides confirm they derived the same keys. From here, all application data is encrypted with fast **symmetric** encryption (e.g., AES-GCM).
 
-The elegant trick: **asymmetric** cryptography (slow) is used only to authenticate and to agree on a shared secret; then **symmetric** cryptography (fast) does the bulk encryption. You get the security of public-key crypto with the speed of symmetric ciphers.
-
 **TLS 1.3** also supports **0-RTT resumption**, where a returning client can send data in its very first packet — great for latency, but 0-RTT data is vulnerable to replay, so never use it for non-idempotent requests.
 
 Step 3 is the only thing that tells the client it isn't talking to an attacker in the middle. That is why disabling certificate validation is never a fix:
@@ -460,8 +452,6 @@ app.UseHsts(); // production only
 Use modern TLS (1.2 minimum, prefer 1.3), and automate certificate issuance and renewal (Let's Encrypt / ACME, or your cloud's managed certificates).
 
 ## Web-Facing Defenses
-
-Beyond the fundamentals, the browser threat model demands specific defenses.
 
 ### Input Validation and Output Encoding
 
@@ -558,12 +548,6 @@ Wire this into CI so a build *fails* when a vulnerable package appears, rather t
 Scanning tells you about *known* vulnerabilities in packages you already trust. It says nothing about a package that was deliberately backdoored last night, about your build system being modified after the source was clean, or about proving to a customer what went into the binary you shipped them. That wider problem — the packages you consume, the build that assembles them, and the artifacts you publish — is the subject of [Chapter 27: Security in Depth and the Supply Chain](#chapter-27-security-in-depth-and-the-supply-chain).
 
 > **Capstone tie-in:** This chapter is exercised by ShopCore Step 5 (Caching, Auth, and Observability) — you'd add JWT authentication and role-based authorization so only authenticated users check out and only admins mutate the catalog. See [Chapter 44](#chapter-44-capstone-one-project-growing-up).
-
-## Summary
-
-Security is a discipline of layered, deliberate decisions. Adopt the mindset — defense in depth, least privilege, secure by default, never trust input — and it informs every line you write. Distinguish authentication (who you are) from authorization (what you may do), and check access per resource, where the record is. Know the OWASP Top 10 as *categories* of failure and the .NET mitigation for each. Delegate identity to OAuth 2.0 / OIDC with the Authorization Code + PKCE flow, and validate JWTs on signature, algorithm, issuer, audience and lifetime — every time, without switching a check off to make a `401` go away. Keep secrets out of source and in a managed vault reached with a managed identity; hash passwords with a slow salted algorithm you didn't write; reach for `IDataProtector` instead of raw crypto; enforce TLS and never disable certificate validation; and defend the browser boundary with validation, encoding, anti-forgery tokens, tight CORS, and a strong CSP. Finally, scan your dependencies continuously — because the vulnerability you didn't write is still yours to fix.
-
-[Chapter 27: Security in Depth and the Supply Chain](#chapter-27-security-in-depth-and-the-supply-chain) takes the next step: replacing stored secrets with workload identity and short-lived tokens, zero trust between services, algorithm agility, and the software supply chain.
 
 ## Three questions
 
