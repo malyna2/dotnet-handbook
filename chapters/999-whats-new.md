@@ -2,6 +2,15 @@
 
 This page is the handbook's changelog. When a new release lands, a popup announces it on your next visit. Under each release, **Site & functionality** items are plain notes, while **Content updates** link to every chapter that changed — a link is ticked off (✓, stored locally in your browser) once you visit it, so you can work through an update at your own pace and see what's still unread.
 
+## Release — October 26, 2026
+
+**🔧 Site & functionality**
+
+- A new **Aa** button (top right) sets the theme (Auto, Light, the new warm Paper, Dark), the text size (85–160%) and the font (Sans, Wide or Serif).
+- The dark theme is now dark grey with light grey text instead of near-black with near-white, and its text is slightly larger.
+- Article text is larger by default, lines are shorter (about 66 characters), and wide code blocks and tables can grow past the text column.
+- On very wide screens the chapter list, page and outline stay together in the middle.
+
 ## Release — October 24, 2026
 
 **🔧 Site & functionality**
