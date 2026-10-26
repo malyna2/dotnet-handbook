@@ -19,7 +19,8 @@ A self-contained, responsive website for the handbook. No build step, no server,
 - **Navigation** — full chapter list grouped by Part, plus a per-page section outline (right rail on desktop) and Prev/Next pager.
 - **Search** — type in the top bar to search titles and full text.
 - **Code blocks** — syntax highlighting for C#/bash/YAML, with a Copy button.
-- **Light / dark / auto theme** — toggle with 🌓 (top right).
+- **Reading settings** — the **Aa** button (top right) sets the theme (Auto, Light, Paper, Dark), the text size (85–160%) and the font (Sans, Wide = Verdana, Serif = Georgia). Choices are remembered in `localStorage` (`theme`, `text_size`, `font`).
+- **Readable defaults** — 19px article text (18px on tablets, 17px on phones), lines of 65–70 characters, a dark grey dark theme with light grey text instead of near-black and near-white, and 5% larger text in the dark theme. Code blocks and tables can grow wider than the prose to fit their longest line, up to about 100 columns. On screens wider than 1920px, the chapter list, page and outline stay together in the middle.
 - **Reading progress bar** and scroll-spy outline.
 
 ## English / Ukrainian editions

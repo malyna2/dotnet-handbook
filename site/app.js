@@ -29,37 +29,51 @@ var UI = {
   en: {
     brand:".NET Handbook", menu:"Toggle navigation", search:"Search chapters…",
     contents:"Table of contents", outline:"On this page", language:"Switch site language",
-    ukrainian:"Ukrainian site language", theme:"Toggle light/dark",
+    ukrainian:"Ukrainian site language",
     footer:"Self-contained handbook · available offline in English and Ukrainian.",
     wnTitle:"What's new", wnOpen:"Open the What's New page", wnClose:"Got it",
     copy:"Copy", copied:"Copied!", reset:"Reset progress", resetDone:"Progress reset",
     resume:"Continue where you got to", readOrder:"Read it in order", browse:"Browse chapters",
     chapters:"chapters", chapter:"Chapter", appendix:"Appendix", previous:"← Previous",
-    next:"Next →", noResults:"No results", themeToast:"Theme: ",
+    next:"Next →", noResults:"No results",
     swipeHint:"Tip: swipe right for chapters, left for the sections of this page.",
-    dark:"dark", light:"light", auto:"auto"
+    reading:"Reading settings", theme:"Theme",
+    themeHint:"Light and Paper suit a lit room; Dark suits a dim room at night. Auto follows your device.",
+    auto:"Auto", light:"Light", paper:"Paper", dark:"Dark",
+    textSize:"Text size", smaller:"Smaller text", larger:"Larger text",
+    font:"Font", sans:"Sans", wide:"Wide", serif:"Serif"
   },
   uk: {
     brand:"Довідник .NET", menu:"Показати або приховати навігацію", search:"Шукати розділи…",
     contents:"Зміст", outline:"На цій сторінці", language:"Змінити мову сайту",
-    ukrainian:"Українська мова сайту", theme:"Змінити тему оформлення",
+    ukrainian:"Українська мова сайту",
     footer:"Самодостатній довідник · доступний українською та англійською офлайн.",
     wnTitle:"Що нового", wnOpen:"Відкрити сторінку «Що нового»", wnClose:"Зрозуміло",
     copy:"Копіювати", copied:"Скопійовано!", reset:"Скинути прогрес", resetDone:"Прогрес скинуто",
     resume:"Продовжити з місця, де зупинилися", readOrder:"Читайте послідовно", browse:"Усі розділи",
     chapters:"розділів", chapter:"Розділ", appendix:"Додаток", previous:"← Назад",
-    next:"Далі →", noResults:"Нічого не знайдено", themeToast:"Тема: ",
+    next:"Далі →", noResults:"Нічого не знайдено",
     swipeHint:"Порада: проведіть праворуч, щоб побачити розділи, і ліворуч — щоб побачити зміст цієї сторінки.",
-    dark:"темна", light:"світла", auto:"автоматична"
+    reading:"Налаштування читання", theme:"Тема",
+    themeHint:"«Світла» і «Папір» — для освітленої кімнати, «Темна» — для тьмяного світла ввечері. «Авто» повторює налаштування пристрою.",
+    auto:"Авто", light:"Світла", paper:"Папір", dark:"Темна",
+    textSize:"Розмір тексту", smaller:"Менший текст", larger:"Більший текст",
+    font:"Шрифт", sans:"Без засічок", wide:"Широкий", serif:"Із засічками"
   }
 };
 function ui(key){ return UI[language][key]; }
 function localizeShell(){
   document.documentElement.lang=language;
-  ["menuBtn", "themeBtn", "outlineBtn"].forEach(function(id){
-    var el=document.getElementById(id), label=ui(id==="menuBtn"?"menu":id==="themeBtn"?"theme":"outline");
+  ["menuBtn", "readerBtn", "outlineBtn", "sizeDown", "sizeUp"].forEach(function(id){
+    var el=document.getElementById(id);
+    var label=ui({menuBtn:"menu", readerBtn:"reading", outlineBtn:"outline", sizeDown:"smaller", sizeUp:"larger"}[id]);
     el.title=label; el.setAttribute("aria-label",label);
   });
+  document.getElementById("readerPanel").setAttribute("aria-label",ui("reading"));
+  var panelText={rpThemeLbl:"theme", rpThemeHint:"themeHint", rpSizeLbl:"textSize", rpFontLbl:"font",
+    "theme-auto":"auto", "theme-light":"light", "theme-paper":"paper", "theme-dark":"dark",
+    "font-sans":"sans", "font-wide":"wide", "font-serif":"serif"};
+  Object.keys(panelText).forEach(function(id){ document.getElementById(id).textContent=ui(panelText[id]); });
   document.getElementById("brandHome").textContent=ui("brand");
   document.getElementById("search").placeholder=ui("search");
   document.getElementById("search").setAttribute("aria-label",ui("search"));
@@ -585,16 +599,62 @@ function highlightFind(q){
   }
 }
 
-/* ---------------- Theme ---------------- */
-var themeBtn=document.getElementById("themeBtn");
-var savedTheme=readSetting("theme","auto");
-document.documentElement.setAttribute("data-theme",savedTheme);
-themeBtn.addEventListener("click",function(){
-  var cur=document.documentElement.getAttribute("data-theme");
-  var next=cur==="dark"?"light":cur==="light"?"auto":"dark";
-  document.documentElement.setAttribute("data-theme",next);
-  writeSetting("theme",next);
-  toast(ui("themeToast")+ui(next));
+/* ---------------- Reading settings: theme, text size, font ----------------
+   The Aa panel. Choices are stored locally and applied before the first page renders. The
+   size scales the article only (style.css --fs-scale); the bars, chapter list and outline keep
+   theirs. A stored value the panel does not offer falls back to the default. */
+var THEMES=["auto","light","paper","dark"], FONTS=["sans","wide","serif"];
+var SIZES=[0.85,0.9,1,1.1,1.2,1.3,1.45,1.6];
+function oneOf(value, list, fallback){ return list.indexOf(value)>=0?value:fallback; }
+var reading={
+  theme:oneOf(readSetting("theme","auto"),THEMES,"auto"),
+  font:oneOf(readSetting("font","sans"),FONTS,"sans"),
+  size:oneOf(+readSetting("text_size","1"),SIZES,1)
+};
+function applyReading(){
+  var root=document.documentElement, step=SIZES.indexOf(reading.size);
+  root.setAttribute("data-theme",reading.theme);
+  root.setAttribute("data-font",reading.font);
+  root.style.setProperty("--fs-scale",String(reading.size));
+  THEMES.forEach(function(t){ document.getElementById("theme-"+t).setAttribute("aria-pressed",String(t===reading.theme)); });
+  FONTS.forEach(function(f){ document.getElementById("font-"+f).setAttribute("aria-pressed",String(f===reading.font)); });
+  document.getElementById("sizeValue").textContent=Math.round(reading.size*100)+"%";
+  document.getElementById("sizeDown").disabled=step===0;
+  document.getElementById("sizeUp").disabled=step===SIZES.length-1;
+}
+// A new size, font, theme or language reflows the page: keep the block you were reading where it was.
+function keepReadingPlace(change){
+  var index=topBlockIndex(), block=content.children[index];
+  var offset=block?block.getBoundingClientRect().top:0;
+  change();
+  block=content.children[index];
+  if(block) window.scrollTo(0,block.getBoundingClientRect().top+window.pageYOffset-offset);
+}
+function setReading(key, value){
+  if(reading[key]===value) return;
+  keepReadingPlace(function(){ reading[key]=value; applyReading(); });
+  writeSetting(key==="size"?"text_size":key, String(value));
+}
+function stepSize(by){
+  var step=SIZES.indexOf(reading.size)+by;
+  if(step>=0 && step<SIZES.length) setReading("size",SIZES[step]);
+}
+applyReading();
+THEMES.forEach(function(t){ document.getElementById("theme-"+t).addEventListener("click",function(){ setReading("theme",t); }); });
+FONTS.forEach(function(f){ document.getElementById("font-"+f).addEventListener("click",function(){ setReading("font",f); }); });
+document.getElementById("sizeDown").addEventListener("click",function(){ stepSize(-1); });
+document.getElementById("sizeUp").addEventListener("click",function(){ stepSize(1); });
+var readerBtn=document.getElementById("readerBtn"), readerPanel=document.getElementById("readerPanel");
+function setReaderPanel(open){
+  readerPanel.hidden=!open;
+  readerBtn.setAttribute("aria-expanded",open?"true":"false");
+}
+readerBtn.addEventListener("click",function(){ setReaderPanel(readerPanel.hidden); });
+document.addEventListener("click",function(e){
+  if(!readerPanel.hidden && !e.target.closest(".reader-wrap")) setReaderPanel(false);
+});
+document.addEventListener("keydown",function(ev){
+  if(ev.key==="Escape" && !readerPanel.hidden){ setReaderPanel(false); readerBtn.focus(); }
 });
 
 /* ---------------- Site language ---------------- */
@@ -608,16 +668,15 @@ function switchLanguage(next){
 function applyLanguage(next){
   saveProgress(); clearTimeout(_saveT);
   var slug=current?current.slug:BOOK[0].slug;
-  var index=topBlockIndex(), block=content.children[index];
-  var offset=block?block.getBoundingClientRect().top:0;
   var popupOpen=!wnModal.hidden;
-  language=next; BOOK=editions[next]; indexBook(); current=null;
-  writeSetting("site_lang",language);
-  localizeShell(); buildNav(); refreshWhatsNew();
-  searchResults.hidden=true; pendingFind=null;
-  go(slug,false);
-  var translated=content.children[index];
-  if(translated) window.scrollTo(0,translated.getBoundingClientRect().top+window.pageYOffset-offset);
+  // The translated page has the same blocks in the same order.
+  keepReadingPlace(function(){
+    language=next; BOOK=editions[next]; indexBook(); current=null;
+    writeSetting("site_lang",language);
+    localizeShell(); buildNav(); refreshWhatsNew();
+    searchResults.hidden=true; pendingFind=null;
+    go(slug,false);
+  });
   if(searchBox.value) runSearch(searchBox.value);
   if(popupOpen) wnShow();
 }
@@ -660,7 +719,7 @@ document.addEventListener("touchstart",function(ev){
   swipe=null;
   if(!ev.touches || ev.touches.length!==1) return;
   var t=ev.target;
-  if(t && t.closest && t.closest("pre,.table-wrap,input,textarea,.search-results,.modal")) return;
+  if(t && t.closest && t.closest("pre,.table-wrap,input,textarea,.search-results,.modal,.reader-panel")) return;
   swipe={x:ev.touches[0].clientX, y:ev.touches[0].clientY, t:Date.now()};
 },{passive:true});
 document.addEventListener("touchend",function(ev){

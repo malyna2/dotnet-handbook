@@ -24,7 +24,39 @@
         <span class="switch-track"><span class="switch-thumb"></span></span>
         <span class="switch-lbl">EN / УКР</span>
       </label>
-      <button id="themeBtn" class="icon-btn" title="Toggle light/dark" aria-label="Toggle light/dark">🌓</button>
+      <!-- Reading settings: theme, text size and font. Labels are localized by app.js. -->
+      <div class="reader-wrap">
+        <button id="readerBtn" class="icon-btn" title="Reading settings" aria-label="Reading settings"
+                aria-expanded="false" aria-controls="readerPanel">Aa</button>
+        <div id="readerPanel" class="reader-panel" role="group" aria-label="Reading settings" hidden>
+          <div class="rp-row">
+            <div class="rp-lbl" id="rpThemeLbl">Theme</div>
+            <div class="seg" role="group" aria-labelledby="rpThemeLbl">
+              <button type="button" id="theme-auto" aria-pressed="false">Auto</button>
+              <button type="button" id="theme-light" aria-pressed="false">Light</button>
+              <button type="button" id="theme-paper" aria-pressed="false">Paper</button>
+              <button type="button" id="theme-dark" aria-pressed="false">Dark</button>
+            </div>
+            <p class="rp-hint" id="rpThemeHint">Light and Paper suit a lit room; Dark suits a dim room at night. Auto follows your device.</p>
+          </div>
+          <div class="rp-row">
+            <div class="rp-lbl" id="rpSizeLbl">Text size</div>
+            <div class="stepper" role="group" aria-labelledby="rpSizeLbl">
+              <button type="button" id="sizeDown" title="Smaller text" aria-label="Smaller text">A−</button>
+              <output id="sizeValue" aria-live="polite">100%</output>
+              <button type="button" id="sizeUp" title="Larger text" aria-label="Larger text">A+</button>
+            </div>
+          </div>
+          <div class="rp-row">
+            <div class="rp-lbl" id="rpFontLbl">Font</div>
+            <div class="seg" role="group" aria-labelledby="rpFontLbl">
+              <button type="button" id="font-sans" aria-pressed="false" title="Segoe UI · San Francisco · Roboto">Sans</button>
+              <button type="button" id="font-wide" aria-pressed="false" title="Verdana">Wide</button>
+              <button type="button" id="font-serif" aria-pressed="false" title="Georgia">Serif</button>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
   </header>
 

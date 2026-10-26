@@ -95,13 +95,52 @@ test('legacy chapter links and switching work even when localStorage is unavaila
   assert.equal(app.document.documentElement.lang, 'en');
 });
 
-test('theme messages use the selected language', () => {
+test('reading settings follow the language and are applied, shown and remembered', () => {
   const app = boot();
-  app.elements.themeBtn.listeners.click();
-  assert.equal(app.elements.toast.textContent, 'Тема: темна');
+  const root = app.document.documentElement;
+  assert.equal(app.elements.readerBtn.title, 'Налаштування читання');
+  assert.equal(app.elements['theme-paper'].textContent, 'Папір');
+  assert.equal(app.elements['font-serif'].textContent, 'Із засічками');
+  assert.equal(root.getAttribute('data-theme'), 'auto');
+  app.elements['theme-paper'].listeners.click();
+  app.elements['font-serif'].listeners.click();
+  app.elements.sizeUp.listeners.click();
+  assert.equal(root.getAttribute('data-theme'), 'paper');
+  assert.equal(root.getAttribute('data-font'), 'serif');
+  assert.equal(root.style['--fs-scale'], '1.1');
+  assert.equal(app.elements.sizeValue.textContent, '110%');
+  assert.equal(app.elements['theme-paper'].getAttribute('aria-pressed'), 'true');
+  assert.equal(app.elements['theme-auto'].getAttribute('aria-pressed'), 'false');
   app.switchTo('en');
-  app.elements.themeBtn.listeners.click();
-  assert.equal(app.elements.toast.textContent, 'Theme: light');
+  assert.equal(app.elements.readerBtn.title, 'Reading settings');
+  assert.equal(app.elements['theme-paper'].textContent, 'Paper');
+  const again = boot({ storage: app.storage }).document.documentElement;
+  assert.equal(again.getAttribute('data-theme'), 'paper');
+  assert.equal(again.getAttribute('data-font'), 'serif');
+  assert.equal(again.style['--fs-scale'], '1.1');
+});
+
+test('text size stays within its steps and unknown stored settings fall back to the defaults', () => {
+  const app = boot({ storage: { theme: 'neon', font: 'comic', text_size: '7' } });
+  const root = app.document.documentElement;
+  assert.equal(root.getAttribute('data-theme'), 'auto');
+  assert.equal(root.getAttribute('data-font'), 'sans');
+  assert.equal(root.style['--fs-scale'], '1');
+  for (let i = 0; i < 12; i++) app.elements.sizeUp.listeners.click();
+  assert.equal(app.elements.sizeValue.textContent, '160%');
+  assert.equal(app.elements.sizeUp.disabled, true);
+  for (let i = 0; i < 12; i++) app.elements.sizeDown.listeners.click();
+  assert.equal(app.elements.sizeValue.textContent, '85%');
+  assert.equal(app.elements.sizeDown.disabled, true);
+  assert.equal(app.storage.text_size, '0.85');
+});
+
+test('reading settings still change the page when localStorage is unavailable', () => {
+  const app = boot({ blockedStorage: true });
+  app.elements['theme-dark'].listeners.click();
+  app.elements.sizeDown.listeners.click();
+  assert.equal(app.document.documentElement.getAttribute('data-theme'), 'dark');
+  assert.equal(app.document.documentElement.style['--fs-scale'], '0.9');
 });
 
 test('an isolated pipe row renders as prose and does not freeze chapter switching', () => {
