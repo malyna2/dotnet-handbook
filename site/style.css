@@ -1,29 +1,66 @@
+/* Themes. Every text colour keeps at least 4.5:1 against its background; body text 12:1 or more.
+   --accent colours text, marks and borders; --accent-strong fills the surfaces that carry white text. */
 :root{
   --bg:#ffffff; --bg-alt:#f6f8fa; --bg-elev:#ffffff;
   --fg:#1f2328; --fg-muted:#57606a; --border:#d0d7de;
-  --accent:#7c3aed; --accent-fg:#fff; --link:#0969da;
-  --code-bg:#f6f8fa; --code-fg:#24292f; --sel:#efe6ff;
+  --accent:#7c3aed; --accent-strong:#7c3aed; --accent-fg:#fff; --link:#0969da; --ok:#1a7f37;
+  --code-bg:#f6f8fa; --code-fg:#1f2328; --sel:#efe6ff;
   --kw:#cf222e; --str:#0a3069; --com:#59636e; --num:#0550ae; --typ:#953800; --fn:#8250df;
   --shadow:0 6px 24px rgba(0,0,0,.12);
-  --sidebar-w:300px; --outline-w:220px; --max:820px;
+  color-scheme:light;
+  --sidebar-w:300px; --outline-w:220px;
   --bars:56px;   /* the sticky top bar */
-  --mono:"SFMono-Regular",Consolas,"Liberation Mono",Menlo,monospace;
-  --sans:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  /* Article text. A CSS pixel is 1/96 inch seen from arm's length, so at 19px the x-height spans
+     about 0.2° of visual angle; smaller than that, reading slows down. app.js sets --fs-scale
+     from the Aa panel; the dark theme adds 5%. Tablets and phones start lower (breakpoints below). */
+  --fs-base:19px; --fs-scale:1; --fs-theme:1;
+  --fs:calc(var(--fs-base) * var(--fs-scale) * var(--fs-theme));
+  /* Prose keeps 65-70 characters a line, a few fewer in Ukrainian (WCAG 1.4.8 caps it at 80).
+     Code blocks and tables may widen to about 100 columns of code. */
+  --measure-em:34;
+  --measure:calc(var(--measure-em) * var(--fs));
+  --wide:calc(48 * var(--fs) + 34px);
+  /* Past 1920px the chapter list, page and outline stay together in the middle of the screen. */
+  --shell:max(1920px, calc(var(--wide) + var(--sidebar-w) + var(--outline-w) + 64px));
+  --gutter:max(0px, calc((100vw - var(--shell)) / 2));
+  /* Cascadia Mono rather than Cascadia Code: no ligatures to turn != into ≠. */
+  --mono:ui-monospace,"Cascadia Mono","Cascadia Code","JetBrains Mono","SF Mono",SFMono-Regular,Menlo,Consolas,"Liberation Mono","DejaVu Sans Mono",monospace;
+  --sans:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Noto Sans",Helvetica,Arial,sans-serif;
+  --font-wide:Verdana,"DejaVu Sans","Bitstream Vera Sans",Tahoma,sans-serif;
+  --font-serif:Georgia,"Noto Serif","DejaVu Serif","Times New Roman",serif;
+  --read-font:var(--sans);
 }
+/* Verdana's wider letters need a wider line to keep the same number of characters. */
+:root[data-font="wide"]{--read-font:var(--font-wide);--measure-em:37}
+:root[data-font="serif"]{--read-font:var(--font-serif)}
+/* Paper: a warm off-white. Warm backgrounds read slightly faster than cool ones (Rello & Bigham 2017). */
+:root[data-theme="paper"]{
+  --bg:#f7f1e3; --bg-alt:#efe7d5; --bg-elev:#faf6ec;
+  --fg:#1e1b16; --fg-muted:#5b5346; --border:#d9ceb8;
+  --accent:#6d28d9; --accent-strong:#6d28d9; --link:#0b57b0; --ok:#1a6f30;
+  --code-bg:#efe7d5; --code-fg:#1e1b16; --sel:#e3d5f6;
+  --kw:#b3261e; --str:#0b3d78; --com:#665c4d; --num:#0b4f9e; --typ:#8a3a00; --fn:#6f3cc9;
+}
+/* Dark: dark grey rather than black and light grey text rather than white (about 12:1), so letters
+   do not glow and smear when the pupil is wide. No saturated blue or purple text: the eye focuses
+   blue light short of the retina, so it blurs most on a dark page. Light-on-dark text loses the
+   most legibility at small sizes, hence the 5% larger type. Auto repeats this palette at night. */
 :root[data-theme="dark"]{
-  --bg:#0d1117; --bg-alt:#161b22; --bg-elev:#161b22;
-  --fg:#e6edf3; --fg-muted:#9198a1; --border:#30363d;
-  --accent:#a371f7; --accent-strong:#7c3aed; --accent-fg:#fff; --link:#4493f8;
-  --code-bg:#161b22; --code-fg:#e6edf3; --sel:#2d2140;
-  --kw:#ff7b72; --str:#a5d6ff; --com:#8b949e; --num:#79c0ff; --typ:#ffa657; --fn:#d2a8ff;
+  --bg:#1c1c1c; --bg-alt:#232323; --bg-elev:#262626;
+  --fg:#dcdcdc; --fg-muted:#a0a0a0; --border:#3a3a3a;
+  --accent:#b69cf6; --accent-strong:#7c3aed; --link:#8ab4f8; --ok:#57c96f;
+  --code-bg:#232323; --code-fg:#dcdcdc; --sel:#3d3354;
+  --kw:#ff8b80; --str:#a5d6ff; --com:#9ea6ae; --num:#8ccaff; --typ:#ffae6b; --fn:#d4b1ff;
+  --fs-theme:1.05; color-scheme:dark;
 }
 @media (prefers-color-scheme:dark){
   :root[data-theme="auto"]{
-    --bg:#0d1117; --bg-alt:#161b22; --bg-elev:#161b22;
-    --fg:#e6edf3; --fg-muted:#9198a1; --border:#30363d;
-    --accent:#a371f7; --accent-strong:#7c3aed; --accent-fg:#fff; --link:#4493f8;
-    --code-bg:#161b22; --code-fg:#e6edf3; --sel:#2d2140;
-    --kw:#ff7b72; --str:#a5d6ff; --com:#8b949e; --num:#79c0ff; --typ:#ffa657; --fn:#d2a8ff;
+    --bg:#1c1c1c; --bg-alt:#232323; --bg-elev:#262626;
+    --fg:#dcdcdc; --fg-muted:#a0a0a0; --border:#3a3a3a;
+    --accent:#b69cf6; --accent-strong:#7c3aed; --link:#8ab4f8; --ok:#57c96f;
+    --code-bg:#232323; --code-fg:#dcdcdc; --sel:#3d3354;
+    --kw:#ff8b80; --str:#a5d6ff; --com:#9ea6ae; --num:#8ccaff; --typ:#ffae6b; --fn:#d4b1ff;
+    --fs-theme:1.05; color-scheme:dark;
   }
 }
 *{box-sizing:border-box}
@@ -43,13 +80,13 @@ body{margin:0;background:var(--bg);color:var(--fg);font-family:var(--sans);
 ::-webkit-scrollbar-corner{background:transparent}
 
 /* transient highlight when jumping to a search hit */
-mark.find-hit{background:var(--accent);color:var(--accent-fg);border-radius:3px;
+mark.find-hit{background:var(--accent-strong);color:var(--accent-fg);border-radius:3px;
   padding:0 2px;animation:find-flash 2.2s ease}
 @keyframes find-flash{0%,55%{box-shadow:0 0 0 3px var(--sel)}100%{box-shadow:0 0 0 0 transparent}}
 
 /* ---------- Layout ---------- */
 #topbar{position:sticky;top:0;z-index:40;display:flex;align-items:center;gap:12px;
-  height:56px;padding:0 14px;background:var(--bg-elev);border-bottom:1px solid var(--border)}
+  height:56px;padding:0 calc(14px + var(--gutter));background:var(--bg-elev);border-bottom:1px solid var(--border)}
 .brand{font-weight:700;white-space:nowrap;cursor:pointer;letter-spacing:-.01em}
 .search-wrap{position:relative;flex:1;min-width:0;max-width:420px;margin:0 auto}
 #search{width:100%;padding:8px 12px;border:1px solid var(--border);border-radius:9px;
@@ -86,17 +123,45 @@ mark.find-hit{background:var(--accent);color:var(--accent-fg);border-radius:3px;
 #menuBtn{display:none}
 #outlineBtn{display:none;font-weight:700}
 
+/* ---------- Reading settings (the Aa panel) ---------- */
+.reader-wrap{position:relative}
+#readerBtn{font-size:16px;font-weight:700;letter-spacing:-.02em}
+#readerBtn[aria-expanded="true"]{background:var(--bg-alt);border-color:var(--border)}
+.reader-panel{position:absolute;top:46px;right:0;width:min(340px,calc(100vw - 24px));z-index:60;
+  background:var(--bg-elev);border:1px solid var(--border);border-radius:12px;box-shadow:var(--shadow);
+  padding:14px 16px 16px;font-size:14px;line-height:1.4}
+.rp-row+.rp-row{margin-top:16px}
+.rp-lbl{font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--fg-muted);margin-bottom:7px}
+.rp-hint{font-size:12px;color:var(--fg-muted);margin:8px 0 0}
+.seg,.stepper{display:flex;align-items:center;gap:6px}
+.seg button,.stepper button{flex:1 1 0;min-width:0;padding:8px 4px;border:1px solid var(--border);border-radius:8px;
+  background:var(--bg-alt);color:var(--fg);font:inherit;font-size:13px;cursor:pointer;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.seg button[aria-pressed="true"]{border-color:var(--accent-strong);box-shadow:0 0 0 1px var(--accent-strong);font-weight:600}
+.seg button:focus-visible,.stepper button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+/* Each theme button shows that theme's own page and text colours. */
+#theme-light{background:#ffffff;color:#1f2328}
+#theme-paper{background:#f7f1e3;color:#1e1b16}
+#theme-dark{background:#1c1c1c;color:#dcdcdc}
+#font-sans{font-family:var(--sans)}
+#font-wide{font-family:var(--font-wide)}
+#font-serif{font-family:var(--font-serif)}
+.stepper button{flex:0 0 56px;font-weight:700}
+.stepper button:disabled{opacity:.4;cursor:default}
+.stepper output{flex:1;text-align:center;font-weight:600;font-variant-numeric:tabular-nums}
+
 /* Headings reached by an in-page link or the outline land below both sticky bars. */
 #content h1,#content h2,#content h3,#content h4{scroll-margin-top:calc(var(--bars) + 14px)}
 
-#sidebar{position:fixed;top:var(--bars);bottom:0;left:0;width:var(--sidebar-w);overflow-y:auto;
-  background:var(--bg-alt);border-right:1px solid var(--border);padding:14px 8px 40px;z-index:30}
+#sidebar{position:fixed;top:var(--bars);bottom:0;left:var(--gutter);width:var(--sidebar-w);overflow-y:auto;
+  background:var(--bg-alt);border-right:1px solid var(--border);box-shadow:-1px 0 0 var(--border);
+  padding:14px 8px 40px;z-index:30}
 #nav .part{font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--fg-muted);
   font-weight:700;margin:16px 10px 6px}
 #nav a{position:relative;overflow:hidden;display:block;padding:6px 10px;margin:1px 4px;border-radius:7px;color:var(--fg);
   text-decoration:none;font-size:13.5px;line-height:1.4}
 #nav a:hover{background:var(--bg-elev)}
-#nav a.active{background:var(--accent-strong,var(--accent));color:var(--accent-fg);font-weight:600}
+#nav a.active{background:var(--accent-strong);color:var(--accent-fg);font-weight:600}
 #nav a .num{color:var(--fg-muted);font-variant-numeric:tabular-nums;margin-right:6px}
 #nav a.active .num{color:var(--accent-fg);opacity:.8}
 #nav a .rt{display:block;font-size:11px;color:var(--fg-muted)}
@@ -132,13 +197,18 @@ mark.find-hit{background:var(--accent);color:var(--accent-fg);border-radius:3px;
   #nav a.has-progress.done::before{display:none}
 }
 
-#main{margin-left:var(--sidebar-w);margin-right:var(--outline-w);padding:0 32px 80px;
-  max-width:calc(var(--max) + var(--outline-w) + 64px)}
-#reading-progress{position:fixed;top:var(--bars);left:var(--sidebar-w);right:0;height:3px;
+#main{margin-left:calc(var(--gutter) + var(--sidebar-w));margin-right:calc(var(--gutter) + var(--outline-w));
+  padding:0 32px 80px}
+#reading-progress{position:fixed;top:var(--bars);left:calc(var(--gutter) + var(--sidebar-w));right:var(--gutter);height:3px;
   background:linear-gradient(90deg,var(--accent) var(--p,0%),transparent 0);z-index:20;transition:background .1s}
-#content{max-width:var(--max);margin:0 auto;padding-top:26px;overflow-wrap:break-word}
+#content{max-width:var(--wide);margin:0 auto;padding-top:26px;overflow-wrap:break-word;
+  font-family:var(--read-font);font-size:var(--fs)}
+/* Prose keeps the measure. A code block or table may grow past it to fit its longest line. */
+#content>:not(.codeblock):not(.table-wrap):not(.home-grid){max-width:var(--measure);margin-left:auto;margin-right:auto}
+#content>.codeblock,#content>.table-wrap{width:fit-content;min-width:min(100%,var(--measure));max-width:100%;
+  margin-left:auto;margin-right:auto}
 
-#outline{position:fixed;top:calc(var(--bars) + 14px);right:0;width:var(--outline-w);max-height:calc(100vh - var(--bars) - 34px);
+#outline{position:fixed;top:calc(var(--bars) + 14px);right:var(--gutter);width:var(--outline-w);max-height:calc(100vh - var(--bars) - 34px);
   overflow-y:auto;padding:8px 14px;font-size:12.5px}
 #outline .ol-title{text-transform:uppercase;letter-spacing:.05em;color:var(--fg-muted);
   font-weight:700;font-size:10.5px;margin-bottom:8px}
@@ -153,7 +223,7 @@ mark.find-hit{background:var(--accent);color:var(--accent-fg);border-radius:3px;
 #content h2{font-size:1.5em;margin:1.6em 0 .5em;padding-bottom:.25em;border-bottom:1px solid var(--border);letter-spacing:-.01em}
 #content h3{font-size:1.2em;margin:1.4em 0 .4em}
 #content h4{font-size:1.05em;margin:1.2em 0 .3em}
-#content p{margin:.7em 0}
+#content p{margin:.9em 0}   /* paragraph gaps 1.5× the line spacing (WCAG 1.4.8) */
 /* Links in running text are underlined: colour alone doesn't separate them from the text around them. */
 #content a{color:var(--link);text-decoration:underline;text-decoration-thickness:1px;text-underline-offset:2px}
 #content a:hover{text-decoration-thickness:2px}
@@ -170,7 +240,8 @@ mark.find-hit{background:var(--accent);color:var(--accent-fg);border-radius:3px;
 
 /* inline code */
 #content :not(pre)>code{background:var(--code-bg);border:1px solid var(--border);
-  padding:.12em .38em;border-radius:6px;font-family:var(--mono);font-size:.86em;overflow-wrap:anywhere}
+  padding:.12em .38em;border-radius:6px;font-family:var(--mono);font-size:.86em;overflow-wrap:anywhere;
+  font-variant-ligatures:none}
 
 /* tables */
 .table-wrap{overflow-x:auto;margin:1.1em 0}
@@ -192,7 +263,8 @@ mark.find-hit{background:var(--accent);color:var(--accent-fg);border-radius:3px;
 .codeblock pre:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 .codeblock pre{margin:0;background:var(--code-bg);border:1px solid var(--border);border-radius:10px;
   padding:14px 16px;overflow-x:auto}
-.codeblock code{font-family:var(--mono);font-size:13.5px;line-height:1.55;color:var(--code-fg);white-space:pre}
+.codeblock code{font-family:var(--mono);font-size:.8em;line-height:1.5;color:var(--code-fg);white-space:pre;
+  font-variant-ligatures:none}
 .tok-kw{color:var(--kw)} .tok-str{color:var(--str)} .tok-com{color:var(--com);font-style:italic}
 .tok-num{color:var(--num)} .tok-type{color:var(--typ)} .tok-fn{color:var(--fn)}
 
@@ -200,14 +272,14 @@ mark.find-hit{background:var(--accent);color:var(--accent-fg);border-radius:3px;
 #content h1 + p em{color:var(--fg-muted);font-style:normal;font-size:.85em}
 
 /* pager */
-.pager{max-width:var(--max);margin:40px auto 0;display:flex;justify-content:space-between;gap:12px}
+.pager{max-width:var(--measure);margin:40px auto 0;display:flex;justify-content:space-between;gap:12px}
 .pager a{flex:1;border:1px solid var(--border);border-radius:10px;padding:12px 16px;
   text-decoration:none;color:var(--fg);background:var(--bg-alt)}
 .pager a:hover{border-color:var(--accent)}
 .pager a.next{text-align:right}
 .pager .lbl{display:block;font-size:11px;color:var(--fg-muted);text-transform:uppercase;letter-spacing:.05em}
 .pager .ttl{font-weight:600;font-size:14px}
-#footer{max-width:var(--max);margin:36px auto 0;color:var(--fg-muted);font-size:13px;
+#footer{max-width:var(--measure);margin:36px auto 0;color:var(--fg-muted);font-size:13px;
   border-top:1px solid var(--border);padding-top:16px}
 
 /* home cards */
@@ -234,7 +306,7 @@ mark.find-hit{background:var(--accent);color:var(--accent-fg);border-radius:3px;
 .modal-card input,.modal-card select{width:100%;padding:8px 10px;border:1px solid var(--border);
   border-radius:8px;background:var(--bg-alt);color:var(--fg);font-size:14px}
 .modal-actions{display:flex;justify-content:space-between;margin-top:20px;gap:10px}
-.btn{background:var(--accent);color:var(--accent-fg);border:0;border-radius:8px;padding:9px 16px;
+.btn{background:var(--accent-strong);color:var(--accent-fg);border:0;border-radius:8px;padding:9px 16px;
   font-size:14px;cursor:pointer}
 .btn.ghost{background:transparent;color:var(--fg);border:1px solid var(--border)}
 .muted{color:var(--fg-muted);font-size:13px}
@@ -245,6 +317,7 @@ mark.find-hit{background:var(--accent);color:var(--accent-fg);border-radius:3px;
 
 /* ---------- Responsive ---------- */
 @media (max-width:1100px){
+  :root{--fs-base:18px}   /* tablets and small laptops: bigger CSS pixels, narrower column */
   /* No room for the right rail: the section outline becomes a right-hand drawer, opened by the
      § button or a right-to-left swipe (app.js). */
   #outline{top:var(--bars);bottom:0;width:min(340px,86vw);max-height:none;
@@ -258,6 +331,7 @@ mark.find-hit{background:var(--accent);color:var(--accent-fg);border-radius:3px;
   #main{margin-right:0}
 }
 @media (max-width:820px){
+  :root{--fs-base:17px}   /* a phone is held closer, so each CSS pixel looks bigger */
   body{font-size:16px}
   #menuBtn{display:inline-block}
   .brand{display:none}
@@ -274,16 +348,17 @@ mark.find-hit{background:var(--accent);color:var(--accent-fg);border-radius:3px;
 .wn-body{max-height:55vh;overflow:auto;margin:6px 0 2px;font-size:14.5px}
 .wn-body p{margin:.55em 0}
 .wn-body ul{padding-left:20px;margin:.4em 0}
+.wn-body a{color:var(--link)}
 a.wn-link{font-weight:600}
 a.wn-link::before{content:"● ";color:var(--accent)}
 a.wn-link.wn-read{color:var(--fg-muted);font-weight:400}
-a.wn-link.wn-read::before{content:"✓ ";color:#3fb950}
+a.wn-link.wn-read::before{content:"✓ ";color:var(--ok)}
 
 /* ---------- Exercise answers (collapsible) ---------- */
 #content details{margin:.6em 0;border:1px solid var(--border);border-radius:8px;
   background:var(--bg-alt);padding:0 12px}
 #content details[open]{padding-bottom:6px}
-#content details>summary{cursor:pointer;padding:9px 2px;font-weight:600;font-size:14px;
+#content details>summary{cursor:pointer;padding:9px 2px;font-weight:600;font-size:.82em;
   color:var(--fg-muted);list-style:none;user-select:none}
 #content details>summary::-webkit-details-marker{display:none}
 #content details>summary::before{content:"▸ ";color:var(--accent);font-weight:700}

@@ -12,8 +12,10 @@ function boot({ en, uk, storage = {}, blockedStorage = false, hash = '#/chapter-
       this.innerHTML = ''; this.textContent = ''; this.children = []; this.listeners = {};
       this.value = ''; this.hidden = true; this.dataset = {}; this.attributes = {};
       this.classList = { toggle() {}, remove() {}, add() {} };
-      this.style = { setProperty() {} };
+      // Custom properties (e.g. --fs-scale) are kept so tests can read them back.
+      this.style = { setProperty(name, value) { this[name] = value; } };
     }
+    focus() {}
     addEventListener(name, fn) { this.listeners[name] = fn; }
     setAttribute(name, value) { this.attributes[name] = value; }
     getAttribute(name) { return this.attributes[name]; }
