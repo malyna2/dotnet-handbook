@@ -378,6 +378,9 @@ Walk the second copy through it. Its insert waits on the first copy's uncommitte
 
 > **Best practice:** design every consumer to be idempotent *by default*; it's cheaper than chasing exactly-once delivery. Use natural keys where you can: a consumer that inserts the order under a unique order ID has its claim built in, with no separate processed-messages table.
 
+> **Pay attention.** **A "processed" key in Redis is a second system, not a claim.** A common shortcut records handled message IDs in Redis (`SET id 1 NX`) and the effect in the database. The two writes can't commit together. Set the key first and crash before the database commit, and the redelivery is skipped: the effect is lost. Commit the effect first and crash before setting the key, and the redelivery does the work again. `SET NX` is atomic *within Redis*, which makes it a fine fast filter in front of the real check, but the claim that counts is the unique key written in the same database transaction as the effect, as above. If the effect itself lives in Redis, the claim has to live there too, in the same command or Lua script.
+
+
 ### The Transactional Outbox
 
 A handler writes to the database *and* publishes a message. What if it crashes between them?
