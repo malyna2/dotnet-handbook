@@ -4956,7 +4956,7 @@ LCP ≤ 2.5 s, INP ≤ 200 ms, CLS ≤ 0.1, at the 75th percentile of real visit
 
 # Chapter 7: Data Access
 
-_⏱️ Estimated read time: ~1 h 45 min · 15268 words (study pace)_
+_⏱️ Estimated read time: ~1 h 45 min · 15426 words (study pace)_
 
 Flawless business logic doesn't survive a data layer that fires a thousand queries where one would do, scans an index it was meant to seek, or loses one user's update under another's.
 
@@ -5368,6 +5368,9 @@ The four standard levels, from loosest to strictest:
 | Serializable | prevented | prevented | prevented |
 
 Serializable is safest but takes the most locks and most reduces concurrency. Most systems run Read Committed and tighten specific transactions when correctness demands it. (SQL Server also offers `SNAPSHOT` isolation, which uses row versioning to give consistent reads without blocking writers.)
+
+> **Pay attention.** **In SQL Server, Read Committed is one level with two mechanisms.** With the database option `READ_COMMITTED_SNAPSHOT` off, the default on a SQL Server you install, Read Committed takes a shared lock to read each row, so a `SELECT` waits behind any open transaction that has changed the rows it needs: readers and writers block each other. With the option on (RCSI), the same level reads the last committed version of each row from the version store instead: readers don't block writers and writers don't block readers, and each statement sees the data as of its own start. `READ_COMMITTED_SNAPSHOT` is on by default in Azure SQL Database, so code that blocks against a local SQL Server may not block in Azure, and the other way round. PostgreSQL's Read Committed always works the second way. Neither prevents a lost update; [Concurrency: Optimistic vs Pessimistic](#concurrency-optimistic-vs-pessimistic) does. Check a database with `SELECT is_read_committed_snapshot_on FROM sys.databases WHERE name = DB_NAME();`.
+
 
 ### Deadlocks
 

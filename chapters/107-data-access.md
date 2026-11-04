@@ -411,6 +411,9 @@ The four standard levels, from loosest to strictest:
 
 Serializable is safest but takes the most locks and most reduces concurrency. Most systems run Read Committed and tighten specific transactions when correctness demands it. (SQL Server also offers `SNAPSHOT` isolation, which uses row versioning to give consistent reads without blocking writers.)
 
+> **Pay attention.** **In SQL Server, Read Committed is one level with two mechanisms.** With the database option `READ_COMMITTED_SNAPSHOT` off, the default on a SQL Server you install, Read Committed takes a shared lock to read each row, so a `SELECT` waits behind any open transaction that has changed the rows it needs: readers and writers block each other. With the option on (RCSI), the same level reads the last committed version of each row from the version store instead: readers don't block writers and writers don't block readers, and each statement sees the data as of its own start. `READ_COMMITTED_SNAPSHOT` is on by default in Azure SQL Database, so code that blocks against a local SQL Server may not block in Azure, and the other way round. PostgreSQL's Read Committed always works the second way. Neither prevents a lost update; [Concurrency: Optimistic vs Pessimistic](#concurrency-optimistic-vs-pessimistic) does. Check a database with `SELECT is_read_committed_snapshot_on FROM sys.databases WHERE name = DB_NAME();`.
+
+
 ### Deadlocks
 
 A deadlock occurs when transaction A holds a lock B needs, while B holds a lock A needs — a circular wait, each waiting forever. The database detects the cycle and kills one transaction (the "victim"), which errors out. The classic cause is two code paths that lock the same rows **in different orders**.
