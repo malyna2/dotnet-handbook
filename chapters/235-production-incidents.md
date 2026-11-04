@@ -39,6 +39,8 @@ That is the method: the OS view (`journalctl`, `ss`, `top`) shows what the machi
 
 ## The incident cheat-card
 
+> **🎯 Interview · P2.** Detect, communicate, mitigate, diagnose, fix, and a blameless post-mortem with action items. The usual wrong answer and the questions to expect: [P2-12 in the Interview Priority Map](#p2-12-production-and-incidents).
+
 This is the page to open at 3 a.m. — one row per scenario, each row expanded in full in the scenario it points to.
 
 | Symptom | Scarcest resource right now | First three actions |
@@ -590,6 +592,8 @@ Note the **deadline** and the explicit **fail-open decision** — on a synchrono
 ---
 
 ## Scenario 7 — The slow leak: memory keeps growing until the pod is OOM-killed
+
+> **🎯 Interview · P1.** This scenario is the step-by-step answer to "how would you investigate an OOM in production?". The usual wrong answer and the questions to expect: [P1-4 in the Interview Priority Map](#p1-4-memory-and-the-gc).
 
 ### The scenario
 

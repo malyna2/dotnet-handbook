@@ -262,6 +262,8 @@ The last long-lived secret in most teams is the one their CI uses to deploy. **W
 
 ## Compute: Choosing It and Running It
 
+> **🎯 Interview · P2.** Managed identity, Key Vault, Azure SQL, private endpoints, Application Insights, Functions and their cold starts, and where background work runs. The usual wrong answer and the questions to expect: [P2-10 in the Interview Priority Map](#p2-10-azure-and-devops).
+
 Start with the decision and learn the details of the option you pick:
 
 | You have … | Reach for | Because |

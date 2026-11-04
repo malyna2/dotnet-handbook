@@ -72,6 +72,8 @@ You don't have to pick forever, but knowing which one energizes you tells you wh
 
 ## Interviews: Turning Behaviour into Answers
 
+> **🎯 Interview · P2.** Answer first, then the reasoning and the trade-offs; STAR stories in English, ready before the interview. The usual wrong answer and the questions to expect: [P2-13 in the Interview Priority Map](#p2-13-the-interview-itself).
+
 An interview compresses everything above into an hour, and it scores what it can hear. The technical question banks live with their topics — each chapter ends with its own *Interview Questions* — so this section is about the approach that applies to all of them and the behavioural questions that probe seniority directly.
 
 ### How to Approach Any Interview

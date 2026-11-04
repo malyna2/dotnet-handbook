@@ -294,6 +294,8 @@ Bulkheads, and what these patterns do across many services, are in [Chapter 20: 
 
 ## The Middleware Pipeline & Request Lifecycle
 
+> **🎯 Interview · P1.** Middleware order and why, `IExceptionHandler` and `ProblemDetails`, CORS, rate limiting, and forwarded headers behind a proxy. The usual wrong answer and the questions to expect: [P1-5 in the Interview Priority Map](#p1-5-aspnet-core).
+
 **A request flows through a chain of components, each of which can do work before and after the next one runs.** This chain is the *middleware pipeline*. A component can also short-circuit: answer without calling the rest. On the way out, the response passes back through the same components in reverse order, so the outermost middleware wraps everything inside it.
 
 A middleware component is a function that takes the current `HttpContext` and a delegate to "the rest of the pipeline" (`RequestDelegate`, usually called `next`).
@@ -835,6 +837,8 @@ The middleware rewrites `HttpContext.Connection.RemoteIpAddress` and `Request.Sc
 
 
 ## REST and OpenAPI
+
+> **🎯 Interview · P2.** Resources and methods, status codes, pagination, `Idempotency-Key`, versioning, `ETag`/`If-Match`, and breaking changes. The usual wrong answer and the questions to expect: [P2-8 in the Interview Priority Map](#p2-8-rest-design).
 
 **REST** is a set of constraints, not a law, but a few principles pay dividends: model your API around **resources** (nouns), not actions; use the HTTP **methods** for intent (GET read, POST create, PUT replace, PATCH partial update, DELETE remove) with the safety and idempotency they promise ([HTTP Methods and Idempotency](#http-methods-and-idempotency)); and let the **status code** carry the outcome ([Status Codes and Headers That Matter](#status-codes-and-headers-that-matter)).
 

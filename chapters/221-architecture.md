@@ -137,6 +137,8 @@ Because specifications return `Expression<Func<T, bool>>`, EF Core translates th
 
 ## CQRS and Event Sourcing
 
+> **🎯 Interview · P2.** CQRS without a second database or event sourcing, MediatR and pipeline behaviours. The usual wrong answer and the questions to expect: [P2-7 in the Interview Priority Map](#p2-7-architecture).
+
 ### CQRS
 
 **Command Query Responsibility Segregation** rests on a simple observation: the way you *change* data and the way you *read* data have different needs. Writes care about invariants, validation, and consistency. Reads care about speed and shape — they often want denormalized, screen-ready data. CQRS says: use separate models for the two.
@@ -254,6 +256,8 @@ The philosophy: **maximize cohesion within a feature and minimize coupling betwe
 > **Trade-off:** Vertical slices make features easy to add, delete, and reason about in isolation — the change footprint of a feature is one folder. The risk is duplication and inconsistency across slices, and less enforced structure to lean on. It pairs beautifully with CQRS/MediatR. Many modern .NET teams blend it with Clean Architecture: slices for the application layer, a shared domain core underneath.
 
 ## Monolith vs Microservices vs Modular Monolith
+
+> **🎯 Interview · P2.** Modular monolith versus microservices, aggregates as consistency boundaries, and extracting a module step by step. The usual wrong answer and the questions to expect: [P2-7 in the Interview Priority Map](#p2-7-architecture).
 
 ### The Spectrum
 

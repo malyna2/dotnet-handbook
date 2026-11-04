@@ -327,6 +327,8 @@ Notice how little broker-specific code there is. `Publish` vs `Send`: **Publish*
 
 ## Delivery Guarantees
 
+> **🎯 Interview · P1.** Peek-lock and at-least-once delivery, duplicates, idempotent consumers, the outbox, dead-lettering, sessions and Kafka partition ordering. The usual wrong answer and the questions to expect: [P1-3 in the Interview Priority Map](#p1-3-messaging-and-distributed-systems).
+
 Getting this wrong loses or duplicates data. There are three possible guarantees:
 
 - **At-most-once.** Fire and forget. The message is delivered zero or one times — it may be lost, never duplicated. Fast, simplest, acceptable for high-volume telemetry where losing one reading doesn't matter.

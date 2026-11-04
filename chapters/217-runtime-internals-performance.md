@@ -143,6 +143,8 @@ dotnet-gcdump collect -p 12345
 
 ## Garbage Collection — in depth
 
+> **🎯 Interview · P1.** The LOH, `Span<T>`, `ArrayPool<T>`, and the diagnostic tools: `dotnet-counters`, `dotnet-gcdump`, `dotnet-dump`. The usual wrong answer and the questions to expect: [P1-4 in the Interview Priority Map](#p1-4-memory-and-the-gc).
+
 [Chapter 3](#chapter-3-how-net-runs-your-code) taught the model; this section is what it does under a server's load: where large objects go, how the two GC flavours split the work across cores, and how a full collection avoids freezing the application.
 
 ### The Large Object Heap (LOH)
@@ -317,6 +319,8 @@ foreach (var x in items)
 > **Best practice:** Write LINQ by default — it is clearer and the cost rarely matters. Rewrite to explicit loops *only* in code a profiler has flagged as hot.
 
 ## The Thread Pool Under Load
+
+> **🎯 Interview · P1.** Thread pool starvation: high latency at low CPU, the queue length counter, and the fix. The usual wrong answer and the questions to expect: [P1-6 in the Interview Priority Map](#p1-6-async-and-concurrency).
 
 [Chapter 4](#chapter-4-async-essentials) showed why a blocked pool thread hurts: the continuation that would unblock it needs a pool thread too, and the pool adds threads deliberately. Under load the *rate* is the whole story, so here is the schedule. Up to its minimum, one thread per core by default, the pool creates threads as work arrives. Above the minimum, three mechanisms add threads, each slower than the one before:
 

@@ -211,6 +211,8 @@ The one place idempotency is not enough is ordering: a consumer that applies `Or
 
 ## Sagas: Long-Running Distributed Transactions
 
+> **🎯 Interview · P1.** Sagas, compensation and eventual consistency. The usual wrong answer and the questions to expect: [P1-3 in the Interview Priority Map](#p1-3-messaging-and-distributed-systems).
+
 When you cross service boundaries, the single-database ACID transaction disappears. You can't use a database transaction across five microservices, so how do you keep a multi-step business process consistent ("reserve inventory, charge payment, allocate shipping") when any step might fail? Two-phase commit is slow, locks resources across nodes and stalls when its coordinator dies, so most systems refuse it.
 
 A **Saga** breaks the process into local transactions, each with a **compensating action** that undoes it. If step 3 fails, you run the compensations for steps 2 and 1 (refund the payment, release the inventory). You don't get atomicity; you get *eventual* consistency through explicit rollback logic.
@@ -292,6 +294,8 @@ The saga's state is *persisted*, so the process survives crashes and restarts. T
 > **Capstone tie-in.** ShopCore Step 7 (Split Into Microservices) in [Chapter 44](#chapter-44-capstone-one-project-growing-up) carves out Catalog, Ordering and Payments services communicating over RabbitMQ with MassTransit, with the outbox and idempotent consumers.
 
 ## Detecting Failure and Retrying Without Making It Worse
+
+> **🎯 Interview · P1.** Retries with exponential backoff and jitter, timeouts and the circuit breaker. The usual wrong answer and the questions to expect: [P1-3 in the Interview Priority Map](#p1-3-messaging-and-distributed-systems).
 
 Since you can't distinguish slow from dead, failure detection is heuristic: you set a **timeout** and declare a node dead if it doesn't respond. Too short, and you kill healthy-but-busy nodes; too long, and you hang. Combine timeouts with **heartbeats** (periodic "I'm alive" pings) to track liveness.
 

@@ -33,6 +33,8 @@ When `Example` returns, the stack frame — `localValue`, `p`, the references `c
 
 ## Garbage Collection
 
+> **🎯 Interview · P1.** Generations, the LOH from 85,000 bytes, finalizers, `Dispose` and `GC.SuppressFinalize`. The usual wrong answer and the questions to expect: [P1-4 in the Interview Priority Map](#p1-4-memory-and-the-gc).
+
 The .NET garbage collector is a **tracing, generational, compacting** collector.
 
 **Tracing** means the GC determines liveness by starting from a set of *roots* — static fields, local variables and CPU registers on every thread's stack, and GC handles — and following references transitively. Any object reachable from a root is *live*; everything else is *garbage*. The GC never needs the program to tell it what to free; it discovers it.
@@ -202,6 +204,8 @@ public class Mailer(IOptions<EmailOptions> options)
 ```
 
 ## Dependency Injection
+
+> **🎯 Interview · P1.** Lifetimes, captive dependencies, `IServiceScopeFactory` in a `BackgroundService`, and the options interfaces. The usual wrong answer and the questions to expect: [P1-5 in the Interview Priority Map](#p1-5-aspnet-core).
 
 The options pattern above already relied on it: `AddOptions<T>()` registers a service, and `Mailer` received `IOptions<EmailOptions>` without creating it. A class *declares* its dependencies (usually as constructor parameters) and the built-in container (`Microsoft.Extensions.DependencyInjection`) supplies them. You register services on an `IServiceCollection`; the container builds an `IServiceProvider` that *resolves* them recursively: to build `OrderService` it builds the `IRepository` it needs, then the `DbContext` the repository needs, and so on down the graph.
 

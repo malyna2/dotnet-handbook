@@ -35,6 +35,8 @@ Normalization optimizes for correct writes; it can make reads slower by requirin
 
 ## SQL Fundamentals
 
+> **🎯 Interview · P1.** Queries written by hand: joins, `GROUP BY`/`HAVING`, CTEs, window functions and top N per group, `APPLY`, indexes, execution plans, parameter sniffing, isolation levels and deadlocks. The usual wrong answer and the questions to expect: [P1-1 in the Interview Priority Map](#p1-1-sql-written-by-hand).
+
 Every ORM call ends as SQL. A senior developer reads the generated SQL and the execution plan, not just the C#.
 
 ### Joins
@@ -421,6 +423,8 @@ A deadlock occurs when transaction A holds a lock B needs, while B holds a lock 
 > **Best practice:** Always access tables and rows in a **consistent order** across your application, keep transactions short, and be ready to catch a deadlock error (SQL Server error 1205) and retry the operation.
 
 ## Entity Framework Core: The Object-Relational Mapper
+
+> **🎯 Interview · P2.** N+1, projections, split queries, `AsNoTracking`, `ExecuteUpdate`, concurrency tokens, Dapper in the same transaction, and migrations in production. `DbContext` lifetime, pooling and thread safety belong to P1-6. The usual wrong answer and the questions to expect: [P2-9 in the Interview Priority Map](#p2-9-ef-core-in-depth).
 
 An ORM's job is to bridge two worlds that think differently. Your C# code thinks in objects, references, and collections. A relational database thinks in tables, rows, and foreign keys. EF Core translates between them. The danger is that the translation is *so* smooth you forget it is happening — and every performance problem in EF comes from forgetting that a property access or a `foreach` might quietly become a database round trip.
 

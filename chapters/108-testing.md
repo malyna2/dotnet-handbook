@@ -332,6 +332,8 @@ var batch = faker.Generate(1000);
 
 ## Integration Testing
 
+> **🎯 Interview · P2.** Unit versus integration, `WebApplicationFactory`, Testcontainers, why EF Core InMemory can't test database logic, `FakeTimeProvider` and flaky tests. The usual wrong answer and the questions to expect: [P2-11 in the Interview Priority Map](#p2-11-testing).
+
 Unit tests verify units in isolation; integration tests verify that the wiring holds. In ASP.NET Core, the workhorse is **`WebApplicationFactory<TEntryPoint>`**, which boots your entire application in-memory — real routing, real middleware, real dependency injection, real model binding — and hands you an `HttpClient` that talks to it *without opening a network socket*.
 
 ```csharp

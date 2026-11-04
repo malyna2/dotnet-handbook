@@ -715,6 +715,8 @@ dotnet nuget push ./nupkgs/Contoso.Ordering.Client.2.3.1.nupkg \
 
 ## Deployment Strategies
 
+> **🎯 Interview · P2.** Rolling versus blue-green, continuous delivery versus continuous deployment, and rolling back versus fixing forward. The usual wrong answer and the questions to expect: [P2-10 in the Interview Priority Map](#p2-10-azure-and-devops).
+
 Getting a validated artifact built is only half the job; *how* you replace the running version determines whether users notice.
 
 **Rolling deployment** replaces instances gradually. In a fleet of ten servers you update two at a time, letting the new version take traffic while the rest still run the old version, until all are updated. It needs no extra capacity but means both versions serve traffic simultaneously for a while—your app and database must tolerate that.

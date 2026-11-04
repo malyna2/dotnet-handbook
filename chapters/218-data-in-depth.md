@@ -436,6 +436,8 @@ The technique that makes this bearable is **consistent hashing** combined with m
 
 ## Migrations at Scale (Zero-Downtime)
 
+> **🎯 Interview · P2.** Running migrations with several instances, expand/contract, and why a down migration is not a rollback plan. The usual wrong answer and the questions to expect: [P2-9 in the Interview Priority Map](#p2-9-ef-core-in-depth).
+
 On a small system you run a migration, take thirty seconds of downtime, and move on. At scale that's unacceptable — and worse, some migrations lock large tables for minutes and hold up every request. The goal is **zero-downtime schema evolution**, and the governing technique is the **expand/contract** (also called parallel-change) pattern.
 
 The insight: **you cannot deploy the schema change and the code that needs it at the same instant**, because during a rolling deploy, old and new code run simultaneously against the same database. So you split every breaking change into backward-compatible steps:
