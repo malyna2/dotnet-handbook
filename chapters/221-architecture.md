@@ -168,6 +168,38 @@ At its heaviest, CQRS uses *physically separate stores*: writes go to a normaliz
 
 > **Trade-off:** Full CQRS with separate stores gives you independently scalable reads, tailor-made query models, and no more contorting one ORM model to serve both a complex edit form and a dashboard. The price is significant: two data models to keep in sync, eventual consistency the UI must account for, and real operational complexity. **Start with the lightweight command/query split. Reach for separate read stores only when read and write scaling or modeling needs genuinely diverge.** Do not adopt heavyweight CQRS by default — it is one of the most over-applied patterns in the field.
 
+### Pipeline Behaviours: Cross-Cutting Code Around Every Handler
+
+The part of MediatR that pays for its indirection is `IPipelineBehavior<TRequest, TResponse>`. A behaviour wraps the handler the way middleware wraps an endpoint: it receives the request and a `next` delegate, does its work before and after, and decides whether to call `next` at all. One behaviour registered as an open generic runs around *every* request, so validation, logging, timing and a transaction per command are written once instead of in every handler.
+
+```csharp
+public sealed class ValidationBehavior<TRequest, TResponse>(IEnumerable<IValidator<TRequest>> validators)
+    : IPipelineBehavior<TRequest, TResponse> where TRequest : notnull
+{
+    public async Task<TResponse> Handle(TRequest request, RequestHandlerDelegate<TResponse> next,
+                                        CancellationToken ct)
+    {
+        foreach (var validator in validators)
+            await validator.ValidateAndThrowAsync(request, ct);   // throws before the handler runs
+        return await next();                                       // the next behaviour, or the handler
+    }
+}
+```
+
+```csharp
+services.AddMediatR(cfg =>
+{
+    cfg.RegisterServicesFromAssemblyContaining<PlaceOrder>();
+    cfg.AddOpenBehavior(typeof(LoggingBehavior<,>));     // outermost: registered first, runs first
+    cfg.AddOpenBehavior(typeof(ValidationBehavior<,>));  // then validation, then the handler
+});
+```
+
+The registration order is the nesting order: here logging wraps validation, which wraps the handler, so a request that fails validation is still logged and timed. A request type with no validators passes straight through, because `IEnumerable<IValidator<TRequest>>` resolves to an empty sequence. The code above was compiled and run against MediatR 12.5.0, the last Apache-2.0 release before the licensing change in the note above.
+
+> **Pitfall.** A transaction behaviour that wraps *every* request also wraps queries, and a behaviour that catches exceptions to return a "result" hides failures from the exception handler and the logs. Constrain such behaviours to commands, with a marker interface (`where TRequest : ICommand<TResponse>`), and let exceptions travel. The pipeline is also invisible at the call site, so keep it short: a reader of the handler should not need to know about five behaviours to understand what happens.
+
+
 ### Event Sourcing
 
 Event Sourcing is a distinct idea often paired with CQRS. Instead of storing the *current state* of an entity and overwriting it on each change, you store the *full sequence of events* that led to that state. The current state is a left-fold (a replay) over the events.

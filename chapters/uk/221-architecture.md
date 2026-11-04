@@ -168,6 +168,38 @@ MediatR — це диспетчер у межах одного процесу з
 
 > **Компроміс:** повний CQRS з окремими сховищами забезпечує незалежне масштабування читань, спеціально сформовані моделі запитів і позбавляє необхідності перекручувати одну модель ORM заради складної форми редагування й панелі моніторингу. Ціна значна: потрібно синхронізувати дві моделі даних, інтерфейс має враховувати consistency із часом, а експлуатація стає складнішою. **Почніть із легкого розділення команд і запитів. Переходьте до окремого сховища читання, лише коли справді розійшлися потреби масштабування чи моделювання читань і записів.** Не застосовуйте важкий CQRS типово — це один із найбільш надмірно вживаних шаблонів.
 
+### Pipeline behaviours: наскрізний код навколо кожного handler
+
+Частина MediatR, яка виправдовує його непрямість, — це `IPipelineBehavior<TRequest, TResponse>`. Pipeline behaviour (поведінка конвеєра) обгортає handler так само, як middleware обгортає endpoint: він отримує запит і делегат `next`, робить свою роботу до й після і вирішує, чи викликати `next` взагалі. Одна behaviour, зареєстрована як відкритий generic, виконується навколо *кожного* запиту, тож валідацію, журналювання, вимірювання часу й транзакцію на кожну команду пишуть один раз, а не в кожному handler.
+
+```csharp
+public sealed class ValidationBehavior<TRequest, TResponse>(IEnumerable<IValidator<TRequest>> validators)
+    : IPipelineBehavior<TRequest, TResponse> where TRequest : notnull
+{
+    public async Task<TResponse> Handle(TRequest request, RequestHandlerDelegate<TResponse> next,
+                                        CancellationToken ct)
+    {
+        foreach (var validator in validators)
+            await validator.ValidateAndThrowAsync(request, ct);   // throws before the handler runs
+        return await next();                                       // the next behaviour, or the handler
+    }
+}
+```
+
+```csharp
+services.AddMediatR(cfg =>
+{
+    cfg.RegisterServicesFromAssemblyContaining<PlaceOrder>();
+    cfg.AddOpenBehavior(typeof(LoggingBehavior<,>));     // outermost: registered first, runs first
+    cfg.AddOpenBehavior(typeof(ValidationBehavior<,>));  // then validation, then the handler
+});
+```
+
+Порядок реєстрації — це порядок вкладення: тут журналювання обгортає валідацію, а та обгортає handler, тож запит, що не пройшов валідацію, все одно потрапляє в журнал і вимірюється. Тип запиту без валідаторів проходить наскрізь, бо `IEnumerable<IValidator<TRequest>>` розв’язується в порожню послідовність. Код вище скомпільовано й запущено з MediatR 12.5.0, останнім випуском під Apache-2.0 перед зміною ліцензування з примітки вище.
+
+> **Пастка.** Транзакційна behaviour, що обгортає *кожен* запит, обгортає й запити на читання, а behaviour, яка перехоплює винятки, щоб повернути «результат», ховає збої від обробника винятків і від журналів. Обмежуйте такі behaviours командами через маркерний інтерфейс (`where TRequest : ICommand<TResponse>`) і давайте виняткам іти далі. Конвеєр до того ж невидимий у місці виклику, тож тримайте його коротким: читачеві handler не має бути потрібно знати про п’ять behaviours, щоб зрозуміти, що відбувається.
+
+
 ### Зберігання events
 
 Зберігання events — окрема ідея, яку часто поєднують із CQRS. Замість збереження *поточного стану* сутності з перезаписуванням після кожної зміни зберігайте *повну послідовність events*, що привела до цього стану. Поточний стан обчислюється згорнутим проходом (повторним відтворенням) events.
