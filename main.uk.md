@@ -4953,7 +4953,7 @@ LCP ≤ 2.5 с, INP ≤ 200 мс, CLS ≤ 0.1 на 75-му перцентилі 
 
 # Розділ 7: Доступ до даних
 
-_⏱️ Орієнтовний час читання: ~1 год 35 хв · 13507 слів (навчальний темп)_
+_⏱️ Орієнтовний час читання: ~1 год 40 хв · 14003 слів (навчальний темп)_
 
 Безпомилкова бізнес-логіка не врятує рівень даних, який виконує тисячу запитів замість одного, сканує індекс, у якому мав би шукати, або втрачає оновлення одного користувача через зміну іншого.
 
@@ -5192,6 +5192,55 @@ WHERE Rn <= 2;   -- the two largest orders of each customer
 Запит повертає замовлення 10 і 11 для клієнта 1, 13 і 14 для клієнта 2, 15 для клієнта 3 і 16 для `CustomerId`, що дорівнює NULL: як і `GROUP BY`, `PARTITION BY` збирає NULL в окрему групу. Використовуйте `RANK` замість `ROW_NUMBER`, коли треба зберегти всі рядки з однаковим значенням.
 
 LINQ не має оператора для window function, але EF Core сам пише `ROW_NUMBER` для перших N у кожній групі: `ctx.Customers.Select(c => new { c.Name, Top = c.Orders.OrderByDescending(o => o.Total).ThenBy(o => o.Id).Take(2).ToList() })` стає підзапитом `ROW_NUMBER() OVER(PARTITION BY [o].[CustomerId] ORDER BY [o].[Total] DESC, [o].[Id])` з фільтром `<= 2` і на SQL Server, і на PostgreSQL. Ранги, наростальні підсумки й CTE пишіть [сирим SQL](#stored-procedures-views-and-raw-sql) або через [Dapper](#dapper-when-the-orm-is-too-much).
+
+### CROSS APPLY і OUTER APPLY
+
+Join поєднує два набори рядків, які існують незалежно один від одного. **`APPLY`** (SQL Server) виконує табличний вираз *один раз для кожного рядка* лівої частини, і цей вираз може посилатися на стовпці лівого рядка: це корельований підзапит, якому дозволено повертати кілька рядків і кілька стовпців. `CROSS APPLY` залишає лівий рядок, лише коли вираз щось повернув, як inner join; `OUTER APPLY` залишає кожен лівий рядок і заповнює стовпці виразу значеннями NULL, як left join. У PostgreSQL те саме записують як `CROSS JOIN LATERAL` і `LEFT JOIN LATERAL … ON true`.
+
+Це другий спосіб записати перші N у кожній групі, коли N стоїть усередині підзапиту:
+
+```sql
+SELECT c.Name, t.Id, t.Total
+FROM Customers AS c
+CROSS APPLY (
+    SELECT TOP (3) o.Id, o.Total
+    FROM Orders AS o
+    WHERE o.CustomerId = c.Id        -- the inner query sees the outer row
+    ORDER BY o.Total DESC, o.Id
+) AS t;   -- the three largest orders of each customer; Dan has none, so no row
+```
+
+Ada отримує замовлення 10, 11 і 12, Ben — 13 і 14, Cleo — 15. Для Dan вираз нічого не повертає, тож `CROSS APPLY` його відкидає, а гостьове замовлення 16 не належить жодному рядку клієнта, тому, на відміну від версії з `ROW_NUMBER` вище, воно взагалі не з’являється. `OUTER APPLY` залишає всіх клієнтів, і це форма запиту «кожен клієнт із його останнім замовленням»:
+
+```sql
+SELECT c.Name, t.Id, t.Total
+FROM Customers AS c
+OUTER APPLY (
+    SELECT TOP (1) o.Id, o.Total
+    FROM Orders AS o
+    WHERE o.CustomerId = c.Id
+    ORDER BY o.CreatedAt DESC, o.Id DESC
+) AS t;   -- every customer with their latest order; Dan with NULLs
+```
+
+Той самий запит мовою PostgreSQL:
+
+```sql
+SELECT c.Name, t.Id, t.Total
+FROM Customers AS c
+LEFT JOIN LATERAL (
+    SELECT o.Id, o.Total
+    FROM Orders AS o
+    WHERE o.CustomerId = c.Id
+    ORDER BY o.CreatedAt DESC, o.Id DESC
+    LIMIT 1
+) AS t ON true;   -- PostgreSQL's OUTER APPLY
+```
+
+> **Зверніть увагу.** **`APPLY` і `ROW_NUMBER` читають дані по-різному.** `ROW_NUMBER() OVER (PARTITION BY CustomerId …)` нумерує *кожне* замовлення, а потім фільтрує, тож читає всю таблицю чи індекс один раз. `APPLY` виконує свій підзапит один раз для кожного зовнішнього рядка; з індексом на `Orders (CustomerId, Total DESC)` кожне виконання — це пошук в індексі, який зупиняється після трьох рядків. Багато клієнтів із кількома замовленнями кожен: зазвичай виграє один прохід `ROW_NUMBER`. Мало клієнтів із великою кількістю замовлень або зовнішня частина, вже відфільтрована до кількох рядків: `APPLY` читає по три рядки на клієнта замість усіх. Без такого індексу кожне виконання підзапиту сканує й сортує, і `APPLY` стає повільним варіантом. Перш ніж обирати, порівняйте логічні читання обох запитів на власних даних.
+
+`APPLY` має ще два щоденні застосування: виклик табличної функції для кожного рядка (`CROSS APPLY STRING_SPLIT(p.Tags, ',')`, `CROSS APPLY OPENJSON(e.Payload)`) і обчислений вираз, названий один раз, щоб його могли використати і `WHERE`, і `SELECT` (`CROSS APPLY (SELECT o.Total * 1.23 AS Gross) AS x`). EF Core теж його генерує: `SelectMany`, внутрішня колекція якого посилається на зовнішній елемент, стає `CROSS APPLY` на SQL Server і lateral join на PostgreSQL.
+
 
 ### SQL-запити в LINQ для EF Core
 

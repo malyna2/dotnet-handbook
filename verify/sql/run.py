@@ -34,6 +34,10 @@ EXPECT = {
     "claims/nulls-last.sql": "pg-only",                # SQL Server has no NULLS FIRST / LAST
     "claims/recursion-limit-mssql.sql": "pg-error-only",  # PostgreSQL rejects the plain WITH; SQL Server stops at 100 levels
     "claims/recursion-limit-pg.sql": "pg-only",        # SQL Server rejects WITH RECURSIVE
+    "queries/12-cross-apply.sql": "mssql-only",        # APPLY and TOP are SQL Server's...
+    "queries/13-outer-apply.sql": "mssql-only",
+    "queries/14-lateral.sql": "pg-only",               # ...LATERAL and LIMIT are PostgreSQL's
+    "claims/cross-lateral-pg.sql": "pg-only",
 }
 # Plan text a statement in the prose rests on: (file, engine, regex, expected number of matches).
 PLAN_CHECKS = [
@@ -46,7 +50,9 @@ PLAN_CHECKS = [
     ("claims/recursion-limit-mssql.sql", "mssql", r"Msg 530\b.*\n.*maximum recursion 100", 1),
     ("claims/recursion-limit-pg.sql", "pg", r"\n200\n", 1),
 ]
-SAME_ROWS = [("queries/08-recursive-cte.sql", "pg", "claims/recursive-cte-mssql.sql", "mssql")]
+SAME_ROWS = [("queries/08-recursive-cte.sql", "pg", "claims/recursive-cte-mssql.sql", "mssql"),
+             ("queries/14-lateral.sql", "pg", "queries/13-outer-apply.sql", "mssql"),
+             ("claims/cross-lateral-pg.sql", "pg", "queries/12-cross-apply.sql", "mssql")]
 
 
 def run_pg(sql: str):

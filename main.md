@@ -4956,7 +4956,7 @@ LCP ≤ 2.5 s, INP ≤ 200 ms, CLS ≤ 0.1, at the 75th percentile of real visit
 
 # Chapter 7: Data Access
 
-_⏱️ Estimated read time: ~1 h 35 min · 14228 words (study pace)_
+_⏱️ Estimated read time: ~1 h 40 min · 14751 words (study pace)_
 
 Flawless business logic doesn't survive a data layer that fires a thousand queries where one would do, scans an index it was meant to seek, or loses one user's update under another's.
 
@@ -5195,6 +5195,55 @@ WHERE Rn <= 2;   -- the two largest orders of each customer
 It returns orders 10 and 11 for customer 1, 13 and 14 for customer 2, 15 for customer 3, and 16 for a NULL `CustomerId`: like `GROUP BY`, `PARTITION BY` puts the NULLs in a group of their own. Use `RANK` instead of `ROW_NUMBER` when every tied row should be kept.
 
 LINQ has no operator for a window function, but EF Core writes `ROW_NUMBER` itself for the top N per group: `ctx.Customers.Select(c => new { c.Name, Top = c.Orders.OrderByDescending(o => o.Total).ThenBy(o => o.Id).Take(2).ToList() })` becomes a `ROW_NUMBER() OVER(PARTITION BY [o].[CustomerId] ORDER BY [o].[Total] DESC, [o].[Id])` subquery filtered on `<= 2`, on SQL Server and PostgreSQL alike. Ranks, running totals and CTEs go in [raw SQL](#stored-procedures-views-and-raw-sql) or [Dapper](#dapper-when-the-orm-is-too-much).
+
+### CROSS APPLY and OUTER APPLY
+
+A join combines two row sets that exist independently. **`APPLY`** (SQL Server) runs a table expression *once for each row* of its left side, and that expression may refer to the left row's columns: a correlated subquery that is allowed to return several rows and several columns. `CROSS APPLY` keeps a left row only when the expression returns something, like an inner join; `OUTER APPLY` keeps every left row and fills the expression's columns with NULL, like a left join. PostgreSQL writes the same thing as `CROSS JOIN LATERAL` and `LEFT JOIN LATERAL … ON true`.
+
+That gives a second way to write top N per group, with the N inside the subquery:
+
+```sql
+SELECT c.Name, t.Id, t.Total
+FROM Customers AS c
+CROSS APPLY (
+    SELECT TOP (3) o.Id, o.Total
+    FROM Orders AS o
+    WHERE o.CustomerId = c.Id        -- the inner query sees the outer row
+    ORDER BY o.Total DESC, o.Id
+) AS t;   -- the three largest orders of each customer; Dan has none, so no row
+```
+
+Ada gets orders 10, 11 and 12, Ben 13 and 14, Cleo 15. The expression returns nothing for Dan, so `CROSS APPLY` drops him, and the guest order 16 belongs to no customer row, so unlike in the `ROW_NUMBER` version above it never appears. `OUTER APPLY` keeps every customer, which is the shape of "each customer with their latest order":
+
+```sql
+SELECT c.Name, t.Id, t.Total
+FROM Customers AS c
+OUTER APPLY (
+    SELECT TOP (1) o.Id, o.Total
+    FROM Orders AS o
+    WHERE o.CustomerId = c.Id
+    ORDER BY o.CreatedAt DESC, o.Id DESC
+) AS t;   -- every customer with their latest order; Dan with NULLs
+```
+
+The PostgreSQL spelling of the same query:
+
+```sql
+SELECT c.Name, t.Id, t.Total
+FROM Customers AS c
+LEFT JOIN LATERAL (
+    SELECT o.Id, o.Total
+    FROM Orders AS o
+    WHERE o.CustomerId = c.Id
+    ORDER BY o.CreatedAt DESC, o.Id DESC
+    LIMIT 1
+) AS t ON true;   -- PostgreSQL's OUTER APPLY
+```
+
+> **Pay attention.** **`APPLY` and `ROW_NUMBER` read the data differently.** `ROW_NUMBER() OVER (PARTITION BY CustomerId …)` numbers *every* order and then filters, so it reads the whole table or index once. `APPLY` runs its subquery once per outer row; with an index on `Orders (CustomerId, Total DESC)`, each run is a seek that stops after three rows. Many customers with a few orders each: the single pass of `ROW_NUMBER` usually wins. Few customers with many orders each, or an outer side already filtered to a handful of rows: `APPLY` reads three rows per customer instead of all of them. Without that index, every execution of the subquery scans and sorts, and `APPLY` is the slow choice. Compare the logical reads of both on your own data before choosing.
+
+`APPLY` has two other everyday uses: calling a table-valued function for each row (`CROSS APPLY STRING_SPLIT(p.Tags, ',')`, `CROSS APPLY OPENJSON(e.Payload)`), and naming a computed expression once so `WHERE` and `SELECT` can both use it (`CROSS APPLY (SELECT o.Total * 1.23 AS Gross) AS x`). EF Core produces it as well: a `SelectMany` whose inner collection refers to the outer element becomes `CROSS APPLY` on SQL Server and a lateral join on PostgreSQL.
+
 
 ### SQL Queries in EF Core LINQ
 

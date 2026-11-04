@@ -1,0 +1,20 @@
+# Environment: Intel(R) Xeon(R) Processor @ 2.10GHz, 4 vCPU, 16 GB RAM, Docker 29.9.2
+# Engines: PostgreSQL 17.11 (Debian 17.11-1.pgdg13+2); SQL Server 16.0.4295.3 CU27, collation SQL_Latin1_General_CP1_CI_AS
+# Data: schema.sql (4 customers, 8 orders, 10 order lines, 4 categories), loaded fresh before the run
+# Captured: 2026-11-04 21:25 UTC by verify.sh
+# File: verify/sql/queries/13-outer-apply.sql
+
+-- PostgreSQL (exit code 3)
+psql:<stdin>:8: ERROR:  syntax error at or near "OUTER"
+LINE 3: OUTER APPLY (
+        ^
+
+-- SQL Server (exit code 0)
+Name|Id|Total
+----|--|-----
+Ada|17|30.00
+Ben|14|20.00
+Cleo|15|70.00
+Dan|NULL|NULL
+
+(4 rows affected)
