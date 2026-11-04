@@ -15964,7 +15964,7 @@ A pattern for a long-running business transaction spanning multiple services wit
 
 # Chapter 21: Architecture
 
-_⏱️ Estimated read time: ~35 min · 5221 words (study pace)_
+_⏱️ Estimated read time: ~35 min · 5554 words (study pace)_
 
 You can write correct code and still build a system that becomes miserable to change. Correctness is about whether a single function returns the right answer; architecture is about whether, six months from now, a new feature takes an afternoon or a fortnight. Architecture is the cost of change, decided in advance: every boundary makes change cheap on one side of it and expensive across it.
 
@@ -16256,6 +16256,18 @@ Notice most of these benefits are *organizational and scaling* benefits, not cod
 > **Best practice — start with a Modular Monolith.** You get clean boundaries (Bounded Contexts as modules), a single simple deployment, in-process calls, and real transactions. If a module later proves it needs independent scaling or a dedicated team, its clean boundary makes extraction to a microservice tractable. Do not begin a greenfield project with microservices unless you already know the boundaries cold and have the team structure and operational muscle to match. **The modular monolith is the pragmatic senior default.**
 
 The corollary: bad boundaries in a monolith are cheap to fix (move a class). Bad boundaries between microservices are agony to fix (coordinated multi-service migration). Get the boundaries right *before* you distribute.
+
+### Worked Example: Pulling Reporting Out of the Monolith
+
+A classic interview prompt: *the reports run on the main database and slow down checkout; what do you do?* The senior answer is a ladder of reversible steps, each taken only when the previous one is not enough.
+
+1. **Measure and fix the queries.** The slow reports usually lack an index or scan years of data ([Chapter 19](#chapter-19-the-slow-query-lab-reading-execution-plans)). A covering index or a precomputed summary table refreshed every night can end the problem in a day.
+2. **Move the reads to a replica.** Point the reporting module's `DbContext` at a read replica ([Scaling Reads with Replication](#scaling-reads-with-replication)). Checkout no longer competes for CPU and I/O. The cost is replication lag: a report may be seconds behind, and the business has to agree that's acceptable.
+3. **Give reporting its own read model.** When reports need a shape the transactional schema can't serve (denormalized, aggregated, historical), project changes into tables or a store built for them, fed by the outbox or by CDC ([Change Data Capture (CDC)](#change-data-capture-cdc)). This is CQRS at the module boundary. The report is now eventually consistent, and the projection needs monitoring for lag and for failed events.
+4. **Extract a service, if anything still demands it.** Only when a separate team owns reporting, or it needs to scale and deploy on its own, does the module become a service that owns its read store and consumes events. The module boundary built in the monolith is what makes this a move rather than a rewrite.
+
+Every step is a strangler move ([Chapter 24](#chapter-24-working-with-legacy-brownfield-code)): build the new path beside the old one, send traffic to it behind a feature flag (one report, one customer, then all), compare the two outputs for the same period, and delete the old path only when they agree. Name the trade-off at each rung: freshness for isolation at step 2, a second model to keep correct at step 3, and a network boundary with its failure modes at step 4.
+
 
 ## API Gateway and Backend for Frontend
 
