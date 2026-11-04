@@ -351,6 +351,29 @@ A predicate can seek only if it is **sargable**: it compares the stored column i
 
 Plans are easiest to learn on PostgreSQL, whose `EXPLAIN` output is plain text and tells you both what it *expected* and what actually *happened*. [Chapter 18: Data in Depth](#chapter-18-data-in-depth) reads it line by line, and [Chapter 19](#chapter-19-the-slow-query-lab-reading-execution-plans) is the hands-on lab.
 
+### Parameter Sniffing
+
+SQL Server compiles a parameterized query or a stored procedure once and caches the plan. On that first execution it *sniffs* the parameter values it was given and estimates row counts from the column statistics for those values; every later execution, with any value, reuses the plan. EF Core and Dapper send parameterized SQL through `sp_executesql`, so application queries are cached and reused this way too, not only stored procedures.
+
+Reuse is the point, because compiling costs CPU. It goes wrong when the data is skewed. Take `WHERE CustomerId = @c`, where most customers have a dozen orders and one has a hundred thousand. If a small customer compiles the plan, it is an index seek plus a key lookup per row: perfect for twelve rows, a disaster as 100,000 lookups for the big customer. If the big customer compiles it, every small customer gets a scan. Same query, same index, and the speed depends on which caller came first after the plan was last compiled: a restart, a statistics update, or the plan evicted under memory pressure.
+
+The symptoms: a query fast for most callers and slow for some; a query that "suddenly" got slow with no deployment; and "slow in the application, fast in SSMS". SSMS runs with different `SET` options (`ARITHABORT ON`), which gives it a separate cache entry compiled for your test value, so you never see the application's plan. The proof is in the actual plan: its parameter list shows the compiled value next to the runtime value, and the estimated rows are far from the actual ones.
+
+```sql
+-- A fresh plan on every execution: right for each value, at the cost of a compile each time.
+SELECT Id, Total FROM Orders WHERE CustomerId = @c
+OPTION (RECOMPILE);
+
+-- One plan for the average value instead of the sniffed one: predictable, rarely the best.
+SELECT Id, Total FROM Orders WHERE CustomerId = @c
+OPTION (OPTIMIZE FOR (@c UNKNOWN));
+```
+
+The fixes, from the narrowest: `OPTION (RECOMPILE)` on a query that runs rarely enough to afford a compile per execution; `OPTIMIZE FOR UNKNOWN`, or `OPTIMIZE FOR (@c = …)` with a representative value, when one plan must serve every caller; a known-good plan forced with Query Store; and on SQL Server 2022 and later, *parameter sensitive plan optimization*, which at database compatibility level 160 keeps several cached plans for one statement and picks one by the parameter's expected row count. Flushing the plan cache (`DBCC FREEPROCCACHE`) is not a fix: the next first caller decides again. Rung 9 of [Chapter 19](#chapter-19-the-slow-query-lab-reading-execution-plans) measures a sniffed plan on the lab's data.
+
+The same estimate also sizes memory. Before a sort or a hash join runs, SQL Server reserves a **memory grant** computed from the *estimated* row count. Underestimate, and the operator runs out of memory and **spills** to `tempdb`, shown as a warning on the Sort or Hash Match operator in the actual plan; overestimate, and concurrent queries queue for memory they don't need (the `RESOURCE_SEMAPHORE` wait). A wrong estimate costs twice: the wrong operator, and the wrong amount of memory for it.
+
+
 ### Transactions and ACID
 
 A transaction groups statements so they succeed or fail as a unit. ACID names its four guarantees:
