@@ -13716,7 +13716,7 @@ Each box is a heap allocation and a copy, feeding gen-0 GC. In a tight loop that
 
 # Chapter 18: Data in Depth
 
-_⏱️ Estimated read time: ~55 min · 10034 words (study pace)_
+_⏱️ Estimated read time: ~55 min · 10182 words (study pace)_
 
 This chapter starts where [Chapter 7](#chapter-7-data-access) stops: making one database fast when the obvious levers are already pulled, and then deciding what to do when one database is no longer enough.
 
@@ -14167,6 +14167,9 @@ Consider renaming a `Name` column to `FullName` — a one-liner that, done naive
 > **Pitfall:** `ALTER TABLE` operations that rewrite a table or take an `ACCESS EXCLUSIVE` lock will block all reads and writes for the duration. On a large table under load this is an outage. Always check whether an operation is lock-free; add indexes `CONCURRENTLY`; add columns *without* a volatile default (modern Postgres makes adding a column with a constant default cheap, but backfilling is not).
 
 [Chapter 7](#chapter-7-data-access) decides *where* migrations run (startup or a pipeline step). **Feature flags** ([Chapter 26](#feature-flags)) pair naturally with expand/contract: they decouple *deploying* the code that uses the new shape from *releasing* it, which is exactly what you want while the schema underneath is mid-transition.
+
+> **Pay attention.** **A `Down` migration is not a rollback plan.** EF Core generates a `Down` method for every migration, and running it after a bad release looks like the database equivalent of redeploying the old image. It isn't: the `Down` of an added column drops the column, and every value written to it since the release goes with it; the `Down` of a dropped column brings it back empty. Rolling the *code* back is safe exactly when the schema is still compatible with the old code, which is what expand/contract guarantees: during the expand phase the old version still runs against the new schema. So the plan for a bad release is to redeploy the previous artifact and fix forward with a new migration. Keep `Down` for development databases, and treat a contract step (the drop) as the one change that can't be undone without a backup.
+
 
 ## Change Data Capture (CDC)
 

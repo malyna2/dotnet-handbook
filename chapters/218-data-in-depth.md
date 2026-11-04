@@ -450,6 +450,9 @@ Consider renaming a `Name` column to `FullName` — a one-liner that, done naive
 
 [Chapter 7](#chapter-7-data-access) decides *where* migrations run (startup or a pipeline step). **Feature flags** ([Chapter 26](#feature-flags)) pair naturally with expand/contract: they decouple *deploying* the code that uses the new shape from *releasing* it, which is exactly what you want while the schema underneath is mid-transition.
 
+> **Pay attention.** **A `Down` migration is not a rollback plan.** EF Core generates a `Down` method for every migration, and running it after a bad release looks like the database equivalent of redeploying the old image. It isn't: the `Down` of an added column drops the column, and every value written to it since the release goes with it; the `Down` of a dropped column brings it back empty. Rolling the *code* back is safe exactly when the schema is still compatible with the old code, which is what expand/contract guarantees: during the expand phase the old version still runs against the new schema. So the plan for a bad release is to redeploy the previous artifact and fix forward with a new migration. Keep `Down` for development databases, and treat a contract step (the drop) as the one change that can't be undone without a backup.
+
+
 ## Change Data Capture (CDC)
 
 Sharded or not, large systems rarely keep all their data in one place. The catalog lives in Postgres, search lives in Elasticsearch, the recommendation engine wants a stream of events, and analytics wants everything in a warehouse. The naive approach — have the application write to all of them — is a distributed-transaction nightmare: what happens when the Postgres write succeeds but the Elasticsearch write fails?
