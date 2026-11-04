@@ -133,6 +133,39 @@
 
 > **Уточнення:** *Розкажіть про випадок, коли вам довелося ухвалювати рішення без повної інформації.* Покажіть, як обмежили ризик: зробили зворотний вибір, випустили невелике рішення, щоб навчитися, призначили момент повторного оцінювання та повідомили про невизначеність, а не вдавали впевненість.
 
+### Три історії, які варто мати напоготові
+
+Поведінкові раунди обертаються навколо невеликого набору запитів, і три історії покривають більшість із них: помилка, конфлікт і складна технічна задача з числом наприкінці. Підготуйте кожну англійською, у форматі STAR, приблизно на дві хвилини, з власної роботи. Скелети нижче задають форму; кожну дужку заповнюєте ви, а числа мають бути справжніми, такими, які ви зможете захистити в уточнювальних питаннях. Історія про реального роботодавця лишається у ваших приватних нотатках; [Розділ 37](#chapter-37-the-story-bank-evidence-portfolio) показує, як зібрати й відрепетирувати банк історій.
+
+```text
+**Story 1: a mistake** (also answers "a failure", "a bad decision", "what did you learn")
+Situation: On [project], we [context in one sentence].
+Task:      I was responsible for [the thing that went wrong].
+Action:    I chose [decision] because [why it seemed right]. It caused [consequence],
+           which I noticed when [signal]. I [fixed it how], and told [who] [when].
+Result:    [impact, measured]. Since then I [the practice you changed], and the team
+           [the safeguard: a test, a check, a review rule].
+
+**Story 2: a conflict** (also answers "a disagreement", "pushing back", "working with a difficult colleague")
+Situation: [colleague's role] and I disagreed about [technical choice].
+Task:      We had to decide by [deadline] because [why it mattered].
+Action:    I wrote down both options and their trade-offs: [A: pro/con], [B: pro/con].
+           I proposed [a spike / a measurement / a time-boxed trial]. It showed [finding].
+           We chose [option]; I [committed to it / changed my mind] and [what I did next].
+Result:    [outcome]. What I took from it: [one sentence].
+
+**Story 3: a hard technical problem** (also answers "your proudest work", "a difficult bug")
+Situation: [system] was [symptom], affecting [who / how many].
+Task:      I owned [the investigation / the fix].
+Action:    I reproduced it by [how], ruled out [hypothesis] with [tool and evidence],
+           and found [root cause]. I fixed it by [change] and prevented a repeat with
+           [test / alert / design change].
+Result:    [metric] went from [before] to [after], measured with [how].
+```
+
+> **Пастка.** Казати «ми» впродовж усієї частини Action. Наймають вас, а не команду: кажіть «я» про те, що робили ви, і «ми» лише про те, що команда вирішила разом, і тримайте Situation достатньо короткою, щоб Action і Result отримали більшу частину двох хвилин.
+
+
 ## Як продовжувати навчання
 
 [У розділі 16](#chapter-16-working-like-a-middle-developer) закладено звичку: кілька надійних джерел, нотатки до випусків, навчання через створення продуктів і викладання. На рівні senior питання змінюється з *як устигати за змінами* на *де поглибити знання*, а джерела стають ближчими до деталей платформи.

@@ -133,6 +133,39 @@ Bring data, not complaints: present the estimate, the trade-offs, and options (c
 
 > **Follow-up:** *Tell me about a time you had to make a decision without complete information.* Show how you bounded the risk: made a reversible choice, shipped small to learn, set a checkpoint to re-evaluate, and communicated the uncertainty rather than pretending certainty.
 
+### Three Stories to Have Ready
+
+Behavioural rounds rotate through a small set of prompts, and three stories cover most of them: a mistake, a conflict, and a hard technical problem with a number at the end. Prepare each one in English, in STAR, timed to about two minutes, from your own work. The skeletons below hold the shape; every bracket is yours to fill, and the numbers must be real ones you can defend in the follow-up. A story about a real employer stays in your private notes; [Chapter 37](#chapter-37-the-story-bank-evidence-portfolio) shows how to build and rehearse the bank.
+
+```text
+**Story 1: a mistake** (also answers "a failure", "a bad decision", "what did you learn")
+Situation: On [project], we [context in one sentence].
+Task:      I was responsible for [the thing that went wrong].
+Action:    I chose [decision] because [why it seemed right]. It caused [consequence],
+           which I noticed when [signal]. I [fixed it how], and told [who] [when].
+Result:    [impact, measured]. Since then I [the practice you changed], and the team
+           [the safeguard: a test, a check, a review rule].
+
+**Story 2: a conflict** (also answers "a disagreement", "pushing back", "working with a difficult colleague")
+Situation: [colleague's role] and I disagreed about [technical choice].
+Task:      We had to decide by [deadline] because [why it mattered].
+Action:    I wrote down both options and their trade-offs: [A: pro/con], [B: pro/con].
+           I proposed [a spike / a measurement / a time-boxed trial]. It showed [finding].
+           We chose [option]; I [committed to it / changed my mind] and [what I did next].
+Result:    [outcome]. What I took from it: [one sentence].
+
+**Story 3: a hard technical problem** (also answers "your proudest work", "a difficult bug")
+Situation: [system] was [symptom], affecting [who / how many].
+Task:      I owned [the investigation / the fix].
+Action:    I reproduced it by [how], ruled out [hypothesis] with [tool and evidence],
+           and found [root cause]. I fixed it by [change] and prevented a repeat with
+           [test / alert / design change].
+Result:    [metric] went from [before] to [after], measured with [how].
+```
+
+> **Pitfall.** Saying "we" through the whole Action. The interviewer is hiring you, not the team: say "I" for what you did and "we" only for what the team decided together, and keep the Situation short enough that the Action and Result get most of the two minutes.
+
+
 ## How to Keep Learning
 
 [Chapter 16](#chapter-16-working-like-a-middle-developer) set up the habit: a few high-signal sources, release notes, learning by building and teaching. At senior level the question changes from *how to keep up* to *where to go deep*, and the sources get closer to the metal.

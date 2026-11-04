@@ -27302,7 +27302,7 @@ RPO — скільки даних ви можете втратити, вимір
 
 # Розділ 36: Поведінка досвідченого інженера, кар’єра та співбесіди
 
-_⏱️ Орієнтовний час читання: ~20 хв · 3916 слів (навчальний темп)_
+_⏱️ Орієнтовний час читання: ~25 хв · 4282 слів (навчальний темп)_
 
 Результат роботи досвідченого інженера — рішення, за якими діють інші. Вартість помилкового рішення зростає разом із кількістю залежних від нього рішень і людей, тому кожен прояв досвіду або переносить перевірку на раніший етап, або зменшує вартість перегляду рішення: дизайн перевіряють до написання коду, рішення документують, щоб його можна було замінити, а не обговорювати знову, оцінки звіряють із фактичними термінами подібної роботи, а поведінку застарілої системи фіксують до її зміни. Вплив працює за тим самим принципом у довшій перспективі: довіра зростає завдяки чесним оцінкам, справедливим перевіркам і виконаним зобов’язанням або завчасно переглянутим домовленостям.
 
@@ -27436,6 +27436,39 @@ _⏱️ Орієнтовний час читання: ~20 хв · 3916 слів 
 Наведіть дані, а не скарги: оцінку, компроміси й варіанти (скоротити обсяг, розбити доставку на етапи, погодитися з ризиком або перенести дату). Дайте зацікавленим сторонам змогу обрати, знаючи всі обставини. Досвідчений підхід — перетворити «ні» на «ось компроміси — який варіант ви обираєте?»
 
 > **Уточнення:** *Розкажіть про випадок, коли вам довелося ухвалювати рішення без повної інформації.* Покажіть, як обмежили ризик: зробили зворотний вибір, випустили невелике рішення, щоб навчитися, призначили момент повторного оцінювання та повідомили про невизначеність, а не вдавали впевненість.
+
+### Три історії, які варто мати напоготові
+
+Поведінкові раунди обертаються навколо невеликого набору запитів, і три історії покривають більшість із них: помилка, конфлікт і складна технічна задача з числом наприкінці. Підготуйте кожну англійською, у форматі STAR, приблизно на дві хвилини, з власної роботи. Скелети нижче задають форму; кожну дужку заповнюєте ви, а числа мають бути справжніми, такими, які ви зможете захистити в уточнювальних питаннях. Історія про реального роботодавця лишається у ваших приватних нотатках; [Розділ 37](#chapter-37-the-story-bank-evidence-portfolio) показує, як зібрати й відрепетирувати банк історій.
+
+```text
+**Story 1: a mistake** (also answers "a failure", "a bad decision", "what did you learn")
+Situation: On [project], we [context in one sentence].
+Task:      I was responsible for [the thing that went wrong].
+Action:    I chose [decision] because [why it seemed right]. It caused [consequence],
+           which I noticed when [signal]. I [fixed it how], and told [who] [when].
+Result:    [impact, measured]. Since then I [the practice you changed], and the team
+           [the safeguard: a test, a check, a review rule].
+
+**Story 2: a conflict** (also answers "a disagreement", "pushing back", "working with a difficult colleague")
+Situation: [colleague's role] and I disagreed about [technical choice].
+Task:      We had to decide by [deadline] because [why it mattered].
+Action:    I wrote down both options and their trade-offs: [A: pro/con], [B: pro/con].
+           I proposed [a spike / a measurement / a time-boxed trial]. It showed [finding].
+           We chose [option]; I [committed to it / changed my mind] and [what I did next].
+Result:    [outcome]. What I took from it: [one sentence].
+
+**Story 3: a hard technical problem** (also answers "your proudest work", "a difficult bug")
+Situation: [system] was [symptom], affecting [who / how many].
+Task:      I owned [the investigation / the fix].
+Action:    I reproduced it by [how], ruled out [hypothesis] with [tool and evidence],
+           and found [root cause]. I fixed it by [change] and prevented a repeat with
+           [test / alert / design change].
+Result:    [metric] went from [before] to [after], measured with [how].
+```
+
+> **Пастка.** Казати «ми» впродовж усієї частини Action. Наймають вас, а не команду: кажіть «я» про те, що робили ви, і «ми» лише про те, що команда вирішила разом, і тримайте Situation достатньо короткою, щоб Action і Result отримали більшу частину двох хвилин.
+
 
 ## Як продовжувати навчання
 
