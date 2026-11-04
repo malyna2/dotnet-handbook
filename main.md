@@ -27300,7 +27300,7 @@ A reference kept by mistake: the GC frees only unreachable objects, so anything 
 
 # Chapter 36: Senior Behaviours, Career and Interviews
 
-_⏱️ Estimated read time: ~20 min · 4114 words (study pace)_
+_⏱️ Estimated read time: ~20 min · 4349 words (study pace)_
 
 A senior's output is decisions that other people act on. The cost of a wrong decision grows with how much is built on it and how many people follow it, so every senior behaviour either moves a check earlier or makes a decision cheaper to revisit: the design reviewed before the lines exist, the decision written down so it can be superseded rather than relitigated, the estimate checked against how long similar work really took, the legacy behaviour pinned before it is changed. Influence runs on the same mechanism over a longer time: trust compounds from estimates that were honest, reviews that were fair and commitments that landed or were renegotiated early.
 
@@ -27394,6 +27394,20 @@ Only if you then say *what* it depends on and pick a default. "It depends on rea
 
 **How do you show seniority beyond just knowing facts?**
 Talk about trade-offs, failure modes, operability, and cost — not just the happy path. Juniors describe how a thing works; seniors describe when *not* to use it and what breaks it at 3 a.m.
+
+### Answer First: The Shape of a Spoken Technical Answer
+
+Most technical questions in a Regular-level interview are answered out loud in one or two minutes, and the interviewer decides in the first sentence whether you know the answer. Give them that sentence first, then earn it:
+
+1. **The answer, in one sentence.** "Read Committed, and whether reads block depends on `READ_COMMITTED_SNAPSHOT`."
+2. **The mechanism that makes it true.** "Without it, readers take shared locks and wait for writers; with it, they read the last committed row version."
+3. **The trade-off or the trap.** "RCSI costs version-store space in `tempdb`, and it still doesn't prevent lost updates."
+4. **Where you met it**, if you have one, in a sentence. "We switched it on after `SELECT`s were timing out behind a nightly batch."
+
+Stop there and let the interviewer pull the thread they care about. A long answer that builds up to the conclusion loses the interviewer before the point arrives; a short one that ends with a trade-off invites the follow-up you have prepared for. When the honest answer is "it depends", name what it depends on and pick a default in the same breath.
+
+> **Best practice.** Practise the first sentence of your answers to the questions in the [Appendix: Interview Priority Map](#appendix-interview-priority-map) out loud and in English, recording yourself. If the first sentence takes more than ten seconds, it isn't the answer yet.
+
 
 ### Behavioral / Seniority
 
