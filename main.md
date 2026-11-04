@@ -2766,7 +2766,7 @@ Asynchronous streaming — `await foreach` over items produced with latency (pag
 
 # Chapter 5: HTTP and Web APIs
 
-_⏱️ Estimated read time: ~1 h 5 min · 9585 words (study pace)_
+_⏱️ Estimated read time: ~1 h 10 min · 9928 words (study pace)_
 
 Most bugs that reach production in a web service are not really *code* bugs. They are network bugs wearing a code costume: a call that works on your laptop times out under load, a service that handled a thousand requests per second starts throwing `SocketException`, an endpoint answers `200` while its client sees a failure.
 
@@ -3539,6 +3539,40 @@ builder.Services.AddRateLimiter(o =>
     }));
 app.UseRateLimiter();
 ```
+
+The four built-in limiters differ in what they count:
+
+| Limiter | Counts | Behaviour at the edge of the window | Fits |
+|---|---|---|---|
+| Fixed window | requests per window (100 per minute) | the counter resets at once, so a client can send 100 at 0:59 and 100 more at 1:00 | simple quotas |
+| Sliding window | requests per window, split into segments | the window moves one segment at a time, so the burst at the boundary is smoothed | the same quota without the boundary burst |
+| Token bucket | tokens, refilled at a fixed rate up to a cap | a full bucket allows a burst, then the refill rate is the sustained limit | APIs that tolerate short bursts |
+| Concurrency | requests in flight at the same moment | no window; a permit is returned when the request ends | protecting an expensive resource (reports, exports) |
+
+```csharp
+builder.Services.AddRateLimiter(o =>
+{
+    o.RejectionStatusCode = StatusCodes.Status429TooManyRequests;   // the default is 503
+    o.AddSlidingWindowLimiter("search", opt =>
+    {
+        opt.PermitLimit = 100;
+        opt.Window = TimeSpan.FromMinutes(1);
+        opt.SegmentsPerWindow = 6;          // the window moves in 10-second steps
+    });
+    o.AddTokenBucketLimiter("burst", opt =>
+    {
+        opt.TokenLimit = 20;                // a burst of up to 20...
+        opt.TokensPerPeriod = 5;            // ...then 5 more every second
+        opt.ReplenishmentPeriod = TimeSpan.FromSeconds(1);
+    });
+    o.AddConcurrencyLimiter("reports", opt => opt.PermitLimit = 4);  // at most 4 in flight
+});
+```
+
+Attach a policy to an endpoint with `RequireRateLimiting("search")` or `[EnableRateLimiting("search")]`.
+
+> **Pay attention.** **A rejected request gets `503` unless you say otherwise.** `RateLimiterOptions.RejectionStatusCode` defaults to `503 Service Unavailable`, which tells clients and load balancers the *server* is unhealthy, and some will retry immediately or take the instance out of rotation. Set it to `429 Too Many Requests` and, where the limiter knows it, send `Retry-After` from `OnRejected`. Where `UseRateLimiter` goes follows from what it partitions by: after `UseRouting` so it can see the endpoint's policy, after `UseAuthentication` when the partition is the user, and before it when the point is to shield the authentication work from a flood partitioned by IP address.
+
 
 **Output caching** stores the *rendered response* server-side and replays it for matching requests — great for expensive, rarely-changing GETs. It differs from *response caching*, which sets HTTP cache headers and trusts clients and proxies to honour them ([CDNs and Caching Headers](#cdns-and-caching-headers) in Chapter 26).
 

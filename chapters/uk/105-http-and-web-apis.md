@@ -770,6 +770,40 @@ builder.Services.AddRateLimiter(o =>
 app.UseRateLimiter();
 ```
 
+Чотири вбудовані обмежувачі відрізняються тим, що вони рахують:
+
+| Обмежувач | Що рахує | Поведінка на межі вікна | Для чого підходить |
+|---|---|---|---|
+| Fixed window | запити за вікно (100 за хвилину) | лічильник скидається одразу, тож клієнт може надіслати 100 запитів о 0:59 і ще 100 о 1:00 | прості квоти |
+| Sliding window | запити за вікно, поділене на сегменти | вікно зсувається на один сегмент за раз, тож сплеск на межі згладжується | та сама квота без сплеску на межі |
+| Token bucket | токени, що поповнюються з фіксованою швидкістю до верхньої межі | повне «відро» дозволяє сплеск, а далі швидкість поповнення — це стале обмеження | API, які допускають короткі сплески |
+| Concurrency | запити, що виконуються одночасно | вікна немає; дозвіл повертається, коли запит завершується | захист дорогого ресурсу (звіти, експорт) |
+
+```csharp
+builder.Services.AddRateLimiter(o =>
+{
+    o.RejectionStatusCode = StatusCodes.Status429TooManyRequests;   // the default is 503
+    o.AddSlidingWindowLimiter("search", opt =>
+    {
+        opt.PermitLimit = 100;
+        opt.Window = TimeSpan.FromMinutes(1);
+        opt.SegmentsPerWindow = 6;          // the window moves in 10-second steps
+    });
+    o.AddTokenBucketLimiter("burst", opt =>
+    {
+        opt.TokenLimit = 20;                // a burst of up to 20...
+        opt.TokensPerPeriod = 5;            // ...then 5 more every second
+        opt.ReplenishmentPeriod = TimeSpan.FromSeconds(1);
+    });
+    o.AddConcurrencyLimiter("reports", opt => opt.PermitLimit = 4);  // at most 4 in flight
+});
+```
+
+Прив’яжіть політику до endpoint через `RequireRateLimiting("search")` або `[EnableRateLimiting("search")]`.
+
+> **Зверніть увагу.** **Відхилений запит отримує `503`, якщо ви не вкажете інше.** `RateLimiterOptions.RejectionStatusCode` за замовчуванням дорівнює `503 Service Unavailable`, а це каже клієнтам і балансувальникам навантаження, що нездоровий *сервер*, і дехто з них одразу повторить запит або виведе інстанс з ротації. Задайте `429 Too Many Requests` і, де обмежувач це знає, надсилайте `Retry-After` з `OnRejected`. Місце `UseRateLimiter` випливає з того, за чим він ділить запити на партиції: після `UseRouting`, щоб бачити політику endpoint; після `UseAuthentication`, коли партиція — це користувач; і перед ним, коли мета — захистити саму автентифікацію від потоку запитів із партиціями за IP-адресою.
+
+
 **Кешування виводу** зберігає на сервері *сформовану відповідь* і повертає її для відповідних запитів — чудово підходить для дорогих `GET`-запитів, дані яких рідко змінюються. Це не те саме, що *кешування відповідей*, яке задає HTTP-заголовки кешу й покладається на клієнтів і проксі ([CDN і заголовки кешування](#cdns-and-caching-headers) у Розділ 26).
 
 **Стискання відповіді** (Brotli/Gzip) зменшує розмір даних. Якщо зворотний проксі (nginx, YARP) уже стискає їх, повторне стискання в застосунку марнує процесорний час — враховуйте топологію.
