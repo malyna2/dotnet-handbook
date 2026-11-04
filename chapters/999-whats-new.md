@@ -2,6 +2,29 @@
 
 This page is the handbook's changelog. When a new release lands, a popup announces it on your next visit. Under each release, **Site & functionality** items are plain notes, while **Content updates** link to every chapter that changed — a link is ticked off (✓, stored locally in your browser) once you visit it, so you can work through an update at your own pace and see what's still unread.
 
+## Release — November 4, 2026
+
+**🔧 Site & functionality**
+
+- A new 🎯 Interview marker, explained in the preface, flags each section an interviewer is likely to test, as P1 or P2.
+- The appendix group in the chapter list now holds more than one page.
+
+**📖 Content updates**
+
+- [Chapter 7: Data Access](#chapter-7-data-access) — `CROSS APPLY` and `OUTER APPLY`, with the top N per group they write and PostgreSQL's `LATERAL`.
+- [Chapter 7: Data Access](#chapter-7-data-access) — Parameter sniffing: why a cached plan suits one value, how to spot it, the fixes, and memory-grant spills.
+- [Chapter 7: Data Access](#chapter-7-data-access) — Read Committed with and without `READ_COMMITTED_SNAPSHOT`, and why Azure SQL behaves differently.
+- [Chapter 5: HTTP and Web APIs](#chapter-5-http-and-web-apis) — The four built-in rate limiters compared, and why rejections default to `503`.
+- [Chapter 5: HTTP and Web APIs](#chapter-5-http-and-web-apis) — Forwarded headers behind a reverse proxy, and which proxies the middleware trusts.
+- [Chapter 11: Messaging and Background Work](#chapter-11-messaging-and-background-work) — Why a Redis "processed" key is not an idempotency claim.
+- [Chapter 21: Architecture](#chapter-21-architecture) — MediatR pipeline behaviours, their order, and where they go wrong.
+- [Chapter 21: Architecture](#chapter-21-architecture) — A worked example of pulling reporting out of a monolith, one reversible step at a time.
+- [Chapter 18: Data in Depth](#chapter-18-data-in-depth) — Why a `Down` migration is not a rollback plan.
+- [Chapter 29: Azure in Depth for .NET Developers](#chapter-29-azure-in-depth-for-net-developers) — Where background work runs: hosted service, Functions, worker, Container Apps jobs or WebJobs.
+- [Chapter 36: Senior Behaviours, Career and Interviews](#chapter-36-senior-behaviours-career-and-interviews) — The shape of a spoken technical answer: the answer first, then the mechanism and the trade-off.
+- [Chapter 36: Senior Behaviours, Career and Interviews](#chapter-36-senior-behaviours-career-and-interviews) — Three STAR story skeletons to prepare in English.
+- [Appendix: Interview Priority Map](#appendix-interview-priority-map) — Thirteen interview topics ranked P1 and P2, with the usual wrong answer and questions to rehearse.
+
 ## Release — October 26, 2026
 
 **🔧 Site & functionality**
