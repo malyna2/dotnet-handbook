@@ -810,6 +810,30 @@ Attach a policy to an endpoint with `RequireRateLimiting("search")` or `[EnableR
 
 **Response compression** (Brotli/Gzip) shrinks payloads. Note that if a reverse proxy (nginx, YARP) already compresses, doing it again in-app is wasted CPU — know your topology.
 
+### Behind a Reverse Proxy: Forwarded Headers
+
+In production the app rarely faces the client directly. A load balancer, an ingress controller, App Service's front end or YARP terminates TLS and opens a new plain-HTTP connection to Kestrel. To Kestrel, every request then comes from the proxy's IP address over `http`. The proxy passes the original values along in headers: `X-Forwarded-For` (the client IP, with one entry appended per hop), `X-Forwarded-Proto` (the original scheme) and `X-Forwarded-Host`.
+
+ASP.NET Core ignores those headers until the **Forwarded Headers middleware** runs. Without it, `Request.Scheme` is `http`, so `UseHttpsRedirection` redirects requests that already came over HTTPS (a redirect loop), OpenID Connect builds `http://` redirect URIs that the identity provider rejects, links generated with `Url.Action` point to `http`, and every log line and rate-limiter partition sees the proxy's IP instead of the client's.
+
+```csharp
+builder.Services.Configure<ForwardedHeadersOptions>(o =>
+{
+    o.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
+    o.KnownIPNetworks.Add(System.Net.IPNetwork.Parse("10.0.0.0/8"));   // the proxy's subnet, nobody else's
+});
+
+var app = builder.Build();
+app.UseForwardedHeaders();      // first, so everything after sees the client's scheme and IP
+app.UseExceptionHandler();
+app.UseHsts();
+```
+
+The middleware rewrites `HttpContext.Connection.RemoteIpAddress` and `Request.Scheme` from the headers, and it should run before every middleware that reads them; Microsoft's documentation allows it after diagnostics and error handling, but it must come before `UseHsts`.
+
+> **Pay attention.** **The middleware trusts only the proxies you name.** By default it accepts the headers only from loopback (`KnownProxies` holds `::1`, `KnownIPNetworks` holds `127.0.0.0/8`), and it processes only the rightmost entry of each header (`ForwardLimit` is `1`). In a container behind a proxy on `10.0.0.5`, the headers are therefore silently ignored and the app still sees `http`: add the proxy's address or subnet. Clearing both lists so every sender is trusted lets any client claim any IP address with one header, which defeats IP-based rate limits and audit logs. Setting the `ASPNETCORE_FORWARDEDHEADERS_ENABLED` environment variable to `true` turns the middleware on for `X-Forwarded-For` and `X-Forwarded-Proto` without code, with settings meant for cloud hosts where the platform is the only way in, and without any known-proxy restriction. IIS out-of-process hosting enables it for you.
+
+
 ## REST and OpenAPI
 
 **REST** is a set of constraints, not a law, but a few principles pay dividends: model your API around **resources** (nouns), not actions; use the HTTP **methods** for intent (GET read, POST create, PUT replace, PATCH partial update, DELETE remove) with the safety and idempotency they promise ([HTTP Methods and Idempotency](#http-methods-and-idempotency)); and let the **status code** carry the outcome ([Status Codes and Headers That Matter](#status-codes-and-headers-that-matter)).

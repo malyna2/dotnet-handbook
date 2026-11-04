@@ -808,6 +808,30 @@ builder.Services.AddRateLimiter(o =>
 
 **Стискання відповіді** (Brotli/Gzip) зменшує розмір даних. Якщо зворотний проксі (nginx, YARP) уже стискає їх, повторне стискання в застосунку марнує процесорний час — враховуйте топологію.
 
+### За reverse proxy: forwarded headers
+
+У продакшені застосунок рідко бачить клієнта напряму. Балансувальник навантаження, ingress controller, фронтенд App Service чи YARP завершує TLS і відкриває до Kestrel нове з’єднання звичайним HTTP. Для Kestrel кожен запит тоді приходить з IP-адреси проксі через `http`. Проксі передає початкові значення в заголовках: `X-Forwarded-For` (IP клієнта, з одним записом на кожен перехід), `X-Forwarded-Proto` (початкова схема) і `X-Forwarded-Host`.
+
+ASP.NET Core ігнорує ці заголовки, доки не запрацює **Forwarded Headers middleware**. Без нього `Request.Scheme` дорівнює `http`, тож `UseHttpsRedirection` перенаправляє запити, які вже прийшли через HTTPS (нескінченний цикл перенаправлень), OpenID Connect будує redirect URI з `http://`, які identity provider відхиляє, посилання з `Url.Action` ведуть на `http`, а кожен рядок журналу й кожна партиція rate limiter бачать IP проксі замість IP клієнта.
+
+```csharp
+builder.Services.Configure<ForwardedHeadersOptions>(o =>
+{
+    o.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
+    o.KnownIPNetworks.Add(System.Net.IPNetwork.Parse("10.0.0.0/8"));   // the proxy's subnet, nobody else's
+});
+
+var app = builder.Build();
+app.UseForwardedHeaders();      // first, so everything after sees the client's scheme and IP
+app.UseExceptionHandler();
+app.UseHsts();
+```
+
+Цей middleware переписує `HttpContext.Connection.RemoteIpAddress` і `Request.Scheme` із заголовків, і він має працювати перед кожним middleware, що їх читає; документація Microsoft дозволяє ставити його після діагностики й обробки помилок, але обов’язково перед `UseHsts`.
+
+> **Зверніть увагу.** **Middleware довіряє лише тим проксі, які ви назвали.** За замовчуванням він приймає заголовки лише з loopback (`KnownProxies` містить `::1`, `KnownIPNetworks` містить `127.0.0.0/8`) і обробляє лише крайній правий запис кожного заголовка (`ForwardLimit` дорівнює `1`). У контейнері за проксі на `10.0.0.5` заголовки тому мовчки ігноруються, і застосунок далі бачить `http`: додайте адресу чи підмережу проксі. Якщо очистити обидва списки, щоб довіряти будь-якому відправникові, будь-який клієнт зможе одним заголовком назватися будь-якою IP-адресою, і це зводить нанівець rate limits за IP та журнали аудиту. Змінна середовища `ASPNETCORE_FORWARDEDHEADERS_ENABLED` зі значенням `true` вмикає middleware для `X-Forwarded-For` і `X-Forwarded-Proto` без коду, з налаштуваннями для хмарних хостів, де платформа — єдиний шлях усередину, і без жодного обмеження на відомі проксі. Хостинг IIS поза процесом (out-of-process) вмикає його за вас.
+
+
 ## REST і OpenAPI
 
 **REST** — набір обмежень, а не закон, але кілька принципів приносять користь: моделюйте API навколо **ресурсів** (іменників), а не дій; використовуйте **методи** HTTP за призначенням (GET — читання, POST — створення, `PUT` — заміна, PATCH — часткове оновлення, `DELETE` — видалення) із гарантованими властивостями безпеки й ідемпотентності ([Методи HTTP та ідемпотентність](#http-methods-and-idempotency)); результат повідомляйте **кодом стану** ([Важливі коди стану й заголовки](#status-codes-and-headers-that-matter)).
