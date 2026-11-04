@@ -21703,7 +21703,7 @@ And what you give up is real: capacity you can't get in an hour, DR that isn't a
 
 # Chapter 29: Azure in Depth for .NET Developers
 
-_⏱️ Estimated read time: ~1 h 35 min · 14711 words (study pace)_
+_⏱️ Estimated read time: ~1 h 35 min · 15081 words (study pace)_
 
 [Chapter 28](#chapter-28-cloud-fundamentals-aws-azure) gave you the map: what App Service, Functions, Cosmos DB and Service Bus *are*, and how they line up against AWS. A map gets you through a conversation. It does not get you through the first week of owning a production system on Azure, where the questions sound like this: *why does the app get a 403 from Blob Storage when its identity is a Contributor on the subscription? Why did the slot swap cause a minute of 500s? Why does Cosmos DB throttle at 3,000 RU/s when we provisioned 20,000?*
 
@@ -22138,6 +22138,21 @@ Container Apps runs your containers on a managed Kubernetes cluster that you nev
 - **Ingress** is *external* (public) or *internal* (inside the environment's VNet only). Pull images from Azure Container Registry with a managed identity that has *AcrPull*, not with admin credentials.
 
 It is the natural home for a .NET system of a handful of services, which is exactly what [Chapter 14](#chapter-14-containers-and-linux) builds towards. Move to AKS when you need something Container Apps does not expose: custom operators, service-mesh control, node-level tuning, or a platform team that wants the whole Kubernetes API.
+
+### Where Background Work Runs
+
+Background work is the question that crosses all of the options above: a queue consumer, a nightly import, a report generated on demand. The choice depends on how the work starts and how long it runs.
+
+| The work | Reach for | Because | Watch for |
+|---|---|---|---|
+| Light work tied to the web app (refresh a cache, drain a small in-process queue) | a `BackgroundService` in the app itself ([Chapter 3](#the-generic-host-and-background-services)) | No extra deployment | It runs on every instance and stops when the app scales in or restarts; in App Service it also needs *Always On*, or the idle app is unloaded |
+| Event-driven work: a queue message, a blob upload, a timer | **Azure Functions** | Scales per event and down to zero; triggers and bindings replace the polling code | The plan's execution time limit and cold starts ([Azure Functions](#azure-functions)) |
+| A long-running consumer with steady load | a **worker** (the Worker Service template) on **Container Apps** or AKS, scaled by KEDA on queue length | No time limit; you own the loop, the concurrency and graceful shutdown | Scale-to-zero means a cold start on the first message |
+| Run-to-completion work: a scheduled import, an export started on demand, one execution per batch of messages | **Container Apps jobs** (manual, scheduled or event-driven) | Each execution is a container that starts, works and exits, with retries and a timeout per execution | State between runs belongs in storage, not in the container |
+| Scripts or a WebJobs SDK program next to an existing App Service app | **WebJobs** (continuous or triggered) | Same plan, same deployment, no new resource | Shares CPU and memory with the web app; scheduled WebJobs need *Always On*, which the Free and Shared tiers lack |
+
+Whichever host you pick, the work is at-least-once: a function retried after a timeout, a job execution retried after a crash, or two instances of a `BackgroundService` all repeat work, so the consumer must be idempotent ([Chapter 11](#idempotent-consumers)), and work that must run once across instances needs a lock or a job framework that provides one ([Ensuring a job runs once across instances](#ensuring-a-job-runs-once-across-instances)).
+
 
 ## Storage Accounts and Blob Storage
 
