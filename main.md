@@ -24832,7 +24832,7 @@ Break the code on purpose (invert a condition, delete a line, make a guard retur
 
 # Chapter 33: Building AI-Powered Systems
 
-_⏱️ Estimated read time: ~1 h 25 min · 15435 words (study pace)_
+_⏱️ Estimated read time: ~1 h 30 min · 15826 words (study pace)_
 
 [Chapter 32](#chapter-32-the-ai-native-developer-thriving-in-the-ai-era) was about *using* AI to write software. This chapter flips the relationship: now the AI model is a *component inside* the software you ship. This is a different discipline. When you use an assistant to write a function, you review the output once and move on. When you embed a model in a running system, that model produces fresh, non-deterministic output on every request, for every user, forever — and you own the consequences. That single fact reshapes how you design, test, and operate the application.
 
@@ -25177,6 +25177,35 @@ RAG is not the answer to everything. Reach for alternatives when:
 - **The task is an *action*, not a lookup** → **tool calling** to a live system (an order API, a database query) beats retrieving stale documents about it.
 
 > **Rule of thumb:** RAG for *knowledge that changes and must be cited*; long context for *small stable knowledge*; fine-tuning for *behavior and format*; tools for *actions and live data*. Most real systems blend several.
+
+### Make or Buy: Your Own RAG Pipeline or a Managed Service
+
+Most teams face this decision early, and interviewers like it because there is no single right answer, only a reasoned one.
+
+| | Your own pipeline (pgvector or a vector database, your chunker, your retrieval code) | A managed service (Azure AI Search with integrated vectorization, or a hosted "chat with your data" offering) |
+|---|---|---|
+| Time to a first demo | weeks | days |
+| Control over chunking, hybrid weights, reranking, filters | full | what the service exposes |
+| Permission filtering | yours to build | security filters or document-level access, as the service supports them |
+| Operations | yours: indexing jobs, scaling, upgrades | the provider's; you own configuration and cost |
+| Cost shape | infrastructure you size; cheap at low volume if Postgres already exists | per index unit, per query or per document; predictable, can be high at scale |
+| Data residency and NDA | wherever you run it | the service's regions and terms |
+| Lock-in | low | the index format and features are the service's |
+
+Choose on the questions that decide it: does the corpus already live in a database you run (pgvector next to the data is hard to beat), do you need hybrid search and semantic ranking without building them (a search service gives you BM25, vectors and a reranker in one query), how strict is permission trimming, and who will operate it. A sensible path is often to prototype on the managed service to learn what quality is reachable, with the golden set above, and decide on build-or-keep with the numbers.
+
+A template for telling this as your own story, if you made or contributed to such a decision:
+
+```text
+Situation: [Team/product] needed answers over [corpus: size, document types, languages] for [users],
+           with [constraints: permissions, NDA, residency, latency, budget].
+Task:      I was asked to [compare options / build the prototype / own the evaluation].
+Action:    I built a golden set of [n] questions with [who labelled them]. I compared [own pipeline on X]
+           with [managed service Y] on recall@[k], groundedness, latency, cost per [1,000] queries and
+           [operations effort]. The deciding factor was [one criterion].
+Result:    We chose [option]; recall@[k] went from [a] to [b], cost was [c]. In hindsight, [one sentence].
+```
+
 
 ## Chatbots and conversational systems
 
