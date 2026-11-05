@@ -12295,7 +12295,7 @@ Always with its currency, since the number of decimal places depends on it (none
 
 # Chapter 16: Working Like a Middle Developer
 
-_⏱️ Estimated read time: ~50 min · 7856 words (study pace)_
+_⏱️ Estimated read time: ~55 min · 8851 words (study pace)_
 
 This chapter is about the work around code: how to take a vague ticket, a request for an estimate or a pull request, and send back something a teammate can act on without a meeting.
 
@@ -12586,6 +12586,74 @@ The loop:
 When something breaks in production, the goal is to fix the *system*, not to find a person to blame. Blame makes people hide information, which makes the next outage worse. A blameless post-mortem assumes everyone acted reasonably given what they knew, and asks how the system let a reasonable action cause an outage.
 
 A lightweight structure: **what happened** (timeline), **impact** (who/how much), **root cause** (the *why*, dug several levels deep — the deploy wasn't the root cause, the *lack of a canary* was), and **action items** (concrete, owned, dated). Focus every action on making the failure impossible or detectable, not on "be more careful."
+
+## Getting Productive in a System You Didn't Build
+
+> **🎯 Interview · P1.** How you learn a large codebase fast, debug code you didn't write, and ask questions people can answer. The usual wrong answer and the questions to expect: [P1-17 in the Interview Priority Map](#p1-17-working-in-a-system-you-didnt-build).
+
+Most of a developer's career is spent in code someone else wrote, often in a system whose infrastructure was set up before they arrived. The skill is not reading everything; it is building a working model quickly enough to change things safely, and knowing which parts of the model are still guesses.
+
+### The First Week, Day by Day
+
+- **Day 1: run it.** Clone, build, run the tests, start the app locally. Every step that needs a person to unblock you is the first thing to write down (and, later, automate). If the tests don't pass on a clean machine, that is a finding, not your fault.
+- **Day 2: find the entry points.** `Program.cs` and its DI registrations (`builder.Services.Add…`) are the table of contents: they list every service, every database context, every hosted service and every message consumer. Then the edges: controllers and endpoints (HTTP), consumers (`IConsumer<T>`, `ServiceBusProcessor`, `[ServiceBusTrigger]`), `BackgroundService`s and scheduled jobs, and the configuration sections that turn features on.
+- **Day 3: trace one request end to end.** Pick one real business operation (place an order, post an invoice) and follow it from the HTTP request through validation, the handler, the database writes, the events it publishes and the consumers that react. Do it twice: once by reading, once in the debugger or a trace. Write it down as a numbered list with file names.
+- **Day 4: read the tests and the history.** Tests are the only documentation that is checked: their names list the rules, their setup shows how objects are built. Then read how the code got here (below).
+- **Day 5: make a small change and ship it.** A log line, a validation message, a test for an untested branch. The point is to go through review, CI and deployment once, so you learn the path before you need it under pressure.
+
+### Trace One Request End to End
+
+The trace is the most valuable hour of the week. Three tools make it fast: a breakpoint at the endpoint and *Step Into* through the handler; the distributed trace for the same request in the APM (Application Insights, Jaeger), which shows every database call and outgoing HTTP call with timings, including the ones hidden behind libraries; and the logs filtered by the trace ID ([Correlation Across Services](#correlation-across-services)). Where the code publishes a message, find who consumes it by searching for the message type, and continue the trace there.
+
+### Read the History: git log and git blame
+
+```bash
+git log --oneline --since="6 months ago" -- src/Billing/        # what changed here lately, and why
+git log -S "InvoiceNumberGenerator" --oneline                   # the commits that added or removed this text
+git blame -w -C src/Billing/InvoiceService.cs                   # who last touched each line, ignoring moves and whitespace
+git log --format='%an' -- src/Billing/ | sort | uniq -c | sort -rn | head   # who knows this area
+```
+
+`git blame` answers "why is this line like this?" when the commit message or the linked ticket explains it; the author's name tells you whom to ask. [Chapter 24's hotspot analysis](#finding-hotspots-churn-complexity) finds the files that change most, which are where your first bugs will be.
+
+### Make the Local Environment One Command
+
+If starting the system takes a wiki page, write the script while the pain is fresh: a `docker-compose.yml` with the database, the broker emulator and any other dependency at pinned versions, a seed script with realistic data, and a `README` section "run it locally" that someone new can follow in ten minutes. It is the most welcome first contribution to a team, and it is how you learn every dependency the system has.
+
+### Debugging Code You Don't Know
+
+Don't read your way to the bug; narrow it down. Reproduce it first, ideally as a failing test. Find the boundary where data turns from right to wrong (log or break at the entry, the middle and the exit of the path you traced). Check what changed recently (`git log` on the area, the last deployments, configuration and feature-flag changes), and use `git bisect` when a known-good version exists. Treat every belief about the code as a hypothesis until a breakpoint or a log line confirms it. [Methodical Debugging & Problem Solving](#methodical-debugging-problem-solving) above has the full method.
+
+### Asking a Question Someone Can Answer
+
+A good question costs the person answering it one minute. It has four parts:
+
+```text
+Goal:      I'm trying to [what you want to achieve], for [ticket].
+Tried:     I [what you did], and checked [what you looked at: file, log, query].
+Expected:  I expected [behaviour], because [your understanding].
+Got:       Instead [actual behaviour / error, with the exact message or a link to the log].
+           Is my assumption about [specific thing] wrong, or am I looking in the wrong place?
+```
+
+Ask after a time box (thirty minutes to two hours, depending on how blocked you are), ask in the team's channel rather than a private message so the answer helps the next person, and write the answer into the README or the project map.
+
+### Draw the Project Map
+
+Keep a one-page map and update it as you learn; it becomes the onboarding document the team didn't have:
+
+```text
+**Purpose**         what the system does, for whom, in two sentences
+**Entry points**    HTTP APIs, message consumers, scheduled jobs, with their projects
+**Data**            databases and their owners, the main tables, caches, blob containers
+**Integrations**    brokers and topics/queues, external APIs, identity provider
+**Request trace**   the numbered path of one business operation, with file names
+**Run locally**     the one command, and what it needs
+**Deploy**          pipeline, environments, how to roll back
+**People**          who knows which area (from git log), who owns what
+**Open questions**  what you still don't understand, and whom to ask
+```
+
 
 ## Safe Change, Refactoring & Tech Debt
 
