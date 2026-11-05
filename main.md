@@ -21749,7 +21749,7 @@ And what you give up is real: capacity you can't get in an hour, DR that isn't a
 
 # Chapter 29: Azure in Depth for .NET Developers
 
-_⏱️ Estimated read time: ~1 h 40 min · 15859 words (study pace)_
+_⏱️ Estimated read time: ~1 h 40 min · 16249 words (study pace)_
 
 [Chapter 28](#chapter-28-cloud-fundamentals-aws-azure) gave you the map: what App Service, Functions, Cosmos DB and Service Bus *are*, and how they line up against AWS. A map gets you through a conversation. It does not get you through the first week of owning a production system on Azure, where the questions sound like this: *why does the app get a 403 from Blob Storage when its identity is a Contributor on the subscription? Why did the slot swap cause a minute of 500s? Why does Cosmos DB throttle at 3,000 RU/s when we provisioned 20,000?*
 
@@ -22577,6 +22577,19 @@ Event Hubs is a **partitioned log**, the same model as Kafka (it even speaks the
 - **Retention** is 1 day on Basic, up to 7 on Standard, and up to 90 on Premium and Dedicated. Consumers can re-read anything still retained, which is how you replay after a bug fix.
 - **Checkpointing.** `EventProcessorClient` balances partitions across your instances and stores each partition's position in a Blob container. You choose when to checkpoint: after every event is safest and slowest; every N events or T seconds is faster, and on restart the events since the last checkpoint are read again. So Event Hubs consumers must be idempotent too.
 - **Capture** writes the stream to Blob Storage or Data Lake as Avro files, which gives you an archive with no consumer code.
+
+### Event Hubs Under the Hood
+
+**A stream, not a queue.** Service Bus hands a *message* to one consumer and deletes it once settled; Event Hubs appends *events* to a log that nobody deletes from. Each consumer group keeps its own position, so ten applications can read the same events at their own pace, and a fixed consumer can rewind and replay. There is no per-event lock, no dead-letter queue and no per-event retry: if one event can't be processed, the consumer decides what to do with it (skip it, park it in a queue of your own, or stop), because the next event in the partition waits behind it.
+
+**Partitions decide everything.** The partition is the unit of order, parallelism and throughput. Events with the same partition key always land in the same partition, so ordering per key holds; across partitions there is none. Within a consumer group there should be **one active reader per partition** (the service allows up to five in special cases, each of which then receives every event of the partition), so the number of partitions caps the number of useful consumer instances. `EventProcessorClient` assigns partitions to instances and moves them when instances come and go.
+
+**Checkpoints are your offsets.** A checkpoint is the position you stored in Blob Storage for a partition. On restart or rebalance, the new owner starts from the last checkpoint, so everything after it is read again: at-least-once, exactly like Kafka. Checkpointing after every event is the slowest and repeats the least; every N events or T seconds is the usual trade.
+
+**Kafka endpoint.** Standard, Premium and Dedicated namespaces expose a Kafka-compatible endpoint on port 9093 (`<namespace>.servicebus.windows.net:9093`, SASL over TLS, with Entra ID OAuth or a connection string). Existing Kafka producers and consumers work by changing configuration; features such as Kafka Streams and transactions are limited to Premium and Dedicated, so check the feature list before you promise a migration "without code changes". Basic has no Kafka endpoint.
+
+**Typical failures:** a hot partition because the key is skewed (one tenant producing half the events); consumers that can't keep up because there are more instances than partitions (the extra ones sit idle) or fewer than needed; reprocessing after every deployment because checkpoints are written rarely; and events lost to retention because a consumer was down for longer than the retention period.
+
 
 ### Event Grid
 
