@@ -463,6 +463,77 @@ public sealed class CatalogContextFactory(IConfiguration config)
 
 **Debezium** — фактичний стандарт платформи CDC з open source (відкритим кодом). Вона підключається до потоку реплікації бази (логічна реплікація Postgres, журнал binlog MySQL тощо) і публікує кожну зміну як event в **Kafka**. Далі один consumer оновлює пошуковий індекс, інший — кеш, ще один — аналітику. Усі вони відокремлені від застосунку й отримують дані з одного впорядкованого потоку.
 
+### Debezium зсередини
+
+Debezium — не сервіс, який ви викликаєте; це набір **source connectors**, що працюють усередині **Kafka Connect** — окремого JVM-процесу (або їх кластера), чия робота — переносити дані між Kafka та іншими системами. Connect зберігає все потрібне у трьох Kafka-топіках: **configs** конекторів, **offsets** (наскільки далеко кожен конектор прочитав) і **statuses**. Конектор реєструють, надсилаючи JSON у REST API Connect; Connect запускає його як task, а task читає потік змін бази даних і пише записи в Kafka.
+
+```
+ PostgreSQL ── WAL ──► replication slot ──► Debezium task (in Kafka Connect) ──► Kafka topics
+                         (holds WAL until          │  stores its position in            shop.public.orders
+                          Debezium confirms)       └► the connect_offsets topic         outbox.event.Order …
+```
+
+**Як кожна база даних його живить.**
+
+- **PostgreSQL: logical decoding.** З `wal_level=logical` PostgreSQL декодує свій write-ahead log у зміни рядків для **replication slot** (слота реплікації); Debezium використовує вбудований плагін `pgoutput` і **publication**, що перелічує таблиці для захоплення. Слот пам’ятає останню позицію, яку Debezium *підтвердив*, і PostgreSQL зберігає кожен сегмент WAL після неї. **Якщо Debezium зупиняється, слот утримує WAL, і диск росте**, доки не заповниться або доки слот не видалять. В [outbox-лабораторній Розділу 45](#chapter-45-the-systems-lab-brokers-diagnostics-azure-and-incidents) зупинка Debezium і запис 200 000 рядків outbox залишили слот на 152 МБ позаду; після перезапуску Debezium відставання повернулося приблизно до 1 МБ. Моніторте відставання слота (`pg_wal_lsn_diff(pg_current_wal_lsn(), confirmed_flush_lsn)` з `pg_replication_slots`), обмежте його через `max_slot_wal_keep_size` (PostgreSQL 13 і новіші), якщо втратити слот краще, ніж втратити базу, і видаляйте слоти, чий конектор зник. `heartbeat.interval.ms` у Debezium змушує його підтверджувати прогрес навіть тоді, коли захоплені таблиці мовчать, а решта бази зайнята, — це другий шлях, яким росте WAL.
+- **SQL Server: функція CDC.** Власне захоплення змін SQL Server (`sys.sp_cdc_enable_db`, потім `sys.sp_cdc_enable_table` для кожної таблиці) запускає завдання SQL Server Agent, які копіюють зміни з журналу транзакцій у таблиці змін; Debezium опитує ці таблиці. Agent має працювати, таблиці змін мають власне завдання очищення за retention, а зміна схеми захопленої таблиці потребує нового capture instance.
+
+**Snapshots (знімки).** Новий конектор не має offset, тож за замовчуванням (`snapshot.mode=initial`) він спершу читає поточний вміст захоплених таблиць, видаючи кожен рядок як подію читання (`op: "r"`), а потім транслює зміни з позиції, де почався знімок. `no_data` пропускає знімок (правильно для таблиці outbox, чиї старі рядки вже опубліковано), `initial_only` робить знімок і зупиняється, `when_needed` робить знімок знову, якщо збереженого offset уже немає в журналі. *Інкрементальні знімки*, що запускаються через сигнальну таблицю, перечитують таблицю частинами, поки трансляція триває.
+
+**Schema history (історія схеми).** Для SQL Server і MySQL Debezium має знати схему кожної таблиці *такою, якою вона була* в кожній точці журналу, тож записує DDL у внутрішній **schema history topic** (`schema.history.internal.kafka.topic`). Конекторові потрібна схема таблиці в цьому топіку, перш ніж він зможе її захоплювати, тож вважайте топік частиною стану конектора: не дозволяйте retention чи прибиранню його видалити (опція `snapshot.mode=recovery` відновлює втрачений). Конектору PostgreSQL він не потрібен, бо `pgoutput` надсилає структуру відношення разом зі змінами.
+
+**Подія.** Кожна зміна стає одним записом Kafka, чий ключ — первинний ключ рядка, а значення — конверт:
+
+```json
+{
+  "before": null,
+  "after":  { "id": 42, "customer_id": 7, "total": 120.00 },
+  "source": { "connector": "postgresql", "db": "shop", "table": "orders", "lsn": 24064704, "txId": 584, "snapshot": "false" },
+  "op": "c",
+  "ts_ms": 1556890294484
+}
+```
+
+`op` — це `c` (create), `u` (update), `d` (delete), `r` (read під час знімка) або `t` (truncate). Update містить і `before`, і `after`; для PostgreSQL обсяг старого рядка в `before` залежить від `REPLICA IDENTITY` таблиці: лише первинний ключ за `DEFAULT`, усі стовпці за `FULL`. Delete має `after: null`, і за типового `tombstones.on.delete=true` за ним іде **tombstone**: запис із тим самим ключем і значенням null, завдяки якому log compaction у Kafka зрештою видаляє всі записи цього ключа. Споживач мусить приймати значення null.
+
+**Outbox Event Router.** Трансляція сирих змін таблиць публікує вашу *схему* як контракт. Шаблон outbox натомість публікує *події*, а single message transformation Outbox Event Router у Debezium перетворює кожен рядок outbox на одне чисте повідомлення: топік — `outbox.event.<aggregatetype>`, ключ — `aggregateid` (тож усі події одного замовлення потрапляють в одну партицію, по порядку), значення — стовпець `payload`, а `id` рядка йде в заголовок для дедуплікації. Конектор із лабораторної:
+
+```json
+{
+  "name": "outbox-connector",
+  "config": {
+    "connector.class": "io.debezium.connector.postgresql.PostgresConnector",
+    "plugin.name": "pgoutput",
+    "database.hostname": "postgres",
+    "database.port": "5432",
+    "database.user": "lab",
+    "database.password": "lab",
+    "database.dbname": "shop",
+    "topic.prefix": "shop",
+    "slot.name": "outbox_slot",
+    "publication.autocreate.mode": "filtered",
+    "table.include.list": "public.outbox",
+    "snapshot.mode": "no_data",
+    "tombstones.on.delete": "false",
+    "heartbeat.interval.ms": "10000",
+    "key.converter": "org.apache.kafka.connect.storage.StringConverter",
+    "value.converter": "org.apache.kafka.connect.json.JsonConverter",
+    "value.converter.schemas.enable": "false",
+    "transforms": "outbox",
+    "transforms.outbox.type": "io.debezium.transforms.outbox.EventRouter",
+    "transforms.outbox.table.expand.json.payload": "true",
+    "transforms.outbox.table.fields.additional.placement": "type:header:eventType"
+  }
+}
+```
+
+**Гарантії.** Debezium працює at-least-once. Після збою Connect перезапускає task з останнього *закоміченого* offset, тож записи, створені після нього, створюються знову; заголовок з ідентифікатором події від router — це те, за чим споживач дедуплікує ([Ідемпотентні consumer](#idempotent-consumers)). Порядок зберігається для ключа, бо один ключ відображається в одну партицію; між ключами порядку немає. **Відставання** (lag) треба стежити у двох місцях: наскільки слот (чи таблиці CDC) позаду журналу і наскільки кожна consumer group позаду топіка.
+
+**Еволюція схеми.** Додавання nullable-стовпця проходить без проблем. Перейменування чи видалення змінює вхідні дані кожного споживача нижче за течією, і саме тому явні типи подій outbox старіють краще, ніж сирі події змін. З Avro чи JSON Schema і реєстром схем правила сумісності ловлять несумісну зміну на продюсері, а не в продакшені.
+
+> **Зверніть увагу.** **«Debezium лежав усі вихідні» — це інцидент бази даних, а не обміну повідомленнями.** Kafka була в порядку, а споживачі простоювали, але replication slot зберіг кожен сегмент WAL, записаний із п’ятниці. Сповіщення, яке це спіймало б, — на відставання слота в байтах і на вільне місце на диску сервера бази даних, а не на сторінку статусу конектора.
+
+
 ### Транзакційний outbox і CDC
 
 Поширена мета — *«коли я зберігаю замовлення, надійно опублікувати event OrderCreated»*. Для цього є два шаблони.

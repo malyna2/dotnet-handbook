@@ -463,6 +463,77 @@ Sharded or not, large systems rarely keep all their data in one place. The catal
 
 **Debezium** is the de facto open-source CDC platform. It plugs into a database's replication stream (Postgres logical replication, MySQL binlog, etc.) and publishes each change as an event to **Kafka**. Downstream, one consumer updates the search index, another updates a cache, another feeds analytics — all decoupled from the application, all fed from the same ordered stream.
 
+### Debezium Under the Hood
+
+Debezium is not a service you call; it is a set of **source connectors** that run inside **Kafka Connect**, a separate JVM process (or cluster of them) whose job is to move data between Kafka and other systems. Connect stores everything it needs in three Kafka topics: the connector **configs**, the **offsets** (how far each connector has read) and the **statuses**. You register a connector by posting JSON to Connect's REST API; Connect runs it as a task, and the task reads the database's change stream and produces records to Kafka.
+
+```
+ PostgreSQL ── WAL ──► replication slot ──► Debezium task (in Kafka Connect) ──► Kafka topics
+                         (holds WAL until          │  stores its position in            shop.public.orders
+                          Debezium confirms)       └► the connect_offsets topic         outbox.event.Order …
+```
+
+**How each database feeds it.**
+
+- **PostgreSQL: logical decoding.** With `wal_level=logical`, PostgreSQL decodes its write-ahead log into row changes for a **replication slot**; Debezium uses the built-in `pgoutput` plugin and a **publication** that lists the captured tables. The slot remembers the last position Debezium *confirmed*, and PostgreSQL keeps every WAL segment after it. **If Debezium stops, the slot keeps the WAL, and the disk grows** until it is full or the slot is dropped. In [Chapter 45's outbox lab](#chapter-45-the-systems-lab-brokers-diagnostics-azure-and-incidents), stopping Debezium and writing 200,000 outbox rows left the slot 152 MB behind; restarting Debezium brought it back to about 1 MB. Monitor the slot's lag (`pg_wal_lsn_diff(pg_current_wal_lsn(), confirmed_flush_lsn)` from `pg_replication_slots`), cap it with `max_slot_wal_keep_size` (PostgreSQL 13 and later) if losing the slot is better than losing the database, and drop slots whose connector is gone. Debezium's `heartbeat.interval.ms` makes it confirm progress even when the captured tables are quiet but the rest of the database is busy, which is the other way the WAL grows.
+- **SQL Server: the CDC feature.** SQL Server's own change data capture (`sys.sp_cdc_enable_db`, then `sys.sp_cdc_enable_table` per table) has SQL Server Agent jobs copy changes from the transaction log into change tables; Debezium polls those tables. The Agent must be running, the change tables have their own retention cleanup job, and a schema change to a captured table needs a new capture instance.
+
+**Snapshots.** A new connector has no offset, so by default (`snapshot.mode=initial`) it first reads the current contents of the captured tables, emitting each row as a read event (`op: "r"`), and then streams changes from the position where the snapshot began. `no_data` skips the snapshot (right for an outbox table, whose old rows are already published), `initial_only` snapshots and stops, `when_needed` snapshots again if the stored offset is no longer available in the log. *Incremental snapshots*, triggered through a signalling table, re-read a table in chunks while streaming continues.
+
+**The schema history.** For SQL Server and MySQL, Debezium must know each table's schema *as it was* at every point in the log, so it records DDL in an internal **schema history topic** (`schema.history.internal.kafka.topic`). The connector needs a table's schema in that topic before it can capture the table, so treat the topic as part of the connector's state: don't let retention or a clean-up delete it (the `snapshot.mode=recovery` option rebuilds a lost one). The PostgreSQL connector doesn't need one, because `pgoutput` sends the relation's structure along with the changes.
+
+**The event.** Each change becomes one Kafka record whose key is the row's primary key and whose value is an envelope:
+
+```json
+{
+  "before": null,
+  "after":  { "id": 42, "customer_id": 7, "total": 120.00 },
+  "source": { "connector": "postgresql", "db": "shop", "table": "orders", "lsn": 24064704, "txId": 584, "snapshot": "false" },
+  "op": "c",
+  "ts_ms": 1556890294484
+}
+```
+
+`op` is `c` (create), `u` (update), `d` (delete), `r` (read during a snapshot) or `t` (truncate). An update carries both `before` and `after`; for PostgreSQL, how much of the old row `before` holds depends on the table's `REPLICA IDENTITY`: only the primary key under `DEFAULT`, every column under `FULL`. A delete has `after: null`, and, with the default `tombstones.on.delete=true`, it is followed by a **tombstone**: a record with the same key and a null value, which is what lets Kafka's log compaction finally remove every record for that key. A consumer must accept null values.
+
+**The Outbox Event Router.** Streaming raw table changes publishes your *schema* as your contract. The outbox pattern publishes *events* instead, and Debezium's Outbox Event Router single message transformation turns each outbox row into one clean message: the topic is `outbox.event.<aggregatetype>`, the key is `aggregateid` (so all events of one order land in one partition, in order), the value is the `payload` column, and the row's `id` goes into a header for deduplication. The lab's connector:
+
+```json
+{
+  "name": "outbox-connector",
+  "config": {
+    "connector.class": "io.debezium.connector.postgresql.PostgresConnector",
+    "plugin.name": "pgoutput",
+    "database.hostname": "postgres",
+    "database.port": "5432",
+    "database.user": "lab",
+    "database.password": "lab",
+    "database.dbname": "shop",
+    "topic.prefix": "shop",
+    "slot.name": "outbox_slot",
+    "publication.autocreate.mode": "filtered",
+    "table.include.list": "public.outbox",
+    "snapshot.mode": "no_data",
+    "tombstones.on.delete": "false",
+    "heartbeat.interval.ms": "10000",
+    "key.converter": "org.apache.kafka.connect.storage.StringConverter",
+    "value.converter": "org.apache.kafka.connect.json.JsonConverter",
+    "value.converter.schemas.enable": "false",
+    "transforms": "outbox",
+    "transforms.outbox.type": "io.debezium.transforms.outbox.EventRouter",
+    "transforms.outbox.table.expand.json.payload": "true",
+    "transforms.outbox.table.fields.additional.placement": "type:header:eventType"
+  }
+}
+```
+
+**Guarantees.** Debezium is at-least-once. After a crash, Connect restarts the task from the last *committed* offset, so the records produced since then are produced again; the router's event-id header is what the consumer deduplicates on ([Idempotent Consumers](#idempotent-consumers)). Ordering holds per key, because one key maps to one partition; there is no order across keys. **Lag** has two places to watch: how far the slot (or the CDC tables) is behind the log, and how far each consumer group is behind the topic.
+
+**Schema evolution.** Adding a nullable column flows through without fuss. Renaming or dropping one changes every downstream consumer's input, which is why the outbox's explicit event types age better than raw change events. With Avro or JSON Schema and a schema registry, compatibility rules catch a breaking change at the producer instead of in production.
+
+> **Pay attention.** **"Debezium went down for the weekend" is a database incident, not a messaging one.** Kafka was fine and the consumers were idle, but the replication slot kept every WAL segment written since Friday. The alert that would have caught it is on the slot's lag in bytes and on free disk on the database server, not on the connector's status page.
+
+
 ### Transactional Outbox vs. CDC
 
 A common goal is: *"when I save an order, reliably publish an OrderCreated event."* Two patterns address this.
