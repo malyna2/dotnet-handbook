@@ -171,6 +171,8 @@ The security posture deserves stating plainly, because it is worse than MCP's. D
 
 ## Retrieval-Augmented Generation (RAG)
 
+> **🎯 Interview · P1.** The pipeline stage by stage, chunking, hybrid search, reranking, measuring retrieval, hallucination control, cost and security, and make-or-buy. The usual wrong answer and the questions to expect: [P1-16 in the Interview Priority Map](#p1-16-rag-end-to-end).
+
 RAG is the most important application pattern to understand, because it directly attacks the LLM's two biggest weaknesses: its knowledge is frozen at training cutoff, and it knows nothing private. **RAG grounds the model in *your* data by retrieving relevant content at query time and injecting it into the prompt.** The model then answers *from* that content rather than from its parametric memory, which reduces hallucination and — crucially — lets you cite sources.
 
 ### The problem RAG solves

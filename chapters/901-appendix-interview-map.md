@@ -1,10 +1,10 @@
 # Appendix: Interview Priority Map
 
-> **What this page is for.** The thirteen topic areas a Regular (mid-level) .NET interview probes hardest, ranked, with where the book teaches each one, the wrong answer that usually ends the conversation, and the questions to expect. Every section of the book that teaches one of them carries a **🎯 Interview** callout naming its priority and linking back here. Read the chapter first; use this page to rehearse.
+> **What this page is for.** The eighteen topic areas a Regular (mid-level) .NET interview probes hardest, ranked, with where the book teaches each one, the wrong answer that usually ends the conversation, and the questions to expect. Every section of the book that teaches one of them carries a **🎯 Interview** callout naming its priority and linking back here. Read the chapter first; use this page to rehearse.
 
 **The marker.** A callout that starts with **🎯 Interview · P1** or **🎯 Interview · P2** marks a section an interviewer is likely to test.
 
-- **P1** topics come up in nearly every backend .NET interview and are where a wrong answer costs the most: SQL written by hand, security, messaging, memory, ASP.NET Core and async code. Prepare these until you can explain the mechanism without notes.
+- **P1** topics come up in nearly every backend .NET interview and are where a wrong answer costs the most: SQL written by hand, security, messaging, memory, ASP.NET Core and async code, and five that decide whether you *understand* the systems you have used: brokers under the hood, multi-tenancy, RAG, working in a system you didn't build, and telling the depth of your experience honestly. Prepare these until you can explain the mechanism without notes.
 - **P2** topics separate a good Regular candidate from an average one and dominate the second half of a loop: architecture, REST design, EF Core in depth, Azure and delivery, testing, production incidents and the interview itself.
 
 **How to use it.** For each topic: read the sections linked under *Where it is taught*, then answer the questions out loud before you open the answers. An answer you can't give in two minutes, mechanism first, is a section to reread. The answers here are short on purpose; the chapter holds the reasoning and the code.
@@ -264,6 +264,191 @@ Five HTTP calls are I/O: start them and `await Task.WhenAll(...)`, no extra thre
 <summary>Answer</summary>
 
 A `lock` is owned by a thread, and the code after `await` may resume on another one, so the compiler forbids it; use `SemaphoreSlim(1, 1)` with `await WaitAsync()` and `Release()` in a `finally`. A `DbContext` isn't thread-safe and allows one operation at a time, so parallel queries need one context each, created with `IDbContextFactory<T>`.
+
+</details>
+
+## P1-14. Brokers Under the Hood
+
+**Where it is taught.** [Service Bus Under the Hood](#service-bus-under-the-hood) and [Event Hubs Under the Hood](#event-hubs-under-the-hood) in Chapter 29; [Debezium Under the Hood](#debezium-under-the-hood) in Chapter 18; Labs 1 and 2 of [Chapter 45](#chapter-45-the-systems-lab-brokers-diagnostics-azure-and-incidents).
+
+**Why it is asked.** Many candidates have *used* a broker that someone else set up. The interviewer separates them by asking what happens inside: when a lock expires, where a partition's order ends, what a replication slot does while the connector is down.
+
+**The usual wrong answer.** "Event Hubs is just a faster Service Bus" and "Debezium reads the table". Event Hubs is a log that consumers read at their own positions, with no per-event settlement; Debezium reads the database's transaction log through a slot (or SQL Server's CDC tables), and the database keeps that log for it.
+
+**Questions to expect.**
+
+**Service Bus or Event Hubs for "charge this card" and for "100,000 telemetry events per second"?**
+
+<details>
+<summary>Answer</summary>
+
+Service Bus for the card: a command one consumer must act on, with locks, settlement, retries, dead-lettering and sessions. Event Hubs for telemetry: a partitioned stream that several consumer groups read and replay at their own pace, ordered per partition, with checkpoints instead of per-event acknowledgements.
+
+</details>
+
+**What happens to a message whose handler takes longer than the lock duration?**
+
+<details>
+<summary>Answer</summary>
+
+The lock expires and the message becomes visible again, so another receiver gets it with the delivery count incremented while the first handler may still be running; its `Complete` then fails with a lost lock. Lock renewal (`MaxAutoLockRenewalDuration` on the processor) prevents it for long handlers, a small prefetch avoids locks expiring in the buffer, and an idempotent handler makes the remaining duplicates harmless.
+
+</details>
+
+**Debezium was stopped over the weekend. What happened to PostgreSQL, and what happens when it restarts?**
+
+<details>
+<summary>Answer</summary>
+
+The replication slot kept every WAL segment since Debezium's last confirmed position, so the database's disk grew. On restart, Debezium resumes from its stored offset and streams the backlog, possibly re-sending records produced after the last committed offset, which the consumers must deduplicate. Monitor slot lag in bytes and free disk; consider `max_slot_wal_keep_size` and heartbeats.
+
+</details>
+
+## P1-15. Multi-Tenancy
+
+**Where it is taught.** [Multi-Tenancy](#multi-tenancy), [Beyond the Query Filter: What Else Isolates Tenants](#beyond-the-query-filter-what-else-isolates-tenants) and [Multi-Tenancy in an Interview](#multi-tenancy-in-an-interview) in Chapter 18.
+
+**Why it is asked.** Most business software (ERP, CRM, any SaaS) serves many customers from one system, and a leak between them is the worst bug the system can have.
+
+**The usual wrong answer.** "We have a global query filter, so tenants are isolated." The filter covers EF Core queries only; raw SQL, `IgnoreQueryFilters()`, caches, blob paths, background jobs and a tenant taken from a header all bypass it.
+
+**Questions to expect.**
+
+**Database per tenant, schema per tenant or a shared schema: how do you choose?**
+
+<details>
+<summary>Answer</summary>
+
+A shared schema with `TenantId` is cheapest and simplest to migrate, at the price of the largest blast radius and noisy neighbours. A database per tenant gives the strongest isolation, per-tenant backup and restore and data residency, at the price of a hundred migrations and lower density. Many products mix them: shared for the long tail, dedicated for the tenants who need or pay for it.
+
+</details>
+
+**Where does the tenant ID come from on a request, and in a background job?**
+
+<details>
+<summary>Answer</summary>
+
+On a request, from a signed claim in the access token; a subdomain or header may route, but must be checked against the claim. In a background job, from the message or job payload, set into the same scoped tenant context before any query runs, with a scope per tenant when a job loops over tenants.
+
+</details>
+
+**One tenant's month-end report slows everyone down. What do you do?**
+
+<details>
+<summary>Answer</summary>
+
+Confirm it with per-tenant metrics, contain it (a per-tenant rate limit or queue, the report moved to a read replica, indexes that start with `TenantId`), and then decide whether that tenant's size justifies its own database or a reporting store.
+
+</details>
+
+## P1-16. RAG End to End
+
+**Where it is taught.** [Retrieval-Augmented Generation (RAG)](#retrieval-augmented-generation-rag) in Chapter 33, with [Measuring Retrieval with a Golden Set](#measuring-retrieval-with-a-golden-set) and [Make or Buy: Your Own RAG Pipeline or a Managed Service](#make-or-buy-your-own-rag-pipeline-or-a-managed-service); the .NET stack in [The .NET AI stack](#the-net-ai-stack); security in [Securing AI features and agents](#securing-ai-features-and-agents).
+
+**Why it is asked.** Teams are adding retrieval-based features everywhere, and an interviewer can tell in two questions whether a candidate built one or watched a demo.
+
+**The usual wrong answer.** "We fixed the hallucinations with a better prompt." Most wrong answers come from retrieval: the right chunk wasn't retrieved, or a chunk the user may not see was. Measure recall@k on a golden set first, then work on generation.
+
+**Questions to expect.**
+
+**Walk me through the pipeline, and tell me where you'd look first when answers are wrong.**
+
+<details>
+<summary>Answer</summary>
+
+Ingest, chunk, embed, index; at query time retrieve (vector plus keyword), rerank, and generate from the top chunks with citations. When answers are wrong, look at what was retrieved for the failing questions: if the right chunk isn't there, it is chunking, embeddings or the lack of hybrid search; if it is there and the answer is still wrong, it is the prompt, the context noise or the model.
+
+</details>
+
+**How do you know a change to chunking made things better?**
+
+<details>
+<summary>Answer</summary>
+
+A golden set of real questions with labelled relevant chunks, and recall@k and MRR computed before and after, in CI. Generation is scored separately for groundedness and abstention, with a judge checked against human labels.
+
+</details>
+
+**How do you stop a user getting an answer from a document they aren't allowed to read?**
+
+<details>
+<summary>Answer</summary>
+
+Filter at retrieval time: store the document's permissions or tenant with each chunk and pass the user's groups as a filter in the search query, so forbidden chunks never reach the model. Filtering after generation is too late.
+
+</details>
+
+## P1-17. Working in a System You Didn't Build
+
+**Where it is taught.** [Getting Productive in a System You Didn't Build](#getting-productive-in-a-system-you-didnt-build) in Chapter 16; legacy code in [Chapter 24](#chapter-24-working-with-legacy-brownfield-code).
+
+**Why it is asked.** "How do you get up to speed on a large codebase?" is a standard question, and for a Regular role it is most of the first month.
+
+**The usual wrong answer.** "I read the code." Nobody reads a large system; you run it, trace one request end to end, read the tests and the history, and make a small change through the whole delivery path in the first week.
+
+**Questions to expect.**
+
+**You join a team with a large, poorly documented service. What do you do in the first week?**
+
+<details>
+<summary>Answer</summary>
+
+Run it and its tests locally, writing down every manual step; read `Program.cs` and the DI registrations for the entry points and dependencies; trace one business operation from the endpoint to the database and the events it publishes; read the tests and `git log` for the area; ship one small change through review and deployment; keep a one-page project map.
+
+</details>
+
+**A bug is in code you've never seen. How do you approach it?**
+
+<details>
+<summary>Answer</summary>
+
+Reproduce it, ideally as a failing test; find where the data turns from right to wrong by logging or breaking at the entry, middle and exit of the path; check what changed recently (`git log`, deployments, configuration and flags) and bisect if there is a good version; treat every belief as a hypothesis until a breakpoint confirms it.
+
+</details>
+
+**How do you ask a senior colleague for help?**
+
+<details>
+<summary>Answer</summary>
+
+After a time box, in the team channel, with the goal, what you tried, what you expected and what you got, and a specific question about the assumption you suspect, so the answer takes them a minute and helps the next person.
+
+</details>
+
+## P1-18. Telling the Depth of Your Experience Honestly
+
+**Where it is taught.** [The Depth Scale: Used, Understood, Built, Operated](#the-depth-scale-used-understood-built-operated), [Saying It Honestly: Phrases and CV Lines](#saying-it-honestly-phrases-and-cv-lines) and [A Self-Assessment Table](#a-self-assessment-table) in Chapter 36; the labs in [Chapter 45](#chapter-45-the-systems-lab-brokers-diagnostics-azure-and-incidents).
+
+**Why it is asked.** Interviewers probe every line of a CV until they reach the edge of the candidate's experience; the question is whether you name the edge or they find it.
+
+**The usual wrong answer.** A confident "yes, I've worked with Kafka" that collapses at the second follow-up, or the opposite, "I only used it", which hides real understanding. Say the level and what you did at it.
+
+**Questions to expect.**
+
+**"Have you worked with Debezium?" (when the platform team set it up)**
+
+<details>
+<summary>Answer</summary>
+
+"I worked with it as a consumer: the connectors were set up by the platform team. I understand how it works, the slot, the snapshot, at-least-once delivery, and I built an outbox pipeline with it in a lab, where I stopped the connector and watched the slot hold the WAL. I haven't operated it in production."
+
+</details>
+
+**"What was your role in the RAG project?"**
+
+<details>
+<summary>Answer</summary>
+
+Name the part you owned and the parts others did, with one decision you made and its result: "I owned chunking and evaluation; I built a golden set of [n] questions, and recall@5 went from [a] to [b] when we switched to [x]. Hosting and the model choice were the platform team's."
+
+</details>
+
+**"Rate yourself in Azure from 1 to 10."**
+
+<details>
+<summary>Answer</summary>
+
+Answer with levels per service instead of one number: "Service Bus and App Service: I've built on them and debugged them in production. Key Vault and managed identity: understood and set up in a lab. AKS: used, not built." It is more useful to the interviewer and harder to misread.
 
 </details>
 

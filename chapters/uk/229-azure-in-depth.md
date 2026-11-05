@@ -705,6 +705,8 @@ ALTER ROLE db_datawriter ADD MEMBER [shop-api-identity];
 
 ## Messaging: Service Bus, Event Hubs і Event Grid
 
+> **🎯 Співбесіда · P1.** Як Service Bus, Event Hubs і Event Grid працюють усередині, а не лише як їх викликати: settlement, блокування, сесії, партиції, checkpoints. Типова хибна відповідь і питання, яких варто чекати: [P1-14 у карті пріоритетів для співбесіди](#p1-14-brokers-under-the-hood).
+
 [Розділ 11](#chapter-11-messaging-and-background-work) навчає шаблонів: outbox, ідемпотентний consumer, saga. Тут ідеться про три брокери Azure, які є трьома різними інструментами, а не трьома брендами одного засобу:
 
 | | **Service Bus** | **Event Hubs** | **Event Grid** |

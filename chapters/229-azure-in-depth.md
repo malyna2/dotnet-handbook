@@ -705,6 +705,8 @@ The database tuning skills from [Chapter 19](#chapter-19-the-slow-query-lab-read
 
 ## Messaging: Service Bus, Event Hubs and Event Grid
 
+> **🎯 Interview · P1.** How Service Bus, Event Hubs and Event Grid work inside, not only how to call them: settlement, locks, sessions, partitions, checkpoints. The usual wrong answer and the questions to expect: [P1-14 in the Interview Priority Map](#p1-14-brokers-under-the-hood).
+
 [Chapter 11](#chapter-11-messaging-and-background-work) teaches the patterns: outbox, idempotent consumer, saga. This section is about the three Azure brokers, which are three different tools rather than three brands of the same one:
 
 | | **Service Bus** | **Event Hubs** | **Event Grid** |

@@ -457,6 +457,8 @@ Consider renaming a `Name` column to `FullName` — a one-liner that, done naive
 
 ## Change Data Capture (CDC)
 
+> **🎯 Interview · P1.** Debezium inside: Kafka Connect, replication slots, snapshots, the event envelope, tombstones, the Outbox Event Router and what happens on restart. The usual wrong answer and the questions to expect: [P1-14 in the Interview Priority Map](#p1-14-brokers-under-the-hood).
+
 Sharded or not, large systems rarely keep all their data in one place. The catalog lives in Postgres, search lives in Elasticsearch, the recommendation engine wants a stream of events, and analytics wants everything in a warehouse. The naive approach — have the application write to all of them — is a distributed-transaction nightmare: what happens when the Postgres write succeeds but the Elasticsearch write fails?
 
 **Change Data Capture** solves this by treating the database's own change log as a source of truth. Every committed change (insert, update, delete) is captured and streamed to downstream consumers. Because it reads the write-ahead log *after commit*, a consumer sees exactly what was durably committed — no dual-write inconsistency.
@@ -557,6 +559,8 @@ No single database is good at everything, and some data shapes fit other models 
 The same idea, applied to one service's own data, is a **CQRS read store** ([Chapter 21](#chapter-21-architecture) teaches the pattern): writes go to a normalized transactional model, reads are served from stores shaped exactly for how they are queried (pre-joined, denormalized, indexed for one screen), kept up to date asynchronously, often from the same event or CDC stream. You accept eventual consistency in exchange for read models that are fast and don't compete with writes. And under all of it sit the caching layers (in-process, Redis, HTTP and CDN at the edge); CDC can drive precise cache invalidation too, by streaming the exact rows that changed.
 
 ## Multi-Tenancy
+
+> **🎯 Interview · P1.** Isolation models, query filters and `IgnoreQueryFilters`, tenant resolution, cross-tenant IDOR, per-tenant limits and flags, migrations, backups and GDPR. The usual wrong answer and the questions to expect: [P1-15 in the Interview Priority Map](#p1-15-multi-tenancy).
 
 A **multi-tenant** application serves many independent customers (tenants) from shared infrastructure. The central engineering tension is **isolation vs. efficiency**: strong isolation (separate everything) is safe but expensive; strong sharing (everything in one place) is cheap but risky. There are three canonical models along that spectrum.
 
