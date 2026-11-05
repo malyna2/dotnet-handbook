@@ -292,6 +292,41 @@ RAG has two failure surfaces — retrieval and generation — so evaluate both:
 
 Toolkits like RAGAS (Python) codify these metrics; in .NET you can implement equivalents with an LLM-as-judge over a curated eval set.
 
+### Measuring Retrieval with a Golden Set
+
+Retrieval is the half you can measure exactly, without a model in the loop, so measure it first. Build a **golden set**: 50 to 200 real questions, each labelled with the IDs of the chunks that answer it (by a domain expert, not by the system you are testing). Then compute, for every change to chunking, embeddings, hybrid weights or reranking:
+
+- **recall@k**: of the chunks that answer the question, how many are in the top *k* the retriever returned. If the answer isn't retrieved, no prompt can fix it, so this is the number to raise first.
+- **MRR** (mean reciprocal rank): 1 divided by the position of the first relevant chunk, averaged over the questions; it rewards putting the answer near the top, which matters when only the top few chunks fit the context.
+
+```csharp
+public sealed record GoldenQuestion(string Question, IReadOnlySet<string> RelevantChunkIds);
+
+public static class RetrievalMetrics
+{
+    // Of the chunks that answer the question, how many are in the top k the retriever returned?
+    public static double RecallAtK(IReadOnlyList<string> retrieved, IReadOnlySet<string> relevant, int k) =>
+        relevant.Count == 0 ? 1.0 : retrieved.Take(k).Count(relevant.Contains) / (double)relevant.Count;
+
+    // 1 / position of the first relevant chunk: 1.0 when it is first, 0.5 when second, 0 when absent.
+    public static double ReciprocalRank(IReadOnlyList<string> retrieved, IReadOnlySet<string> relevant)
+    {
+        for (int i = 0; i < retrieved.Count; i++)
+            if (relevant.Contains(retrieved[i])) return 1.0 / (i + 1);
+        return 0.0;
+    }
+}
+```
+
+The generation half is scored differently: **groundedness** (every claim in the answer is supported by a retrieved chunk), **answer relevance**, and **abstention** (the system says it doesn't know when the golden set's answer isn't in the corpus). Those need a judge, a human or an LLM-as-judge with a written rubric, and the judge itself should be spot-checked against human labels. Keep the golden set in the repository, run it in CI on every retrieval change, and report the numbers before and after, the same way [Chapter 19](#chapter-19-the-slow-query-lab-reading-execution-plans) reports query plans.
+
+**Controlling hallucination** is mostly retrieval and instructions, in that order: retrieve the right chunks (recall), give the model only those chunks and an instruction to answer from them and cite them, require citations that map to chunk IDs and check them in code (a cited ID that wasn't retrieved is a fabricated citation), and make "I don't know" an acceptable answer that the eval rewards.
+
+**Cost and latency.** A RAG request pays for an embedding of the query, a vector (and keyword) search, an optional rerank, and a generation whose input tokens are mostly the retrieved chunks. The levers: fewer, better chunks (reranking lets you retrieve 50 and send 5), a cache of query embeddings and of answers to frequent questions (keyed by the normalised question *and the user's permissions*), prompt caching for the fixed system prompt, a smaller model for query rewriting and routing, and streaming so the first tokens arrive early. Embedding the corpus is a one-off cost per document version; re-embed only what changed.
+
+**Security.** The retrieved documents are untrusted input: a document can carry instructions (indirect prompt injection, [Prompt injection, direct and indirect](#prompt-injection-direct-and-indirect)), so the model's output must never be allowed to call tools with more authority than the user has. **Filter by permission at retrieval time**, with the user's groups or tenant as a filter on the search query, not after generation, or the model will summarise a document the user may not see. Strip or mask PII before indexing when the use case doesn't need it, and check what the model provider's terms say about retention and training before sending documents under NDA.
+
+
 ### Common RAG failure modes and fixes
 
 - **The answer is in the docs but wasn't retrieved** → chunking or embedding problem, or missing hybrid search. Inspect retrieved chunks; add keyword search; tune chunk size; add query rewriting.
