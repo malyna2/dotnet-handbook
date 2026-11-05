@@ -783,6 +783,40 @@ await processor.StartProcessingAsync();
 
 Throw on *transient* failures so the message is retried; dead-letter *permanent* ones at once, with a reason. Otherwise a message that can never succeed burns all 10 delivery attempts, each one possibly repeating a side effect.
 
+### Service Bus Under the Hood
+
+The section above is how you *use* Service Bus. This one is the model underneath, the part an interviewer probes with "and what happens when…".
+
+**Queues, topics and subscriptions.** A queue is one entity with competing receivers: each message goes to one of them. A topic is the send side only; every **subscription** under it is a queue of its own, holding a copy of each message that passes the subscription's **rules**. A new subscription gets a rule named `$Default` with a true filter, so it receives everything until you replace that rule. A **correlation filter** matches properties by equality (`Subject = "OrderPlaced"`, `CorrelationId`, application properties); a **SQL filter** evaluates an expression (`region = 'EU' AND amount > 100`). Microsoft's documentation warns that SQL filters lower throughput at the subscription, topic and namespace level, so prefer correlation filters wherever equality is enough. A rule can also carry an *action* that sets properties on the copy. A subscription can auto-forward its messages to another queue or topic, which is how fan-out chains are built.
+
+```
+                         ┌── subscription "billing"  (rule: Subject = 'OrderPlaced') ──► its own queue, its own DLQ
+ sender ──► topic ───────┼── subscription "shipping" (rule: SQL region = 'EU')        ──► its own queue, its own DLQ
+                         └── subscription "audit"    ($Default: true filter)          ──► every message
+```
+
+**Receive modes and settlement.** In *peek-lock* the message stays in the entity, locked to one receiver, until it is settled: **Complete** deletes it; **Abandon** releases the lock and increments the delivery count; **Dead-letter** moves it to the entity's `$deadletterqueue` with a reason and a description you choose; **Defer** leaves it in the entity but hides it from normal receives, so only `ReceiveDeferredMessageAsync(sequenceNumber)` gets it back, which is for "I can't process this one until another message arrives" (the sequence number must be stored somewhere, or the message is lost in plain sight). *ReceiveAndDelete* removes the message as it is handed over: at-most-once, acceptable only for data you can afford to lose.
+
+**Expiry.** Every message has a time-to-live, from the message or the entity's default; if neither is set it is effectively unlimited. An expired message is **dropped**, not dead-lettered, unless the entity has dead-lettering on expiry enabled. That default surprises people: a queue whose consumers were down for longer than the TTL silently loses work.
+
+**What the lock really is.** The lock is a lease held by the service, not by your process. If it expires (1 minute by default, 5 at most) before you settle, the message is delivered again, even though your handler may still be running and may finish its side effect. `ServiceBusProcessor` renews the lock in the background up to `MaxAutoLockRenewalDuration`. **Prefetch** fills a local buffer *with messages already locked*, so their lock clocks run while they wait, which is why a large prefetch with slow handlers produces redeliveries.
+
+**Typical failures, by symptom:**
+
+| Symptom | Mechanism | Fix |
+|---|---|---|
+| The same order processed twice | lock expired mid-handler, or a crash between the effect and `Complete` | idempotent handler; longer lock renewal; smaller prefetch |
+| `MessageLockLostException` on `Complete` | the handler outlived the lock | a processor with lock renewal; don't hold received batches |
+| The DLQ fills up quietly | permanent failures retried to `MaxDeliveryCount`, nobody alerting on it | dead-letter permanent failures at once with a reason; alert on the dead-letter count |
+| Messages vanish while consumers were down | TTL expired, dead-lettering on expiry off | set a realistic TTL and enable dead-lettering on expiry |
+| One slow customer blocks others | one session per customer is a single ordered lane | more sessions and `MaxConcurrentSessions`, or don't use sessions where order doesn't matter |
+| Throughput falls after adding subscriptions | many SQL filters | correlation filters; fewer, coarser subscriptions |
+
+**Standard or Premium.** Standard is shared, metered per operation, messages up to 256 KB, and no VNet integration. Premium is dedicated capacity in messaging units: predictable latency, larger messages, private endpoints, and geo-replication options. Choose Premium for production systems that need network isolation or steady latency; Standard is right for most others and for development.
+
+[Lab 2 of Chapter 45](#chapter-45-the-systems-lab-brokers-diagnostics-azure-and-incidents) runs these mechanisms against the Service Bus emulator: a message that is never completed came back after the 5-second lock with its delivery count at 2, and a message abandoned three times under `MaxDeliveryCount = 3` was dead-lettered with the reason `MaxDeliveryCountExceeded`.
+
+
 ### Event Hubs
 
 Event Hubs is a **partitioned log**, the same model as Kafka (it even speaks the Kafka protocol).
