@@ -13750,7 +13750,7 @@ Each box is a heap allocation and a copy, feeding gen-0 GC. In a tight loop that
 
 # Chapter 18: Data in Depth
 
-_⏱️ Estimated read time: ~1 h 5 min · 11223 words (study pace)_
+_⏱️ Estimated read time: ~1 h 10 min · 12093 words (study pace)_
 
 This chapter starts where [Chapter 7](#chapter-7-data-access) stops: making one database fast when the obvious levers are already pulled, and then deciding what to do when one database is no longer enough.
 
@@ -14391,6 +14391,60 @@ Now `context.Invoices.ToList()` returns only the current tenant's invoices — t
 **Noisy neighbors** are the flip side of density. In shared-schema, one tenant running a giant report or a runaway query consumes CPU, I/O, and connections that everyone else needs, and everyone's latency suffers. Mitigations range from soft (per-tenant rate limits, query timeouts, separate connection pools for heavy operations) to hard (move the offender to a dedicated database — the isolation model itself is the ultimate noisy-neighbor fix). This is precisely why big-spending tenants often get their own database: they're paying to *not* share.
 
 **Per-tenant scaling and cost** tie scale and tenancy together. Sharding and multi-tenancy converge: when you shard a multi-tenant system by `TenantId`, each shard is essentially a group of tenants, and moving a hot tenant to its own shard *is* resharding. The economics are the core of the SaaS business model — density (many tenants per resource) drives your gross margin, while isolation drives your ability to serve enterprise and regulated customers. The senior engineer's job is to place each tenant at the right point on that spectrum: pack the small ones tightly, isolate the large and sensitive ones, and build the tooling to move a tenant from one model to the other as they grow.
+
+### Beyond the Query Filter: What Else Isolates Tenants
+
+A global query filter protects queries that go through EF Core. Everything else needs its own guard:
+
+- **Cross-tenant IDOR.** `GET /invoices/9001` with a valid token from tenant A for an invoice of tenant B. The filter catches it *if* the lookup goes through the filtered `DbSet`; a `FindAsync` on a context built without the tenant, a Dapper query, a cache keyed by invoice ID alone, or a background job that runs with `IgnoreQueryFilters()` does not. Put the tenant into every cache key and blob path, and test the negative case explicitly: a request with tenant A's token for tenant B's resource must get `404`.
+- **Where the tenant comes from.** A claim in the access token (`tenant_id`) is the strongest source, because the identity provider signed it. A subdomain or a header is fine for routing but must be *checked against* the token's tenant, never trusted on its own: a header is whatever the client sends. Resolve the tenant once per request in middleware, store it in a scoped `ITenantContext`, and fail closed when it is missing.
+- **Background work.** A message consumer or a nightly job has no HTTP request and no token. The tenant must travel in the message (a header or a field) and be set into the same `ITenantContext` before any query runs; a job that loops over tenants should create a scope per tenant.
+- **Per-tenant configuration and feature flags.** Tenants differ in plan, limits, enabled modules and rollout ring. Keep it as data (a `TenantSettings` row or an App Configuration label per tenant), cached per tenant, and evaluate feature flags with the tenant as the targeting key, so a risky feature reaches one pilot tenant before a hundred.
+- **Noisy neighbours, per tenant.** Partition rate limits by tenant, so one tenant's import drains its own budget and not everyone's:
+
+```csharp
+builder.Services.AddRateLimiter(o =>
+{
+    o.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+    o.AddPolicy("per-tenant", http =>
+    {
+        // One bucket per tenant: a tenant's batch import drains its own bucket, not everyone's.
+        string tenant = http.User.FindFirstValue("tenant_id") ?? "anonymous";
+        return RateLimitPartition.GetTokenBucketLimiter(tenant, _ => new TokenBucketRateLimiterOptions
+        {
+            TokenLimit = 200,
+            TokensPerPeriod = 50,
+            ReplenishmentPeriod = TimeSpan.FromSeconds(1),
+            QueueLimit = 0,
+        });
+    });
+});
+```
+
+  The same idea applies below the API: separate queues or sessions per tenant for heavy background work, and a statement timeout or a resource-governor workload group for ad-hoc reports.
+- **Reports.** Cross-tenant analytics and heavy per-tenant reports are the usual source of noisy-neighbour load. Run them on a read replica or a reporting store ([Chapter 21's reporting example](#worked-example-pulling-reporting-out-of-the-monolith)), and make sure every reporting index *starts* with `TenantId`, so a tenant's report seeks to its own rows instead of scanning everyone's.
+- **Backups, restore and GDPR.** In a shared schema, a database backup holds every tenant, so "restore tenant A to yesterday" means restoring into a side database and copying A's rows back, and that procedure must be written and rehearsed before anyone needs it. A tenant's erasure request means deleting or anonymising its rows everywhere: tables, search indexes, caches, blob containers, logs and analytics copies, which is only feasible if each of those is keyed by tenant. Backups can't be edited, so document the retention period after which an erased tenant's data leaves the backups too. Data-residency requirements (a tenant whose data must stay in the EU) are often what forces a tenant into its own database.
+
+### Multi-Tenancy in an Interview
+
+The questions that come up, and what a strong answer contains:
+
+- *"How would you isolate tenants in a new SaaS product?"* Shared schema with `TenantId` and a global query filter by default; a database per tenant for tenants that pay for isolation or have residency requirements; name the cost of each (one migration versus a hundred, density versus blast radius).
+- *"What can still leak data between tenants with a global filter?"* Raw SQL and Dapper, `IgnoreQueryFilters()`, caches and blob paths without the tenant, background jobs without a tenant context, and a tenant taken from a header instead of the token.
+- *"One tenant slows everyone down. What do you do?"* Find it (metrics and logs carry the tenant ID), contain it (a per-tenant rate limit, a separate queue, the report on a replica), then decide whether that tenant belongs in its own database.
+- *"How do you migrate a hundred tenant databases?"* A migration bundle or idempotent script run by a pipeline over the tenant list, in waves (pilot tenants first), with every change backward-compatible (expand/contract) so old and new code work during the rollout, and a report of which tenants are on which version.
+
+A template for telling your own experience, with the brackets filled from your project and nothing else:
+
+```text
+Situation: An ERP serving [number] client companies from [shared schema / database per tenant] on [stack].
+Task:      I worked on [feature or problem], which had to stay isolated per tenant and [constraint].
+Action:    I [what you did: e.g. added the tenant to the cache keys / wrote the per-tenant migration runner /
+           moved the heavy report to a replica], and verified isolation with [test: a request with tenant A's
+           token for tenant B's data returning 404].
+Result:    [measured outcome]. What I would do differently: [one sentence].
+```
+
 
 ## Practice
 
