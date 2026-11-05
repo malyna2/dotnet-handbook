@@ -1,0 +1,7 @@
+<Project>
+  <Import Project="../Directory.Build.props" />
+  <PropertyGroup>
+    <!-- Which LoyaltyHandler.cs the build uses: starter (your work) or solution (the reference). -->
+    <LabVariant Condition="'$(LabVariant)' == ''">starter</LabVariant>
+  </PropertyGroup>
+</Project>

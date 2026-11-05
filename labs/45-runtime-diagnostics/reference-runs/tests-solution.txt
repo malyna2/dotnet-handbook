@@ -1,0 +1,13 @@
+# Environment: Intel(R) Xeon(R) Processor @ 2.10GHz, 4 vCPU, 15 GB RAM
+# .NET SDK 10.0.114; dotnet-counters and dotnet-gcdump 10.0.745401; Release build
+# Captured: 2026-11-05 10:44 UTC by verify.sh
+
+Running tests from /home/user/dotnet-handbook/labs/45-runtime-diagnostics/tests/DiagLab.Tests/bin/Debug/net10.0/DiagLab.Tests.dll (net10.0|x64)
+/home/user/dotnet-handbook/labs/45-runtime-diagnostics/tests/DiagLab.Tests/bin/Debug/net10.0/DiagLab.Tests.dll (net10.0|x64) passed (1s 068ms)
+
+Test run summary: Passed!
+  total: 2
+  failed: 0
+  succeeded: 2
+  skipped: 0
+  duration: 1s 322ms

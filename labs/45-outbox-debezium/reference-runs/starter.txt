@@ -1,0 +1,36 @@
+# Environment: Intel(R) Xeon(R) Processor @ 2.10GHz, 4 vCPU, 15 GB RAM, 29.9.2
+# Stack: postgres:17.11, apache/kafka:3.9.1, debezium/connect:2.7.3.Final; .NET SDK 10.0.114
+# Captured: 2026-11-05 10:49 UTC by verify.sh
+
+Running tests from /home/user/dotnet-handbook/labs/45-outbox-debezium/tests/Outbox.Tests/bin/Debug/net10.0/Outbox.Tests.dll (net10.0|x64)
+[+0/x0/?0] Outbox.Tests.dll (net10.0|x64)(2s)
+
+[+2/x0/?0] Outbox.Tests.dll (net10.0|x64)(5s)
+
+[+2/x0/?0] Outbox.Tests.dll (net10.0|x64)(8s)
+
+[+3/x0/?0] Outbox.Tests.dll (net10.0|x64)(11s)
+
+[+3/x0/?0] Outbox.Tests.dll (net10.0|x64)(14s)
+
+[+3/x0/?0] Outbox.Tests.dll (net10.0|x64)(17s)
+
+failed Outbox.Tests.OutboxTests.A_redelivered_event_awards_points_once (6s 613ms)
+  from /home/user/dotnet-handbook/labs/45-outbox-debezium/tests/Outbox.Tests/bin/Debug/net10.0/Outbox.Tests.dll (net10.0|x64)
+  Assert.Equal() Failure: Values differ
+  Expected: 1
+  Actual:   2
+    at Outbox.Tests.OutboxTests.A_redelivered_event_awards_points_once() in /home/user/dotnet-handbook/labs/45-outbox-debezium/tests/Outbox.Tests/OutboxTests.cs:54
+    --- End of stack trace from previous location ---
+[+3/x1/?0] Outbox.Tests.dll (net10.0|x64)(20s)
+
+/home/user/dotnet-handbook/labs/45-outbox-debezium/tests/Outbox.Tests/bin/Debug/net10.0/Outbox.Tests.dll (net10.0|x64) failed with 1 error(s) (21s 540ms)
+Exit code: 2
+
+Test run summary: Failed!
+  total: 5
+  failed: 1
+  succeeded: 4
+  skipped: 0
+  duration: 21s 827ms
+Test run completed with non-success exit code: 2 (see: https://aka.ms/testingplatform/exitcodes)

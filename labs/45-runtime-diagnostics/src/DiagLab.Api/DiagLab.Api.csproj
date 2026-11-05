@@ -1,0 +1,6 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+  <ItemGroup>
+    <!-- The one file you change. verify.sh builds both. -->
+    <Compile Include="../../$(LabVariant)/Endpoints.cs" Link="Endpoints.cs" />
+  </ItemGroup>
+</Project>

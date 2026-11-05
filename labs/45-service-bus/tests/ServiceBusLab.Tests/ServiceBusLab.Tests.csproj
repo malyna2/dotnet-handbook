@@ -1,0 +1,12 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Azure.Messaging.ServiceBus" />
+    <PackageReference Include="xunit.v3" />
+    <!-- The one file you change. verify.sh builds both. -->
+    <Compile Include="../../$(LabVariant)/PaymentHandler.cs" Link="PaymentHandler.cs" />
+  </ItemGroup>
+</Project>

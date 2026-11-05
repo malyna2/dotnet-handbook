@@ -1,0 +1,6 @@
+<Solution>
+  <Project Path="src/Outbox.Core/Outbox.Core.csproj" />
+  <Project Path="src/Outbox.Api/Outbox.Api.csproj" />
+  <Project Path="src/Outbox.Worker/Outbox.Worker.csproj" />
+  <Project Path="tests/Outbox.Tests/Outbox.Tests.csproj" />
+</Solution>

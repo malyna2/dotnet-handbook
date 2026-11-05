@@ -1,0 +1,8 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <ItemGroup>
+    <PackageReference Include="Npgsql" />
+    <PackageReference Include="Confluent.Kafka" />
+    <!-- The one file you change. verify.sh builds both. -->
+    <Compile Include="../../$(LabVariant)/LoyaltyHandler.cs" Link="LoyaltyHandler.cs" />
+  </ItemGroup>
+</Project>

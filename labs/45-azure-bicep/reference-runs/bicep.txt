@@ -1,0 +1,6 @@
+# Bicep CLI: Bicep CLI version 0.38.33 (6bb5d5f859)
+# Captured: 2026-11-05 10:46 UTC by verify.sh
+
+build: ok
+lint: no warnings
+scripts: syntax ok
