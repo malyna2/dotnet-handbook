@@ -76,8 +76,8 @@
     "translation": "cad192304a731d729acc0accec37f41697ebe3810ce8bb409c061c72c1e323fe"
   },
   "200-part-2": {
-    "source": "8ddd23cbd4906ff4f0be9137ce4dc00ec55372532e4f4f27d1a09e4fc9eec593",
-    "translation": "d1ca321d50d4a7188f4558bec9fbac95748679eebc58bfede488ee72922fe1b5"
+    "source": "80e28b1b041592705f139c9c6b3d804706a52afbdaca1f4f141baada1ca15daa",
+    "translation": "adf55eadf71d98671265e8c63a8118541e2724f71f0eaab0e31d1a8b681d5f6e"
   },
   "217-runtime-internals-performance": {
     "source": "01748f8eee6bdbdea1d97c7d46c6ad0b2b15562e6f0089b6bec7ffe586727efb",
@@ -190,6 +190,10 @@
   "244-capstone": {
     "source": "7563b3da5089bbed003a53107eed43d36902e01e92c60ec80b1d82fe81c71f94",
     "translation": "70f76f9d77d03fdc6457801d73e682b95878766b0aff86e5ae12e36b68ec5840"
+  },
+  "245-lab-systems": {
+    "source": "a017ca3a0bd6db6db8b5796465c943068216443b312fa331bab599c00e1ea952",
+    "translation": "3e0f4600cc940b35e8e62d05001dfc441c4b358446ce6fdb54c264ccba27b493"
   },
   "299-part-2-pay-attention": {
     "source": "ae92f09bbc9f200cfac0ff79a72c0f83107dff43af52dbe7e9a589804195ccd5",
