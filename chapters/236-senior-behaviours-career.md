@@ -168,6 +168,57 @@ Result:    [metric] went from [before] to [after], measured with [how].
 > **Pitfall.** Saying "we" through the whole Action. The interviewer is hiring you, not the team: say "I" for what you did and "we" only for what the team decided together, and keep the Situation short enough that the Action and Result get most of the two minutes.
 
 
+### The Depth Scale: Used, Understood, Built, Operated
+
+> **🎯 Interview · P1.** How to describe what you have actually done with a technology, without understating or inflating it. The usual wrong answer and the questions to expect: [P1-18 in the Interview Priority Map](#p1-18-telling-the-depth-of-your-experience-honestly).
+
+"Have you worked with Kafka?" has four honest answers, and interviewers probe until they know which one is yours. Say it yourself first.
+
+| Level | What it means | What you can answer | How to say it |
+|---|---|---|---|
+| **1. Used** | You worked in a system where it was already set up: you produced or consumed through an existing wrapper | what it is for, the API you called, the symptoms you saw | "I worked with it as a consumer: the infrastructure was set up by the platform team, and I wrote the handlers for [X]." |
+| **2. Understand** | You know how it works inside and why: locks, partitions, offsets, slots | the "what happens when…" questions; why a failure happened | "I understand the delivery model well enough to [design idempotent consumers / debug redeliveries]; I haven't built the infrastructure myself." |
+| **3. Built** | You set it up or extended it: wrote the connector config, the topology, the IaC, the outbox | the trade-offs you chose and what you rejected | "I built [the outbox and the Debezium connector] for [service]; I chose [X] over [Y] because [reason]." |
+| **4. Operated** | You ran it in production: on call, upgrades, capacity, incidents | failure modes from experience, numbers, runbooks | "I was on call for it for [period]; the incident I remember best is [one line], and we changed [practice] after it." |
+
+The labs in [Chapter 45](#chapter-45-the-systems-lab-brokers-diagnostics-azure-and-incidents) exist to move a technology from level 1 to level 2, and partly to 3, on your own machine. Say so plainly: "I haven't run Debezium in production, but I built an outbox pipeline with it in a lab and broke it on purpose: I stopped the connector and watched the replication slot hold 150 MB of WAL." That is a stronger answer than a vague "yes", because it shows what you know and where it stops.
+
+### Saying It Honestly: Phrases and CV Lines
+
+For a developer who extended infrastructure that others built, the honest phrasing is also the strongest, because it is specific:
+
+- "The Service Bus namespace and topology existed when I joined. I added [n] consumers, made them idempotent after [a duplicate-payment bug], and set up the dead-letter alert."
+- "I didn't design the multi-tenant model, but I worked inside it for a year across [100+] client companies: I [specific change], and I know where it leaks, because I [fixed one such case]."
+- "On the RAG project I owned [the chunking and evaluation part]; the hosting and the model choice were [someone else's]."
+- When you don't know: "I haven't done that. Here is how I'd approach it: [mechanism]. I'd verify [assumption] first."
+
+On a CV, the verb carries the level, so choose it deliberately: *worked with* or *integrated* (level 1), *designed* or *debugged* a specific part (level 2), *built*, *implemented* or *migrated* (level 3), *ran*, *was on call for*, *operated* (level 4). Every line should survive the follow-up "tell me more"; one you can't defend for five minutes costs more than it adds. Numbers come from your own work, with the context that makes them true (`[metric] from [a] to [b] over [period]`), never estimates dressed as results.
+
+### A Self-Assessment Table
+
+Copy this into your private notes, fill in a level from the scale above and one line of evidence for each row, and repeat it every few months. It shows where a lab or a chapter would move you up a level; it is for you, not for a CV, and it stays out of any public repository.
+
+```text
+| Technology / topic                    | Level (1-4) | Evidence (what I did, where)  | Next step               |
+|---------------------------------------|-------------|-------------------------------|-------------------------|
+| SQL: plans, indexes, isolation        |             |                               |                         |
+| EF Core in depth                      |             |                               |                         |
+| ASP.NET Core pipeline, DI, options    |             |                               |                         |
+| Async, thread pool, diagnostics       |             |                               |                         |
+| Memory and GC, dotnet-counters/gcdump |             |                               |                         |
+| Security: OAuth/OIDC, authz, OWASP    |             |                               |                         |
+| Azure Service Bus                     |             |                               |                         |
+| Azure Event Hubs / Kafka              |             |                               |                         |
+| Debezium / CDC / outbox               |             |                               |                         |
+| Multi-tenancy                         |             |                               |                         |
+| Azure: App Service, SQL, Key Vault    |             |                               |                         |
+| IaC (Bicep/Terraform), CI/CD          |             |                               |                         |
+| Observability: logs, traces, SLOs     |             |                               |                         |
+| RAG and LLM features                  |             |                               |                         |
+| Testing: integration, Testcontainers  |             |                               |                         |
+```
+
+
 ## How to Keep Learning
 
 [Chapter 16](#chapter-16-working-like-a-middle-developer) set up the habit: a few high-signal sources, release notes, learning by building and teaching. At senior level the question changes from *how to keep up* to *where to go deep*, and the sources get closer to the metal.

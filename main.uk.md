@@ -27658,7 +27658,7 @@ RPO — скільки даних ви можете втратити, вимір
 
 # Розділ 36: Поведінка досвідченого інженера, кар’єра та співбесіди
 
-_⏱️ Орієнтовний час читання: ~25 хв · 4312 слів (навчальний темп)_
+_⏱️ Орієнтовний час читання: ~30 хв · 5065 слів (навчальний темп)_
 
 Результат роботи досвідченого інженера — рішення, за якими діють інші. Вартість помилкового рішення зростає разом із кількістю залежних від нього рішень і людей, тому кожен прояв досвіду або переносить перевірку на раніший етап, або зменшує вартість перегляду рішення: дизайн перевіряють до написання коду, рішення документують, щоб його можна було замінити, а не обговорювати знову, оцінки звіряють із фактичними термінами подібної роботи, а поведінку застарілої системи фіксують до її зміни. Вплив працює за тим самим принципом у довшій перспективі: довіра зростає завдяки чесним оцінкам, справедливим перевіркам і виконаним зобов’язанням або завчасно переглянутим домовленостям.
 
@@ -27826,6 +27826,57 @@ Result:    [metric] went from [before] to [after], measured with [how].
 ```
 
 > **Пастка.** Казати «ми» впродовж усієї частини Action. Наймають вас, а не команду: кажіть «я» про те, що робили ви, і «ми» лише про те, що команда вирішила разом, і тримайте Situation достатньо короткою, щоб Action і Result отримали більшу частину двох хвилин.
+
+
+### Шкала глибини: користувався, розумію, будував, експлуатував
+
+> **🎯 Співбесіда · P1.** Як описати, що ви насправді робили з технологією, не применшуючи й не перебільшуючи. Типова хибна відповідь і питання, яких варто чекати: [P1-18 у карті пріоритетів для співбесіди](#p1-18-telling-the-depth-of-your-experience-honestly).
+
+«Ви працювали з Kafka?» має чотири чесні відповіді, і інтерв’юери уточнюють, доки не зрозуміють, яка з них ваша. Скажіть це самі першими.
+
+| Рівень | Що це означає | На що ви можете відповісти | Як це сказати |
+|---|---|---|---|
+| **1. Користувався** | Ви працювали в системі, де це вже було налаштовано: надсилали чи споживали через наявну обгортку | для чого це, API, який ви викликали, симптоми, які бачили | «I worked with it as a consumer: the infrastructure was set up by the platform team, and I wrote the handlers for [X].» |
+| **2. Розумію** | Ви знаєте, як це працює всередині й чому: блокування, партиції, offsets, слоти | питання «що станеться, коли…»; чому стався збій | «I understand the delivery model well enough to [design idempotent consumers / debug redeliveries]; I haven't built the infrastructure myself.» |
+| **3. Будував** | Ви налаштовували чи розширювали це: писали конфігурацію конектора, топологію, IaC, outbox | компроміси, які ви обрали, і що відкинули | «I built [the outbox and the Debezium connector] for [service]; I chose [X] over [Y] because [reason].» |
+| **4. Експлуатував** | Ви вели це в продакшені: чергування, оновлення, ємність, інциденти | режими збоїв із досвіду, числа, runbooks | «I was on call for it for [period]; the incident I remember best is [one line], and we changed [practice] after it.» |
+
+Лабораторні в [Розділі 45](#chapter-45-the-systems-lab-brokers-diagnostics-azure-and-incidents) існують, щоб перевести технологію з рівня 1 на рівень 2, а частково й на 3, на вашій власній машині. Кажіть про це прямо: «I haven’t run Debezium in production, but I built an outbox pipeline with it in a lab and broke it on purpose: I stopped the connector and watched the replication slot hold 150 MB of WAL.» Така відповідь сильніша за розмите «так», бо показує, що ви знаєте і де це знання закінчується.
+
+### Чесні формулювання: фрази й рядки резюме
+
+Для розробника, який розширював інфраструктуру, збудовану іншими, чесне формулювання водночас найсильніше, бо воно конкретне:
+
+- «The Service Bus namespace and topology existed when I joined. I added [n] consumers, made them idempotent after [a duplicate-payment bug], and set up the dead-letter alert.»
+- «I didn’t design the multi-tenant model, but I worked inside it for a year across [100+] client companies: I [specific change], and I know where it leaks, because I [fixed one such case].»
+- «On the RAG project I owned [the chunking and evaluation part]; the hosting and the model choice were [someone else’s].»
+- Коли не знаєте: «I haven’t done that. Here is how I’d approach it: [mechanism]. I’d verify [assumption] first.»
+
+У резюме рівень несе дієслово, тож обирайте його свідомо: *worked with* чи *integrated* (рівень 1), *designed* чи *debugged* конкретну частину (рівень 2), *built*, *implemented* чи *migrated* (рівень 3), *ran*, *was on call for*, *operated* (рівень 4). Кожен рядок має витримати уточнення «tell me more»; рядок, який ви не можете захищати п’ять хвилин, шкодить більше, ніж допомагає. Числа — з вашої власної роботи, з контекстом, що робить їх правдою (`[metric] from [a] to [b] over [period]`), і ніколи не оцінки, видані за результати.
+
+### Таблиця самооцінки
+
+Скопіюйте її у свої приватні нотатки, для кожного рядка вкажіть рівень за шкалою вище й одне речення доказу і повторюйте кожні кілька місяців. Вона показує, де лабораторна чи розділ піднімуть вас на рівень вище; вона для вас, а не для резюме, і не потрапляє в жоден публічний репозиторій.
+
+```text
+| Technology / topic                    | Level (1-4) | Evidence (what I did, where)  | Next step               |
+|---------------------------------------|-------------|-------------------------------|-------------------------|
+| SQL: plans, indexes, isolation        |             |                               |                         |
+| EF Core in depth                      |             |                               |                         |
+| ASP.NET Core pipeline, DI, options    |             |                               |                         |
+| Async, thread pool, diagnostics       |             |                               |                         |
+| Memory and GC, dotnet-counters/gcdump |             |                               |                         |
+| Security: OAuth/OIDC, authz, OWASP    |             |                               |                         |
+| Azure Service Bus                     |             |                               |                         |
+| Azure Event Hubs / Kafka              |             |                               |                         |
+| Debezium / CDC / outbox               |             |                               |                         |
+| Multi-tenancy                         |             |                               |                         |
+| Azure: App Service, SQL, Key Vault    |             |                               |                         |
+| IaC (Bicep/Terraform), CI/CD          |             |                               |                         |
+| Observability: logs, traces, SLOs     |             |                               |                         |
+| RAG and LLM features                  |             |                               |                         |
+| Testing: integration, Testcontainers  |             |                               |                         |
+```
 
 
 ## Як продовжувати навчання
