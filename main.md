@@ -33388,7 +33388,7 @@ One problem, your method (reproduce, hypothesise, measure, fix, prevent) and a b
 
 This page is the handbook's changelog. When a new release lands, a popup announces it on your next visit. Under each release, **Site & functionality** items are plain notes, while **Content updates** link to every chapter that changed — a link is ticked off (✓, stored locally in your browser) once you visit it, so you can work through an update at your own pace and see what's still unread.
 
-## Release — November 4, 2026
+## Release — November 5, 2026
 
 **🔧 Site & functionality**
 
@@ -33410,6 +33410,16 @@ This page is the handbook's changelog. When a new release lands, a popup announc
 - [Chapter 36: Senior Behaviours, Career and Interviews](#chapter-36-senior-behaviours-career-and-interviews) — The shape of a spoken technical answer: the answer first, then the mechanism and the trade-off.
 - [Chapter 36: Senior Behaviours, Career and Interviews](#chapter-36-senior-behaviours-career-and-interviews) — Three STAR story skeletons to prepare in English.
 - [Appendix: Interview Priority Map](#appendix-interview-priority-map) — Thirteen interview topics ranked P1 and P2, with the usual wrong answer and questions to rehearse.
+- [Chapter 29: Azure in Depth for .NET Developers](#chapter-29-azure-in-depth-for-net-developers) — Service Bus under the hood: topics and filters, settlement, expiry, locks, prefetch and a failure table.
+- [Chapter 29: Azure in Depth for .NET Developers](#chapter-29-azure-in-depth-for-net-developers) — Event Hubs under the hood: a stream rather than messages, partitions, checkpoints and the Kafka endpoint.
+- [Chapter 18: Data in Depth](#chapter-18-data-in-depth) — Debezium under the hood: Kafka Connect, replication slots and WAL growth, snapshots, the event envelope, tombstones and the Outbox Event Router.
+- [Chapter 18: Data in Depth](#chapter-18-data-in-depth) — Multi-tenancy beyond the query filter (IDOR, tenant resolution, per-tenant limits and flags, reports, backups, GDPR) and how to discuss it in an interview.
+- [Chapter 33: Building AI-Powered Systems](#chapter-33-building-ai-powered-systems) — Measuring retrieval with a golden set, controlling hallucination, and the cost, latency and security of a RAG pipeline.
+- [Chapter 33: Building AI-Powered Systems](#chapter-33-building-ai-powered-systems) — Make or buy: your own RAG pipeline or a managed service, with a story template.
+- [Chapter 16: Working Like a Middle Developer](#chapter-16-working-like-a-middle-developer) — Getting productive in a system you didn't build: the first week, tracing a request, git history, asking good questions.
+- [Chapter 36: Senior Behaviours, Career and Interviews](#chapter-36-senior-behaviours-career-and-interviews) — The depth scale (used, understood, built, operated), honest phrasing for interviews and CVs, and a self-assessment table.
+- [Chapter 45: The Systems Lab: Brokers, Diagnostics, Azure and Incidents](#chapter-45-the-systems-lab-brokers-diagnostics-azure-and-incidents) — New: seven hands-on labs, from an outbox with Debezium to an incident drill, with verified kits.
+- [Appendix: Interview Priority Map](#appendix-interview-priority-map) — Five more P1 topics: brokers under the hood, multi-tenancy, RAG, unfamiliar systems and the depth of your experience.
 
 ## Release — October 26, 2026
 
