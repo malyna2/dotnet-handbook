@@ -412,7 +412,7 @@ Run it, and Aspire starts your projects, spins up Postgres and Redis in containe
 
 > **Where Aspire fits:** it is primarily a **development-time and composition** layer that nudges you toward 12-Factor practices. It is *not* itself a production runtime, nor a service mesh. For a team building a modular monolith or a handful of services, it dramatically lowers the friction of doing distributed .NET *well*.
 
-> **Capstone tie-in:** The sections so far are exercised by ShopCore Steps 3 (Dockerize) and [8 (Deploy with Infrastructure as Code)](#step-8-deploy-with-infrastructure-as-code) in [Chapter 44](#chapter-44-capstone-one-project-growing-up) — you'd package the API with a multi-stage Dockerfile and Compose, then run the services on a managed Kubernetes cluster or cloud container service.
+> **Capstone tie-in:** The sections so far are exercised by ShopCore Steps 3 (Dockerize) and [8 (Deploy with Infrastructure as Code)](#step-8-deploy-with-infrastructure-as-code) in [Chapter 45](#chapter-45-capstone-one-project-growing-up) — you'd package the API with a multi-stage Dockerfile and Compose, then run the services on a managed Kubernetes cluster or cloud container service.
 
 ## Azure Pipelines in Practice
 

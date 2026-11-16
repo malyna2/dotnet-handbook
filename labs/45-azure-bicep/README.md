@@ -1,4 +1,4 @@
-# Lab kit — Chapter 45, Lab 6: App Service, Azure SQL, Key Vault and Managed Identity in Bicep
+# Lab kit — Chapter 46, Lab 6: App Service, Azure SQL, Key Vault and Managed Identity in Bicep
 
 One Bicep file that builds the shape most .NET teams run on Azure: an App Service web app with a system-assigned managed identity, Azure SQL with Entra-only authentication (no SQL logins, no password anywhere), Key Vault in RBAC mode with a role assignment for the app, Application Insights on a Log Analytics workspace, and a **budget** on the resource group that emails you at 80 % of actual and 100 % of forecast spend.
 

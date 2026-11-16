@@ -26,7 +26,7 @@
  "chapter-3-aspnet-core-web-apis": "chapter-5-http-and-web-apis",
  "chapter-30-working-with-legacy-brownfield-code": "chapter-24-working-with-legacy-brownfield-code",
  "chapter-31-linux-the-command-line-for-net-developers": "chapter-14-containers-and-linux",
- "chapter-32-putting-it-all-together-a-capstone-learning-path": "chapter-44-capstone-one-project-growing-up",
+ "chapter-32-putting-it-all-together-a-capstone-learning-path": "chapter-45-capstone-one-project-growing-up",
  "chapter-33-real-world-scenarios-architectural-decisions": "chapter-35-production-incidents",
  "chapter-34-interview-questions-how-to-answer-them": "chapter-36-senior-behaviours-career-and-interviews",
  "chapter-35-software-supply-chain-security": "chapter-27-security-in-depth-and-the-supply-chain",
@@ -65,5 +65,7 @@
  "part-2-module-4-architecture-api-evolution-and-system-design": "chapter-21-architecture",
  "part-2-module-5-observability-and-testing-at-scale": "chapter-25-observability-and-testing-at-scale",
  "part-2-module-6-production-and-the-cloud": "chapter-29-azure-in-depth-for-net-developers",
- "part-2-module-7-senior-behaviours": "chapter-36-senior-behaviours-career-and-interviews"
+ "part-2-module-7-senior-behaviours": "chapter-36-senior-behaviours-career-and-interviews",
+ "chapter-44-capstone-one-project-growing-up": "chapter-45-capstone-one-project-growing-up",
+ "chapter-45-the-systems-lab-brokers-diagnostics-azure-and-incidents": "chapter-46-the-systems-lab-brokers-diagnostics-azure-and-incidents"
 }

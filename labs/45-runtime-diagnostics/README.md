@@ -1,4 +1,4 @@
-# Lab kit — Chapter 45, Labs 3 and 4: Thread Pool Starvation and a Memory Leak
+# Lab kit — Chapter 46, Labs 3 and 4: Thread Pool Starvation and a Memory Leak
 
 One small ASP.NET Core service with two production bugs: `GET /quote` blocks on `.Result` (Lab 3), and `POST /watchers` subscribes a per-request object to a static event and never unsubscribes (Lab 4). You find each one with the tools you would use in production, `dotnet-counters` and `dotnet-gcdump`, before you fix it.
 

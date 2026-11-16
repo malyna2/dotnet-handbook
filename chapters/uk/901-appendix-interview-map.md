@@ -269,7 +269,7 @@ Thread pool starvation, зазвичай через sync-over-async (`.Result`, 
 
 ## P1-14. Брокери зсередини
 
-**Де це викладено.** [Service Bus зсередини](#service-bus-under-the-hood) і [Event Hubs зсередини](#event-hubs-under-the-hood) у Розділі 29; [Debezium зсередини](#debezium-under-the-hood) у Розділі 18; лабораторні 1 і 2 [Розділу 45](#chapter-45-the-systems-lab-brokers-diagnostics-azure-and-incidents).
+**Де це викладено.** [Service Bus зсередини](#service-bus-under-the-hood) і [Event Hubs зсередини](#event-hubs-under-the-hood) у Розділі 29; [Debezium зсередини](#debezium-under-the-hood) у Розділі 18; лабораторні 1 і 2 [Розділу 46](#chapter-46-the-systems-lab-brokers-diagnostics-azure-and-incidents).
 
 **Чому про це питають.** Багато кандидатів *користувалися* брокером, який налаштував хтось інший. Інтерв’юер розрізняє їх, питаючи, що відбувається всередині: коли спливає блокування, де закінчується порядок партиції, що робить replication slot, поки конектор лежить.
 
@@ -417,7 +417,7 @@ Golden set справжніх питань із позначеними реле�
 
 ## P1-18. Чесна розповідь про глибину досвіду
 
-**Де це викладено.** [Шкала глибини: користувався, розумію, будував, експлуатував](#the-depth-scale-used-understood-built-operated), [Чесні формулювання: фрази й рядки резюме](#saying-it-honestly-phrases-and-cv-lines) і [Таблиця самооцінки](#a-self-assessment-table) у Розділі 36; лабораторні — у [Розділі 45](#chapter-45-the-systems-lab-brokers-diagnostics-azure-and-incidents).
+**Де це викладено.** [Шкала глибини: користувався, розумію, будував, експлуатував](#the-depth-scale-used-understood-built-operated), [Чесні формулювання: фрази й рядки резюме](#saying-it-honestly-phrases-and-cv-lines) і [Таблиця самооцінки](#a-self-assessment-table) у Розділі 36; лабораторні — у [Розділі 46](#chapter-46-the-systems-lab-brokers-diagnostics-azure-and-incidents).
 
 **Чому про це питають.** Інтерв’юери уточнюють кожен рядок резюме, доки не дійдуть до межі досвіду кандидата; питання лише в тому, чи назвете цю межу ви, чи її знайдуть вони.
 

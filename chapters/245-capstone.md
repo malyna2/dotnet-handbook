@@ -1,4 +1,4 @@
-# Chapter 44: Capstone — One Project, Growing Up
+# Chapter 45: Capstone — One Project, Growing Up
 
 Reading about architecture teaches you vocabulary. Evolving a single real system teaches you judgment. This chapter is one project carried through every stage of its life, so that you feel the pain that motivates each technique before you reach for it. You will build **ShopCore**, a small e-commerce backend — products, carts, orders, and payments. The domain is deliberately familiar so your attention stays on the engineering.
 

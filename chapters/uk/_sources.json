@@ -52,12 +52,12 @@
     "translation": "89766fa6ed8b6a34fbad79c57be595356d761c731c07845b22e5d5136e9da364"
   },
   "112-security-essentials": {
-    "source": "3205873cc8bddf813f8a79354789b9fb343f5cf0fe5054d488d2e716102ccdc1",
-    "translation": "b1cbfa9ed683db4afbd2491394a35aae950d8d9f3fe369e009a6fc4488740915"
+    "source": "62410466116e7023e4cdf13f053374324e67fd5a373063e0d1a3e8ea4d674fec",
+    "translation": "65c4074fbc75d657161f9af24c86aaaec2303c8e1f025059a875261338786522"
   },
   "113-git-and-ci-cd": {
-    "source": "79afbb78c8418e021134abbd75e672bd9bccfaf7ba7d3d17e834f7678dcddda8",
-    "translation": "5788ce002385d91f2fee9567a27f492cecec855c90869cb6a775dcae5e90428f"
+    "source": "c1e96b5fffb62592c6d41d976b20140f06d19976e672077f7f2e2e5b0e093e98",
+    "translation": "d420be3e5da336b15e9a2a1ef06f9c677bbf410014bce7b05cdbdadfc5d1728d"
   },
   "114-containers-and-linux": {
     "source": "31791832b9f9ec91eea19a52a9e64c3f92650ad2c323e1c198eadfa1ce919f8c",
@@ -76,28 +76,28 @@
     "translation": "cad192304a731d729acc0accec37f41697ebe3810ce8bb409c061c72c1e323fe"
   },
   "200-part-2": {
-    "source": "80e28b1b041592705f139c9c6b3d804706a52afbdaca1f4f141baada1ca15daa",
-    "translation": "adf55eadf71d98671265e8c63a8118541e2724f71f0eaab0e31d1a8b681d5f6e"
+    "source": "adb42f4338c13668356c1099147456855772c2f7ecfe6046f0f04e926ae34c37",
+    "translation": "80f6160471cadc0a33fa0f0d20365d29dc8639b37a9e944f76029049645248dd"
   },
   "217-runtime-internals-performance": {
     "source": "01748f8eee6bdbdea1d97c7d46c6ad0b2b15562e6f0089b6bec7ffe586727efb",
     "translation": "b4a774491f0baf2d6f86cbf583c02ef8d4518ded9a729b6e8502217b8af1e8e2"
   },
   "218-data-in-depth": {
-    "source": "772fca89987db5ec3d247b6e1eff8ac8987e257610df2b6d88fcea4c569a9909",
-    "translation": "ba67cd2cd52fe0ebf073e7f91627b58af2c10fb0ede63ba1b56ea3cc4cd0404a"
+    "source": "2ea48488ff49245a946e10c3558273c0be7a305aae4733e18866a1be960fb7a6",
+    "translation": "91598871582eee4cf7439b93716b0b45a060f736954b505fe5bab75072f48b50"
   },
   "219-lab-execution-plans": {
     "source": "ecae8685d587a7ba26d1a79605b32fe1425a80303bfcd404b5643369a9c225c1",
     "translation": "6a64fd0145d27cd65c3bfe0ff947c173838a31a1b1aa6a3859f32cfe01b2be2f"
   },
   "220-distributed-systems": {
-    "source": "a9dd4c69dd602e688c2c5c608e74dbd0b899c2d4ed34e126875acca167665803",
-    "translation": "2c9a2be55b8c3550dbd50b50c4067bfcf56e7ab8af3750d2aafee4c612a59cd0"
+    "source": "bdf00cbadd876bdf8e7384ba9303a4c886fdc2447fa23e6fe76fdd3948128898",
+    "translation": "b80701cefb92391f95fddb58ea3eefbd8076c10d14165c8b7bce1b92e711d0ff"
   },
   "221-architecture": {
-    "source": "0f6e29360f69eb9003da2b7d97bd4cc0adb6fc8ea0652fb9d5687fd5a816aaca",
-    "translation": "01b3b10150b85d54ee8dafc0f007711bce3271db73d56cea2028e0b209eafa25"
+    "source": "8fc6789c7c8e128e9e24163ae78d4f0a452c7f3ded494f6dbc6a29bf74e213fe",
+    "translation": "621bd091efcc0eaa05dbd844ae62bac36215ba20c5707b9fc8aab51bf19c4837"
   },
   "222-api-evolution": {
     "source": "3c4c10574bcb7ddf248f158ac3d133dfa008fb43ea13d89ece7027b02b25fa5f",
@@ -112,12 +112,12 @@
     "translation": "87a61892b40c906415dbe5829ae3a0a32b22d6668af8674b4b70ae34e351398f"
   },
   "225-observability-testing-at-scale": {
-    "source": "ff81ff93e8d84ea9eccb1ea2758437569acd11266a2f78a675e54d308310aeed",
-    "translation": "443473ad2aae1ec883cb5c352d5ee3d1178d458fce21a3db3e0cf115f9d778c0"
+    "source": "050ca31cb07c935ec708e88a431721b7d3756f63c6892b9edbdd0f456c032e7d",
+    "translation": "aa38ab30b479319ba7317fb953c78686f084ba09a7e657dbe1f55f1612b6c6ec"
   },
   "226-delivery-and-platform": {
-    "source": "8a9cda7954d8e485aafcdee1b8f64355a0ee319b2c28062eb1b69f8b0383966f",
-    "translation": "449902868b09d8c73b7e4b7bb155a5b3c375338c4ef928475949aa5bf54b3177"
+    "source": "b4fdf01fe5ea936f1c933abd719332c4d30208df2fc411629d6dbe851ddf47b7",
+    "translation": "2b5390bfb1b0fac311dd23f0a3114f09f7bb3dab005cde96add897b95b475191"
   },
   "227-security-in-depth": {
     "source": "2443ea90ce58b7139e8448af1f9d8f0ee60a2c7a5d2c40408f1b530037d8f1d4",
@@ -128,8 +128,8 @@
     "translation": "e48c9a4e03b12cb31e53d15e497a35ffae9523be5720bcfca4376c1fb2d85e39"
   },
   "229-azure-in-depth": {
-    "source": "5b964999cde3093cf8e224020498cf98768dc0e7f547a230d8829d0ec9b5f6b4",
-    "translation": "65356aecd22596fcaa71b75fa519a8783e4d397622b9d7dc0bdd008825937b70"
+    "source": "6bd6e307d769148f88c064a51a94f67992261630457c300f753c8b92779ad13e",
+    "translation": "2ad39235a872523b851dfa97053d392c3e3984b4629b9c2e65d4637ca066aaf7"
   },
   "230-azure-casebook": {
     "source": "8418b507ed4813fd221e16ee7a0520b3462048506b1905dfc56b474fec7963bc",
@@ -156,20 +156,20 @@
     "translation": "48c397ed8e9b1ace4362298dc5423ba136f4a35bfc0f09e036d22afe00df6163"
   },
   "236-senior-behaviours-career": {
-    "source": "ada578ecf792440be39f6390eff0d3f762c54da5536ad4a7c5c59d8aeca2501d",
-    "translation": "dbbd6a7f4b5981ab022facbd8da9479786696166e947326846d8a7f74bc764d7"
+    "source": "98e4486c51e35ebf7bbc4ce75e6f30b5cc546846e977915134505d236e697ec4",
+    "translation": "50d80e00ed76f4a655444adebf6fa7b231113aa33ee0191a60df65a11cefc4bf"
   },
   "237-lab-story-bank": {
     "source": "9c18a0d53784589b9e7ad9dd5d673546b94dcfe970e756acea00dcc7e5f83819",
     "translation": "af518746a24c53a1551ac21e8d930de8c38a61c33781c9a57a96801d165581f6"
   },
   "238-point-of-view": {
-    "source": "993d659616702988101726486f5ca9e15b80e618426aa27cdbdf5181d3a52db8",
-    "translation": "210660a72fada19207421d0473be66feab6f9c8902c28dc1cd8eb969e4ff676a"
+    "source": "af673e981552cfd4449bf953d6b448ba9d48122252457e30b82f1e748ee394f5",
+    "translation": "d5b5ac350f586f2025f2e23a590ea49dc342e2caf3139c3ff80b3d78bb24120e"
   },
   "239-discovery-and-diagnosis": {
-    "source": "b2aaee65014bf97653fce20a005ea8f57cf801c49bd95b41e70a15f2359abb05",
-    "translation": "f9fce8f263ace4d47f94cb2b77ad70ac795573b8f074ad5e186aedcee1073fe2"
+    "source": "7046ebf2f2173337da215c7186b03bde6d8bd58aa0fb95ff158a003945be8172",
+    "translation": "2cdee2077c87b90acae919b8c448faaf95854eac1cc5a57a940f0636cdbb356c"
   },
   "240-lab-health-check": {
     "source": "86394595d5501c3da6e9e7f23f16debe5a87b219d57d00bad303ff85e8118598",
@@ -184,16 +184,20 @@
     "translation": "a84c60f202987a75d132467e17c3854172dd564aab83ee9016975367b1a971ed"
   },
   "243-positioning": {
-    "source": "0f3db6900afddd9ed407a481f77f8bbaf95c18ed8a8e8e96290e9c16f187ccee",
-    "translation": "b9df9318796a9643bf65a314b75525c49a3b7aa87e38dc3d26deca741d658b78"
+    "source": "c15d7d79ce4990f3ae0a11bd0754302e78848a1ffea35c99ee37a1eac09e48ab",
+    "translation": "fcc42950f59814bdacac96fc8c407d7b45b471b166fbfc706761c3da3e480932"
   },
-  "244-capstone": {
-    "source": "7563b3da5089bbed003a53107eed43d36902e01e92c60ec80b1d82fe81c71f94",
-    "translation": "70f76f9d77d03fdc6457801d73e682b95878766b0aff86e5ae12e36b68ec5840"
+  "244-forward-deployed-engineer": {
+    "source": "6a2fed865cee998c3827890ab1333091a336bbc8f1bfe6d7c3985a430fbeaad8",
+    "translation": "0d927096ff44470dd77962b193a17106bc8495179535cf7dc00d4c2b2ae85427"
   },
-  "245-lab-systems": {
-    "source": "a017ca3a0bd6db6db8b5796465c943068216443b312fa331bab599c00e1ea952",
-    "translation": "3e0f4600cc940b35e8e62d05001dfc441c4b358446ce6fdb54c264ccba27b493"
+  "245-capstone": {
+    "source": "c18222c3136a7ea337da6cabcb40df0ae0f1bee7b36ebc09b3965967a49a55ee",
+    "translation": "0e788a9539dffbd3b39b55ae7e6cc942205337e77e44d8336eb93974983c83d2"
+  },
+  "246-lab-systems": {
+    "source": "bb26fee740816e349cbb60cfda577c1728d25e431244bf9eb6c27d1a42a98a03",
+    "translation": "bba3da6b5edd1c3a4611b254362fba87fbdf086afc8d68983c998069c4e9b3f5"
   },
   "299-part-2-pay-attention": {
     "source": "ae92f09bbc9f200cfac0ff79a72c0f83107dff43af52dbe7e9a589804195ccd5",
@@ -204,11 +208,11 @@
     "translation": "8d948f63208a41d857fad1907242f756f1c10311a2a2b0f448eb7c0cb455b42d"
   },
   "901-appendix-interview-map": {
-    "source": "61acc944f7d84bfbb470ebaee75ee6ef52ce9d409f1fc969c2046fe83060bdb0",
-    "translation": "11f548c7b5dc8d38d48d8b439526e0636a650d14641fe36f2e7b23a1dbffcacc"
+    "source": "08e38ee9ebd2614cd1f88d605dd9737e5be944090a75b5c4e05b5537ae536b74",
+    "translation": "cf0a1f9356be1b072118963a7449d2348e4957ac4b948b32f7288169f672fd8b"
   },
   "999-whats-new": {
-    "source": "759c6592cd09f4ee4a96e4b26f691d8c39d1e75284c58cd5a7411219841e9a7f",
-    "translation": "1fd08ba9f2c3e5ba76d2ad98f7958a7afe0beaf855fc9903166101deae8d3754"
+    "source": "99d55a7b34c1879611d52ce8cacb8f3ab0c2683dc0a89c462311fabdb274aaea",
+    "translation": "d6ae14e8668670e09e4e0f55463d2df9d4153905a86188014be270d27096cc4f"
   }
 }

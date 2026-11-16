@@ -1,6 +1,6 @@
 # Chapter 38: Having a Point of View
 
-Chapters 38–43 are about a shift that no certification measures: going from being the person a client hands tickets to, to being the person a client *asks*. For a .NET engineer placed through an outsourcing or outstaffing firm, that shift decides whether you are renewed or rotated. The vendor sells your hours. What the client comes to value, or fails to find, is your judgment.
+Chapters 38–44 are about a shift that no certification measures: going from being the person a client hands tickets to, to being the person a client *asks*. For a .NET engineer placed through an outsourcing or outstaffing firm, that shift decides whether you are renewed or rotated. The vendor sells your hours. What the client comes to value, or fails to find, is your judgment.
 
 This chapter is about the first ingredient of that judgment: **having a point of view**. That means positions you hold on purpose, can defend with a mechanism, and would drop for a stated reason.
 
@@ -226,7 +226,7 @@ What follows are eight worked positions. Each is grounded in a chapter of this b
 
 **I'd change my mind if.** Deploy-coordination cost becomes measurable: releases held up waiting on other modules, merge queues backing up across module boundaries. Or a module's resource profile shows up in the metrics as the thing driving the whole app's scaling.
 
-**Mechanism lives in.** [Chapter 21: Architecture](#chapter-21-architecture) (monolith vs microservices vs modular monolith); [Chapter 44](#chapter-44-capstone-one-project-growing-up) (the capstone's "split into microservices" step, and what it costs); [Chapter 20](#chapter-20-distributed-systems) (the fallacies of distributed computing you sign up for).
+**Mechanism lives in.** [Chapter 21: Architecture](#chapter-21-architecture) (monolith vs microservices vs modular monolith); [Chapter 45](#chapter-45-capstone-one-project-growing-up) (the capstone's "split into microservices" step, and what it costs); [Chapter 20](#chapter-20-distributed-systems) (the fallacies of distributed computing you sign up for).
 
 ### Canon #2: EF Core by default; Dapper on measured hot paths
 

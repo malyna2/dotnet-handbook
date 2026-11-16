@@ -291,7 +291,7 @@ The saga's state is *persisted*, so the process survives crashes and restarts. T
 
 > **Pitfall.** Design the compensations as carefully as the steps, and find the step that *can't* be compensated (an email already sent, goods already shipped). Put it last, after every step that can still fail, or make the earlier failures impossible by reserving before you commit.
 
-> **Capstone tie-in.** ShopCore Step 7 (Split Into Microservices) in [Chapter 44](#chapter-44-capstone-one-project-growing-up) carves out Catalog, Ordering and Payments services communicating over RabbitMQ with MassTransit, with the outbox and idempotent consumers.
+> **Capstone tie-in.** ShopCore Step 7 (Split Into Microservices) in [Chapter 45](#chapter-45-capstone-one-project-growing-up) carves out Catalog, Ordering and Payments services communicating over RabbitMQ with MassTransit, with the outbox and idempotent consumers.
 
 ## Detecting Failure and Retrying Without Making It Worse
 

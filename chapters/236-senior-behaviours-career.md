@@ -53,7 +53,7 @@ Everything above assumes you sit inside the team. As a contractor, consultant or
 - **From neutral to committed.** Listing trade-offs is where the job starts. The client wants a recommendation with the conditions under which it would change.
 - **From tasks to outcomes.** Report in the client's units: money, time and risk, not tickets closed.
 
-Your influence comes from the same sources as inside a team (trust, data and bringing people along early), with one extra hazard: **self-orientation**. The moment advice sounds like it serves your next contract, it stops being advice. Chapters 38–43, starting with [Chapter 38: Having a Point of View](#chapter-38-having-a-point-of-view), turn this stance into skills you can practise.
+Your influence comes from the same sources as inside a team (trust, data and bringing people along early), with one extra hazard: **self-orientation**. The moment advice sounds like it serves your next contract, it stops being advice. Chapters 38–44, starting with [Chapter 38: Having a Point of View](#chapter-38-having-a-point-of-view), turn this stance into skills you can practise.
 
 ## Career Growth: Toward Senior and Staff
 
@@ -181,7 +181,7 @@ Result:    [metric] went from [before] to [after], measured with [how].
 | **3. Built** | You set it up or extended it: wrote the connector config, the topology, the IaC, the outbox | the trade-offs you chose and what you rejected | "I built [the outbox and the Debezium connector] for [service]; I chose [X] over [Y] because [reason]." |
 | **4. Operated** | You ran it in production: on call, upgrades, capacity, incidents | failure modes from experience, numbers, runbooks | "I was on call for it for [period]; the incident I remember best is [one line], and we changed [practice] after it." |
 
-The labs in [Chapter 45](#chapter-45-the-systems-lab-brokers-diagnostics-azure-and-incidents) exist to move a technology from level 1 to level 2, and partly to 3, on your own machine. Say so plainly: "I haven't run Debezium in production, but I built an outbox pipeline with it in a lab and broke it on purpose: I stopped the connector and watched the replication slot hold 150 MB of WAL." That is a stronger answer than a vague "yes", because it shows what you know and where it stops.
+The labs in [Chapter 46](#chapter-46-the-systems-lab-brokers-diagnostics-azure-and-incidents) exist to move a technology from level 1 to level 2, and partly to 3, on your own machine. Say so plainly: "I haven't run Debezium in production, but I built an outbox pipeline with it in a lab and broke it on purpose: I stopped the connector and watched the replication slot hold 150 MB of WAL." That is a stronger answer than a vague "yes", because it shows what you know and where it stops.
 
 ### Saying It Honestly: Phrases and CV Lines
 
@@ -257,7 +257,7 @@ You do not need to read them all at once, and you should not. Pick the one that 
 
 So the aim is a T-shape: a wide base of competence, with a few tall spikes of genuine mastery. You cannot go deep everywhere, and trying to will only leave you exhausted and mediocre. Choose your spikes deliberately — maybe performance and the runtime, maybe distributed systems and messaging — and let the rest stay at working competence, refreshed as needed.
 
-You have the map and the habits; [Chapter 44: Capstone](#chapter-44-capstone-one-project-growing-up) gives you the project.
+You have the map and the habits; [Chapter 45: Capstone](#chapter-45-capstone-one-project-growing-up) gives you the project.
 
 ## Sources & Further Reading
 
