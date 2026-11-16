@@ -33818,6 +33818,7 @@ This page is the handbook's changelog. When a new release lands, a popup announc
 
 - A new 🎯 Interview marker, explained in the preface, flags each section an interviewer is likely to test, as P1 or P2.
 - The appendix group in the chapter list now holds more than one page.
+- A new Chapter 44 moves the capstone to Chapter 45 and the systems lab to Chapter 46; old links and bookmarks still open them.
 
 **📖 Content updates**
 
@@ -33844,6 +33845,7 @@ This page is the handbook's changelog. When a new release lands, a popup announc
 - [Chapter 36: Senior Behaviours, Career and Interviews](#chapter-36-senior-behaviours-career-and-interviews) — The depth scale (used, understood, built, operated), honest phrasing for interviews and CVs, and a self-assessment table.
 - [Chapter 45: The Systems Lab: Brokers, Diagnostics, Azure and Incidents](#chapter-45-the-systems-lab-brokers-diagnostics-azure-and-incidents) — New: seven hands-on labs, from an outbox with Debezium to an incident drill, with verified kits.
 - [Appendix: Interview Priority Map](#appendix-interview-priority-map) — Five more P1 topics: brokers under the hood, multi-tenancy, RAG, unfamiliar systems and the depth of your experience.
+- [Chapter 44: The Forward Deployed Engineer](#chapter-44-the-forward-deployed-engineer) — New chapter: what the role is, the engagement loop, taking an AI demo to production, and the route there from .NET.
 
 ## Release — October 26, 2026
 
