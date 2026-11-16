@@ -43,7 +43,7 @@ TRANSLATION_STATE = os.path.join(UK_DIR, "_sources.json")
 
 # Inclusive numeric ranges of file numbers → sidebar section label. The book is one sequence:
 # Part 1 (files 100–199: the part page, Chapters 1–16 as 101–116, its review page 199), then
-# Part 2 (200–299: the part page, Chapters 17–45 as 217–246, its review page 299).
+# Part 2 (200–299: the part page, Chapters 17–46 as 217–246, its review page 299).
 PART_RANGES = [
     (0,   0,   "__home__"),
     (100, 199, "Part 1 — Junior → Middle"),

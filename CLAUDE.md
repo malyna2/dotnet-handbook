@@ -78,6 +78,6 @@ The plan and progress live in `PRACTICE_ROADMAP.md`; tick it at the end of every
 
 ## The Trusted Advisor (Part 2, Chapters 38–44)
 
-- Client-facing expertise: 38 point of view, 39 discovery, 40 health-check lab (`labs/62-health-check/`, lab rules apply), 41 recommendations/proposals/estimates, 42 advisory casebook, 43 positioning and public proof.
+- Client-facing expertise: 38 point of view, 39 discovery, 40 health-check lab (`labs/62-health-check/`, lab rules apply), 41 recommendations/proposals/estimates, 42 advisory casebook, 43 positioning and public proof, 44 the forward deployed engineer (the advisor who also owns the result in production; it links back to 38–43 and the AI chapters instead of re-teaching them, and describes the role as patterns, never one employer's practice).
 - *Find the bug* in these chapters is a flawed written artifact (memo, email, SOW excerpt, headline), not C#, so it needs no compiled verification.
 - Cases and examples are labelled composites; numbers are `[placeholders]` or marked illustrative. Cite books by author and title; drop any specific claim that can't be verified. Contracts and SOWs come with a short "not legal advice" note.
