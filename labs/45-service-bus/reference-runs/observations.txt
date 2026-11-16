@@ -1,0 +1,7 @@
+ServiceBusLab.ServiceBusTests.Duplicate_detection_drops_a_resend_with_the_same_MessageId: received: payment-42,payment-43
+ServiceBusLab.ServiceBusTests.A_declined_card_is_charged_once_and_dead_lettered_with_a_reason: charges: 1; dead-letter reason: CardDeclined
+ServiceBusLab.ServiceBusTests.Sessions_deliver_each_sessions_messages_in_order: order-B: 1,2,3,4,5
+ServiceBusLab.ServiceBusTests.Sessions_deliver_each_sessions_messages_in_order: order-C: 1,2,3,4,5
+ServiceBusLab.ServiceBusTests.Sessions_deliver_each_sessions_messages_in_order: order-A: 1,2,3,4,5
+ServiceBusLab.ServiceBusTests.A_message_abandoned_MaxDeliveryCount_times_is_dead_lettered: dead-letter reason: MaxDeliveryCountExceeded; delivery count 4
+ServiceBusLab.ServiceBusTests.A_message_not_completed_comes_back_after_the_lock_expires: first delivery count 1, redelivered after 5.0 s with delivery count 2

@@ -21,4 +21,4 @@ verify/sql/verify.sh --down   # ...and removes them afterwards
 
 `verify.sh` sets `ACCEPT_EULA=Y`, which accepts the SQL Server Developer edition EULA for local use. It needs Docker, Python 3 and the .NET 10 SDK. If Docker Hub rate-limits the PostgreSQL pull, pull `mirror.gcr.io/library/postgres:17.11` and tag it `postgres:17.11`.
 
-**Last verified:** 2026-10-15. Environment: Ubuntu 24.04 container, 4 vCPU, 16 GB RAM, Docker 29.8.2, PostgreSQL 17.11, SQL Server 2022 CU27 (16.0.4295.3, collation `SQL_Latin1_General_CP1_CI_AS`), .NET SDK 10.0.112, EF Core 10.0.12, Npgsql EF Core provider 10.0.3. 27 SQL files and 18 EF Core checks passed.
+**Last verified:** 2026-11-04. Environment: Ubuntu 24.04 container, 4 vCPU, 16 GB RAM, Docker 29.9.2, PostgreSQL 17.11, SQL Server 2022 CU27 (16.0.4295.3, collation `SQL_Latin1_General_CP1_CI_AS`), .NET SDK 10.0.114, EF Core 10.0.12, Npgsql EF Core provider 10.0.3. 31 SQL files and 18 EF Core checks passed.

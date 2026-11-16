@@ -21,6 +21,8 @@ This book grew out of a simple roadmap — a checklist of "things a middle .NET 
 
 *Pay attention* callouts spell out the mechanism behind the most common wrong answer, the one an interviewer's "why?" finds. Where a topic is taught in another chapter, the text links there instead of repeating it.
 
+**🎯 Interview markers.** A callout that opens with **🎯 Interview · P1** or **🎯 Interview · P2** marks a section an interviewer is likely to test: P1 for the topics that come up in nearly every backend .NET interview at Regular (mid) level, P2 for those that decide the second half of the loop. Each one links to its entry in the [Appendix: Interview Priority Map](#appendix-interview-priority-map), with the usual wrong answer and the questions to expect.
+
 ---
 
 ## Contents
@@ -1560,7 +1562,7 @@ Overlapping subproblems (the same smaller question recurs) and optimal substruct
 
 # Chapter 3: How .NET Runs Your Code
 
-_⏱️ Estimated read time: ~35 min · 5314 words (study pace)_
+_⏱️ Estimated read time: ~35 min · 5375 words (study pace)_
 
 This chapter explains the machinery around your code that every .NET service shares: where the runtime puts what you allocate and how the garbage collector gets it back, how settings reach your classes, how the dependency-injection container builds and disposes your objects, and how the Generic Host starts and stops the application. With it you can explain why memory climbs and comes back, why a misspelt setting fails silently, and why a `Scoped` service inside a singleton serves stale data to every request.
 
@@ -1594,6 +1596,8 @@ When `Example` returns, the stack frame — `localValue`, `p`, the references `c
 **Boxing** is where the two meet: a value type assigned to `object` or an interface is copied into a new heap object, an allocation the code doesn't show ([Chapter 1](#boxing-and-unboxing-the-hidden-tax)).
 
 ## Garbage Collection
+
+> **🎯 Interview · P1.** Generations, the LOH from 85,000 bytes, finalizers, `Dispose` and `GC.SuppressFinalize`. The usual wrong answer and the questions to expect: [P1-4 in the Interview Priority Map](#p1-4-memory-and-the-gc).
 
 The .NET garbage collector is a **tracing, generational, compacting** collector.
 
@@ -1764,6 +1768,8 @@ public class Mailer(IOptions<EmailOptions> options)
 ```
 
 ## Dependency Injection
+
+> **🎯 Interview · P1.** Lifetimes, captive dependencies, `IServiceScopeFactory` in a `BackgroundService`, and the options interfaces. The usual wrong answer and the questions to expect: [P1-5 in the Interview Priority Map](#p1-5-aspnet-core).
 
 The options pattern above already relied on it: `AddOptions<T>()` registers a service, and `Mailer` received `IOptions<EmailOptions>` without creating it. A class *declares* its dependencies (usually as constructor parameters) and the built-in container (`Microsoft.Extensions.DependencyInjection`) supplies them. You register services on an `IServiceCollection`; the container builds an `IServiceProvider` that *resolves* them recursively: to build `OrderService` it builds the `IRepository` it needs, then the `DbContext` the repository needs, and so on down the graph.
 
@@ -2039,13 +2045,15 @@ It starts a graceful shutdown: it calls `StopAsync` on each hosted service, and 
 
 # Chapter 4: Async Essentials
 
-_⏱️ Estimated read time: ~45 min · 6224 words (study pace)_
+_⏱️ Estimated read time: ~45 min · 6258 words (study pace)_
 
 This chapter is about what `async` and `await` do to three things: the thread, the exception and the work that is waiting. Every async outage in production is one of those three going wrong. One mechanism ties it together: **`await` hands the thread back and parks the rest of the method on the task, and the task is the only thing that carries the result or the exception back.**
 
 `ValueTask`, the TPL's parallel loops, Channels and the thread pool's injection rules build on this model and come in [Chapter 17: Runtime Internals and Performance](#chapter-17-runtime-internals-and-performance). [Chapter 5: HTTP and Web APIs](#chapter-5-http-and-web-apis) applies it to a web request.
 
 ## Why Async Exists: I/O-Bound vs CPU-Bound Work
+
+> **🎯 Interview · P1.** `async`/`await` versus `Task.Run` versus `Parallel.ForEach`, `Task.WhenAll`, `async void`, sync-over-async, `ConfigureAwait`, `ValueTask`, `SemaphoreSlim` and cancellation. The usual wrong answer and the questions to expect: [P1-6 in the Interview Priority Map](#p1-6-async-and-concurrency).
 
 **CPU-bound work** keeps a core busy: hashing a password, resizing an image, summing a billion numbers. Doing more of it at once needs more cores.
 
@@ -2766,7 +2774,7 @@ Asynchronous streaming — `await foreach` over items produced with latency (pag
 
 # Chapter 5: HTTP and Web APIs
 
-_⏱️ Estimated read time: ~1 h 5 min · 9585 words (study pace)_
+_⏱️ Estimated read time: ~1 h 10 min · 10335 words (study pace)_
 
 Most bugs that reach production in a web service are not really *code* bugs. They are network bugs wearing a code costume: a call that works on your laptop times out under load, a service that handled a thousand requests per second starts throwing `SocketException`, an endpoint answers `200` while its client sees a failure.
 
@@ -3061,6 +3069,8 @@ Bulkheads, and what these patterns do across many services, are in [Chapter 20: 
 > **Best practice.** Unless you have specific numbers in mind, start with `.AddStandardResilienceHandler()` — one line that applies Microsoft's recommended pipeline (rate limiter, total timeout, retry, circuit breaker, per-attempt timeout) with sensible defaults — and tune only when you have evidence the defaults don't fit.
 
 ## The Middleware Pipeline & Request Lifecycle
+
+> **🎯 Interview · P1.** Middleware order and why, `IExceptionHandler` and `ProblemDetails`, CORS, rate limiting, and forwarded headers behind a proxy. The usual wrong answer and the questions to expect: [P1-5 in the Interview Priority Map](#p1-5-aspnet-core).
 
 **A request flows through a chain of components, each of which can do work before and after the next one runs.** This chain is the *middleware pipeline*. A component can also short-circuit: answer without calling the rest. On the way out, the response passes back through the same components in reverse order, so the outermost middleware wraps everything inside it.
 
@@ -3540,11 +3550,71 @@ builder.Services.AddRateLimiter(o =>
 app.UseRateLimiter();
 ```
 
+The four built-in limiters differ in what they count:
+
+| Limiter | Counts | Behaviour at the edge of the window | Fits |
+|---|---|---|---|
+| Fixed window | requests per window (100 per minute) | the counter resets at once, so a client can send 100 at 0:59 and 100 more at 1:00 | simple quotas |
+| Sliding window | requests per window, split into segments | the window moves one segment at a time, so the burst at the boundary is smoothed | the same quota without the boundary burst |
+| Token bucket | tokens, refilled at a fixed rate up to a cap | a full bucket allows a burst, then the refill rate is the sustained limit | APIs that tolerate short bursts |
+| Concurrency | requests in flight at the same moment | no window; a permit is returned when the request ends | protecting an expensive resource (reports, exports) |
+
+```csharp
+builder.Services.AddRateLimiter(o =>
+{
+    o.RejectionStatusCode = StatusCodes.Status429TooManyRequests;   // the default is 503
+    o.AddSlidingWindowLimiter("search", opt =>
+    {
+        opt.PermitLimit = 100;
+        opt.Window = TimeSpan.FromMinutes(1);
+        opt.SegmentsPerWindow = 6;          // the window moves in 10-second steps
+    });
+    o.AddTokenBucketLimiter("burst", opt =>
+    {
+        opt.TokenLimit = 20;                // a burst of up to 20...
+        opt.TokensPerPeriod = 5;            // ...then 5 more every second
+        opt.ReplenishmentPeriod = TimeSpan.FromSeconds(1);
+    });
+    o.AddConcurrencyLimiter("reports", opt => opt.PermitLimit = 4);  // at most 4 in flight
+});
+```
+
+Attach a policy to an endpoint with `RequireRateLimiting("search")` or `[EnableRateLimiting("search")]`.
+
+> **Pay attention.** **A rejected request gets `503` unless you say otherwise.** `RateLimiterOptions.RejectionStatusCode` defaults to `503 Service Unavailable`, which tells clients and load balancers the *server* is unhealthy, and some will retry immediately or take the instance out of rotation. Set it to `429 Too Many Requests` and, where the limiter knows it, send `Retry-After` from `OnRejected`. Where `UseRateLimiter` goes follows from what it partitions by: after `UseRouting` so it can see the endpoint's policy, after `UseAuthentication` when the partition is the user, and before it when the point is to shield the authentication work from a flood partitioned by IP address.
+
+
 **Output caching** stores the *rendered response* server-side and replays it for matching requests — great for expensive, rarely-changing GETs. It differs from *response caching*, which sets HTTP cache headers and trusts clients and proxies to honour them ([CDNs and Caching Headers](#cdns-and-caching-headers) in Chapter 26).
 
 **Response compression** (Brotli/Gzip) shrinks payloads. Note that if a reverse proxy (nginx, YARP) already compresses, doing it again in-app is wasted CPU — know your topology.
 
+### Behind a Reverse Proxy: Forwarded Headers
+
+In production the app rarely faces the client directly. A load balancer, an ingress controller, App Service's front end or YARP terminates TLS and opens a new plain-HTTP connection to Kestrel. To Kestrel, every request then comes from the proxy's IP address over `http`. The proxy passes the original values along in headers: `X-Forwarded-For` (the client IP, with one entry appended per hop), `X-Forwarded-Proto` (the original scheme) and `X-Forwarded-Host`.
+
+ASP.NET Core ignores those headers until the **Forwarded Headers middleware** runs. Without it, `Request.Scheme` is `http`, so `UseHttpsRedirection` redirects requests that already came over HTTPS (a redirect loop), OpenID Connect builds `http://` redirect URIs that the identity provider rejects, links generated with `Url.Action` point to `http`, and every log line and rate-limiter partition sees the proxy's IP instead of the client's.
+
+```csharp
+builder.Services.Configure<ForwardedHeadersOptions>(o =>
+{
+    o.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
+    o.KnownIPNetworks.Add(System.Net.IPNetwork.Parse("10.0.0.0/8"));   // the proxy's subnet, nobody else's
+});
+
+var app = builder.Build();
+app.UseForwardedHeaders();      // first, so everything after sees the client's scheme and IP
+app.UseExceptionHandler();
+app.UseHsts();
+```
+
+The middleware rewrites `HttpContext.Connection.RemoteIpAddress` and `Request.Scheme` from the headers, and it should run before every middleware that reads them; Microsoft's documentation allows it after diagnostics and error handling, but it must come before `UseHsts`.
+
+> **Pay attention.** **The middleware trusts only the proxies you name.** By default it accepts the headers only from loopback (`KnownProxies` holds `::1`, `KnownIPNetworks` holds `127.0.0.0/8`), and it processes only the rightmost entry of each header (`ForwardLimit` is `1`). In a container behind a proxy on `10.0.0.5`, the headers are therefore silently ignored and the app still sees `http`: add the proxy's address or subnet. Clearing both lists so every sender is trusted lets any client claim any IP address with one header, which defeats IP-based rate limits and audit logs. Setting the `ASPNETCORE_FORWARDEDHEADERS_ENABLED` environment variable to `true` turns the middleware on for `X-Forwarded-For` and `X-Forwarded-Proto` without code, with settings meant for cloud hosts where the platform is the only way in, and without any known-proxy restriction. IIS out-of-process hosting enables it for you.
+
+
 ## REST and OpenAPI
+
+> **🎯 Interview · P2.** Resources and methods, status codes, pagination, `Idempotency-Key`, versioning, `ETag`/`If-Match`, and breaking changes. The usual wrong answer and the questions to expect: [P2-8 in the Interview Priority Map](#p2-8-rest-design).
 
 **REST** is a set of constraints, not a law, but a few principles pay dividends: model your API around **resources** (nouns), not actions; use the HTTP **methods** for intent (GET read, POST create, PUT replace, PATCH partial update, DELETE remove) with the safety and idempotency they promise ([HTTP Methods and Idempotency](#http-methods-and-idempotency)); and let the **status code** carry the outcome ([Status Codes and Headers That Matter](#status-codes-and-headers-that-matter)).
 
@@ -4956,7 +5026,7 @@ LCP ≤ 2.5 s, INP ≤ 200 ms, CLS ≤ 0.1, at the 75th percentile of real visit
 
 # Chapter 7: Data Access
 
-_⏱️ Estimated read time: ~1 h 35 min · 14228 words (study pace)_
+_⏱️ Estimated read time: ~1 h 45 min · 15517 words (study pace)_
 
 Flawless business logic doesn't survive a data layer that fires a thousand queries where one would do, scans an index it was meant to seek, or loses one user's update under another's.
 
@@ -4992,6 +5062,8 @@ Normalization optimizes for correct writes; it can make reads slower by requirin
 > **Best practice:** Normalize first, denormalize only when a measured read problem demands it — and then own the cost of keeping the duplicated data in sync (via triggers, application code, or scheduled jobs). Denormalization is a performance loan you repay with complexity.
 
 ## SQL Fundamentals
+
+> **🎯 Interview · P1.** Queries written by hand: joins, `GROUP BY`/`HAVING`, CTEs, window functions and top N per group, `APPLY`, indexes, execution plans, parameter sniffing, isolation levels and deadlocks. The usual wrong answer and the questions to expect: [P1-1 in the Interview Priority Map](#p1-1-sql-written-by-hand).
 
 Every ORM call ends as SQL. A senior developer reads the generated SQL and the execution plan, not just the C#.
 
@@ -5196,6 +5268,55 @@ It returns orders 10 and 11 for customer 1, 13 and 14 for customer 2, 15 for cus
 
 LINQ has no operator for a window function, but EF Core writes `ROW_NUMBER` itself for the top N per group: `ctx.Customers.Select(c => new { c.Name, Top = c.Orders.OrderByDescending(o => o.Total).ThenBy(o => o.Id).Take(2).ToList() })` becomes a `ROW_NUMBER() OVER(PARTITION BY [o].[CustomerId] ORDER BY [o].[Total] DESC, [o].[Id])` subquery filtered on `<= 2`, on SQL Server and PostgreSQL alike. Ranks, running totals and CTEs go in [raw SQL](#stored-procedures-views-and-raw-sql) or [Dapper](#dapper-when-the-orm-is-too-much).
 
+### CROSS APPLY and OUTER APPLY
+
+A join combines two row sets that exist independently. **`APPLY`** (SQL Server) runs a table expression *once for each row* of its left side, and that expression may refer to the left row's columns: a correlated subquery that is allowed to return several rows and several columns. `CROSS APPLY` keeps a left row only when the expression returns something, like an inner join; `OUTER APPLY` keeps every left row and fills the expression's columns with NULL, like a left join. PostgreSQL writes the same thing as `CROSS JOIN LATERAL` and `LEFT JOIN LATERAL … ON true`.
+
+That gives a second way to write top N per group, with the N inside the subquery:
+
+```sql
+SELECT c.Name, t.Id, t.Total
+FROM Customers AS c
+CROSS APPLY (
+    SELECT TOP (3) o.Id, o.Total
+    FROM Orders AS o
+    WHERE o.CustomerId = c.Id        -- the inner query sees the outer row
+    ORDER BY o.Total DESC, o.Id
+) AS t;   -- the three largest orders of each customer; Dan has none, so no row
+```
+
+Ada gets orders 10, 11 and 12, Ben 13 and 14, Cleo 15. The expression returns nothing for Dan, so `CROSS APPLY` drops him, and the guest order 16 belongs to no customer row, so unlike in the `ROW_NUMBER` version above it never appears. `OUTER APPLY` keeps every customer, which is the shape of "each customer with their latest order":
+
+```sql
+SELECT c.Name, t.Id, t.Total
+FROM Customers AS c
+OUTER APPLY (
+    SELECT TOP (1) o.Id, o.Total
+    FROM Orders AS o
+    WHERE o.CustomerId = c.Id
+    ORDER BY o.CreatedAt DESC, o.Id DESC
+) AS t;   -- every customer with their latest order; Dan with NULLs
+```
+
+The PostgreSQL spelling of the same query:
+
+```sql
+SELECT c.Name, t.Id, t.Total
+FROM Customers AS c
+LEFT JOIN LATERAL (
+    SELECT o.Id, o.Total
+    FROM Orders AS o
+    WHERE o.CustomerId = c.Id
+    ORDER BY o.CreatedAt DESC, o.Id DESC
+    LIMIT 1
+) AS t ON true;   -- PostgreSQL's OUTER APPLY
+```
+
+> **Pay attention.** **`APPLY` and `ROW_NUMBER` read the data differently.** `ROW_NUMBER() OVER (PARTITION BY CustomerId …)` numbers *every* order and then filters, so it reads the whole table or index once. `APPLY` runs its subquery once per outer row; with an index on `Orders (CustomerId, Total DESC)`, each run is a seek that stops after three rows. Many customers with a few orders each: the single pass of `ROW_NUMBER` usually wins. Few customers with many orders each, or an outer side already filtered to a handful of rows: `APPLY` reads three rows per customer instead of all of them. Without that index, every execution of the subquery scans and sorts, and `APPLY` is the slow choice. Compare the logical reads of both on your own data before choosing.
+
+`APPLY` has two other everyday uses: calling a table-valued function for each row (`CROSS APPLY STRING_SPLIT(p.Tags, ',')`, `CROSS APPLY OPENJSON(e.Payload)`), and naming a computed expression once so `WHERE` and `SELECT` can both use it (`CROSS APPLY (SELECT o.Total * 1.23 AS Gross) AS x`). EF Core produces it as well: a `SelectMany` whose inner collection refers to the outer element becomes `CROSS APPLY` on SQL Server and a lateral join on PostgreSQL.
+
+
 ### SQL Queries in EF Core LINQ
 
 How the SQL above maps to LINQ, as EF Core 10 translates it on both providers. [IEnumerable vs IQueryable](#ienumerable-vs-iqueryable) in Chapter 1 explains why the lambdas become SQL at all.
@@ -5260,6 +5381,29 @@ A predicate can seek only if it is **sargable**: it compares the stored column i
 
 Plans are easiest to learn on PostgreSQL, whose `EXPLAIN` output is plain text and tells you both what it *expected* and what actually *happened*. [Chapter 18: Data in Depth](#chapter-18-data-in-depth) reads it line by line, and [Chapter 19](#chapter-19-the-slow-query-lab-reading-execution-plans) is the hands-on lab.
 
+### Parameter Sniffing
+
+SQL Server compiles a parameterized query or a stored procedure once and caches the plan. On that first execution it *sniffs* the parameter values it was given and estimates row counts from the column statistics for those values; every later execution, with any value, reuses the plan. EF Core and Dapper send parameterized SQL through `sp_executesql`, so application queries are cached and reused this way too, not only stored procedures.
+
+Reuse is the point, because compiling costs CPU. It goes wrong when the data is skewed. Take `WHERE CustomerId = @c`, where most customers have a dozen orders and one has a hundred thousand. If a small customer compiles the plan, it is an index seek plus a key lookup per row: perfect for twelve rows, a disaster as 100,000 lookups for the big customer. If the big customer compiles it, every small customer gets a scan. Same query, same index, and the speed depends on which caller came first after the plan was last compiled: a restart, a statistics update, or the plan evicted under memory pressure.
+
+The symptoms: a query fast for most callers and slow for some; a query that "suddenly" got slow with no deployment; and "slow in the application, fast in SSMS". SSMS runs with different `SET` options (`ARITHABORT ON`), which gives it a separate cache entry compiled for your test value, so you never see the application's plan. The proof is in the actual plan: its parameter list shows the compiled value next to the runtime value, and the estimated rows are far from the actual ones.
+
+```sql
+-- A fresh plan on every execution: right for each value, at the cost of a compile each time.
+SELECT Id, Total FROM Orders WHERE CustomerId = @c
+OPTION (RECOMPILE);
+
+-- One plan for the average value instead of the sniffed one: predictable, rarely the best.
+SELECT Id, Total FROM Orders WHERE CustomerId = @c
+OPTION (OPTIMIZE FOR (@c UNKNOWN));
+```
+
+The fixes, from the narrowest: `OPTION (RECOMPILE)` on a query that runs rarely enough to afford a compile per execution; `OPTIMIZE FOR UNKNOWN`, or `OPTIMIZE FOR (@c = …)` with a representative value, when one plan must serve every caller; a known-good plan forced with Query Store; and on SQL Server 2022 and later, *parameter sensitive plan optimization*, which at database compatibility level 160 keeps several cached plans for one statement and picks one by the parameter's expected row count. Flushing the plan cache (`DBCC FREEPROCCACHE`) is not a fix: the next first caller decides again. Rung 9 of [Chapter 19](#chapter-19-the-slow-query-lab-reading-execution-plans) measures a sniffed plan on the lab's data.
+
+The same estimate also sizes memory. Before a sort or a hash join runs, SQL Server reserves a **memory grant** computed from the *estimated* row count. Underestimate, and the operator runs out of memory and **spills** to `tempdb`, shown as a warning on the Sort or Hash Match operator in the actual plan; overestimate, and concurrent queries queue for memory they don't need (the `RESOURCE_SEMAPHORE` wait). A wrong estimate costs twice: the wrong operator, and the wrong amount of memory for it.
+
+
 ### Transactions and ACID
 
 A transaction groups statements so they succeed or fail as a unit. ACID names its four guarantees:
@@ -5297,6 +5441,9 @@ The four standard levels, from loosest to strictest:
 
 Serializable is safest but takes the most locks and most reduces concurrency. Most systems run Read Committed and tighten specific transactions when correctness demands it. (SQL Server also offers `SNAPSHOT` isolation, which uses row versioning to give consistent reads without blocking writers.)
 
+> **Pay attention.** **In SQL Server, Read Committed is one level with two mechanisms.** With the database option `READ_COMMITTED_SNAPSHOT` off, the default on a SQL Server you install, Read Committed takes a shared lock to read each row, so a `SELECT` waits behind any open transaction that has changed the rows it needs: readers and writers block each other. With the option on (RCSI), the same level reads the last committed version of each row from the version store instead: readers don't block writers and writers don't block readers, and each statement sees the data as of its own start. `READ_COMMITTED_SNAPSHOT` is on by default in Azure SQL Database, so code that blocks against a local SQL Server may not block in Azure, and the other way round. PostgreSQL's Read Committed always works the second way. Neither prevents a lost update; [Concurrency: Optimistic vs Pessimistic](#concurrency-optimistic-vs-pessimistic) does. Check a database with `SELECT is_read_committed_snapshot_on FROM sys.databases WHERE name = DB_NAME();`.
+
+
 ### Deadlocks
 
 A deadlock occurs when transaction A holds a lock B needs, while B holds a lock A needs — a circular wait, each waiting forever. The database detects the cycle and kills one transaction (the "victim"), which errors out. The classic cause is two code paths that lock the same rows **in different orders**.
@@ -5304,6 +5451,8 @@ A deadlock occurs when transaction A holds a lock B needs, while B holds a lock 
 > **Best practice:** Always access tables and rows in a **consistent order** across your application, keep transactions short, and be ready to catch a deadlock error (SQL Server error 1205) and retry the operation.
 
 ## Entity Framework Core: The Object-Relational Mapper
+
+> **🎯 Interview · P2.** N+1, projections, split queries, `AsNoTracking`, `ExecuteUpdate`, concurrency tokens, Dapper in the same transaction, and migrations in production. `DbContext` lifetime, pooling and thread safety belong to P1-6. The usual wrong answer and the questions to expect: [P2-9 in the Interview Priority Map](#p2-9-ef-core-in-depth).
 
 An ORM's job is to bridge two worlds that think differently. Your C# code thinks in objects, references, and collections. A relational database thinks in tables, rows, and foreign keys. EF Core translates between them. The danger is that the translation is *so* smooth you forget it is happening — and every performance problem in EF comes from forgetting that a property access or a `foreach` might quietly become a database round trip.
 
@@ -6150,7 +6299,7 @@ Not necessarily: it is a named subquery. SQL Server expands it at every referenc
 
 # Chapter 8: Testing
 
-_⏱️ Estimated read time: ~45 min · 6068 words (study pace)_
+_⏱️ Estimated read time: ~45 min · 6105 words (study pace)_
 
 Most developers can write a test. Far fewer can explain *why* one test is worth writing and another is worth deleting, why a green suite can still be worthless, or why the team that mocks everything ends up trusting nothing.
 
@@ -6483,6 +6632,8 @@ var batch = faker.Generate(1000);
 > **Pitfall:** random data in tests can produce **non-reproducible failures**: a test that fails one run in fifty because the generator happened to produce an edge case. Seed the generator; [Seeded test data](#seeded-test-data), below, explains why and how.
 
 ## Integration Testing
+
+> **🎯 Interview · P2.** Unit versus integration, `WebApplicationFactory`, Testcontainers, why EF Core InMemory can't test database logic, `FakeTimeProvider` and flaky tests. The usual wrong answer and the questions to expect: [P2-11 in the Interview Priority Map](#p2-11-testing).
 
 Unit tests verify units in isolation; integration tests verify that the wiring holds. In ASP.NET Core, the workhorse is **`WebApplicationFactory<TEntryPoint>`**, which boots your entire application in-memory — real routing, real middleware, real dependency injection, real model binding — and hands you an `HttpClient` that talks to it *without opening a network socket*.
 
@@ -6875,7 +7026,7 @@ Fast, isolated/independent (no order dependence, no shared state), deterministic
 
 # Chapter 9: Exceptions, Logging and First Diagnosis
 
-_⏱️ Estimated read time: ~1 h 10 min · 11372 words (study pace)_
+_⏱️ Estimated read time: ~1 h 10 min · 11400 words (study pace)_
 
 Every service fails, and what decides how fast a failure gets fixed is the trail it leaves: one log entry carrying the whole exception, a response that tells the caller what they can do about it, and one id that joins the two.
 
@@ -7405,6 +7556,8 @@ In a fleet of containers, SSHing into a box to `tail` a log file is hopeless —
 
 ## Correlation Across Services
 
+> **🎯 Interview · P2.** Structured logs, trace IDs across services and OpenTelemetry. The usual wrong answer and the questions to expect: [P2-12 in the Interview Priority Map](#p2-12-production-and-incidents).
+
 Given a single symptom, reconstruct the whole story: that requires **correlation**, the ability to jump from a metric spike to the exact traces behind it, and from a trace to the exact logs of each span.
 
 The unifying key is the **trace ID**. W3C Trace Context propagates it over HTTP, and `Activity.Current` holds it for the code handling the request, so logs only need to record it. With `Microsoft.Extensions.Logging` under the generic host this is on by default: the host sets `ActivityTrackingOptions` to `TraceId | SpanId | ParentId`, which adds them to every entry's scope (a provider prints scopes only if configured to, such as the console's `IncludeScopes`). Current Serilog versions read `Activity.Current` themselves and store `TraceId` and `SpanId` on every event; older code used the `Serilog.Enrichers.Span` package for this. To add it by hand:
@@ -7751,7 +7904,7 @@ Monitoring answers questions you decided on in advance: dashboards and alerts fo
 
 # Chapter 10: Design Basics
 
-_⏱️ Estimated read time: ~1 h 15 min · 10347 words (study pace)_
+_⏱️ Estimated read time: ~1 h 15 min · 10377 words (study pace)_
 
 This chapter is about design judgment: the force that pushes you toward a design, the cost the design extracts, and the point at which the cure becomes worse than the disease.
 
@@ -8586,6 +8739,8 @@ This is a perfectly reasonable default for many applications, and dismissing it 
 
 ## Clean, Onion, and Hexagonal Architecture
 
+> **🎯 Interview · P2.** The dependency rule, and where EF Core and MediatR sit. The usual wrong answer and the questions to expect: [P2-7 in the Interview Priority Map](#p2-7-architecture).
+
 Clean Architecture, Onion Architecture, and Hexagonal Architecture (Ports & Adapters) are three names that arrived from different authors but describe essentially the same idea.
 
 ### The Dependency Rule
@@ -8777,7 +8932,7 @@ The direction of one arrow. In layers, business logic references the data layer,
 
 # Chapter 11: Messaging and Background Work
 
-_⏱️ Estimated read time: ~1 h · 8338 words (study pace)_
+_⏱️ Estimated read time: ~1 h · 8509 words (study pace)_
 
 Sooner or later a request has to do something it shouldn't wait for: send an email, notify another service, build a report that takes minutes. Doing it inline couples the user's latency, and the request's success, to work that has no business being on the hot path.
 
@@ -9106,6 +9261,8 @@ Notice how little broker-specific code there is. `Publish` vs `Send`: **Publish*
 
 ## Delivery Guarantees
 
+> **🎯 Interview · P1.** Peek-lock and at-least-once delivery, duplicates, idempotent consumers, the outbox, dead-lettering, sessions and Kafka partition ordering. The usual wrong answer and the questions to expect: [P1-3 in the Interview Priority Map](#p1-3-messaging-and-distributed-systems).
+
 Getting this wrong loses or duplicates data. There are three possible guarantees:
 
 - **At-most-once.** Fire and forget. The message is delivered zero or one times — it may be lost, never duplicated. Fast, simplest, acceptable for high-volume telemetry where losing one reading doesn't matter.
@@ -9156,6 +9313,9 @@ public async Task Consume(ConsumeContext<OrderPlaced> context)
 Walk the second copy through it. Its insert waits on the first copy's uncommitted key. If the first commits, the insert fails with a duplicate-key error and the consumer returns before the effect; if the first rolls back, the claim disappears with it, and the second copy does the work. [Chapter 20: Idempotency Keys](#idempotency-keys-making-post-retry-safe) applies the same mechanism to a retried HTTP `POST`. An effect outside your database, such as a payment API, can't join the transaction: pass the message's key to it as the provider's idempotency key as well.
 
 > **Best practice:** design every consumer to be idempotent *by default*; it's cheaper than chasing exactly-once delivery. Use natural keys where you can: a consumer that inserts the order under a unique order ID has its claim built in, with no separate processed-messages table.
+
+> **Pay attention.** **A "processed" key in Redis is a second system, not a claim.** A common shortcut records handled message IDs in Redis (`SET id 1 NX`) and the effect in the database. The two writes can't commit together. Set the key first and crash before the database commit, and the redelivery is skipped: the effect is lost. Commit the effect first and crash before setting the key, and the redelivery does the work again. `SET NX` is atomic *within Redis*, which makes it a fine fast filter in front of the real check, but the claim that counts is the unique key written in the same database transaction as the effect, as above. If the effect itself lives in Redis, the claim has to live there too, in the same command or Lua script.
+
 
 ### The Transactional Outbox
 
@@ -9638,7 +9798,7 @@ On SIGTERM or Ctrl+C the host cancels the `stoppingToken` and waits for `Execute
 
 # Chapter 12: Security Essentials
 
-_⏱️ Estimated read time: ~45 min · 7602 words (study pace)_
+_⏱️ Estimated read time: ~45 min · 7708 words (study pace)_
 
 Security is a property of a system that emerges from thousands of small decisions: how you parse input, where you store a connection string, which overload of a crypto API you call, and whether you trusted a value that came from the network.
 
@@ -9661,6 +9821,8 @@ Four principles, used as decision procedures when the "how" is unclear:
 > **Best practice:** Treat "the client already validated this" as a comment, never a guarantee. Client-side validation is a UX nicety. Server-side validation is the security control. An attacker uses `curl`, not your form.
 
 ## Authentication vs. Authorization
+
+> **🎯 Interview · P1.** `401` versus `403`, roles versus policies, resource ownership (IDOR), and what a JWT does and doesn't protect. The usual wrong answer and the questions to expect: [P1-2 in the Interview Priority Map](#p1-2-security).
 
 - **Authentication (AuthN)** answers *"Who are you?"* — it establishes and verifies identity. Logging in with a password, presenting a certificate, or validating a JWT are authentication. In ASP.NET Core it produces a `ClaimsPrincipal`.
 - **Authorization (AuthZ)** answers *"What are you allowed to do?"* — it decides whether an already-identified principal may perform an action. Checking a role, a scope, or resource ownership is authorization.
@@ -9942,6 +10104,8 @@ Passkeys are public-key credentials standardized by WebAuthn/FIDO2, and they rem
 
 ## Secrets Management
 
+> **🎯 Interview · P1.** Where secrets live: Key Vault and managed identity, never a committed `.env` or `appsettings` file. The usual wrong answer and the questions to expect: [P1-2 in the Interview Priority Map](#p1-2-security).
+
 A secret is any value that grants access: connection strings, API keys, client secrets, signing keys, encryption keys. The cardinal rule: **secrets never live in source code or in `appsettings.json` committed to git.** Once a secret is in git history, treat it as compromised and rotate it — deleting the line does not remove it from history.
 
 **In development**, use the .NET **Secret Manager** (`user-secrets`), which stores values in a JSON file in your user profile (`~/.microsoft/usersecrets/<id>/secrets.json`, or under `%APPDATA%\Microsoft\UserSecrets` on Windows), *outside* the project tree, keyed by a `UserSecretsId`. It keeps secrets out of git; it doesn't encrypt them, so it is for development only:
@@ -10092,6 +10256,8 @@ app.UseHsts(); // production only
 Use modern TLS (1.2 minimum, prefer 1.3), and automate certificate issuance and renewal (Let's Encrypt / ACME, or your cloud's managed certificates).
 
 ## Web-Facing Defenses
+
+> **🎯 Interview · P1.** XSS, CSRF and anti-forgery, `SameSite`, and why CORS is not a defence against CSRF. The usual wrong answer and the questions to expect: [P1-2 in the Interview Priority Map](#p1-2-security).
 
 ### Input Validation and Output Encoding
 
@@ -12129,7 +12295,7 @@ Always with its currency, since the number of decimal places depends on it (none
 
 # Chapter 16: Working Like a Middle Developer
 
-_⏱️ Estimated read time: ~50 min · 7856 words (study pace)_
+_⏱️ Estimated read time: ~55 min · 8851 words (study pace)_
 
 This chapter is about the work around code: how to take a vague ticket, a request for an estimate or a pull request, and send back something a teammate can act on without a meeting.
 
@@ -12420,6 +12586,74 @@ The loop:
 When something breaks in production, the goal is to fix the *system*, not to find a person to blame. Blame makes people hide information, which makes the next outage worse. A blameless post-mortem assumes everyone acted reasonably given what they knew, and asks how the system let a reasonable action cause an outage.
 
 A lightweight structure: **what happened** (timeline), **impact** (who/how much), **root cause** (the *why*, dug several levels deep — the deploy wasn't the root cause, the *lack of a canary* was), and **action items** (concrete, owned, dated). Focus every action on making the failure impossible or detectable, not on "be more careful."
+
+## Getting Productive in a System You Didn't Build
+
+> **🎯 Interview · P1.** How you learn a large codebase fast, debug code you didn't write, and ask questions people can answer. The usual wrong answer and the questions to expect: [P1-17 in the Interview Priority Map](#p1-17-working-in-a-system-you-didnt-build).
+
+Most of a developer's career is spent in code someone else wrote, often in a system whose infrastructure was set up before they arrived. The skill is not reading everything; it is building a working model quickly enough to change things safely, and knowing which parts of the model are still guesses.
+
+### The First Week, Day by Day
+
+- **Day 1: run it.** Clone, build, run the tests, start the app locally. Every step that needs a person to unblock you is the first thing to write down (and, later, automate). If the tests don't pass on a clean machine, that is a finding, not your fault.
+- **Day 2: find the entry points.** `Program.cs` and its DI registrations (`builder.Services.Add…`) are the table of contents: they list every service, every database context, every hosted service and every message consumer. Then the edges: controllers and endpoints (HTTP), consumers (`IConsumer<T>`, `ServiceBusProcessor`, `[ServiceBusTrigger]`), `BackgroundService`s and scheduled jobs, and the configuration sections that turn features on.
+- **Day 3: trace one request end to end.** Pick one real business operation (place an order, post an invoice) and follow it from the HTTP request through validation, the handler, the database writes, the events it publishes and the consumers that react. Do it twice: once by reading, once in the debugger or a trace. Write it down as a numbered list with file names.
+- **Day 4: read the tests and the history.** Tests are the only documentation that is checked: their names list the rules, their setup shows how objects are built. Then read how the code got here (below).
+- **Day 5: make a small change and ship it.** A log line, a validation message, a test for an untested branch. The point is to go through review, CI and deployment once, so you learn the path before you need it under pressure.
+
+### Trace One Request End to End
+
+The trace is the most valuable hour of the week. Three tools make it fast: a breakpoint at the endpoint and *Step Into* through the handler; the distributed trace for the same request in the APM (Application Insights, Jaeger), which shows every database call and outgoing HTTP call with timings, including the ones hidden behind libraries; and the logs filtered by the trace ID ([Correlation Across Services](#correlation-across-services)). Where the code publishes a message, find who consumes it by searching for the message type, and continue the trace there.
+
+### Read the History: git log and git blame
+
+```bash
+git log --oneline --since="6 months ago" -- src/Billing/        # what changed here lately, and why
+git log -S "InvoiceNumberGenerator" --oneline                   # the commits that added or removed this text
+git blame -w -C src/Billing/InvoiceService.cs                   # who last touched each line, ignoring moves and whitespace
+git log --format='%an' -- src/Billing/ | sort | uniq -c | sort -rn | head   # who knows this area
+```
+
+`git blame` answers "why is this line like this?" when the commit message or the linked ticket explains it; the author's name tells you whom to ask. [Chapter 24's hotspot analysis](#finding-hotspots-churn-complexity) finds the files that change most, which are where your first bugs will be.
+
+### Make the Local Environment One Command
+
+If starting the system takes a wiki page, write the script while the pain is fresh: a `docker-compose.yml` with the database, the broker emulator and any other dependency at pinned versions, a seed script with realistic data, and a `README` section "run it locally" that someone new can follow in ten minutes. It is the most welcome first contribution to a team, and it is how you learn every dependency the system has.
+
+### Debugging Code You Don't Know
+
+Don't read your way to the bug; narrow it down. Reproduce it first, ideally as a failing test. Find the boundary where data turns from right to wrong (log or break at the entry, the middle and the exit of the path you traced). Check what changed recently (`git log` on the area, the last deployments, configuration and feature-flag changes), and use `git bisect` when a known-good version exists. Treat every belief about the code as a hypothesis until a breakpoint or a log line confirms it. [Methodical Debugging & Problem Solving](#methodical-debugging-problem-solving) above has the full method.
+
+### Asking a Question Someone Can Answer
+
+A good question costs the person answering it one minute. It has four parts:
+
+```text
+Goal:      I'm trying to [what you want to achieve], for [ticket].
+Tried:     I [what you did], and checked [what you looked at: file, log, query].
+Expected:  I expected [behaviour], because [your understanding].
+Got:       Instead [actual behaviour / error, with the exact message or a link to the log].
+           Is my assumption about [specific thing] wrong, or am I looking in the wrong place?
+```
+
+Ask after a time box (thirty minutes to two hours, depending on how blocked you are), ask in the team's channel rather than a private message so the answer helps the next person, and write the answer into the README or the project map.
+
+### Draw the Project Map
+
+Keep a one-page map and update it as you learn; it becomes the onboarding document the team didn't have:
+
+```text
+**Purpose**         what the system does, for whom, in two sentences
+**Entry points**    HTTP APIs, message consumers, scheduled jobs, with their projects
+**Data**            databases and their owners, the main tables, caches, blob containers
+**Integrations**    brokers and topics/queues, external APIs, identity provider
+**Request trace**   the numbered path of one business operation, with file names
+**Run locally**     the one command, and what it needs
+**Deploy**          pipeline, environments, how to roll back
+**People**          who knows which area (from git log), who owns what
+**Open questions**  what you still don't understand, and whom to ask
+```
+
 
 ## Safe Change, Refactoring & Tech Debt
 
@@ -12791,7 +13025,7 @@ _⏱️ Estimated read time: ~10 min · 1579 words (study pace)_
 
 # Part 2: Middle → Senior
 
-_⏱️ Estimated read time: ~5 min · 620 words (study pace)_
+_⏱️ Estimated read time: ~5 min · 635 words (study pace)_
 
 > **What Part 2 makes you able to do.** Explain why the platform behaves the way it does under load, keep data and messages consistent across services and over time, choose an architecture and defend its trade-offs, run what you build in production and in the cloud, build with and around AI, and make the decisions a team trusts a senior with: what to build, what to defer, and what to write down.
 
@@ -12837,13 +13071,14 @@ Before an interview, reread [Part 2 · Pay Attention To](#part-2-pay-attention-t
 | 42 | [The Advisory Casebook](#chapter-42-the-advisory-casebook) | 1 h |
 | 43 | [Positioning and Public Proof](#chapter-43-positioning-and-public-proof) | 1 h 5 min |
 | 44 | [Capstone — One Project, Growing Up](#chapter-44-capstone-one-project-growing-up) | 5 min |
+| 45 | [The Systems Lab: Brokers, Diagnostics, Azure and Incidents](#chapter-45-the-systems-lab-brokers-diagnostics-azure-and-incidents) | 15 min |
 
 
 ---
 
 # Chapter 17: Runtime Internals and Performance
 
-_⏱️ Estimated read time: ~55 min · 8248 words (study pace)_
+_⏱️ Estimated read time: ~55 min · 8314 words (study pace)_
 
 Every request a .NET service handles shares two runtime resources: a small pool of threads and a generational heap. Both are tuned for short work. A thread held while it waits, or an object kept a little too long, becomes a delay for every other request.
 
@@ -12987,6 +13222,8 @@ dotnet-gcdump collect -p 12345
 > **Best practice:** Profile in an environment that resembles production as closely as you can — same runtime version, Release build, representative data volumes. Profiling a 10-row dev database will never reveal the query that dies at 10 million rows.
 
 ## Garbage Collection — in depth
+
+> **🎯 Interview · P1.** The LOH, `Span<T>`, `ArrayPool<T>`, and the diagnostic tools: `dotnet-counters`, `dotnet-gcdump`, `dotnet-dump`. The usual wrong answer and the questions to expect: [P1-4 in the Interview Priority Map](#p1-4-memory-and-the-gc).
 
 [Chapter 3](#chapter-3-how-net-runs-your-code) taught the model; this section is what it does under a server's load: where large objects go, how the two GC flavours split the work across cores, and how a full collection avoids freezing the application.
 
@@ -13162,6 +13399,8 @@ foreach (var x in items)
 > **Best practice:** Write LINQ by default — it is clearer and the cost rarely matters. Rewrite to explicit loops *only* in code a profiler has flagged as hot.
 
 ## The Thread Pool Under Load
+
+> **🎯 Interview · P1.** Thread pool starvation: high latency at low CPU, the queue length counter, and the fix. The usual wrong answer and the questions to expect: [P1-6 in the Interview Priority Map](#p1-6-async-and-concurrency).
 
 [Chapter 4](#chapter-4-async-essentials) showed why a blocked pool thread hurts: the continuation that would unblock it needs a pool thread too, and the pool adds threads deliberately. Under load the *rate* is the whole story, so here is the schedule. Up to its minimum, one thread per core by default, the pool creates threads as work arrives. Above the minimum, three mechanisms add threads, each slower than the one before:
 
@@ -13580,7 +13819,7 @@ Each box is a heap allocation and a copy, feeding gen-0 GC. In a tight loop that
 
 # Chapter 18: Data in Depth
 
-_⏱️ Estimated read time: ~55 min · 10034 words (study pace)_
+_⏱️ Estimated read time: ~1 h 10 min · 12171 words (study pace)_
 
 This chapter starts where [Chapter 7](#chapter-7-data-access) stops: making one database fast when the obvious levers are already pulled, and then deciding what to do when one database is no longer enough.
 
@@ -14018,6 +14257,8 @@ The technique that makes this bearable is **consistent hashing** combined with m
 
 ## Migrations at Scale (Zero-Downtime)
 
+> **🎯 Interview · P2.** Running migrations with several instances, expand/contract, and why a down migration is not a rollback plan. The usual wrong answer and the questions to expect: [P2-9 in the Interview Priority Map](#p2-9-ef-core-in-depth).
+
 On a small system you run a migration, take thirty seconds of downtime, and move on. At scale that's unacceptable — and worse, some migrations lock large tables for minutes and hold up every request. The goal is **zero-downtime schema evolution**, and the governing technique is the **expand/contract** (also called parallel-change) pattern.
 
 The insight: **you cannot deploy the schema change and the code that needs it at the same instant**, because during a rolling deploy, old and new code run simultaneously against the same database. So you split every breaking change into backward-compatible steps:
@@ -14032,13 +14273,89 @@ Consider renaming a `Name` column to `FullName` — a one-liner that, done naive
 
 [Chapter 7](#chapter-7-data-access) decides *where* migrations run (startup or a pipeline step). **Feature flags** ([Chapter 26](#feature-flags)) pair naturally with expand/contract: they decouple *deploying* the code that uses the new shape from *releasing* it, which is exactly what you want while the schema underneath is mid-transition.
 
+> **Pay attention.** **A `Down` migration is not a rollback plan.** EF Core generates a `Down` method for every migration, and running it after a bad release looks like the database equivalent of redeploying the old image. It isn't: the `Down` of an added column drops the column, and every value written to it since the release goes with it; the `Down` of a dropped column brings it back empty. Rolling the *code* back is safe exactly when the schema is still compatible with the old code, which is what expand/contract guarantees: during the expand phase the old version still runs against the new schema. So the plan for a bad release is to redeploy the previous artifact and fix forward with a new migration. Keep `Down` for development databases, and treat a contract step (the drop) as the one change that can't be undone without a backup.
+
+
 ## Change Data Capture (CDC)
+
+> **🎯 Interview · P1.** Debezium inside: Kafka Connect, replication slots, snapshots, the event envelope, tombstones, the Outbox Event Router and what happens on restart. The usual wrong answer and the questions to expect: [P1-14 in the Interview Priority Map](#p1-14-brokers-under-the-hood).
 
 Sharded or not, large systems rarely keep all their data in one place. The catalog lives in Postgres, search lives in Elasticsearch, the recommendation engine wants a stream of events, and analytics wants everything in a warehouse. The naive approach — have the application write to all of them — is a distributed-transaction nightmare: what happens when the Postgres write succeeds but the Elasticsearch write fails?
 
 **Change Data Capture** solves this by treating the database's own change log as a source of truth. Every committed change (insert, update, delete) is captured and streamed to downstream consumers. Because it reads the write-ahead log *after commit*, a consumer sees exactly what was durably committed — no dual-write inconsistency.
 
 **Debezium** is the de facto open-source CDC platform. It plugs into a database's replication stream (Postgres logical replication, MySQL binlog, etc.) and publishes each change as an event to **Kafka**. Downstream, one consumer updates the search index, another updates a cache, another feeds analytics — all decoupled from the application, all fed from the same ordered stream.
+
+### Debezium Under the Hood
+
+Debezium is not a service you call; it is a set of **source connectors** that run inside **Kafka Connect**, a separate JVM process (or cluster of them) whose job is to move data between Kafka and other systems. Connect stores everything it needs in three Kafka topics: the connector **configs**, the **offsets** (how far each connector has read) and the **statuses**. You register a connector by posting JSON to Connect's REST API; Connect runs it as a task, and the task reads the database's change stream and produces records to Kafka.
+
+```
+ PostgreSQL ── WAL ──► replication slot ──► Debezium task (in Kafka Connect) ──► Kafka topics
+                         (holds WAL until          │  stores its position in            shop.public.orders
+                          Debezium confirms)       └► the connect_offsets topic         outbox.event.Order …
+```
+
+**How each database feeds it.**
+
+- **PostgreSQL: logical decoding.** With `wal_level=logical`, PostgreSQL decodes its write-ahead log into row changes for a **replication slot**; Debezium uses the built-in `pgoutput` plugin and a **publication** that lists the captured tables. The slot remembers the last position Debezium *confirmed*, and PostgreSQL keeps every WAL segment after it. **If Debezium stops, the slot keeps the WAL, and the disk grows** until it is full or the slot is dropped. In [Chapter 45's outbox lab](#chapter-45-the-systems-lab-brokers-diagnostics-azure-and-incidents), stopping Debezium and writing 200,000 outbox rows left the slot 152 MB behind; restarting Debezium brought it back to about 1 MB. Monitor the slot's lag (`pg_wal_lsn_diff(pg_current_wal_lsn(), confirmed_flush_lsn)` from `pg_replication_slots`), cap it with `max_slot_wal_keep_size` (PostgreSQL 13 and later) if losing the slot is better than losing the database, and drop slots whose connector is gone. Debezium's `heartbeat.interval.ms` makes it confirm progress even when the captured tables are quiet but the rest of the database is busy, which is the other way the WAL grows.
+- **SQL Server: the CDC feature.** SQL Server's own change data capture (`sys.sp_cdc_enable_db`, then `sys.sp_cdc_enable_table` per table) has SQL Server Agent jobs copy changes from the transaction log into change tables; Debezium polls those tables. The Agent must be running, the change tables have their own retention cleanup job, and a schema change to a captured table needs a new capture instance.
+
+**Snapshots.** A new connector has no offset, so by default (`snapshot.mode=initial`) it first reads the current contents of the captured tables, emitting each row as a read event (`op: "r"`), and then streams changes from the position where the snapshot began. `no_data` skips the snapshot (right for an outbox table, whose old rows are already published), `initial_only` snapshots and stops, `when_needed` snapshots again if the stored offset is no longer available in the log. *Incremental snapshots*, triggered through a signalling table, re-read a table in chunks while streaming continues.
+
+**The schema history.** For SQL Server and MySQL, Debezium must know each table's schema *as it was* at every point in the log, so it records DDL in an internal **schema history topic** (`schema.history.internal.kafka.topic`). The connector needs a table's schema in that topic before it can capture the table, so treat the topic as part of the connector's state: don't let retention or a clean-up delete it (the `snapshot.mode=recovery` option rebuilds a lost one). The PostgreSQL connector doesn't need one, because `pgoutput` sends the relation's structure along with the changes.
+
+**The event.** Each change becomes one Kafka record whose key is the row's primary key and whose value is an envelope:
+
+```json
+{
+  "before": null,
+  "after":  { "id": 42, "customer_id": 7, "total": 120.00 },
+  "source": { "connector": "postgresql", "db": "shop", "table": "orders", "lsn": 24064704, "txId": 584, "snapshot": "false" },
+  "op": "c",
+  "ts_ms": 1556890294484
+}
+```
+
+`op` is `c` (create), `u` (update), `d` (delete), `r` (read during a snapshot) or `t` (truncate). An update carries both `before` and `after`; for PostgreSQL, how much of the old row `before` holds depends on the table's `REPLICA IDENTITY`: only the primary key under `DEFAULT`, every column under `FULL`. A delete has `after: null`, and, with the default `tombstones.on.delete=true`, it is followed by a **tombstone**: a record with the same key and a null value, which is what lets Kafka's log compaction finally remove every record for that key. A consumer must accept null values.
+
+**The Outbox Event Router.** Streaming raw table changes publishes your *schema* as your contract. The outbox pattern publishes *events* instead, and Debezium's Outbox Event Router single message transformation turns each outbox row into one clean message: the topic is `outbox.event.<aggregatetype>`, the key is `aggregateid` (so all events of one order land in one partition, in order), the value is the `payload` column, and the row's `id` goes into a header for deduplication. The lab's connector:
+
+```json
+{
+  "name": "outbox-connector",
+  "config": {
+    "connector.class": "io.debezium.connector.postgresql.PostgresConnector",
+    "plugin.name": "pgoutput",
+    "database.hostname": "postgres",
+    "database.port": "5432",
+    "database.user": "lab",
+    "database.password": "lab",
+    "database.dbname": "shop",
+    "topic.prefix": "shop",
+    "slot.name": "outbox_slot",
+    "publication.autocreate.mode": "filtered",
+    "table.include.list": "public.outbox",
+    "snapshot.mode": "no_data",
+    "tombstones.on.delete": "false",
+    "heartbeat.interval.ms": "10000",
+    "key.converter": "org.apache.kafka.connect.storage.StringConverter",
+    "value.converter": "org.apache.kafka.connect.json.JsonConverter",
+    "value.converter.schemas.enable": "false",
+    "transforms": "outbox",
+    "transforms.outbox.type": "io.debezium.transforms.outbox.EventRouter",
+    "transforms.outbox.table.expand.json.payload": "true",
+    "transforms.outbox.table.fields.additional.placement": "type:header:eventType"
+  }
+}
+```
+
+**Guarantees.** Debezium is at-least-once. After a crash, Connect restarts the task from the last *committed* offset, so the records produced since then are produced again; the router's event-id header is what the consumer deduplicates on ([Idempotent Consumers](#idempotent-consumers)). Ordering holds per key, because one key maps to one partition; there is no order across keys. **Lag** has two places to watch: how far the slot (or the CDC tables) is behind the log, and how far each consumer group is behind the topic.
+
+**Schema evolution.** Adding a nullable column flows through without fuss. Renaming or dropping one changes every downstream consumer's input, which is why the outbox's explicit event types age better than raw change events. With Avro or JSON Schema and a schema registry, compatibility rules catch a breaking change at the producer instead of in production.
+
+> **Pay attention.** **"Debezium went down for the weekend" is a database incident, not a messaging one.** Kafka was fine and the consumers were idle, but the replication slot kept every WAL segment written since Friday. The alert that would have caught it is on the slot's lag in bytes and on free disk on the database server, not on the connector's status page.
+
 
 ### Transactional Outbox vs. CDC
 
@@ -14063,6 +14380,8 @@ No single database is good at everything, and some data shapes fit other models 
 The same idea, applied to one service's own data, is a **CQRS read store** ([Chapter 21](#chapter-21-architecture) teaches the pattern): writes go to a normalized transactional model, reads are served from stores shaped exactly for how they are queried (pre-joined, denormalized, indexed for one screen), kept up to date asynchronously, often from the same event or CDC stream. You accept eventual consistency in exchange for read models that are fast and don't compete with writes. And under all of it sit the caching layers (in-process, Redis, HTTP and CDN at the edge); CDC can drive precise cache invalidation too, by streaming the exact rows that changed.
 
 ## Multi-Tenancy
+
+> **🎯 Interview · P1.** Isolation models, query filters and `IgnoreQueryFilters`, tenant resolution, cross-tenant IDOR, per-tenant limits and flags, migrations, backups and GDPR. The usual wrong answer and the questions to expect: [P1-15 in the Interview Priority Map](#p1-15-multi-tenancy).
 
 A **multi-tenant** application serves many independent customers (tenants) from shared infrastructure. The central engineering tension is **isolation vs. efficiency**: strong isolation (separate everything) is safe but expensive; strong sharing (everything in one place) is cheap but risky. There are three canonical models along that spectrum.
 
@@ -14145,6 +14464,60 @@ Now `context.Invoices.ToList()` returns only the current tenant's invoices — t
 **Noisy neighbors** are the flip side of density. In shared-schema, one tenant running a giant report or a runaway query consumes CPU, I/O, and connections that everyone else needs, and everyone's latency suffers. Mitigations range from soft (per-tenant rate limits, query timeouts, separate connection pools for heavy operations) to hard (move the offender to a dedicated database — the isolation model itself is the ultimate noisy-neighbor fix). This is precisely why big-spending tenants often get their own database: they're paying to *not* share.
 
 **Per-tenant scaling and cost** tie scale and tenancy together. Sharding and multi-tenancy converge: when you shard a multi-tenant system by `TenantId`, each shard is essentially a group of tenants, and moving a hot tenant to its own shard *is* resharding. The economics are the core of the SaaS business model — density (many tenants per resource) drives your gross margin, while isolation drives your ability to serve enterprise and regulated customers. The senior engineer's job is to place each tenant at the right point on that spectrum: pack the small ones tightly, isolate the large and sensitive ones, and build the tooling to move a tenant from one model to the other as they grow.
+
+### Beyond the Query Filter: What Else Isolates Tenants
+
+A global query filter protects queries that go through EF Core. Everything else needs its own guard:
+
+- **Cross-tenant IDOR.** `GET /invoices/9001` with a valid token from tenant A for an invoice of tenant B. The filter catches it *if* the lookup goes through the filtered `DbSet`; a `FindAsync` on a context built without the tenant, a Dapper query, a cache keyed by invoice ID alone, or a background job that runs with `IgnoreQueryFilters()` does not. Put the tenant into every cache key and blob path, and test the negative case explicitly: a request with tenant A's token for tenant B's resource must get `404`.
+- **Where the tenant comes from.** A claim in the access token (`tenant_id`) is the strongest source, because the identity provider signed it. A subdomain or a header is fine for routing but must be *checked against* the token's tenant, never trusted on its own: a header is whatever the client sends. Resolve the tenant once per request in middleware, store it in a scoped `ITenantContext`, and fail closed when it is missing.
+- **Background work.** A message consumer or a nightly job has no HTTP request and no token. The tenant must travel in the message (a header or a field) and be set into the same `ITenantContext` before any query runs; a job that loops over tenants should create a scope per tenant.
+- **Per-tenant configuration and feature flags.** Tenants differ in plan, limits, enabled modules and rollout ring. Keep it as data (a `TenantSettings` row or an App Configuration label per tenant), cached per tenant, and evaluate feature flags with the tenant as the targeting key, so a risky feature reaches one pilot tenant before a hundred.
+- **Noisy neighbours, per tenant.** Partition rate limits by tenant, so one tenant's import drains its own budget and not everyone's:
+
+```csharp
+builder.Services.AddRateLimiter(o =>
+{
+    o.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+    o.AddPolicy("per-tenant", http =>
+    {
+        // One bucket per tenant: a tenant's batch import drains its own bucket, not everyone's.
+        string tenant = http.User.FindFirstValue("tenant_id") ?? "anonymous";
+        return RateLimitPartition.GetTokenBucketLimiter(tenant, _ => new TokenBucketRateLimiterOptions
+        {
+            TokenLimit = 200,
+            TokensPerPeriod = 50,
+            ReplenishmentPeriod = TimeSpan.FromSeconds(1),
+            QueueLimit = 0,
+        });
+    });
+});
+```
+
+  The same idea applies below the API: separate queues or sessions per tenant for heavy background work, and a statement timeout or a resource-governor workload group for ad-hoc reports.
+- **Reports.** Cross-tenant analytics and heavy per-tenant reports are the usual source of noisy-neighbour load. Run them on a read replica or a reporting store ([Chapter 21's reporting example](#worked-example-pulling-reporting-out-of-the-monolith)), and make sure every reporting index *starts* with `TenantId`, so a tenant's report seeks to its own rows instead of scanning everyone's.
+- **Backups, restore and GDPR.** In a shared schema, a database backup holds every tenant, so "restore tenant A to yesterday" means restoring into a side database and copying A's rows back, and that procedure must be written and rehearsed before anyone needs it. A tenant's erasure request means deleting or anonymising its rows everywhere: tables, search indexes, caches, blob containers, logs and analytics copies, which is only feasible if each of those is keyed by tenant. Backups can't be edited, so document the retention period after which an erased tenant's data leaves the backups too. Data-residency requirements (a tenant whose data must stay in the EU) are often what forces a tenant into its own database.
+
+### Multi-Tenancy in an Interview
+
+The questions that come up, and what a strong answer contains:
+
+- *"How would you isolate tenants in a new SaaS product?"* Shared schema with `TenantId` and a global query filter by default; a database per tenant for tenants that pay for isolation or have residency requirements; name the cost of each (one migration versus a hundred, density versus blast radius).
+- *"What can still leak data between tenants with a global filter?"* Raw SQL and Dapper, `IgnoreQueryFilters()`, caches and blob paths without the tenant, background jobs without a tenant context, and a tenant taken from a header instead of the token.
+- *"One tenant slows everyone down. What do you do?"* Find it (metrics and logs carry the tenant ID), contain it (a per-tenant rate limit, a separate queue, the report on a replica), then decide whether that tenant belongs in its own database.
+- *"How do you migrate a hundred tenant databases?"* A migration bundle or idempotent script run by a pipeline over the tenant list, in waves (pilot tenants first), with every change backward-compatible (expand/contract) so old and new code work during the rollout, and a report of which tenants are on which version.
+
+A template for telling your own experience, with the brackets filled from your project and nothing else:
+
+```text
+Situation: An ERP serving [number] client companies from [shared schema / database per tenant] on [stack].
+Task:      I worked on [feature or problem], which had to stay isolated per tenant and [constraint].
+Action:    I [what you did: e.g. added the tenant to the cache keys / wrote the per-tenant migration runner /
+           moved the heavy report to a replica], and verified isolation with [test: a request with tenant A's
+           token for tenant B's data returning 404].
+Result:    [measured outcome]. What I would do differently: [one sentence].
+```
+
 
 ## Practice
 
@@ -14909,7 +15282,7 @@ SQL Server handles the OR form (script 4 of the SQL Server track). It is a genui
 
 # Chapter 20: Distributed Systems
 
-_⏱️ Estimated read time: ~1 h 15 min · 12023 words (study pace)_
+_⏱️ Estimated read time: ~1 h 15 min · 12079 words (study pace)_
 
 A single-process program lives in a comfortable universe. Memory reads are instantaneous, function calls always return, and if something crashes, the whole thing crashes together: you never have to reason about *half* your program being alive while the other half is dead. The moment you split that program across two machines connected by a network, you leave that universe for good. Messages get lost. Clocks disagree. One node thinks another is dead when it is merely slow. And **you can never tell the difference between a slow node and a dead one**; that single fact is the source of most of the pain in this chapter.
 
@@ -15122,6 +15495,8 @@ The one place idempotency is not enough is ordering: a consumer that applies `Or
 
 ## Sagas: Long-Running Distributed Transactions
 
+> **🎯 Interview · P1.** Sagas, compensation and eventual consistency. The usual wrong answer and the questions to expect: [P1-3 in the Interview Priority Map](#p1-3-messaging-and-distributed-systems).
+
 When you cross service boundaries, the single-database ACID transaction disappears. You can't use a database transaction across five microservices, so how do you keep a multi-step business process consistent ("reserve inventory, charge payment, allocate shipping") when any step might fail? Two-phase commit is slow, locks resources across nodes and stalls when its coordinator dies, so most systems refuse it.
 
 A **Saga** breaks the process into local transactions, each with a **compensating action** that undoes it. If step 3 fails, you run the compensations for steps 2 and 1 (refund the payment, release the inventory). You don't get atomicity; you get *eventual* consistency through explicit rollback logic.
@@ -15203,6 +15578,8 @@ The saga's state is *persisted*, so the process survives crashes and restarts. T
 > **Capstone tie-in.** ShopCore Step 7 (Split Into Microservices) in [Chapter 44](#chapter-44-capstone-one-project-growing-up) carves out Catalog, Ordering and Payments services communicating over RabbitMQ with MassTransit, with the outbox and idempotent consumers.
 
 ## Detecting Failure and Retrying Without Making It Worse
+
+> **🎯 Interview · P1.** Retries with exponential backoff and jitter, timeouts and the circuit breaker. The usual wrong answer and the questions to expect: [P1-3 in the Interview Priority Map](#p1-3-messaging-and-distributed-systems).
 
 Since you can't distinguish slow from dead, failure detection is heuristic: you set a **timeout** and declare a node dead if it doesn't respond. Too short, and you kill healthy-but-busy nodes; too long, and you hang. Combine timeouts with **heartbeats** (periodic "I'm alive" pings) to track liveness.
 
@@ -15828,7 +16205,7 @@ A pattern for a long-running business transaction spanning multiple services wit
 
 # Chapter 21: Architecture
 
-_⏱️ Estimated read time: ~30 min · 4929 words (study pace)_
+_⏱️ Estimated read time: ~35 min · 5621 words (study pace)_
 
 You can write correct code and still build a system that becomes miserable to change. Correctness is about whether a single function returns the right answer; architecture is about whether, six months from now, a new feature takes an afternoon or a fortnight. Architecture is the cost of change, decided in advance: every boundary makes change cheap on one side of it and expensive across it.
 
@@ -15967,6 +16344,8 @@ Because specifications return `Expression<Func<T, bool>>`, EF Core translates th
 
 ## CQRS and Event Sourcing
 
+> **🎯 Interview · P2.** CQRS without a second database or event sourcing, MediatR and pipeline behaviours. The usual wrong answer and the questions to expect: [P2-7 in the Interview Priority Map](#p2-7-architecture).
+
 ### CQRS
 
 **Command Query Responsibility Segregation** rests on a simple observation: the way you *change* data and the way you *read* data have different needs. Writes care about invariants, validation, and consistency. Reads care about speed and shape — they often want denormalized, screen-ready data. CQRS says: use separate models for the two.
@@ -15997,6 +16376,38 @@ At its heaviest, CQRS uses *physically separate stores*: writes go to a normaliz
 ```
 
 > **Trade-off:** Full CQRS with separate stores gives you independently scalable reads, tailor-made query models, and no more contorting one ORM model to serve both a complex edit form and a dashboard. The price is significant: two data models to keep in sync, eventual consistency the UI must account for, and real operational complexity. **Start with the lightweight command/query split. Reach for separate read stores only when read and write scaling or modeling needs genuinely diverge.** Do not adopt heavyweight CQRS by default — it is one of the most over-applied patterns in the field.
+
+### Pipeline Behaviours: Cross-Cutting Code Around Every Handler
+
+The part of MediatR that pays for its indirection is `IPipelineBehavior<TRequest, TResponse>`. A behaviour wraps the handler the way middleware wraps an endpoint: it receives the request and a `next` delegate, does its work before and after, and decides whether to call `next` at all. One behaviour registered as an open generic runs around *every* request, so validation, logging, timing and a transaction per command are written once instead of in every handler.
+
+```csharp
+public sealed class ValidationBehavior<TRequest, TResponse>(IEnumerable<IValidator<TRequest>> validators)
+    : IPipelineBehavior<TRequest, TResponse> where TRequest : notnull
+{
+    public async Task<TResponse> Handle(TRequest request, RequestHandlerDelegate<TResponse> next,
+                                        CancellationToken ct)
+    {
+        foreach (var validator in validators)
+            await validator.ValidateAndThrowAsync(request, ct);   // throws before the handler runs
+        return await next();                                       // the next behaviour, or the handler
+    }
+}
+```
+
+```csharp
+services.AddMediatR(cfg =>
+{
+    cfg.RegisterServicesFromAssemblyContaining<PlaceOrder>();
+    cfg.AddOpenBehavior(typeof(LoggingBehavior<,>));     // outermost: registered first, runs first
+    cfg.AddOpenBehavior(typeof(ValidationBehavior<,>));  // then validation, then the handler
+});
+```
+
+The registration order is the nesting order: here logging wraps validation, which wraps the handler, so a request that fails validation is still logged and timed. A request type with no validators passes straight through, because `IEnumerable<IValidator<TRequest>>` resolves to an empty sequence. The code above was compiled and run against MediatR 12.5.0, the last Apache-2.0 release before the licensing change in the note above.
+
+> **Pitfall.** A transaction behaviour that wraps *every* request also wraps queries, and a behaviour that catches exceptions to return a "result" hides failures from the exception handler and the logs. Constrain such behaviours to commands, with a marker interface (`where TRequest : ICommand<TResponse>`), and let exceptions travel. The pipeline is also invisible at the call site, so keep it short: a reader of the handler should not need to know about five behaviours to understand what happens.
+
 
 ### Event Sourcing
 
@@ -16053,6 +16464,8 @@ The philosophy: **maximize cohesion within a feature and minimize coupling betwe
 
 ## Monolith vs Microservices vs Modular Monolith
 
+> **🎯 Interview · P2.** Modular monolith versus microservices, aggregates as consistency boundaries, and extracting a module step by step. The usual wrong answer and the questions to expect: [P2-7 in the Interview Priority Map](#p2-7-architecture).
+
 ### The Spectrum
 
 A **monolith** is a single deployable unit. All modules run in one process, share one database, and ship together. A **microservices** architecture decomposes the system into small, independently deployable services, each owning its own data, communicating over the network. A **modular monolith** sits between: a single deployable unit, but internally partitioned into strict modules with enforced boundaries and, ideally, separate schemas per module.
@@ -16088,6 +16501,18 @@ Notice most of these benefits are *organizational and scaling* benefits, not cod
 > **Best practice — start with a Modular Monolith.** You get clean boundaries (Bounded Contexts as modules), a single simple deployment, in-process calls, and real transactions. If a module later proves it needs independent scaling or a dedicated team, its clean boundary makes extraction to a microservice tractable. Do not begin a greenfield project with microservices unless you already know the boundaries cold and have the team structure and operational muscle to match. **The modular monolith is the pragmatic senior default.**
 
 The corollary: bad boundaries in a monolith are cheap to fix (move a class). Bad boundaries between microservices are agony to fix (coordinated multi-service migration). Get the boundaries right *before* you distribute.
+
+### Worked Example: Pulling Reporting Out of the Monolith
+
+A classic interview prompt: *the reports run on the main database and slow down checkout; what do you do?* The senior answer is a ladder of reversible steps, each taken only when the previous one is not enough.
+
+1. **Measure and fix the queries.** The slow reports usually lack an index or scan years of data ([Chapter 19](#chapter-19-the-slow-query-lab-reading-execution-plans)). A covering index or a precomputed summary table refreshed every night can end the problem in a day.
+2. **Move the reads to a replica.** Point the reporting module's `DbContext` at a read replica ([Scaling Reads with Replication](#scaling-reads-with-replication)). Checkout no longer competes for CPU and I/O. The cost is replication lag: a report may be seconds behind, and the business has to agree that's acceptable.
+3. **Give reporting its own read model.** When reports need a shape the transactional schema can't serve (denormalized, aggregated, historical), project changes into tables or a store built for them, fed by the outbox or by CDC ([Change Data Capture (CDC)](#change-data-capture-cdc)). This is CQRS at the module boundary. The report is now eventually consistent, and the projection needs monitoring for lag and for failed events.
+4. **Extract a service, if anything still demands it.** Only when a separate team owns reporting, or it needs to scale and deploy on its own, does the module become a service that owns its read store and consumes events. The module boundary built in the monolith is what makes this a move rather than a rewrite.
+
+Every step is a strangler move ([Chapter 24](#chapter-24-working-with-legacy-brownfield-code)): build the new path beside the old one, send traffic to it behind a feature flag (one report, one customer, then all), compare the two outputs for the same period, and delete the old path only when they agree. Name the trade-off at each rung: freshness for isolation at step 2, a second model to keep correct at step 3, and a network boundary with its failure modes at step 4.
+
 
 ## API Gateway and Backend for Frontend
 
@@ -19182,7 +19607,7 @@ Checkout calls Payments and Inventory, each owned by another team and deployed o
 
 # Chapter 26: Delivery and Platform
 
-_⏱️ Estimated read time: ~1 h 25 min · 13962 words (study pace)_
+_⏱️ Estimated read time: ~1 h 25 min · 13996 words (study pace)_
 
 Part 1 taught you to build, test and containerize one service ([Chapter 13: Git and CI/CD](#chapter-13-git-and-cicd), [Chapter 14: Containers and Linux](#chapter-14-containers-and-linux)). This chapter is about everything between that image and a user, and about doing it for many services and many teams.
 
@@ -19898,6 +20323,8 @@ dotnet nuget push ./nupkgs/Contoso.Ordering.Client.2.3.1.nupkg \
 > **Pitfall — dependency confusion:** If an internal package name also exists on the public feed, a misconfigured restore can pull the *public* one, which an attacker may have planted. Defend against this by using upstream sources correctly and by reserving your package name prefixes (package ID prefix reservation) on public feeds. [Chapter 27](#dependency-confusion-and-why-pinning-does-not-fix-it) works through the attack and the full set of defences.
 
 ## Deployment Strategies
+
+> **🎯 Interview · P2.** Rolling versus blue-green, continuous delivery versus continuous deployment, and rolling back versus fixing forward. The usual wrong answer and the questions to expect: [P2-10 in the Interview Priority Map](#p2-10-azure-and-devops).
 
 Getting a validated artifact built is only half the job; *how* you replace the running version determines whether users notice.
 
@@ -21520,7 +21947,7 @@ And what you give up is real: capacity you can't get in an hour, DR that isn't a
 
 # Chapter 29: Azure in Depth for .NET Developers
 
-_⏱️ Estimated read time: ~1 h 35 min · 14711 words (study pace)_
+_⏱️ Estimated read time: ~1 h 45 min · 16290 words (study pace)_
 
 [Chapter 28](#chapter-28-cloud-fundamentals-aws-azure) gave you the map: what App Service, Functions, Cosmos DB and Service Bus *are*, and how they line up against AWS. A map gets you through a conversation. It does not get you through the first week of owning a production system on Azure, where the questions sound like this: *why does the app get a 403 from Blob Storage when its identity is a Contributor on the subscription? Why did the slot swap cause a minute of 500s? Why does Cosmos DB throttle at 3,000 RU/s when we provisioned 20,000?*
 
@@ -21784,6 +22211,8 @@ The last long-lived secret in most teams is the one their CI uses to deploy. **W
 
 ## Compute: Choosing It and Running It
 
+> **🎯 Interview · P2.** Managed identity, Key Vault, Azure SQL, private endpoints, Application Insights, Functions and their cold starts, and where background work runs. The usual wrong answer and the questions to expect: [P2-10 in the Interview Priority Map](#p2-10-azure-and-devops).
+
 Start with the decision and learn the details of the option you pick:
 
 | You have … | Reach for | Because |
@@ -21955,6 +22384,21 @@ Container Apps runs your containers on a managed Kubernetes cluster that you nev
 - **Ingress** is *external* (public) or *internal* (inside the environment's VNet only). Pull images from Azure Container Registry with a managed identity that has *AcrPull*, not with admin credentials.
 
 It is the natural home for a .NET system of a handful of services, which is exactly what [Chapter 14](#chapter-14-containers-and-linux) builds towards. Move to AKS when you need something Container Apps does not expose: custom operators, service-mesh control, node-level tuning, or a platform team that wants the whole Kubernetes API.
+
+### Where Background Work Runs
+
+Background work is the question that crosses all of the options above: a queue consumer, a nightly import, a report generated on demand. The choice depends on how the work starts and how long it runs.
+
+| The work | Reach for | Because | Watch for |
+|---|---|---|---|
+| Light work tied to the web app (refresh a cache, drain a small in-process queue) | a `BackgroundService` in the app itself ([Chapter 3](#the-generic-host-and-background-services)) | No extra deployment | It runs on every instance and stops when the app scales in or restarts; in App Service it also needs *Always On*, or the idle app is unloaded |
+| Event-driven work: a queue message, a blob upload, a timer | **Azure Functions** | Scales per event and down to zero; triggers and bindings replace the polling code | The plan's execution time limit and cold starts ([Azure Functions](#azure-functions)) |
+| A long-running consumer with steady load | a **worker** (the Worker Service template) on **Container Apps** or AKS, scaled by KEDA on queue length | No time limit; you own the loop, the concurrency and graceful shutdown | Scale-to-zero means a cold start on the first message |
+| Run-to-completion work: a scheduled import, an export started on demand, one execution per batch of messages | **Container Apps jobs** (manual, scheduled or event-driven) | Each execution is a container that starts, works and exits, with retries and a timeout per execution | State between runs belongs in storage, not in the container |
+| Scripts or a WebJobs SDK program next to an existing App Service app | **WebJobs** (continuous or triggered) | Same plan, same deployment, no new resource | Shares CPU and memory with the web app; scheduled WebJobs need *Always On*, which the Free and Shared tiers lack |
+
+Whichever host you pick, the work is at-least-once: a function retried after a timeout, a job execution retried after a crash, or two instances of a `BackgroundService` all repeat work, so the consumer must be idempotent ([Chapter 11](#idempotent-consumers)), and work that must run once across instances needs a lock or a job framework that provides one ([Ensuring a job runs once across instances](#ensuring-a-job-runs-once-across-instances)).
+
 
 ## Storage Accounts and Blob Storage
 
@@ -22210,6 +22654,8 @@ The database tuning skills from [Chapter 19](#chapter-19-the-slow-query-lab-read
 
 ## Messaging: Service Bus, Event Hubs and Event Grid
 
+> **🎯 Interview · P1.** How Service Bus, Event Hubs and Event Grid work inside, not only how to call them: settlement, locks, sessions, partitions, checkpoints. The usual wrong answer and the questions to expect: [P1-14 in the Interview Priority Map](#p1-14-brokers-under-the-hood).
+
 [Chapter 11](#chapter-11-messaging-and-background-work) teaches the patterns: outbox, idempotent consumer, saga. This section is about the three Azure brokers, which are three different tools rather than three brands of the same one:
 
 | | **Service Bus** | **Event Hubs** | **Event Grid** |
@@ -22288,6 +22734,40 @@ await processor.StartProcessingAsync();
 
 Throw on *transient* failures so the message is retried; dead-letter *permanent* ones at once, with a reason. Otherwise a message that can never succeed burns all 10 delivery attempts, each one possibly repeating a side effect.
 
+### Service Bus Under the Hood
+
+The section above is how you *use* Service Bus. This one is the model underneath, the part an interviewer probes with "and what happens when…".
+
+**Queues, topics and subscriptions.** A queue is one entity with competing receivers: each message goes to one of them. A topic is the send side only; every **subscription** under it is a queue of its own, holding a copy of each message that passes the subscription's **rules**. A new subscription gets a rule named `$Default` with a true filter, so it receives everything until you replace that rule. A **correlation filter** matches properties by equality (`Subject = "OrderPlaced"`, `CorrelationId`, application properties); a **SQL filter** evaluates an expression (`region = 'EU' AND amount > 100`). Microsoft's documentation warns that SQL filters lower throughput at the subscription, topic and namespace level, so prefer correlation filters wherever equality is enough. A rule can also carry an *action* that sets properties on the copy. A subscription can auto-forward its messages to another queue or topic, which is how fan-out chains are built.
+
+```
+                         ┌── subscription "billing"  (rule: Subject = 'OrderPlaced') ──► its own queue, its own DLQ
+ sender ──► topic ───────┼── subscription "shipping" (rule: SQL region = 'EU')        ──► its own queue, its own DLQ
+                         └── subscription "audit"    ($Default: true filter)          ──► every message
+```
+
+**Receive modes and settlement.** In *peek-lock* the message stays in the entity, locked to one receiver, until it is settled: **Complete** deletes it; **Abandon** releases the lock and increments the delivery count; **Dead-letter** moves it to the entity's `$deadletterqueue` with a reason and a description you choose; **Defer** leaves it in the entity but hides it from normal receives, so only `ReceiveDeferredMessageAsync(sequenceNumber)` gets it back, which is for "I can't process this one until another message arrives" (the sequence number must be stored somewhere, or the message is lost in plain sight). *ReceiveAndDelete* removes the message as it is handed over: at-most-once, acceptable only for data you can afford to lose.
+
+**Expiry.** Every message has a time-to-live, from the message or the entity's default; if neither is set it is effectively unlimited. An expired message is **dropped**, not dead-lettered, unless the entity has dead-lettering on expiry enabled. That default surprises people: a queue whose consumers were down for longer than the TTL silently loses work.
+
+**What the lock really is.** The lock is a lease held by the service, not by your process. If it expires (1 minute by default, 5 at most) before you settle, the message is delivered again, even though your handler may still be running and may finish its side effect. `ServiceBusProcessor` renews the lock in the background up to `MaxAutoLockRenewalDuration`. **Prefetch** fills a local buffer *with messages already locked*, so their lock clocks run while they wait, which is why a large prefetch with slow handlers produces redeliveries.
+
+**Typical failures, by symptom:**
+
+| Symptom | Mechanism | Fix |
+|---|---|---|
+| The same order processed twice | lock expired mid-handler, or a crash between the effect and `Complete` | idempotent handler; longer lock renewal; smaller prefetch |
+| `MessageLockLostException` on `Complete` | the handler outlived the lock | a processor with lock renewal; don't hold received batches |
+| The DLQ fills up quietly | permanent failures retried to `MaxDeliveryCount`, nobody alerting on it | dead-letter permanent failures at once with a reason; alert on the dead-letter count |
+| Messages vanish while consumers were down | TTL expired, dead-lettering on expiry off | set a realistic TTL and enable dead-lettering on expiry |
+| One slow customer blocks others | one session per customer is a single ordered lane | more sessions and `MaxConcurrentSessions`, or don't use sessions where order doesn't matter |
+| Throughput falls after adding subscriptions | many SQL filters | correlation filters; fewer, coarser subscriptions |
+
+**Standard or Premium.** Standard is shared, metered per operation, messages up to 256 KB, and no VNet integration. Premium is dedicated capacity in messaging units: predictable latency, larger messages, private endpoints, and geo-replication options. Choose Premium for production systems that need network isolation or steady latency; Standard is right for most others and for development.
+
+[Lab 2 of Chapter 45](#chapter-45-the-systems-lab-brokers-diagnostics-azure-and-incidents) runs these mechanisms against the Service Bus emulator: a message that is never completed came back after the 5-second lock with its delivery count at 2, and a message abandoned three times under `MaxDeliveryCount = 3` was dead-lettered with the reason `MaxDeliveryCountExceeded`.
+
+
 ### Event Hubs
 
 Event Hubs is a **partitioned log**, the same model as Kafka (it even speaks the Kafka protocol).
@@ -22297,6 +22777,19 @@ Event Hubs is a **partitioned log**, the same model as Kafka (it even speaks the
 - **Retention** is 1 day on Basic, up to 7 on Standard, and up to 90 on Premium and Dedicated. Consumers can re-read anything still retained, which is how you replay after a bug fix.
 - **Checkpointing.** `EventProcessorClient` balances partitions across your instances and stores each partition's position in a Blob container. You choose when to checkpoint: after every event is safest and slowest; every N events or T seconds is faster, and on restart the events since the last checkpoint are read again. So Event Hubs consumers must be idempotent too.
 - **Capture** writes the stream to Blob Storage or Data Lake as Avro files, which gives you an archive with no consumer code.
+
+### Event Hubs Under the Hood
+
+**A stream, not a queue.** Service Bus hands a *message* to one consumer and deletes it once settled; Event Hubs appends *events* to a log that nobody deletes from. Each consumer group keeps its own position, so ten applications can read the same events at their own pace, and a fixed consumer can rewind and replay. There is no per-event lock, no dead-letter queue and no per-event retry: if one event can't be processed, the consumer decides what to do with it (skip it, park it in a queue of your own, or stop), because the next event in the partition waits behind it.
+
+**Partitions decide everything.** The partition is the unit of order, parallelism and throughput. Events with the same partition key always land in the same partition, so ordering per key holds; across partitions there is none. Within a consumer group there should be **one active reader per partition** (the service allows up to five in special cases, each of which then receives every event of the partition), so the number of partitions caps the number of useful consumer instances. `EventProcessorClient` assigns partitions to instances and moves them when instances come and go.
+
+**Checkpoints are your offsets.** A checkpoint is the position you stored in Blob Storage for a partition. On restart or rebalance, the new owner starts from the last checkpoint, so everything after it is read again: at-least-once, exactly like Kafka. Checkpointing after every event is the slowest and repeats the least; every N events or T seconds is the usual trade.
+
+**Kafka endpoint.** Standard, Premium and Dedicated namespaces expose a Kafka-compatible endpoint on port 9093 (`<namespace>.servicebus.windows.net:9093`, SASL over TLS, with Entra ID OAuth or a connection string). Existing Kafka producers and consumers work by changing configuration; features such as Kafka Streams and transactions are limited to Premium and Dedicated, so check the feature list before you promise a migration "without code changes". Basic has no Kafka endpoint.
+
+**Typical failures:** a hot partition because the key is skewed (one tenant producing half the events); consumers that can't keep up because there are more instances than partitions (the extra ones sit idle) or fewer than needed; reprocessing after every deployment because checkpoints are written rarely; and events lost to retention because a consumer was down for longer than the retention period.
+
 
 ### Event Grid
 
@@ -24414,7 +24907,7 @@ Break the code on purpose (invert a condition, delete a line, make a guard retur
 
 # Chapter 33: Building AI-Powered Systems
 
-_⏱️ Estimated read time: ~1 h 25 min · 14835 words (study pace)_
+_⏱️ Estimated read time: ~1 h 30 min · 15864 words (study pace)_
 
 [Chapter 32](#chapter-32-the-ai-native-developer-thriving-in-the-ai-era) was about *using* AI to write software. This chapter flips the relationship: now the AI model is a *component inside* the software you ship. This is a different discipline. When you use an assistant to write a function, you review the output once and move on. When you embed a model in a running system, that model produces fresh, non-deterministic output on every request, for every user, forever — and you own the consequences. That single fact reshapes how you design, test, and operate the application.
 
@@ -24587,6 +25080,8 @@ The security posture deserves stating plainly, because it is worse than MCP's. D
 
 ## Retrieval-Augmented Generation (RAG)
 
+> **🎯 Interview · P1.** The pipeline stage by stage, chunking, hybrid search, reranking, measuring retrieval, hallucination control, cost and security, and make-or-buy. The usual wrong answer and the questions to expect: [P1-16 in the Interview Priority Map](#p1-16-rag-end-to-end).
+
 RAG is the most important application pattern to understand, because it directly attacks the LLM's two biggest weaknesses: its knowledge is frozen at training cutoff, and it knows nothing private. **RAG grounds the model in *your* data by retrieving relevant content at query time and injecting it into the prompt.** The model then answers *from* that content rather than from its parametric memory, which reduces hallucination and — crucially — lets you cite sources.
 
 ### The problem RAG solves
@@ -24708,6 +25203,41 @@ RAG has two failure surfaces — retrieval and generation — so evaluate both:
 
 Toolkits like RAGAS (Python) codify these metrics; in .NET you can implement equivalents with an LLM-as-judge over a curated eval set.
 
+### Measuring Retrieval with a Golden Set
+
+Retrieval is the half you can measure exactly, without a model in the loop, so measure it first. Build a **golden set**: 50 to 200 real questions, each labelled with the IDs of the chunks that answer it (by a domain expert, not by the system you are testing). Then compute, for every change to chunking, embeddings, hybrid weights or reranking:
+
+- **recall@k**: of the chunks that answer the question, how many are in the top *k* the retriever returned. If the answer isn't retrieved, no prompt can fix it, so this is the number to raise first.
+- **MRR** (mean reciprocal rank): 1 divided by the position of the first relevant chunk, averaged over the questions; it rewards putting the answer near the top, which matters when only the top few chunks fit the context.
+
+```csharp
+public sealed record GoldenQuestion(string Question, IReadOnlySet<string> RelevantChunkIds);
+
+public static class RetrievalMetrics
+{
+    // Of the chunks that answer the question, how many are in the top k the retriever returned?
+    public static double RecallAtK(IReadOnlyList<string> retrieved, IReadOnlySet<string> relevant, int k) =>
+        relevant.Count == 0 ? 1.0 : retrieved.Take(k).Count(relevant.Contains) / (double)relevant.Count;
+
+    // 1 / position of the first relevant chunk: 1.0 when it is first, 0.5 when second, 0 when absent.
+    public static double ReciprocalRank(IReadOnlyList<string> retrieved, IReadOnlySet<string> relevant)
+    {
+        for (int i = 0; i < retrieved.Count; i++)
+            if (relevant.Contains(retrieved[i])) return 1.0 / (i + 1);
+        return 0.0;
+    }
+}
+```
+
+The generation half is scored differently: **groundedness** (every claim in the answer is supported by a retrieved chunk), **answer relevance**, and **abstention** (the system says it doesn't know when the golden set's answer isn't in the corpus). Those need a judge, a human or an LLM-as-judge with a written rubric, and the judge itself should be spot-checked against human labels. Keep the golden set in the repository, run it in CI on every retrieval change, and report the numbers before and after, the same way [Chapter 19](#chapter-19-the-slow-query-lab-reading-execution-plans) reports query plans.
+
+**Controlling hallucination** is mostly retrieval and instructions, in that order: retrieve the right chunks (recall), give the model only those chunks and an instruction to answer from them and cite them, require citations that map to chunk IDs and check them in code (a cited ID that wasn't retrieved is a fabricated citation), and make "I don't know" an acceptable answer that the eval rewards.
+
+**Cost and latency.** A RAG request pays for an embedding of the query, a vector (and keyword) search, an optional rerank, and a generation whose input tokens are mostly the retrieved chunks. The levers: fewer, better chunks (reranking lets you retrieve 50 and send 5), a cache of query embeddings and of answers to frequent questions (keyed by the normalised question *and the user's permissions*), prompt caching for the fixed system prompt, a smaller model for query rewriting and routing, and streaming so the first tokens arrive early. Embedding the corpus is a one-off cost per document version; re-embed only what changed.
+
+**Security.** The retrieved documents are untrusted input: a document can carry instructions (indirect prompt injection, [Prompt injection, direct and indirect](#prompt-injection-direct-and-indirect)), so the model's output must never be allowed to call tools with more authority than the user has. **Filter by permission at retrieval time**, with the user's groups or tenant as a filter on the search query, not after generation, or the model will summarise a document the user may not see. Strip or mask PII before indexing when the use case doesn't need it, and check what the model provider's terms say about retention and training before sending documents under NDA.
+
+
 ### Common RAG failure modes and fixes
 
 - **The answer is in the docs but wasn't retrieved** → chunking or embedding problem, or missing hybrid search. Inspect retrieved chunks; add keyword search; tune chunk size; add query rewriting.
@@ -24724,6 +25254,35 @@ RAG is not the answer to everything. Reach for alternatives when:
 - **The task is an *action*, not a lookup** → **tool calling** to a live system (an order API, a database query) beats retrieving stale documents about it.
 
 > **Rule of thumb:** RAG for *knowledge that changes and must be cited*; long context for *small stable knowledge*; fine-tuning for *behavior and format*; tools for *actions and live data*. Most real systems blend several.
+
+### Make or Buy: Your Own RAG Pipeline or a Managed Service
+
+Most teams face this decision early, and interviewers like it because there is no single right answer, only a reasoned one.
+
+| | Your own pipeline (pgvector or a vector database, your chunker, your retrieval code) | A managed service (Azure AI Search with integrated vectorization, or a hosted "chat with your data" offering) |
+|---|---|---|
+| Time to a first demo | weeks | days |
+| Control over chunking, hybrid weights, reranking, filters | full | what the service exposes |
+| Permission filtering | yours to build | security filters or document-level access, as the service supports them |
+| Operations | yours: indexing jobs, scaling, upgrades | the provider's; you own configuration and cost |
+| Cost shape | infrastructure you size; cheap at low volume if Postgres already exists | per index unit, per query or per document; predictable, can be high at scale |
+| Data residency and NDA | wherever you run it | the service's regions and terms |
+| Lock-in | low | the index format and features are the service's |
+
+Choose on the questions that decide it: does the corpus already live in a database you run (pgvector next to the data is hard to beat), do you need hybrid search and semantic ranking without building them (a search service gives you BM25, vectors and a reranker in one query), how strict is permission trimming, and who will operate it. A sensible path is often to prototype on the managed service to learn what quality is reachable, with the golden set above, and decide on build-or-keep with the numbers.
+
+A template for telling this as your own story, if you made or contributed to such a decision:
+
+```text
+Situation: [Team/product] needed answers over [corpus: size, document types, languages] for [users],
+           with [constraints: permissions, NDA, residency, latency, budget].
+Task:      I was asked to [compare options / build the prototype / own the evaluation].
+Action:    I built a golden set of [n] questions with [who labelled them]. I compared [own pipeline on X]
+           with [managed service Y] on recall@[k], groundedness, latency, cost per [1,000] queries and
+           [operations effort]. The deciding factor was [one criterion].
+Result:    We chose [option]; recall@[k] went from [a] to [b], cost was [c]. In hindsight, [one sentence].
+```
+
 
 ## Chatbots and conversational systems
 
@@ -25949,7 +26508,7 @@ Logic in unit tests; components with Testing Library, querying by role and label
 
 # Chapter 35: Production Incidents
 
-_⏱️ Estimated read time: ~1 h 30 min · 16744 words (study pace)_
+_⏱️ Estimated read time: ~1 h 30 min · 16811 words (study pace)_
 
 The hard part of the job is deciding what to do when the code you already shipped meets reality: a traffic spike you did not plan for, a "successful" request that silently lost data, a p99 latency graph that looks like a seismograph, a dependency that vanishes at the worst possible moment.
 
@@ -25989,6 +26548,8 @@ This is as far as the OS view goes. It has told you *that* memory grows and *whe
 That is the method: the OS view (`journalctl`, `ss`, `top`) shows what the machine sees, the runtime view (the `dotnet-*` tools) shows what the CLR sees — and it's the *disagreement* between them that tells you which layer is lying. [Scenario 7](#scenario-7-the-slow-leak-memory-keeps-growing-until-the-pod-is-oom-killed) works this exact case through to the fix.
 
 ## The incident cheat-card
+
+> **🎯 Interview · P2.** Detect, communicate, mitigate, diagnose, fix, and a blameless post-mortem with action items. The usual wrong answer and the questions to expect: [P2-12 in the Interview Priority Map](#p2-12-production-and-incidents).
 
 This is the page to open at 3 a.m. — one row per scenario, each row expanded in full in the scenario it points to.
 
@@ -26541,6 +27102,8 @@ Note the **deadline** and the explicit **fail-open decision** — on a synchrono
 ---
 
 ## Scenario 7 — The slow leak: memory keeps growing until the pod is OOM-killed
+
+> **🎯 Interview · P1.** This scenario is the step-by-step answer to "how would you investigate an OOM in production?". The usual wrong answer and the questions to expect: [P1-4 in the Interview Priority Map](#p1-4-memory-and-the-gc).
 
 ### The scenario
 
@@ -27102,7 +27665,7 @@ A reference kept by mistake: the GC frees only unreachable objects, so anything 
 
 # Chapter 36: Senior Behaviours, Career and Interviews
 
-_⏱️ Estimated read time: ~20 min · 4114 words (study pace)_
+_⏱️ Estimated read time: ~35 min · 5574 words (study pace)_
 
 A senior's output is decisions that other people act on. The cost of a wrong decision grows with how much is built on it and how many people follow it, so every senior behaviour either moves a check earlier or makes a decision cheaper to revisit: the design reviewed before the lines exist, the decision written down so it can be superseded rather than relitigated, the estimate checked against how long similar work really took, the legacy behaviour pinned before it is changed. Influence runs on the same mechanism over a longer time: trust compounds from estimates that were honest, reviews that were fair and commitments that landed or were renegotiated early.
 
@@ -27176,6 +27739,8 @@ You don't have to pick forever, but knowing which one energizes you tells you wh
 
 ## Interviews: Turning Behaviour into Answers
 
+> **🎯 Interview · P2.** Answer first, then the reasoning and the trade-offs; STAR stories in English, ready before the interview. The usual wrong answer and the questions to expect: [P2-13 in the Interview Priority Map](#p2-13-the-interview-itself).
+
 An interview compresses everything above into an hour, and it scores what it can hear. The technical question banks live with their topics — each chapter ends with its own *Interview Questions* — so this section is about the approach that applies to all of them and the behavioural questions that probe seniority directly.
 
 ### How to Approach Any Interview
@@ -27196,6 +27761,20 @@ Only if you then say *what* it depends on and pick a default. "It depends on rea
 
 **How do you show seniority beyond just knowing facts?**
 Talk about trade-offs, failure modes, operability, and cost — not just the happy path. Juniors describe how a thing works; seniors describe when *not* to use it and what breaks it at 3 a.m.
+
+### Answer First: The Shape of a Spoken Technical Answer
+
+Most technical questions in a Regular-level interview are answered out loud in one or two minutes, and the interviewer decides in the first sentence whether you know the answer. Give them that sentence first, then earn it:
+
+1. **The answer, in one sentence.** "Read Committed, and whether reads block depends on `READ_COMMITTED_SNAPSHOT`."
+2. **The mechanism that makes it true.** "Without it, readers take shared locks and wait for writers; with it, they read the last committed row version."
+3. **The trade-off or the trap.** "RCSI costs version-store space in `tempdb`, and it still doesn't prevent lost updates."
+4. **Where you met it**, if you have one, in a sentence. "We switched it on after `SELECT`s were timing out behind a nightly batch."
+
+Stop there and let the interviewer pull the thread they care about. A long answer that builds up to the conclusion loses the interviewer before the point arrives; a short one that ends with a trade-off invites the follow-up you have prepared for. When the honest answer is "it depends", name what it depends on and pick a default in the same breath.
+
+> **Best practice.** Practise the first sentence of your answers to the questions in the [Appendix: Interview Priority Map](#appendix-interview-priority-map) out loud and in English, recording yourself. If the first sentence takes more than ten seconds, it isn't the answer yet.
+
 
 ### Behavioral / Seniority
 
@@ -27222,6 +27801,90 @@ Make it visible and quantify its cost (slower delivery, more bugs), then negotia
 Bring data, not complaints: present the estimate, the trade-offs, and options (cut scope, phase delivery, add risk-acceptance, or move the date). Let stakeholders choose with full information. The senior move is turning "no" into "here are the trade-offs — which do you want?"
 
 > **Follow-up:** *Tell me about a time you had to make a decision without complete information.* Show how you bounded the risk: made a reversible choice, shipped small to learn, set a checkpoint to re-evaluate, and communicated the uncertainty rather than pretending certainty.
+
+### Three Stories to Have Ready
+
+Behavioural rounds rotate through a small set of prompts, and three stories cover most of them: a mistake, a conflict, and a hard technical problem with a number at the end. Prepare each one in English, in STAR, timed to about two minutes, from your own work. The skeletons below hold the shape; every bracket is yours to fill, and the numbers must be real ones you can defend in the follow-up. A story about a real employer stays in your private notes; [Chapter 37](#chapter-37-the-story-bank-evidence-portfolio) shows how to build and rehearse the bank.
+
+```text
+**Story 1: a mistake** (also answers "a failure", "a bad decision", "what did you learn")
+Situation: On [project], we [context in one sentence].
+Task:      I was responsible for [the thing that went wrong].
+Action:    I chose [decision] because [why it seemed right]. It caused [consequence],
+           which I noticed when [signal]. I [fixed it how], and told [who] [when].
+Result:    [impact, measured]. Since then I [the practice you changed], and the team
+           [the safeguard: a test, a check, a review rule].
+
+**Story 2: a conflict** (also answers "a disagreement", "pushing back", "working with a difficult colleague")
+Situation: [colleague's role] and I disagreed about [technical choice].
+Task:      We had to decide by [deadline] because [why it mattered].
+Action:    I wrote down both options and their trade-offs: [A: pro/con], [B: pro/con].
+           I proposed [a spike / a measurement / a time-boxed trial]. It showed [finding].
+           We chose [option]; I [committed to it / changed my mind] and [what I did next].
+Result:    [outcome]. What I took from it: [one sentence].
+
+**Story 3: a hard technical problem** (also answers "your proudest work", "a difficult bug")
+Situation: [system] was [symptom], affecting [who / how many].
+Task:      I owned [the investigation / the fix].
+Action:    I reproduced it by [how], ruled out [hypothesis] with [tool and evidence],
+           and found [root cause]. I fixed it by [change] and prevented a repeat with
+           [test / alert / design change].
+Result:    [metric] went from [before] to [after], measured with [how].
+```
+
+> **Pitfall.** Saying "we" through the whole Action. The interviewer is hiring you, not the team: say "I" for what you did and "we" only for what the team decided together, and keep the Situation short enough that the Action and Result get most of the two minutes.
+
+
+### The Depth Scale: Used, Understood, Built, Operated
+
+> **🎯 Interview · P1.** How to describe what you have actually done with a technology, without understating or inflating it. The usual wrong answer and the questions to expect: [P1-18 in the Interview Priority Map](#p1-18-telling-the-depth-of-your-experience-honestly).
+
+"Have you worked with Kafka?" has four honest answers, and interviewers probe until they know which one is yours. Say it yourself first.
+
+| Level | What it means | What you can answer | How to say it |
+|---|---|---|---|
+| **1. Used** | You worked in a system where it was already set up: you produced or consumed through an existing wrapper | what it is for, the API you called, the symptoms you saw | "I worked with it as a consumer: the infrastructure was set up by the platform team, and I wrote the handlers for [X]." |
+| **2. Understand** | You know how it works inside and why: locks, partitions, offsets, slots | the "what happens when…" questions; why a failure happened | "I understand the delivery model well enough to [design idempotent consumers / debug redeliveries]; I haven't built the infrastructure myself." |
+| **3. Built** | You set it up or extended it: wrote the connector config, the topology, the IaC, the outbox | the trade-offs you chose and what you rejected | "I built [the outbox and the Debezium connector] for [service]; I chose [X] over [Y] because [reason]." |
+| **4. Operated** | You ran it in production: on call, upgrades, capacity, incidents | failure modes from experience, numbers, runbooks | "I was on call for it for [period]; the incident I remember best is [one line], and we changed [practice] after it." |
+
+The labs in [Chapter 45](#chapter-45-the-systems-lab-brokers-diagnostics-azure-and-incidents) exist to move a technology from level 1 to level 2, and partly to 3, on your own machine. Say so plainly: "I haven't run Debezium in production, but I built an outbox pipeline with it in a lab and broke it on purpose: I stopped the connector and watched the replication slot hold 150 MB of WAL." That is a stronger answer than a vague "yes", because it shows what you know and where it stops.
+
+### Saying It Honestly: Phrases and CV Lines
+
+For a developer who extended infrastructure that others built, the honest phrasing is also the strongest, because it is specific:
+
+- "The Service Bus namespace and topology existed when I joined. I added [n] consumers, made them idempotent after [a duplicate-payment bug], and set up the dead-letter alert."
+- "I didn't design the multi-tenant model, but I worked inside it for a year across [100+] client companies: I [specific change], and I know where it leaks, because I [fixed one such case]."
+- "On the RAG project I owned [the chunking and evaluation part]; the hosting and the model choice were [someone else's]."
+- When you don't know: "I haven't done that. Here is how I'd approach it: [mechanism]. I'd verify [assumption] first."
+
+On a CV, the verb carries the level, so choose it deliberately: *worked with* or *integrated* (level 1), *designed* or *debugged* a specific part (level 2), *built*, *implemented* or *migrated* (level 3), *ran*, *was on call for*, *operated* (level 4). Every line should survive the follow-up "tell me more"; one you can't defend for five minutes costs more than it adds. Numbers come from your own work, with the context that makes them true (`[metric] from [a] to [b] over [period]`), never estimates dressed as results.
+
+### A Self-Assessment Table
+
+Copy this into your private notes, fill in a level from the scale above and one line of evidence for each row, and repeat it every few months. It shows where a lab or a chapter would move you up a level; it is for you, not for a CV, and it stays out of any public repository.
+
+```text
+| Technology / topic                    | Level (1-4) | Evidence (what I did, where)  | Next step               |
+|---------------------------------------|-------------|-------------------------------|-------------------------|
+| SQL: plans, indexes, isolation        |             |                               |                         |
+| EF Core in depth                      |             |                               |                         |
+| ASP.NET Core pipeline, DI, options    |             |                               |                         |
+| Async, thread pool, diagnostics       |             |                               |                         |
+| Memory and GC, dotnet-counters/gcdump |             |                               |                         |
+| Security: OAuth/OIDC, authz, OWASP    |             |                               |                         |
+| Azure Service Bus                     |             |                               |                         |
+| Azure Event Hubs / Kafka              |             |                               |                         |
+| Debezium / CDC / outbox               |             |                               |                         |
+| Multi-tenancy                         |             |                               |                         |
+| Azure: App Service, SQL, Key Vault    |             |                               |                         |
+| IaC (Bicep/Terraform), CI/CD          |             |                               |                         |
+| Observability: logs, traces, SLOs     |             |                               |                         |
+| RAG and LLM features                  |             |                               |                         |
+| Testing: integration, Testcontainers  |             |                               |                         |
+```
+
 
 ## How to Keep Learning
 
@@ -31693,6 +32356,191 @@ Take the system to a real environment. Write Terraform to provision the infrastr
 
 ---
 
+# Chapter 45: The Systems Lab: Brokers, Diagnostics, Azure and Incidents
+
+_⏱️ Estimated read time: ~15 min · 2609 words (study pace)_
+
+Reading how Service Bus settles a message or how Debezium holds a replication slot moves you from *used it* to *understand it*. This chapter moves you one step further, to *built it and broke it*: seven labs, each with a goal, steps with checkable acceptance, the things you must be able to explain afterwards, and an artifact for your portfolio. Five of them come with a kit in `labs/` that starts with one command and has been run end to end; one uses [Chapter 19](#chapter-19-the-slow-query-lab-reading-execution-plans)'s kit; one is a drill on paper and on your machine.
+
+> **🎯 Interview · P1.** Each lab turns a topic from the [Appendix: Interview Priority Map](#appendix-interview-priority-map) into something you did and can describe: brokers (P1-3, P1-14), async and memory diagnostics (P1-4, P1-6), SQL plans (P1-1), Azure (P2-10) and incidents (P2-12).
+
+> **The portfolio rule.** Your solutions, test runs, counter output, plans and write-ups belong in **your own public portfolio repo**, not in this one. A story about a real employer's system stays private; these labs exist so that you have a public one to tell.
+
+## Goal and the senior signal it trains
+
+The goal is to be able to answer "how does it work, and what happens when it fails?" from experience rather than from a diagram. The signal an interviewer reads is *evidence*: "I stopped the connector, wrote 200,000 rows, and the slot held 152 MB of WAL" is a different answer from "replication slots can grow". Each lab ends with something you can show: a repository with a README, numbers with their environment, and a short write-up of what you broke and why.
+
+## Time budget
+
+| Lab | Topic | Kit | Time |
+|---|---|---|---|
+| 1 | Outbox, Debezium, Kafka, idempotent consumer, retries, DLQ | [`labs/45-outbox-debezium`](https://github.com/malyna2/dotnet-handbook/tree/main/labs/45-outbox-debezium) | 3 h |
+| 2 | Service Bus: lock expiry, dead-lettering, sessions, duplicates | [`labs/45-service-bus`](https://github.com/malyna2/dotnet-handbook/tree/main/labs/45-service-bus) | 2 h |
+| 3 | Thread pool starvation | [`labs/45-runtime-diagnostics`](https://github.com/malyna2/dotnet-handbook/tree/main/labs/45-runtime-diagnostics) | 1 h 30 min |
+| 4 | A memory leak through a static event | same kit | 1 h 30 min |
+| 5 | Execution plans: key lookup, covering index, parameter sniffing | [`labs/37-execution-plans`](https://github.com/malyna2/dotnet-handbook/tree/main/labs/37-execution-plans) | 2 h (rungs 3, 4 and 9) |
+| 6 | Azure: App Service, SQL, Key Vault, managed identity, App Insights, budget, in Bicep | [`labs/45-azure-bicep`](https://github.com/malyna2/dotnet-handbook/tree/main/labs/45-azure-bicep) | 2 h 30 min |
+| 7 | Incident drill: runbook and blameless post-mortem | [`labs/45-incident-drill`](https://github.com/malyna2/dotnet-handbook/tree/main/labs/45-incident-drill) | 1 h 30 min |
+
+## Setup
+
+Docker with Compose v2, the .NET 10 SDK and about 6 GB of free RAM cover Labs 1 to 5. Lab 2 runs on the Service Bus emulator and needs no Azure subscription; it asks you to accept the emulator's and SQL Server's EULAs with `ACCEPT_EULA=Y`. Lab 6 needs the Azure CLI, the Bicep CLI and a subscription where a few hours of a B1 App Service plan and a Basic SQL database are acceptable; its kit has a cleanup script and a budget alert. Every kit's README has a *Last verified* line with the environment it was run in, and its `reference-runs/` folder holds the raw output behind every number quoted below.
+
+## Tasks
+
+### Lab 1: Outbox, Debezium and an Idempotent Consumer
+
+**Goal.** Build the whole path from a database transaction to a consumer's effect, and prove that a redelivered event has one effect.
+
+**Steps.**
+
+- **Level 1.** Start the stack, register the connector and post an order. Read the Kafka message with the console consumer and name where each part came from: the topic from `aggregatetype`, the key from `aggregateid`, the `id` header from the outbox row's `id`, the value from `payload`. *Acceptance:* you can point to each field in `connector/outbox.json` and `postgres/init.sql`.
+- **Level 2.** Run the tests. `A_redelivered_event_awards_points_once` fails on the starter: the same event awards points twice. Fix `starter/LoyaltyHandler.cs`. *Acceptance:* all five tests pass, and your fix inserts the claim in the same transaction as the effect.
+- **Level 3.** Run `./break-it-slot.sh`, then explain the three numbers it prints. Add an alert definition (in whatever tool you use) on the slot's lag in bytes. *Acceptance:* the write-up says what fills the disk, why `max_slot_wal_keep_size` trades one failure for another, and what the heartbeat setting is for.
+
+**Explain afterwards.** Why the outbox removes the dual write; why Debezium is at-least-once and where duplicates come from; why the key is the order ID; what a tombstone is and why this connector turns them off; what `snapshot.mode=no_data` skips and when you would want `initial`; why permanent failures skip the retries; why backoff needs jitter. [Debezium Under the Hood](#debezium-under-the-hood) and [Idempotent Consumers](#idempotent-consumers) have the mechanisms.
+
+**Artifact.** A repository with your handler, the test output before and after, the slot experiment's numbers with their environment, and a README diagram of the pipeline.
+
+### Lab 2: Service Bus Settlement, Dead-Lettering and Sessions
+
+**Goal.** See each Service Bus delivery mechanism happen, then fix a handler that retries a failure that can never succeed.
+
+**Steps.**
+
+- **Level 1.** Before running each experiment, write down what you expect: when the uncompleted message comes back and with what delivery count, what the dead-letter reason will be, in what order each session's messages arrive. Run the tests with `LAB_OBSERVATIONS` set. *Acceptance:* your predictions next to the observed values. On the reference run the message came back after 5.0 seconds (the lock duration) with delivery count 2, and a message abandoned three times under `MaxDeliveryCount = 3` was dead-lettered as `MaxDeliveryCountExceeded`.
+- **Level 2.** Fix `starter/PaymentHandler.cs` so a declined card is charged once and dead-lettered with the reason `CardDeclined`. *Acceptance:* all six tests pass.
+- **Level 3.** Add an experiment of your own: a topic with two subscriptions, one with a correlation filter and one with the default rule, or a queue with a short TTL and dead-lettering on expiry, and show which messages each receives. *Acceptance:* a test that passes and states the rule it demonstrates.
+
+**Explain afterwards.** What the lock is and who holds it; what each settlement does; why at-least-once forces idempotency even with duplicate detection on (duplicate detection catches a resent *send*, not a redelivery); what sessions guarantee and what they cost; when you would use ReceiveAndDelete; Standard versus Premium. [Service Bus Under the Hood](#service-bus-under-the-hood).
+
+**Artifact.** The test project with your experiment and a README table: experiment, prediction, observation, mechanism.
+
+### Lab 3: Thread Pool Starvation
+
+**Goal.** Recognise starvation from the outside, with the tools you'd have in production, before you look at the code.
+
+**Steps.**
+
+- **Level 1.** Start the starter build, open `dotnet-counters monitor` on it, and run the load generator (400 requests, 100 concurrent). *Acceptance:* you record p50 and p95, the maximum thread-pool queue length and the thread count. The reference run: p95 3978 ms, queue length up to 89, 58 pool threads afterwards.
+- **Level 2.** Find the blocking call without reading `Endpoints.cs` first: take a `dotnet-dump` during the load and run `parallelstacks` ([The Thread Pool Under Load](#the-thread-pool-under-load)). Then fix it. *Acceptance:* the test passes, and the same load gives p95 within a few round trips of the 100 ms dependency (the reference: 154 ms, queue length 0, 5 threads).
+- **Level 3.** Explain why raising `ThreadPool.SetMinThreads` makes the starter faster and why it is still the wrong fix. *Acceptance:* a paragraph with a measurement.
+
+**Explain afterwards.** Why latency rises while CPU stays low; how the pool injects threads; why `.Result` holds a thread for the whole I/O; why async I/O needs no thread while it waits.
+
+**Artifact.** A README with the before/after table, the counters output and the stack excerpt that showed the culprit.
+
+### Lab 4: A Memory Leak Through a Static Event
+
+**Goal.** Prove a leak with heap snapshots and find what roots the leaked objects.
+
+**Steps.**
+
+- **Level 1.** Send 500 `POST /watchers` to the starter build, then call `/stats`. *Acceptance:* the subscriber count and the heap after a full collection, before and after.
+- **Level 2.** Take two `dotnet-gcdump` snapshots, one before and one after another 500 requests, open them in Visual Studio, PerfView or dotMemory, and find the retention path from a leaked `PriceWatcher` to its root. *Acceptance:* you name the root (the static event's delegate list). The reference report: 34,473,840 bytes of GC heap and 501 large `Byte[]` objects for the starter, 1,442,726 bytes and one for the fix.
+- **Level 3.** Fix it, then list two other ways the same leak appears in real code (a long-lived service subscribing a scoped object, a static cache without eviction, a timer whose callback captures `this`). *Acceptance:* the test passes and the list has the mechanism for each.
+
+**Explain afterwards.** Why the GC can't collect an object a static field reaches; why `GC.Collect()` doesn't help; what a gcdump contains and doesn't (types and references, not values); the step-by-step plan for an OOM in production ([Scenario 7](#scenario-7-the-slow-leak-memory-keeps-growing-until-the-pod-is-oom-killed)).
+
+**Artifact.** The two snapshots' comparison, the retention path and your fix.
+
+### Lab 5: Execution Plans
+
+**Goal.** Read a plan, remove a key lookup with a covering index, and catch a sniffed parameter.
+
+**Steps.** Use [Chapter 19](#chapter-19-the-slow-query-lab-reading-execution-plans) and its kit: the rungs on missing and covering indexes, and rung 9 (parameter sniffing, on the SQL Server track). *Acceptance:* the chapter's criteria for those rungs, plus your own one-paragraph explanation of [Parameter Sniffing](#parameter-sniffing) using the plan you captured.
+
+**Explain afterwards.** Seek versus scan; why a key lookup multiplies with rows; what `INCLUDE` adds and what it costs on writes; estimated versus actual rows; the fixes for a sniffed plan and their trade-offs.
+
+**Artifact.** The before/after plans and logical reads, as Chapter 19 describes.
+
+### Lab 6: Azure Infrastructure as Code with a Budget
+
+**Goal.** Deploy the typical .NET shape on Azure with no secret anywhere, observe it, and tear it down.
+
+**Steps.**
+
+- **Level 1.** Read `infra/main.bicep` and, before deploying, write down which identity reads the Key Vault secret, which role it needs, and how the app signs in to SQL. Deploy with `deploy.sh`. *Acceptance:* the Key Vault reference shows as resolved in the app's configuration, and the deployment created no SQL login.
+- **Level 2.** Run `sql/grant-app.sql`, deploy any .NET 10 app with a `/health` endpoint and a query to the database, and find its requests and the SQL dependency calls in Application Insights. *Acceptance:* a screenshot or KQL query result with a request and its SQL dependency under one operation ID.
+- **Level 3.** Run `cleanup.sh`, and the next day check Cost Management for what the lab cost. *Acceptance:* the resource group is gone, the vault is purged, and you can state the cost.
+
+**Explain afterwards.** Managed identity versus a service principal with a secret; Key Vault RBAC versus access policies; why Entra-only SQL authentication; what the budget does and doesn't do (it alerts; it never stops anything); why the firewall rule here is a lab shortcut and what a private endpoint changes.
+
+**Artifact.** Your Bicep (with any changes), the deployment outputs, the KQL query and the cost.
+
+The kit's Bicep was compiled and linted; the deployment was not run in the maintainer's environment, so treat its first run as part of the lab.
+
+### Lab 7: Incident Drill
+
+**Goal.** Run an incident in the right order, and write the two documents a team keeps afterwards.
+
+**Steps.** Follow [the kit's README](https://github.com/malyna2/dotnet-handbook/tree/main/labs/45-incident-drill): deploy Lab 3's starter build as "the bad release", put production-like load on it, and run the incident with the runbook template, keeping a timeline. Roll back (start the solution build) before you know the cause, confirm recovery with the same load, then find the cause and write the post-mortem. *Acceptance:* the kit's Levels 1 to 3: timestamps for detection, communication, mitigation and recovery, with mitigation before root cause; a runbook someone else could follow; a blameless post-mortem whose action items remove the class of failure, each with an owner and a date.
+
+**Explain afterwards.** Why mitigation comes before diagnosis; what a good first status update contains; why "the developer forgot" is never a root cause; how an action item differs from a promise to be careful.
+
+**Artifact.** The runbook, the timeline and the post-mortem.
+
+## Break it
+
+- **Lab 1:** stop Debezium for a "weekend" (`break-it-slot.sh`); delete the connector without dropping the slot and watch the WAL grow with nobody reading it; restart the consumer group from the beginning and confirm your handler holds.
+- **Lab 2:** raise `PrefetchCount` to 100 with a slow handler and watch redeliveries appear; set a 10-second TTL on a queue without dead-lettering on expiry and stop the consumer.
+- **Lab 3:** put `ConfigureAwait(false)` on the blocking call and observe that it changes nothing here (ASP.NET Core has no synchronization context; the thread is blocked either way).
+- **Lab 4:** fix the leak by making the event non-static but keep the subscriber in a singleton service, and find the same leak again.
+
+## Evidence to keep
+
+In your own public portfolio repo: one folder per lab with its README (goal, what you did, the numbers with their environment header, what you'd explain in an interview), the test output before and after, and for Lab 7 the three documents. Link each folder from your story bank ([Chapter 37](#chapter-37-the-story-bank-evidence-portfolio)).
+
+## Interview hook
+
+The story to tell from these labs, in STAR, with your own numbers:
+
+```text
+Situation: I had used Service Bus and Debezium on projects where the infrastructure already existed,
+           and I wanted to understand how they fail, not only how to call them.
+Task:      Build the outbox pipeline end to end and make the consumer correct under redelivery.
+Action:    I built [PostgreSQL → Debezium → Kafka → a .NET consumer], wrote a test that replays the topic,
+           saw [points awarded twice], and fixed it with a unique claim in the same transaction as the effect.
+           Then I stopped Debezium and wrote [n] rows: the replication slot held [size] of WAL.
+Result:    The consumer passes the redelivery test; I can explain [the slot / settlement / starvation]
+           from what I measured. The repository is [link].
+```
+
+Three follow-ups to prepare: *"Why not just check Redis before processing?"* (the check and the effect can't commit together), *"What would you monitor in production?"* (slot lag in bytes, consumer-group lag, dead-letter depth, free disk on the database), and *"What did you not build that a real system needs?"* (schema registry, connector high availability, alert routing, the DLQ resubmission tool).
+
+## Hints and answers
+
+<details>
+<summary>Lab 1: the idempotent handler</summary>
+
+Insert the event ID into `processed_messages` first, with `ON CONFLICT (event_id) DO NOTHING`, inside the transaction that writes the points; if it inserted nothing, return without the effect. A concurrent copy of the same event waits on the first copy's uncommitted row and then sees the conflict. The kit's `solution/LoyaltyHandler.cs` is the reference.
+
+</details>
+
+<details>
+<summary>Lab 2: the declined card</summary>
+
+Catch the business exception and call `DeadLetterMessageAsync(message, "CardDeclined", e.Message)`; let transient exceptions escape so the processor abandons the message and Service Bus retries it.
+
+</details>
+
+<details>
+<summary>Lab 3: why SetMinThreads is the wrong fix</summary>
+
+It lets the pool create threads without its injection delay, so the blocked requests get threads sooner and the symptom shrinks. Each request still holds a thread for the whole I/O, so memory and context switching grow with load, and the next, bigger spike starves the pool again. Removing the block removes the need for the threads.
+
+</details>
+
+<details>
+<summary>Lab 4: the root</summary>
+
+The static `PriceChanged` event holds a delegate list, each delegate holds its target, the `PriceWatcher`, and each watcher holds its 64 KB buffer. A static field is a GC root, so everything it reaches stays alive. `Dispose` removes the delegate, so the watcher becomes unreachable at the end of the request.
+
+</details>
+
+
+---
+
 # Part 2 · Pay Attention To
 
 _⏱️ Estimated read time: ~5 min · 695 words (study pace)_
@@ -31818,9 +32666,760 @@ Native AOT (Ahead-Of-Time) compiles your app directly to a self-contained native
 
 ---
 
+# Appendix: Interview Priority Map
+
+_⏱️ Estimated read time: ~30 min · 6388 words (study pace)_
+
+> **What this page is for.** The eighteen topic areas a Regular (mid-level) .NET interview probes hardest, ranked, with where the book teaches each one, the wrong answer that usually ends the conversation, and the questions to expect. Every section of the book that teaches one of them carries a **🎯 Interview** callout naming its priority and linking back here. Read the chapter first; use this page to rehearse.
+
+**The marker.** A callout that starts with **🎯 Interview · P1** or **🎯 Interview · P2** marks a section an interviewer is likely to test.
+
+- **P1** topics come up in nearly every backend .NET interview and are where a wrong answer costs the most: SQL written by hand, security, messaging, memory, ASP.NET Core and async code, and five that decide whether you *understand* the systems you have used: brokers under the hood, multi-tenancy, RAG, working in a system you didn't build, and telling the depth of your experience honestly. Prepare these until you can explain the mechanism without notes.
+- **P2** topics separate a good Regular candidate from an average one and dominate the second half of a loop: architecture, REST design, EF Core in depth, Azure and delivery, testing, production incidents and the interview itself.
+
+**How to use it.** For each topic: read the sections linked under *Where it is taught*, then answer the questions out loud before you open the answers. An answer you can't give in two minutes, mechanism first, is a section to reread. The answers here are short on purpose; the chapter holds the reasoning and the code.
+
+## P1-1. SQL Written by Hand
+
+**Where it is taught.** [Window Functions](#window-functions) (ranking, running totals, top N per group), [CROSS APPLY and OUTER APPLY](#cross-apply-and-outer-apply), [Grouping and Aggregates](#grouping-and-aggregates), [Subqueries, EXISTS and CTEs](#subqueries-exists-and-ctes), [Indexes: Clustered, Non-Clustered, Covering](#indexes-clustered-non-clustered-covering), [Execution Plans](#execution-plans), [Parameter Sniffing](#parameter-sniffing), [Isolation Levels](#isolation-levels) and [Deadlocks](#deadlocks) in Chapter 7; the hands-on plans in [Chapter 19: The Slow-Query Lab](#chapter-19-the-slow-query-lab-reading-execution-plans).
+
+**Why it is asked.** Many interviews include a query written live, with no ORM to hide behind, and the follow-ups go straight to why it is slow.
+
+**The usual wrong answer.** Filtering on `ROW_NUMBER()` in the same `WHERE` that computes it, or "add an index on every column in the `WHERE`". The row number doesn't exist until `SELECT` runs, so it needs an outer query; and an index serves only its leftmost prefix, so column order decides whether it seeks at all.
+
+**Questions to expect.**
+
+**Write the top three orders per customer. What changes if ties must all be kept, and what if customers without orders must appear?**
+
+<details>
+<summary>Answer</summary>
+
+`ROW_NUMBER() OVER (PARTITION BY CustomerId ORDER BY Total DESC, Id)` in a CTE, then `WHERE Rn <= 3` outside it. Keeping ties means `RANK` (or `DENSE_RANK`) instead of `ROW_NUMBER`. Customers with no orders need the customer table on the outside: `OUTER APPLY (SELECT TOP (3) … ORDER BY Total DESC)` on SQL Server, `LEFT JOIN LATERAL … LIMIT 3` on PostgreSQL.
+
+</details>
+
+**An index exists on `(City, CreatedAt)`. Which of `City = @c`, `CreatedAt >= @d`, and `City = @c AND CreatedAt >= @d` can seek, and why?**
+
+<details>
+<summary>Answer</summary>
+
+The first and the third. The index is sorted by `City`, then by `CreatedAt` within each city, so a seek needs a contiguous range of that order. `CreatedAt >= @d` alone is spread across every city's block, so it scans. Equality columns go first, then the one range or sort column.
+
+</details>
+
+**A stored procedure is fast for most customers and slow for one, and it is fast when you run it in SSMS. What is going on?**
+
+<details>
+<summary>Answer</summary>
+
+Parameter sniffing: the cached plan was compiled for the first caller's value and is reused for everyone, which hurts when the data is skewed. SSMS has different `SET` options, so it gets its own plan. Confirm with the compiled and runtime values in the actual plan, then fix with `OPTION (RECOMPILE)`, `OPTIMIZE FOR`, a forced plan in Query Store, or SQL Server 2022's parameter sensitive plan optimization, not by flushing the cache.
+
+</details>
+
+**What is the default isolation level in SQL Server, and does a `SELECT` block behind an `UPDATE`?**
+
+<details>
+<summary>Answer</summary>
+
+Read Committed. With `READ_COMMITTED_SNAPSHOT` off (the default on a SQL Server you install) the read takes shared locks and waits for the writer; with it on (the default in Azure SQL Database) it reads the last committed row version and doesn't wait. Neither stops a lost update.
+
+</details>
+
+## P1-2. Security
+
+**Where it is taught.** [Authentication vs. Authorization](#authentication-vs-authorization), [Policy-based and role-based authorization](#policy-based-and-role-based-authorization), [OAuth 2.0, OpenID Connect, and JWTs](#oauth-20-openid-connect-and-jwts), [A01: Broken Access Control](#a01-broken-access-control), [A03: Injection](#a03-injection), [Cross-Site Scripting (XSS)](#cross-site-scripting-xss), [Anti-Forgery / CSRF](#anti-forgery-csrf), [CORS Is Not Access Control](#cors-is-not-access-control) and [Secrets Management](#secrets-management) in Chapter 12; `401` versus `403` in [Status Codes and Headers That Matter](#status-codes-and-headers-that-matter).
+
+**Why it is asked.** Every API a Regular developer ships authenticates someone and authorizes something, and the bugs here are breaches, not slow pages.
+
+**The usual wrong answer.** "The JWT is secure because it's encoded" and "we enabled CORS, so we're protected from CSRF". A JWT payload is Base64URL: signed, readable by anyone. CORS is a browser rule about reading responses; a cross-site form `POST` with a cookie still reaches the server.
+
+**Questions to expect.**
+
+**`401` or `403`: which one, when?**
+
+<details>
+<summary>Answer</summary>
+
+`401 Unauthorized` means "I don't know who you are": no credentials, or invalid ones, and it carries a `WWW-Authenticate` header. `403 Forbidden` means "I know who you are, and you may not do this". For a resource that belongs to another user or tenant, `404` hides that it exists.
+
+</details>
+
+**What is the difference between an access token and an ID token, and which one does your API accept?**
+
+<details>
+<summary>Answer</summary>
+
+OAuth 2.0 issues the access token, meant for the API (its `aud`), carrying scopes. OpenID Connect adds the ID token, meant for the client, describing who signed in. The API accepts only access tokens, validated for issuer, audience, lifetime and signature; an ID token sent as a bearer token must be rejected.
+
+</details>
+
+**`GET /orders/42` returns any user's order to any signed-in user. What is this called and how do you fix it in ASP.NET Core?**
+
+<details>
+<summary>Answer</summary>
+
+An IDOR, broken object-level authorization: authentication passed, but nobody checked ownership. Filter by owner in the query (`Where(o => o.Id == id && o.CustomerId == userId)`) or use a resource-based authorization handler, and return `404` when it doesn't match.
+
+</details>
+
+**Is `FromSql($"… WHERE Email = {email}")` safe? And `FromSqlRaw("… WHERE Email = '" + email + "'")`?**
+
+<details>
+<summary>Answer</summary>
+
+The first is safe: `FromSql` takes a `FormattableString` and turns each interpolated value into a `DbParameter`. The second is SQL injection: the string is built before EF Core ever sees it. With `FromSqlRaw`, pass values as parameters, never concatenated.
+
+</details>
+
+## P1-3. Messaging and Distributed Systems
+
+**Where it is taught.** [Peek-Lock: The Acknowledgement Is a Lease](#peek-lock-the-acknowledgement-is-a-lease), [Dead-Letter Queues (DLQ)](#dead-letter-queues-dlq), [Message Ordering](#message-ordering), [Apache Kafka — The Distributed Log](#apache-kafka-the-distributed-log), [Idempotent Consumers](#idempotent-consumers) and [The Transactional Outbox](#the-transactional-outbox) in Chapter 11; [Change Data Capture (CDC)](#change-data-capture-cdc) in Chapter 18; [Sagas: Long-Running Distributed Transactions](#sagas-long-running-distributed-transactions) and [Detecting Failure and Retrying Without Making It Worse](#detecting-failure-and-retrying-without-making-it-worse) in Chapter 20; Service Bus in [Chapter 29: Azure in Depth](#chapter-29-azure-in-depth-for-net-developers).
+
+**Why it is asked.** Most systems a Regular developer joins already have a broker, and nearly every production bug in them is a duplicate, a lost message or a message out of order.
+
+**The usual wrong answer.** "The broker guarantees exactly-once" and "we check Redis to skip duplicates". Delivery is at-least-once; a check that lives in another system than the effect, or that runs before the work instead of being the work's first write, lets duplicates through.
+
+**Questions to expect.**
+
+**A consumer charges a card and then crashes before completing the message. What happens, and how do you make that safe?**
+
+<details>
+<summary>Answer</summary>
+
+The lock expires and the message is delivered again, up to `MaxDeliveryCount` times, then dead-lettered. Make the consumer idempotent: record the message's key under a unique constraint in the same transaction as the effect, and pass the same key to the payment provider as its idempotency key, since the provider's call can't join your transaction.
+
+</details>
+
+**Why can't you save an order and then publish `OrderPlaced` in the same method, and what replaces it?**
+
+<details>
+<summary>Answer</summary>
+
+It's a dual write: the database commit and the broker publish can't be atomic, so a crash between them loses the event or publishes one for an order that rolled back. The Transactional Outbox writes the event to an outbox table in the same transaction and a relay publishes it afterwards; CDC (Debezium reading the transaction log) is the other way to get the same guarantee.
+
+</details>
+
+**Messages for one order must be processed in order. How in Kafka, and how in Service Bus?**
+
+<details>
+<summary>Answer</summary>
+
+Kafka orders only within a partition, so use the order ID as the message key: the same key always lands in the same partition, consumed by one member of the consumer group. Service Bus orders within a session: set `SessionId` to the order ID on a session-enabled entity, and one receiver holds each session at a time.
+
+</details>
+
+**What do you do with the messages in a dead-letter queue?**
+
+<details>
+<summary>Answer</summary>
+
+Alert on its depth, read the dead-letter reason, fix the cause (a bug, a poison payload, a missing dependency), then resubmit deliberately, idempotently and at a controlled rate, or discard with a record. A DLQ nobody watches is data loss with a delay.
+
+</details>
+
+## P1-4. Memory and the GC
+
+**Where it is taught.** [Garbage Collection](#garbage-collection) (generations, finalization) and [IDisposable, IAsyncDisposable, and the Dispose Pattern](#idisposable-iasyncdisposable-and-the-dispose-pattern) in Part 1; [readonly struct and ref struct](#readonly-struct-and-ref-struct); [Garbage Collection — in depth](#garbage-collection-in-depth) (LOH), [Memory and Allocations: The Quiet Performance Killer](#memory-and-allocations-the-quiet-performance-killer) (`Span<T>`, `ArrayPool`) and [Profiling: Finding the Bottleneck in a Running System](#profiling-finding-the-bottleneck-in-a-running-system) in Chapter 17; the step-by-step leak investigation in [Scenario 7](#scenario-7-the-slow-leak-memory-keeps-growing-until-the-pod-is-oom-killed) of Chapter 35.
+
+**Why it is asked.** "Memory keeps growing until the pod restarts" is one of the most common production tickets, and the interviewer wants a method, not a guess.
+
+**The usual wrong answer.** "The GC frees everything, so .NET can't leak" and "call `GC.Collect()`". A managed leak is an object still reachable from a root (a static collection, an event subscription, a long-lived closure), and the GC is right to keep it.
+
+**Questions to expect.**
+
+**Walk me through investigating an OOM in production.**
+
+<details>
+<summary>Answer</summary>
+
+Confirm the trend with `dotnet-counters` (GC heap size, Gen 2 size, LOH size, allocation rate) and rule out native or unmanaged growth. Take two `dotnet-gcdump` snapshots some minutes apart, compare which types grew, and follow the retention path to the root that keeps them alive; use `dotnet-dump` when you also need stacks or native memory. Fix the root (unsubscribe, bound the cache, dispose), then prove it with the same counters.
+
+</details>
+
+**What does `GC.SuppressFinalize(this)` do in `Dispose`, and when does a class need a finalizer at all?**
+
+<details>
+<summary>Answer</summary>
+
+It removes the object from the finalization queue, so it is collected in one pass instead of surviving into the next generation to have its finalizer run. A class needs a finalizer only if it directly owns an unmanaged handle; wrapping one in a `SafeHandle` means even that rarely applies.
+
+</details>
+
+**Why can't a `Span<T>` be a field of a class or live across an `await`?**
+
+<details>
+<summary>Answer</summary>
+
+It is a `ref struct` that may point into the stack, and the stack frame can be gone by the time the heap object or the resumed state machine uses it. A class field and an `await` both move the value to the heap, so the compiler forbids them. Use `Memory<T>` there.
+
+</details>
+
+## P1-5. ASP.NET Core
+
+**Where it is taught.** [Ordering is everything](#ordering-is-everything), [IHttpClientFactory & Resilience with Polly](#ihttpclientfactory-resilience-with-polly), [Cross-Cutting HTTP Concerns](#cross-cutting-http-concerns) (CORS, rate limiting) and [Behind a Reverse Proxy: Forwarded Headers](#behind-a-reverse-proxy-forwarded-headers) in Chapter 5; [Service lifetimes](#service-lifetimes), [Captive dependencies — the classic DI bug](#captive-dependencies-the-classic-di-bug) and [The Options pattern and binding](#the-options-pattern-and-binding) in Chapter 3; [What to Surface: ProblemDetails](#what-to-surface-problemdetails) in Chapter 9.
+
+**Why it is asked.** It is the framework of the job; the interviewer checks you understand the pipeline you configure every day rather than copy it.
+
+**The usual wrong answer.** "Middleware order doesn't matter much" and "inject a `DbContext` into the `BackgroundService` constructor". `UseAuthorization` before `UseAuthentication` sees every user as anonymous; a scoped service in a singleton is a captive dependency that lives forever.
+
+**Questions to expect.**
+
+**Put these in order and say why: authentication, routing, CORS, exception handling, authorization, rate limiting, endpoints.**
+
+<details>
+<summary>Answer</summary>
+
+Exception handling first, so it wraps everything; routing, so later middleware knows the endpoint and its metadata; CORS, so preflights are answered before auth rejects them; authentication, to set `HttpContext.User`; authorization, which needs both the user and the endpoint; endpoints last. Rate limiting goes after routing, so it can read the endpoint's policy; put it after authentication when it partitions by user, before it when it must shield the authentication work from a flood partitioned by IP. Forwarded headers go before all of them when the app runs behind a proxy.
+
+</details>
+
+**How do you use a scoped `DbContext` from a `BackgroundService`?**
+
+<details>
+<summary>Answer</summary>
+
+Inject `IServiceScopeFactory`, and in each unit of work `CreateAsyncScope()` and resolve the context from that scope. The hosted service is a singleton, so a constructor-injected scoped service would become captive and be shared across every iteration.
+
+</details>
+
+**`IOptions`, `IOptionsSnapshot` or `IOptionsMonitor`?**
+
+<details>
+<summary>Answer</summary>
+
+`IOptions<T>` is read once and is a singleton. `IOptionsSnapshot<T>` is scoped and re-reads per request, so it can't go into a singleton. `IOptionsMonitor<T>` is a singleton that always returns the current value and raises `OnChange`, which is the one a singleton or a background service needs.
+
+</details>
+
+**Behind a load balancer, `Request.Scheme` is `http` and every client IP is the proxy's. Why?**
+
+<details>
+<summary>Answer</summary>
+
+TLS ended at the proxy, which forwarded the original scheme and client IP in `X-Forwarded-Proto` and `X-Forwarded-For`, and ASP.NET Core ignores those headers until `UseForwardedHeaders` runs, and then accepts them only from known proxies (loopback by default). Enable it first in the pipeline with the proxy's network in `KnownIPNetworks`.
+
+</details>
+
+## P1-6. Async and Concurrency
+
+**Where it is taught.** [Why Async Exists: I/O-Bound vs CPU-Bound Work](#why-async-exists-io-bound-vs-cpu-bound-work), [SynchronizationContext and ConfigureAwait](#synchronizationcontext-and-configureawait), [The Sync-Over-Async Deadlock](#the-sync-over-async-deadlock), [CancellationToken: Cooperative Cancellation](#cancellationtoken-cooperative-cancellation), [Composing Concurrent Work: WhenAll and WhenAny](#composing-concurrent-work-whenall-and-whenany) and [Thread Safety: Sharing State Correctly](#thread-safety-sharing-state-correctly) in Chapter 4; [The Thread Pool Under Load](#the-thread-pool-under-load), [Task vs ValueTask](#task-vs-valuetask) and [The TPL: Parallelism for CPU-Bound Work](#the-tpl-parallelism-for-cpu-bound-work) in Chapter 17; [DbContext Lifetime and Connection Pooling](#dbcontext-lifetime-and-connection-pooling) in Chapter 7.
+
+**Why it is asked.** Async bugs pass every test and fail under load, so interviewers probe whether you know the mechanism behind them.
+
+**The usual wrong answer.** "`async` makes code run on another thread" and "wrap I/O in `Task.Run` to make it faster". An `await` on I/O holds no thread at all; `Task.Run` around I/O only moves the wait to a pool thread.
+
+**Questions to expect.**
+
+**Latency jumps, CPU is at 20%, and the database is healthy. What do you suspect and how do you confirm it?**
+
+<details>
+<summary>Answer</summary>
+
+Thread pool starvation, usually from sync-over-async (`.Result`, `.Wait()`) blocking pool threads while the pool adds new ones slowly. Confirm with `dotnet-counters`: ThreadPool Queue Length growing and Thread Count climbing step by step; a `dotnet-dump` with `parallelstacks` shows the blocked frames. The fix is async all the way down, not a larger minimum thread count.
+
+</details>
+
+**`Task.Run`, `async/await` or `Parallel.ForEach`: which for calling five HTTP APIs, and which for resizing a thousand images?**
+
+<details>
+<summary>Answer</summary>
+
+Five HTTP calls are I/O: start them and `await Task.WhenAll(...)`, no extra threads. Resizing images is CPU work: `Parallel.ForEach` (or `Parallel.ForEachAsync` with a degree of parallelism) uses the cores. `Task.Run` is for moving CPU work off a thread that must stay free, such as a UI thread, not for I/O.
+
+</details>
+
+**Why can't you `await` inside a `lock`, and what do you use instead? And why can't two tasks share one `DbContext`?**
+
+<details>
+<summary>Answer</summary>
+
+A `lock` is owned by a thread, and the code after `await` may resume on another one, so the compiler forbids it; use `SemaphoreSlim(1, 1)` with `await WaitAsync()` and `Release()` in a `finally`. A `DbContext` isn't thread-safe and allows one operation at a time, so parallel queries need one context each, created with `IDbContextFactory<T>`.
+
+</details>
+
+## P1-14. Brokers Under the Hood
+
+**Where it is taught.** [Service Bus Under the Hood](#service-bus-under-the-hood) and [Event Hubs Under the Hood](#event-hubs-under-the-hood) in Chapter 29; [Debezium Under the Hood](#debezium-under-the-hood) in Chapter 18; Labs 1 and 2 of [Chapter 45](#chapter-45-the-systems-lab-brokers-diagnostics-azure-and-incidents).
+
+**Why it is asked.** Many candidates have *used* a broker that someone else set up. The interviewer separates them by asking what happens inside: when a lock expires, where a partition's order ends, what a replication slot does while the connector is down.
+
+**The usual wrong answer.** "Event Hubs is just a faster Service Bus" and "Debezium reads the table". Event Hubs is a log that consumers read at their own positions, with no per-event settlement; Debezium reads the database's transaction log through a slot (or SQL Server's CDC tables), and the database keeps that log for it.
+
+**Questions to expect.**
+
+**Service Bus or Event Hubs for "charge this card" and for "100,000 telemetry events per second"?**
+
+<details>
+<summary>Answer</summary>
+
+Service Bus for the card: a command one consumer must act on, with locks, settlement, retries, dead-lettering and sessions. Event Hubs for telemetry: a partitioned stream that several consumer groups read and replay at their own pace, ordered per partition, with checkpoints instead of per-event acknowledgements.
+
+</details>
+
+**What happens to a message whose handler takes longer than the lock duration?**
+
+<details>
+<summary>Answer</summary>
+
+The lock expires and the message becomes visible again, so another receiver gets it with the delivery count incremented while the first handler may still be running; its `Complete` then fails with a lost lock. Lock renewal (`MaxAutoLockRenewalDuration` on the processor) prevents it for long handlers, a small prefetch avoids locks expiring in the buffer, and an idempotent handler makes the remaining duplicates harmless.
+
+</details>
+
+**Debezium was stopped over the weekend. What happened to PostgreSQL, and what happens when it restarts?**
+
+<details>
+<summary>Answer</summary>
+
+The replication slot kept every WAL segment since Debezium's last confirmed position, so the database's disk grew. On restart, Debezium resumes from its stored offset and streams the backlog, possibly re-sending records produced after the last committed offset, which the consumers must deduplicate. Monitor slot lag in bytes and free disk; consider `max_slot_wal_keep_size` and heartbeats.
+
+</details>
+
+## P1-15. Multi-Tenancy
+
+**Where it is taught.** [Multi-Tenancy](#multi-tenancy), [Beyond the Query Filter: What Else Isolates Tenants](#beyond-the-query-filter-what-else-isolates-tenants) and [Multi-Tenancy in an Interview](#multi-tenancy-in-an-interview) in Chapter 18.
+
+**Why it is asked.** Most business software (ERP, CRM, any SaaS) serves many customers from one system, and a leak between them is the worst bug the system can have.
+
+**The usual wrong answer.** "We have a global query filter, so tenants are isolated." The filter covers EF Core queries only; raw SQL, `IgnoreQueryFilters()`, caches, blob paths, background jobs and a tenant taken from a header all bypass it.
+
+**Questions to expect.**
+
+**Database per tenant, schema per tenant or a shared schema: how do you choose?**
+
+<details>
+<summary>Answer</summary>
+
+A shared schema with `TenantId` is cheapest and simplest to migrate, at the price of the largest blast radius and noisy neighbours. A database per tenant gives the strongest isolation, per-tenant backup and restore and data residency, at the price of a hundred migrations and lower density. Many products mix them: shared for the long tail, dedicated for the tenants who need or pay for it.
+
+</details>
+
+**Where does the tenant ID come from on a request, and in a background job?**
+
+<details>
+<summary>Answer</summary>
+
+On a request, from a signed claim in the access token; a subdomain or header may route, but must be checked against the claim. In a background job, from the message or job payload, set into the same scoped tenant context before any query runs, with a scope per tenant when a job loops over tenants.
+
+</details>
+
+**One tenant's month-end report slows everyone down. What do you do?**
+
+<details>
+<summary>Answer</summary>
+
+Confirm it with per-tenant metrics, contain it (a per-tenant rate limit or queue, the report moved to a read replica, indexes that start with `TenantId`), and then decide whether that tenant's size justifies its own database or a reporting store.
+
+</details>
+
+## P1-16. RAG End to End
+
+**Where it is taught.** [Retrieval-Augmented Generation (RAG)](#retrieval-augmented-generation-rag) in Chapter 33, with [Measuring Retrieval with a Golden Set](#measuring-retrieval-with-a-golden-set) and [Make or Buy: Your Own RAG Pipeline or a Managed Service](#make-or-buy-your-own-rag-pipeline-or-a-managed-service); the .NET stack in [The .NET AI stack](#the-net-ai-stack); security in [Securing AI features and agents](#securing-ai-features-and-agents).
+
+**Why it is asked.** Teams are adding retrieval-based features everywhere, and an interviewer can tell in two questions whether a candidate built one or watched a demo.
+
+**The usual wrong answer.** "We fixed the hallucinations with a better prompt." Most wrong answers come from retrieval: the right chunk wasn't retrieved, or a chunk the user may not see was. Measure recall@k on a golden set first, then work on generation.
+
+**Questions to expect.**
+
+**Walk me through the pipeline, and tell me where you'd look first when answers are wrong.**
+
+<details>
+<summary>Answer</summary>
+
+Ingest, chunk, embed, index; at query time retrieve (vector plus keyword), rerank, and generate from the top chunks with citations. When answers are wrong, look at what was retrieved for the failing questions: if the right chunk isn't there, it is chunking, embeddings or the lack of hybrid search; if it is there and the answer is still wrong, it is the prompt, the context noise or the model.
+
+</details>
+
+**How do you know a change to chunking made things better?**
+
+<details>
+<summary>Answer</summary>
+
+A golden set of real questions with labelled relevant chunks, and recall@k and MRR computed before and after, in CI. Generation is scored separately for groundedness and abstention, with a judge checked against human labels.
+
+</details>
+
+**How do you stop a user getting an answer from a document they aren't allowed to read?**
+
+<details>
+<summary>Answer</summary>
+
+Filter at retrieval time: store the document's permissions or tenant with each chunk and pass the user's groups as a filter in the search query, so forbidden chunks never reach the model. Filtering after generation is too late.
+
+</details>
+
+## P1-17. Working in a System You Didn't Build
+
+**Where it is taught.** [Getting Productive in a System You Didn't Build](#getting-productive-in-a-system-you-didnt-build) in Chapter 16; legacy code in [Chapter 24](#chapter-24-working-with-legacy-brownfield-code).
+
+**Why it is asked.** "How do you get up to speed on a large codebase?" is a standard question, and for a Regular role it is most of the first month.
+
+**The usual wrong answer.** "I read the code." Nobody reads a large system; you run it, trace one request end to end, read the tests and the history, and make a small change through the whole delivery path in the first week.
+
+**Questions to expect.**
+
+**You join a team with a large, poorly documented service. What do you do in the first week?**
+
+<details>
+<summary>Answer</summary>
+
+Run it and its tests locally, writing down every manual step; read `Program.cs` and the DI registrations for the entry points and dependencies; trace one business operation from the endpoint to the database and the events it publishes; read the tests and `git log` for the area; ship one small change through review and deployment; keep a one-page project map.
+
+</details>
+
+**A bug is in code you've never seen. How do you approach it?**
+
+<details>
+<summary>Answer</summary>
+
+Reproduce it, ideally as a failing test; find where the data turns from right to wrong by logging or breaking at the entry, middle and exit of the path; check what changed recently (`git log`, deployments, configuration and flags) and bisect if there is a good version; treat every belief as a hypothesis until a breakpoint confirms it.
+
+</details>
+
+**How do you ask a senior colleague for help?**
+
+<details>
+<summary>Answer</summary>
+
+After a time box, in the team channel, with the goal, what you tried, what you expected and what you got, and a specific question about the assumption you suspect, so the answer takes them a minute and helps the next person.
+
+</details>
+
+## P1-18. Telling the Depth of Your Experience Honestly
+
+**Where it is taught.** [The Depth Scale: Used, Understood, Built, Operated](#the-depth-scale-used-understood-built-operated), [Saying It Honestly: Phrases and CV Lines](#saying-it-honestly-phrases-and-cv-lines) and [A Self-Assessment Table](#a-self-assessment-table) in Chapter 36; the labs in [Chapter 45](#chapter-45-the-systems-lab-brokers-diagnostics-azure-and-incidents).
+
+**Why it is asked.** Interviewers probe every line of a CV until they reach the edge of the candidate's experience; the question is whether you name the edge or they find it.
+
+**The usual wrong answer.** A confident "yes, I've worked with Kafka" that collapses at the second follow-up, or the opposite, "I only used it", which hides real understanding. Say the level and what you did at it.
+
+**Questions to expect.**
+
+**"Have you worked with Debezium?" (when the platform team set it up)**
+
+<details>
+<summary>Answer</summary>
+
+"I worked with it as a consumer: the connectors were set up by the platform team. I understand how it works, the slot, the snapshot, at-least-once delivery, and I built an outbox pipeline with it in a lab, where I stopped the connector and watched the slot hold the WAL. I haven't operated it in production."
+
+</details>
+
+**"What was your role in the RAG project?"**
+
+<details>
+<summary>Answer</summary>
+
+Name the part you owned and the parts others did, with one decision you made and its result: "I owned chunking and evaluation; I built a golden set of [n] questions, and recall@5 went from [a] to [b] when we switched to [x]. Hosting and the model choice were the platform team's."
+
+</details>
+
+**"Rate yourself in Azure from 1 to 10."**
+
+<details>
+<summary>Answer</summary>
+
+Answer with levels per service instead of one number: "Service Bus and App Service: I've built on them and debugged them in production. Key Vault and managed identity: understood and set up in a lab. AKS: used, not built." It is more useful to the interviewer and harder to misread.
+
+</details>
+
+## P2-7. Architecture
+
+**Where it is taught.** [Clean, Onion, and Hexagonal Architecture](#clean-onion-and-hexagonal-architecture) and [Mediator](#mediator) in Chapter 10; [Tactical Building Blocks](#tactical-building-blocks) (aggregates), [CQRS](#cqrs), [Pipeline Behaviours: Cross-Cutting Code Around Every Handler](#pipeline-behaviours-cross-cutting-code-around-every-handler), [Monolith vs Microservices vs Modular Monolith](#monolith-vs-microservices-vs-modular-monolith) and [Worked Example: Pulling Reporting Out of the Monolith](#worked-example-pulling-reporting-out-of-the-monolith) in Chapter 21; the strangler fig in [Chapter 24](#chapter-24-working-with-legacy-brownfield-code).
+
+**Why it is asked.** The interviewer wants to hear that you choose structure for a reason and can name what it costs.
+
+**The usual wrong answer.** "CQRS means two databases and event sourcing" and "every entity needs a generic repository". CQRS at its lightest is separate command and query handlers over one database; `DbContext` already is a unit of work with repositories.
+
+**Questions to expect.**
+
+**What is the dependency rule in Clean Architecture, and where does EF Core live?**
+
+<details>
+<summary>Answer</summary>
+
+Source dependencies point inward: the domain depends on nothing, the application layer on the domain, and infrastructure (EF Core, HTTP clients, the broker) on the application layer's interfaces. EF Core sits in infrastructure; the core defines what it needs and infrastructure implements it.
+
+</details>
+
+**What is an aggregate root, and why should one transaction change only one aggregate?**
+
+<details>
+<summary>Answer</summary>
+
+It is the entity through which every change to a cluster of objects passes, so it can enforce their invariants. The aggregate is the consistency boundary: what must be true together is changed together in one transaction, and anything across aggregates is eventually consistent, through domain events.
+
+</details>
+
+**Reports are slowing down the main database. Walk me through moving reporting out.**
+
+<details>
+<summary>Answer</summary>
+
+Measure first; then go in reversible steps: a read replica, then a read model fed by the outbox or CDC, then, only if a team and a scaling need justify it, a separate service. Say what consistency the reports can live with, run old and new side by side behind a feature flag, and compare results before switching.
+
+</details>
+
+## P2-8. REST Design
+
+**Where it is taught.** [HTTP Methods and Idempotency](#http-methods-and-idempotency), [Status Codes and Headers That Matter](#status-codes-and-headers-that-matter) and [REST and OpenAPI](#rest-and-openapi) in Chapter 5; [Pagination: Never Fetch an Unbounded Result Set](#pagination-never-fetch-an-unbounded-result-set) in Chapter 18; [Concurrency: Optimistic vs Pessimistic](#concurrency-optimistic-vs-pessimistic) (`ETag`, `If-Match`) in Chapter 7; [Idempotency Keys: Making POST Retry-Safe](#idempotency-keys-making-post-retry-safe) in Chapter 20; [API Versioning & Backward Compatibility](#api-versioning-backward-compatibility) in Chapter 22; [What to Surface: ProblemDetails](#what-to-surface-problemdetails) in Chapter 9.
+
+**Why it is asked.** Designing an endpoint on a whiteboard is a common interview task, and every detail (method, status, header) is a chance to show you know the contract.
+
+**The usual wrong answer.** "Return `200` with `{ "success": false }`" and "offset pagination is fine". Status codes are what clients, proxies and retries act on; `OFFSET` reads and discards every skipped row, and pages shift when rows are inserted.
+
+**Questions to expect.**
+
+**`POST /orders` succeeded. What do you return? And when do you return `409` versus `422`?**
+
+<details>
+<summary>Answer</summary>
+
+`201 Created` with a `Location` header pointing to the new order, and usually its representation. `409 Conflict` when the request is valid but clashes with the current state (a duplicate, a version mismatch); `422 Unprocessable Content` when it is well-formed but semantically invalid. Errors go out as `ProblemDetails`.
+
+</details>
+
+**A client times out on a payment `POST` and retries. How do you avoid charging twice?**
+
+<details>
+<summary>Answer</summary>
+
+The client sends an `Idempotency-Key`; the server stores the key with the request's hash and outcome under a unique constraint, atomically with the effect, and replays the stored response for a repeat. A repeat with a different body is rejected.
+
+</details>
+
+**Two users edit the same product. How does the API stop the second save overwriting the first?**
+
+<details>
+<summary>Answer</summary>
+
+Optimistic concurrency: `GET` returns an `ETag` from the row version, the client sends it back in `If-Match`, and the update succeeds only if the version still matches; otherwise `412 Precondition Failed`. In EF Core the row version is a concurrency token, and a mismatch throws `DbUpdateConcurrencyException`.
+
+</details>
+
+## P2-9. EF Core in Depth
+
+**Where it is taught.** Chapter 7: [The N+1 Problem — Seeing It and Killing It](#the-n1-problem-seeing-it-and-killing-it), [Projections: Select Only What You Need](#projections-select-only-what-you-need), [Split Queries](#split-queries), [AsNoTracking: Read-Only Speed](#asnotracking-read-only-speed), [Set-Based Updates and Deletes: ExecuteUpdate and ExecuteDelete](#set-based-updates-and-deletes-executeupdate-and-executedelete), [Concurrency: Optimistic vs Pessimistic](#concurrency-optimistic-vs-pessimistic), [Mixing Dapper and EF Core in One Transaction](#mixing-dapper-and-ef-core-in-one-transaction) and [Migrations in CI/CD](#migrations-in-cicd); [Migrations at Scale (Zero-Downtime)](#migrations-at-scale-zero-downtime) in Chapter 18.
+
+**Why it is asked.** EF Core is where most .NET performance problems start, and the interviewer checks whether you know what SQL your LINQ sends.
+
+**The usual wrong answer.** "`Include` causes N+1" and "call `Migrate()` on startup". N+1 comes from lazy loading or a query inside a loop; `Include` does the opposite, one query, and with several collections it multiplies rows instead.
+
+**Questions to expect.**
+
+**An endpoint `Include`s two collections and got slow. What is happening, and what are the two fixes?**
+
+<details>
+<summary>Answer</summary>
+
+A cartesian explosion: one joined query returns every combination of the two collections' rows. `AsSplitQuery()` sends one query per collection (the queries can see different data if rows change between them, unless they run in a snapshot or serializable transaction), or a projection into a DTO selects only the columns the screen needs.
+
+</details>
+
+**How do you apply migrations in production with several instances, and how do you rename a column without downtime?**
+
+<details>
+<summary>Answer</summary>
+
+As a separate deployment step, from an idempotent SQL script (`dotnet ef migrations script --idempotent`) or a migration bundle, not from `Migrate()` racing in every instance. The rename is expand/contract: add the new column, write both and backfill, move reads, and drop the old column in a later release.
+
+</details>
+
+**Can Dapper and EF Core share one transaction?**
+
+<details>
+<summary>Answer</summary>
+
+Yes: open the transaction through EF Core, get its connection with `Database.GetDbConnection()` and the transaction with `GetDbTransaction()`, and pass that transaction to every Dapper call. Without the `transaction:` argument, the Dapper command fails or runs outside it.
+
+</details>
+
+## P2-10. Azure and DevOps
+
+**Where it is taught.** Chapter 29: [Identity: Entra ID, Managed Identity and RBAC, Mechanically](#identity-entra-id-managed-identity-and-rbac-mechanically), [Key Vault](#key-vault), [Azure SQL Database](#azure-sql-database), [Azure Functions](#azure-functions), [Where Background Work Runs](#where-background-work-runs), [Networking for Application Developers](#networking-for-application-developers) and [Observability: Application Insights and KQL](#observability-application-insights-and-kql); [Health probes: liveness, readiness, startup](#health-probes-liveness-readiness-startup) and [Deployment Strategies](#deployment-strategies) in Chapter 26; [What CI/CD Actually Means](#what-cicd-actually-means) in Chapter 13; [Containerizing a .NET Application](#containerizing-a-net-application) in Chapter 14; rollback and down migrations in [Migrations at Scale (Zero-Downtime)](#migrations-at-scale-zero-downtime).
+
+**Why it is asked.** Most Regular roles in .NET shops deploy to Azure, and the interviewer checks you can run what you build.
+
+**The usual wrong answer.** "Store the connection string in an environment variable in the repo" and "a liveness probe should check the database". A managed identity removes the secret; a liveness probe that depends on the database restarts every pod when the database blips.
+
+**Questions to expect.**
+
+**How does an App Service app read a Key Vault secret without any credential in its configuration?**
+
+<details>
+<summary>Answer</summary>
+
+Enable its managed identity, grant that identity a data-plane role on the vault (*Key Vault Secrets User*), and use `DefaultAzureCredential` (or a Key Vault reference in app settings). The platform issues the identity a token; no secret is stored anywhere.
+
+</details>
+
+**Liveness versus readiness: what does each check, and what goes wrong if you mix them up?**
+
+<details>
+<summary>Answer</summary>
+
+Liveness asks "is this process broken beyond repair?" and checks only the process; failing it restarts the container. Readiness asks "can it serve now?" and may check dependencies; failing it takes the pod out of the load balancer. Database checks in liveness turn a database outage into a restart storm.
+
+</details>
+
+**A release broke production. Do you run the down migration?**
+
+<details>
+<summary>Answer</summary>
+
+Usually not: redeploy the previous image, which works because the schema change was backward-compatible (expand/contract), and fix forward. A down migration that drops a column deletes the data written since the release; it is a development tool, not a rollback plan.
+
+</details>
+
+## P2-11. Testing
+
+**Where it is taught.** Chapter 8: [The Testing Pyramid](#the-testing-pyramid), [Integration Testing](#integration-testing), [In-Memory vs Real Database](#in-memory-vs-real-database), [Testcontainers for .NET](#testcontainers-for-net), [Flaky Tests](#flaky-tests) and [Fake time with TimeProvider (.NET 8+)](#fake-time-with-timeprovider-net-8).
+
+**Why it is asked.** The interviewer wants to know whether your tests would catch the bug that matters, or only pass.
+
+**The usual wrong answer.** "We test the repository with EF Core InMemory." The InMemory provider isn't a relational database: no SQL, no constraints, no transactions, so a unique-index violation that fails in production passes the test.
+
+**Questions to expect.**
+
+**Unit or integration: where is the line, and what does `WebApplicationFactory` give you?**
+
+<details>
+<summary>Answer</summary>
+
+A unit test exercises logic in memory with its collaborators faked; an integration test runs real infrastructure (HTTP pipeline, database). `WebApplicationFactory<TProgram>` hosts the real app in memory with a test `HttpClient`, so routing, filters, DI and serialization run as in production, and `ConfigureTestServices` swaps what must be swapped.
+
+</details>
+
+**How do you test code that depends on "now" or on a 30-second timeout?**
+
+<details>
+<summary>Answer</summary>
+
+Inject `TimeProvider` instead of reading `DateTime.UtcNow` or calling `Task.Delay` directly, and use `FakeTimeProvider` in the test: set the time and `Advance` it, and timers fire without waiting.
+
+</details>
+
+**A test fails once in twenty runs on CI. What do you do?**
+
+<details>
+<summary>Answer</summary>
+
+Treat it as a bug: quarantine visibly, reproduce by running it in a loop, and look for the usual causes: shared state between tests, real time, ordering assumptions, or waiting with `Thread.Sleep` instead of on a condition. Fix the cause; a retry only hides it.
+
+</details>
+
+## P2-12. Production and Incidents
+
+**Where it is taught.** [Why Structured Beats String Logging](#why-structured-beats-string-logging) and [Correlation Across Services](#correlation-across-services) in Chapter 9; [OpenTelemetry: The Standard](#opentelemetry-the-standard) and [Alerting, SLIs, SLOs, SLAs, and Error Budgets](#alerting-slis-slos-slas-and-error-budgets) in Chapter 25; [The incident cheat-card](#the-incident-cheat-card) and the scenarios of [Chapter 35: Production Incidents](#chapter-35-production-incidents); the blameless post-mortem in [Chapter 16](#chapter-16-working-like-a-middle-developer).
+
+**Why it is asked.** "Tell me about an incident" is close to universal, and the interviewer listens for order: stop the bleeding before finding the cause.
+
+**The usual wrong answer.** Debugging live while users wait, and a post-mortem that names who made the mistake. Mitigate first (roll back, flip the flag, scale), communicate, then diagnose; the review is about the system that let the mistake through.
+
+**Questions to expect.**
+
+**Walk me through how you handle a production incident.**
+
+<details>
+<summary>Answer</summary>
+
+Detect (an alert on a symptom users feel), communicate (an incident channel, one owner, a status update to support), mitigate (roll back or disable before understanding), diagnose with logs, traces and metrics joined by trace ID, fix properly, then a blameless post-mortem with owned action items and dates.
+
+</details>
+
+**How do you follow one request across three services?**
+
+<details>
+<summary>Answer</summary>
+
+W3C Trace Context: the `traceparent` header carries the trace ID across HTTP and message hops, OpenTelemetry instruments the libraries and exports the spans, and structured logs include the trace ID, so one ID finds the trace and every log line of that request.
+
+</details>
+
+**What should page someone at 3 a.m.?**
+
+<details>
+<summary>Answer</summary>
+
+A breach, or a fast burn, of an SLO that users feel: the error rate or latency of a user-facing journey, not CPU or a single failed health check. Everything else is a ticket or a dashboard.
+
+</details>
+
+## P2-13. The Interview Itself
+
+**Where it is taught.** [How to Approach Any Interview](#how-to-approach-any-interview), [Answer First: The Shape of a Spoken Technical Answer](#answer-first-the-shape-of-a-spoken-technical-answer), [Behavioral / Seniority](#behavioral-seniority) and [Three Stories to Have Ready](#three-stories-to-have-ready) in Chapter 36; the story bank lab in [Chapter 37](#chapter-37-the-story-bank-evidence-portfolio).
+
+**Why it is asked.** Half of a loop is how you explain, and behavioural rounds are often held in English even when the technical ones aren't.
+
+**The usual wrong answer.** Building up to the conclusion over two minutes, and a story that says "we" throughout and ends without a result. Lead with the answer, defend it with the mechanism and the trade-off; in a story, say what *you* did and what changed.
+
+**Questions to expect.**
+
+**"Tell me about a mistake you made."**
+
+<details>
+<summary>Answer</summary>
+
+A real mistake with consequences, told in STAR: the context in two sentences, what you decided and why it seemed right, how you found out, what you did to fix it, and what you changed so it can't happen again. The lesson is the result.
+
+</details>
+
+**"Tell me about a conflict with a colleague."**
+
+<details>
+<summary>Answer</summary>
+
+A technical disagreement, both positions stated fairly, how you settled it with data or a small experiment, and how you committed to the outcome. The interviewer is listening for ego and for "disagree and commit".
+
+</details>
+
+**"Describe the hardest technical problem you solved."**
+
+<details>
+<summary>Answer</summary>
+
+One problem, your method (reproduce, hypothesise, measure, fix, prevent) and a before-and-after number from your own work. Have it ready in English, out loud, in two minutes.
+
+</details>
+
+
+---
+
 # What's New
 
 This page is the handbook's changelog. When a new release lands, a popup announces it on your next visit. Under each release, **Site & functionality** items are plain notes, while **Content updates** link to every chapter that changed — a link is ticked off (✓, stored locally in your browser) once you visit it, so you can work through an update at your own pace and see what's still unread.
+
+## Release — November 16, 2026
+
+**🔧 Site & functionality**
+
+- A new 🎯 Interview marker, explained in the preface, flags each section an interviewer is likely to test, as P1 or P2.
+- The appendix group in the chapter list now holds more than one page.
+
+**📖 Content updates**
+
+- [Chapter 7: Data Access](#chapter-7-data-access) — `CROSS APPLY` and `OUTER APPLY`, with the top N per group they write and PostgreSQL's `LATERAL`.
+- [Chapter 7: Data Access](#chapter-7-data-access) — Parameter sniffing: why a cached plan suits one value, how to spot it, the fixes, and memory-grant spills.
+- [Chapter 7: Data Access](#chapter-7-data-access) — Read Committed with and without `READ_COMMITTED_SNAPSHOT`, and why Azure SQL behaves differently.
+- [Chapter 5: HTTP and Web APIs](#chapter-5-http-and-web-apis) — The four built-in rate limiters compared, and why rejections default to `503`.
+- [Chapter 5: HTTP and Web APIs](#chapter-5-http-and-web-apis) — Forwarded headers behind a reverse proxy, and which proxies the middleware trusts.
+- [Chapter 11: Messaging and Background Work](#chapter-11-messaging-and-background-work) — Why a Redis "processed" key is not an idempotency claim.
+- [Chapter 21: Architecture](#chapter-21-architecture) — MediatR pipeline behaviours, their order, and where they go wrong.
+- [Chapter 21: Architecture](#chapter-21-architecture) — A worked example of pulling reporting out of a monolith, one reversible step at a time.
+- [Chapter 18: Data in Depth](#chapter-18-data-in-depth) — Why a `Down` migration is not a rollback plan.
+- [Chapter 29: Azure in Depth for .NET Developers](#chapter-29-azure-in-depth-for-net-developers) — Where background work runs: hosted service, Functions, worker, Container Apps jobs or WebJobs.
+- [Chapter 36: Senior Behaviours, Career and Interviews](#chapter-36-senior-behaviours-career-and-interviews) — The shape of a spoken technical answer: the answer first, then the mechanism and the trade-off.
+- [Chapter 36: Senior Behaviours, Career and Interviews](#chapter-36-senior-behaviours-career-and-interviews) — Three STAR story skeletons to prepare in English.
+- [Appendix: Interview Priority Map](#appendix-interview-priority-map) — Thirteen interview topics ranked P1 and P2, with the usual wrong answer and questions to rehearse.
+- [Chapter 29: Azure in Depth for .NET Developers](#chapter-29-azure-in-depth-for-net-developers) — Service Bus under the hood: topics and filters, settlement, expiry, locks, prefetch and a failure table.
+- [Chapter 29: Azure in Depth for .NET Developers](#chapter-29-azure-in-depth-for-net-developers) — Event Hubs under the hood: a stream rather than messages, partitions, checkpoints and the Kafka endpoint.
+- [Chapter 18: Data in Depth](#chapter-18-data-in-depth) — Debezium under the hood: Kafka Connect, replication slots and WAL growth, snapshots, the event envelope, tombstones and the Outbox Event Router.
+- [Chapter 18: Data in Depth](#chapter-18-data-in-depth) — Multi-tenancy beyond the query filter (IDOR, tenant resolution, per-tenant limits and flags, reports, backups, GDPR) and how to discuss it in an interview.
+- [Chapter 33: Building AI-Powered Systems](#chapter-33-building-ai-powered-systems) — Measuring retrieval with a golden set, controlling hallucination, and the cost, latency and security of a RAG pipeline.
+- [Chapter 33: Building AI-Powered Systems](#chapter-33-building-ai-powered-systems) — Make or buy: your own RAG pipeline or a managed service, with a story template.
+- [Chapter 16: Working Like a Middle Developer](#chapter-16-working-like-a-middle-developer) — Getting productive in a system you didn't build: the first week, tracing a request, git history, asking good questions.
+- [Chapter 36: Senior Behaviours, Career and Interviews](#chapter-36-senior-behaviours-career-and-interviews) — The depth scale (used, understood, built, operated), honest phrasing for interviews and CVs, and a self-assessment table.
+- [Chapter 45: The Systems Lab: Brokers, Diagnostics, Azure and Incidents](#chapter-45-the-systems-lab-brokers-diagnostics-azure-and-incidents) — New: seven hands-on labs, from an outbox with Debezium to an incident drill, with verified kits.
+- [Appendix: Interview Priority Map](#appendix-interview-priority-map) — Five more P1 topics: brokers under the hood, multi-tenancy, RAG, unfamiliar systems and the depth of your experience.
 
 ## Release — October 26, 2026
 

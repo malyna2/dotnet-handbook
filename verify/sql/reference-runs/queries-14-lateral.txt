@@ -1,0 +1,19 @@
+# Environment: Intel(R) Xeon(R) Processor @ 2.10GHz, 4 vCPU, 16 GB RAM, Docker 29.9.2
+# Engines: PostgreSQL 17.11 (Debian 17.11-1.pgdg13+2); SQL Server 16.0.4295.3 CU27, collation SQL_Latin1_General_CP1_CI_AS
+# Data: schema.sql (4 customers, 8 orders, 10 order lines, 4 categories), loaded fresh before the run
+# Captured: 2026-11-04 21:25 UTC by verify.sh
+# File: verify/sql/queries/14-lateral.sql
+
+-- PostgreSQL (exit code 0)
+name|id|total
+Ada|17|30.00
+Ben|14|20.00
+Cleo|15|70.00
+Dan|NULL|NULL
+(4 rows)
+
+-- SQL Server (exit code 1)
+Msg 156, Level 15, State 1, Server 9d161e06f80a, Line 4
+Incorrect syntax near the keyword 'SELECT'.
+Msg 102, Level 15, State 1, Server 9d161e06f80a, Line 8
+Incorrect syntax near 'LIMIT'.

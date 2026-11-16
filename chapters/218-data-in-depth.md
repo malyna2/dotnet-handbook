@@ -436,6 +436,8 @@ The technique that makes this bearable is **consistent hashing** combined with m
 
 ## Migrations at Scale (Zero-Downtime)
 
+> **🎯 Interview · P2.** Running migrations with several instances, expand/contract, and why a down migration is not a rollback plan. The usual wrong answer and the questions to expect: [P2-9 in the Interview Priority Map](#p2-9-ef-core-in-depth).
+
 On a small system you run a migration, take thirty seconds of downtime, and move on. At scale that's unacceptable — and worse, some migrations lock large tables for minutes and hold up every request. The goal is **zero-downtime schema evolution**, and the governing technique is the **expand/contract** (also called parallel-change) pattern.
 
 The insight: **you cannot deploy the schema change and the code that needs it at the same instant**, because during a rolling deploy, old and new code run simultaneously against the same database. So you split every breaking change into backward-compatible steps:
@@ -450,13 +452,89 @@ Consider renaming a `Name` column to `FullName` — a one-liner that, done naive
 
 [Chapter 7](#chapter-7-data-access) decides *where* migrations run (startup or a pipeline step). **Feature flags** ([Chapter 26](#feature-flags)) pair naturally with expand/contract: they decouple *deploying* the code that uses the new shape from *releasing* it, which is exactly what you want while the schema underneath is mid-transition.
 
+> **Pay attention.** **A `Down` migration is not a rollback plan.** EF Core generates a `Down` method for every migration, and running it after a bad release looks like the database equivalent of redeploying the old image. It isn't: the `Down` of an added column drops the column, and every value written to it since the release goes with it; the `Down` of a dropped column brings it back empty. Rolling the *code* back is safe exactly when the schema is still compatible with the old code, which is what expand/contract guarantees: during the expand phase the old version still runs against the new schema. So the plan for a bad release is to redeploy the previous artifact and fix forward with a new migration. Keep `Down` for development databases, and treat a contract step (the drop) as the one change that can't be undone without a backup.
+
+
 ## Change Data Capture (CDC)
+
+> **🎯 Interview · P1.** Debezium inside: Kafka Connect, replication slots, snapshots, the event envelope, tombstones, the Outbox Event Router and what happens on restart. The usual wrong answer and the questions to expect: [P1-14 in the Interview Priority Map](#p1-14-brokers-under-the-hood).
 
 Sharded or not, large systems rarely keep all their data in one place. The catalog lives in Postgres, search lives in Elasticsearch, the recommendation engine wants a stream of events, and analytics wants everything in a warehouse. The naive approach — have the application write to all of them — is a distributed-transaction nightmare: what happens when the Postgres write succeeds but the Elasticsearch write fails?
 
 **Change Data Capture** solves this by treating the database's own change log as a source of truth. Every committed change (insert, update, delete) is captured and streamed to downstream consumers. Because it reads the write-ahead log *after commit*, a consumer sees exactly what was durably committed — no dual-write inconsistency.
 
 **Debezium** is the de facto open-source CDC platform. It plugs into a database's replication stream (Postgres logical replication, MySQL binlog, etc.) and publishes each change as an event to **Kafka**. Downstream, one consumer updates the search index, another updates a cache, another feeds analytics — all decoupled from the application, all fed from the same ordered stream.
+
+### Debezium Under the Hood
+
+Debezium is not a service you call; it is a set of **source connectors** that run inside **Kafka Connect**, a separate JVM process (or cluster of them) whose job is to move data between Kafka and other systems. Connect stores everything it needs in three Kafka topics: the connector **configs**, the **offsets** (how far each connector has read) and the **statuses**. You register a connector by posting JSON to Connect's REST API; Connect runs it as a task, and the task reads the database's change stream and produces records to Kafka.
+
+```
+ PostgreSQL ── WAL ──► replication slot ──► Debezium task (in Kafka Connect) ──► Kafka topics
+                         (holds WAL until          │  stores its position in            shop.public.orders
+                          Debezium confirms)       └► the connect_offsets topic         outbox.event.Order …
+```
+
+**How each database feeds it.**
+
+- **PostgreSQL: logical decoding.** With `wal_level=logical`, PostgreSQL decodes its write-ahead log into row changes for a **replication slot**; Debezium uses the built-in `pgoutput` plugin and a **publication** that lists the captured tables. The slot remembers the last position Debezium *confirmed*, and PostgreSQL keeps every WAL segment after it. **If Debezium stops, the slot keeps the WAL, and the disk grows** until it is full or the slot is dropped. In [Chapter 45's outbox lab](#chapter-45-the-systems-lab-brokers-diagnostics-azure-and-incidents), stopping Debezium and writing 200,000 outbox rows left the slot 152 MB behind; restarting Debezium brought it back to about 1 MB. Monitor the slot's lag (`pg_wal_lsn_diff(pg_current_wal_lsn(), confirmed_flush_lsn)` from `pg_replication_slots`), cap it with `max_slot_wal_keep_size` (PostgreSQL 13 and later) if losing the slot is better than losing the database, and drop slots whose connector is gone. Debezium's `heartbeat.interval.ms` makes it confirm progress even when the captured tables are quiet but the rest of the database is busy, which is the other way the WAL grows.
+- **SQL Server: the CDC feature.** SQL Server's own change data capture (`sys.sp_cdc_enable_db`, then `sys.sp_cdc_enable_table` per table) has SQL Server Agent jobs copy changes from the transaction log into change tables; Debezium polls those tables. The Agent must be running, the change tables have their own retention cleanup job, and a schema change to a captured table needs a new capture instance.
+
+**Snapshots.** A new connector has no offset, so by default (`snapshot.mode=initial`) it first reads the current contents of the captured tables, emitting each row as a read event (`op: "r"`), and then streams changes from the position where the snapshot began. `no_data` skips the snapshot (right for an outbox table, whose old rows are already published), `initial_only` snapshots and stops, `when_needed` snapshots again if the stored offset is no longer available in the log. *Incremental snapshots*, triggered through a signalling table, re-read a table in chunks while streaming continues.
+
+**The schema history.** For SQL Server and MySQL, Debezium must know each table's schema *as it was* at every point in the log, so it records DDL in an internal **schema history topic** (`schema.history.internal.kafka.topic`). The connector needs a table's schema in that topic before it can capture the table, so treat the topic as part of the connector's state: don't let retention or a clean-up delete it (the `snapshot.mode=recovery` option rebuilds a lost one). The PostgreSQL connector doesn't need one, because `pgoutput` sends the relation's structure along with the changes.
+
+**The event.** Each change becomes one Kafka record whose key is the row's primary key and whose value is an envelope:
+
+```json
+{
+  "before": null,
+  "after":  { "id": 42, "customer_id": 7, "total": 120.00 },
+  "source": { "connector": "postgresql", "db": "shop", "table": "orders", "lsn": 24064704, "txId": 584, "snapshot": "false" },
+  "op": "c",
+  "ts_ms": 1556890294484
+}
+```
+
+`op` is `c` (create), `u` (update), `d` (delete), `r` (read during a snapshot) or `t` (truncate). An update carries both `before` and `after`; for PostgreSQL, how much of the old row `before` holds depends on the table's `REPLICA IDENTITY`: only the primary key under `DEFAULT`, every column under `FULL`. A delete has `after: null`, and, with the default `tombstones.on.delete=true`, it is followed by a **tombstone**: a record with the same key and a null value, which is what lets Kafka's log compaction finally remove every record for that key. A consumer must accept null values.
+
+**The Outbox Event Router.** Streaming raw table changes publishes your *schema* as your contract. The outbox pattern publishes *events* instead, and Debezium's Outbox Event Router single message transformation turns each outbox row into one clean message: the topic is `outbox.event.<aggregatetype>`, the key is `aggregateid` (so all events of one order land in one partition, in order), the value is the `payload` column, and the row's `id` goes into a header for deduplication. The lab's connector:
+
+```json
+{
+  "name": "outbox-connector",
+  "config": {
+    "connector.class": "io.debezium.connector.postgresql.PostgresConnector",
+    "plugin.name": "pgoutput",
+    "database.hostname": "postgres",
+    "database.port": "5432",
+    "database.user": "lab",
+    "database.password": "lab",
+    "database.dbname": "shop",
+    "topic.prefix": "shop",
+    "slot.name": "outbox_slot",
+    "publication.autocreate.mode": "filtered",
+    "table.include.list": "public.outbox",
+    "snapshot.mode": "no_data",
+    "tombstones.on.delete": "false",
+    "heartbeat.interval.ms": "10000",
+    "key.converter": "org.apache.kafka.connect.storage.StringConverter",
+    "value.converter": "org.apache.kafka.connect.json.JsonConverter",
+    "value.converter.schemas.enable": "false",
+    "transforms": "outbox",
+    "transforms.outbox.type": "io.debezium.transforms.outbox.EventRouter",
+    "transforms.outbox.table.expand.json.payload": "true",
+    "transforms.outbox.table.fields.additional.placement": "type:header:eventType"
+  }
+}
+```
+
+**Guarantees.** Debezium is at-least-once. After a crash, Connect restarts the task from the last *committed* offset, so the records produced since then are produced again; the router's event-id header is what the consumer deduplicates on ([Idempotent Consumers](#idempotent-consumers)). Ordering holds per key, because one key maps to one partition; there is no order across keys. **Lag** has two places to watch: how far the slot (or the CDC tables) is behind the log, and how far each consumer group is behind the topic.
+
+**Schema evolution.** Adding a nullable column flows through without fuss. Renaming or dropping one changes every downstream consumer's input, which is why the outbox's explicit event types age better than raw change events. With Avro or JSON Schema and a schema registry, compatibility rules catch a breaking change at the producer instead of in production.
+
+> **Pay attention.** **"Debezium went down for the weekend" is a database incident, not a messaging one.** Kafka was fine and the consumers were idle, but the replication slot kept every WAL segment written since Friday. The alert that would have caught it is on the slot's lag in bytes and on free disk on the database server, not on the connector's status page.
+
 
 ### Transactional Outbox vs. CDC
 
@@ -481,6 +559,8 @@ No single database is good at everything, and some data shapes fit other models 
 The same idea, applied to one service's own data, is a **CQRS read store** ([Chapter 21](#chapter-21-architecture) teaches the pattern): writes go to a normalized transactional model, reads are served from stores shaped exactly for how they are queried (pre-joined, denormalized, indexed for one screen), kept up to date asynchronously, often from the same event or CDC stream. You accept eventual consistency in exchange for read models that are fast and don't compete with writes. And under all of it sit the caching layers (in-process, Redis, HTTP and CDN at the edge); CDC can drive precise cache invalidation too, by streaming the exact rows that changed.
 
 ## Multi-Tenancy
+
+> **🎯 Interview · P1.** Isolation models, query filters and `IgnoreQueryFilters`, tenant resolution, cross-tenant IDOR, per-tenant limits and flags, migrations, backups and GDPR. The usual wrong answer and the questions to expect: [P1-15 in the Interview Priority Map](#p1-15-multi-tenancy).
 
 A **multi-tenant** application serves many independent customers (tenants) from shared infrastructure. The central engineering tension is **isolation vs. efficiency**: strong isolation (separate everything) is safe but expensive; strong sharing (everything in one place) is cheap but risky. There are three canonical models along that spectrum.
 
@@ -563,6 +643,60 @@ Now `context.Invoices.ToList()` returns only the current tenant's invoices — t
 **Noisy neighbors** are the flip side of density. In shared-schema, one tenant running a giant report or a runaway query consumes CPU, I/O, and connections that everyone else needs, and everyone's latency suffers. Mitigations range from soft (per-tenant rate limits, query timeouts, separate connection pools for heavy operations) to hard (move the offender to a dedicated database — the isolation model itself is the ultimate noisy-neighbor fix). This is precisely why big-spending tenants often get their own database: they're paying to *not* share.
 
 **Per-tenant scaling and cost** tie scale and tenancy together. Sharding and multi-tenancy converge: when you shard a multi-tenant system by `TenantId`, each shard is essentially a group of tenants, and moving a hot tenant to its own shard *is* resharding. The economics are the core of the SaaS business model — density (many tenants per resource) drives your gross margin, while isolation drives your ability to serve enterprise and regulated customers. The senior engineer's job is to place each tenant at the right point on that spectrum: pack the small ones tightly, isolate the large and sensitive ones, and build the tooling to move a tenant from one model to the other as they grow.
+
+### Beyond the Query Filter: What Else Isolates Tenants
+
+A global query filter protects queries that go through EF Core. Everything else needs its own guard:
+
+- **Cross-tenant IDOR.** `GET /invoices/9001` with a valid token from tenant A for an invoice of tenant B. The filter catches it *if* the lookup goes through the filtered `DbSet`; a `FindAsync` on a context built without the tenant, a Dapper query, a cache keyed by invoice ID alone, or a background job that runs with `IgnoreQueryFilters()` does not. Put the tenant into every cache key and blob path, and test the negative case explicitly: a request with tenant A's token for tenant B's resource must get `404`.
+- **Where the tenant comes from.** A claim in the access token (`tenant_id`) is the strongest source, because the identity provider signed it. A subdomain or a header is fine for routing but must be *checked against* the token's tenant, never trusted on its own: a header is whatever the client sends. Resolve the tenant once per request in middleware, store it in a scoped `ITenantContext`, and fail closed when it is missing.
+- **Background work.** A message consumer or a nightly job has no HTTP request and no token. The tenant must travel in the message (a header or a field) and be set into the same `ITenantContext` before any query runs; a job that loops over tenants should create a scope per tenant.
+- **Per-tenant configuration and feature flags.** Tenants differ in plan, limits, enabled modules and rollout ring. Keep it as data (a `TenantSettings` row or an App Configuration label per tenant), cached per tenant, and evaluate feature flags with the tenant as the targeting key, so a risky feature reaches one pilot tenant before a hundred.
+- **Noisy neighbours, per tenant.** Partition rate limits by tenant, so one tenant's import drains its own budget and not everyone's:
+
+```csharp
+builder.Services.AddRateLimiter(o =>
+{
+    o.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+    o.AddPolicy("per-tenant", http =>
+    {
+        // One bucket per tenant: a tenant's batch import drains its own bucket, not everyone's.
+        string tenant = http.User.FindFirstValue("tenant_id") ?? "anonymous";
+        return RateLimitPartition.GetTokenBucketLimiter(tenant, _ => new TokenBucketRateLimiterOptions
+        {
+            TokenLimit = 200,
+            TokensPerPeriod = 50,
+            ReplenishmentPeriod = TimeSpan.FromSeconds(1),
+            QueueLimit = 0,
+        });
+    });
+});
+```
+
+  The same idea applies below the API: separate queues or sessions per tenant for heavy background work, and a statement timeout or a resource-governor workload group for ad-hoc reports.
+- **Reports.** Cross-tenant analytics and heavy per-tenant reports are the usual source of noisy-neighbour load. Run them on a read replica or a reporting store ([Chapter 21's reporting example](#worked-example-pulling-reporting-out-of-the-monolith)), and make sure every reporting index *starts* with `TenantId`, so a tenant's report seeks to its own rows instead of scanning everyone's.
+- **Backups, restore and GDPR.** In a shared schema, a database backup holds every tenant, so "restore tenant A to yesterday" means restoring into a side database and copying A's rows back, and that procedure must be written and rehearsed before anyone needs it. A tenant's erasure request means deleting or anonymising its rows everywhere: tables, search indexes, caches, blob containers, logs and analytics copies, which is only feasible if each of those is keyed by tenant. Backups can't be edited, so document the retention period after which an erased tenant's data leaves the backups too. Data-residency requirements (a tenant whose data must stay in the EU) are often what forces a tenant into its own database.
+
+### Multi-Tenancy in an Interview
+
+The questions that come up, and what a strong answer contains:
+
+- *"How would you isolate tenants in a new SaaS product?"* Shared schema with `TenantId` and a global query filter by default; a database per tenant for tenants that pay for isolation or have residency requirements; name the cost of each (one migration versus a hundred, density versus blast radius).
+- *"What can still leak data between tenants with a global filter?"* Raw SQL and Dapper, `IgnoreQueryFilters()`, caches and blob paths without the tenant, background jobs without a tenant context, and a tenant taken from a header instead of the token.
+- *"One tenant slows everyone down. What do you do?"* Find it (metrics and logs carry the tenant ID), contain it (a per-tenant rate limit, a separate queue, the report on a replica), then decide whether that tenant belongs in its own database.
+- *"How do you migrate a hundred tenant databases?"* A migration bundle or idempotent script run by a pipeline over the tenant list, in waves (pilot tenants first), with every change backward-compatible (expand/contract) so old and new code work during the rollout, and a report of which tenants are on which version.
+
+A template for telling your own experience, with the brackets filled from your project and nothing else:
+
+```text
+Situation: An ERP serving [number] client companies from [shared schema / database per tenant] on [stack].
+Task:      I worked on [feature or problem], which had to stay isolated per tenant and [constraint].
+Action:    I [what you did: e.g. added the tenant to the cache keys / wrote the per-tenant migration runner /
+           moved the heavy report to a replica], and verified isolation with [test: a request with tenant A's
+           token for tenant B's data returning 404].
+Result:    [measured outcome]. What I would do differently: [one sentence].
+```
+
 
 ## Practice
 

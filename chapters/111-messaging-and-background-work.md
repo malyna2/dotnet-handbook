@@ -327,6 +327,8 @@ Notice how little broker-specific code there is. `Publish` vs `Send`: **Publish*
 
 ## Delivery Guarantees
 
+> **🎯 Interview · P1.** Peek-lock and at-least-once delivery, duplicates, idempotent consumers, the outbox, dead-lettering, sessions and Kafka partition ordering. The usual wrong answer and the questions to expect: [P1-3 in the Interview Priority Map](#p1-3-messaging-and-distributed-systems).
+
 Getting this wrong loses or duplicates data. There are three possible guarantees:
 
 - **At-most-once.** Fire and forget. The message is delivered zero or one times — it may be lost, never duplicated. Fast, simplest, acceptable for high-volume telemetry where losing one reading doesn't matter.
@@ -377,6 +379,9 @@ public async Task Consume(ConsumeContext<OrderPlaced> context)
 Walk the second copy through it. Its insert waits on the first copy's uncommitted key. If the first commits, the insert fails with a duplicate-key error and the consumer returns before the effect; if the first rolls back, the claim disappears with it, and the second copy does the work. [Chapter 20: Idempotency Keys](#idempotency-keys-making-post-retry-safe) applies the same mechanism to a retried HTTP `POST`. An effect outside your database, such as a payment API, can't join the transaction: pass the message's key to it as the provider's idempotency key as well.
 
 > **Best practice:** design every consumer to be idempotent *by default*; it's cheaper than chasing exactly-once delivery. Use natural keys where you can: a consumer that inserts the order under a unique order ID has its claim built in, with no separate processed-messages table.
+
+> **Pay attention.** **A "processed" key in Redis is a second system, not a claim.** A common shortcut records handled message IDs in Redis (`SET id 1 NX`) and the effect in the database. The two writes can't commit together. Set the key first and crash before the database commit, and the redelivery is skipped: the effect is lost. Commit the effect first and crash before setting the key, and the redelivery does the work again. `SET NX` is atomic *within Redis*, which makes it a fine fast filter in front of the real check, but the claim that counts is the unique key written in the same database transaction as the effect, as above. If the effect itself lives in Redis, the claim has to live there too, in the same command or Lua script.
+
 
 ### The Transactional Outbox
 

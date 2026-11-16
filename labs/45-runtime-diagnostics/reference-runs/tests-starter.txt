@@ -1,0 +1,31 @@
+# Environment: Intel(R) Xeon(R) Processor @ 2.10GHz, 4 vCPU, 15 GB RAM
+# .NET SDK 10.0.114; dotnet-counters and dotnet-gcdump 10.0.745401; Release build
+# Captured: 2026-11-05 10:43 UTC by verify.sh
+
+Running tests from /home/user/dotnet-handbook/labs/45-runtime-diagnostics/tests/DiagLab.Tests/bin/Debug/net10.0/DiagLab.Tests.dll (net10.0|x64)
+failed DiagLab.Tests.DiagTests.A_watcher_does_not_outlive_its_request (331ms)
+  from /home/user/dotnet-handbook/labs/45-runtime-diagnostics/tests/DiagLab.Tests/bin/Debug/net10.0/DiagLab.Tests.dll (net10.0|x64)
+  100 watchers are still subscribed to the static PriceFeed, and rooted by it
+    at DiagLab.Tests.DiagTests.A_watcher_does_not_outlive_its_request() in /home/user/dotnet-handbook/labs/45-runtime-diagnostics/tests/DiagLab.Tests/DiagTests.cs:39
+    --- End of stack trace from previous location ---
+[+0/x1/?0] DiagLab.Tests.dll (net10.0|x64)(2s)
+
+[+0/x1/?0] DiagLab.Tests.dll (net10.0|x64)(5s)
+
+[+0/x1/?0] DiagLab.Tests.dll (net10.0|x64)(8s)
+
+failed DiagLab.Tests.DiagTests.Two_hundred_concurrent_quotes_finish_in_about_two_round_trips (8s 009ms)
+  from /home/user/dotnet-handbook/labs/45-runtime-diagnostics/tests/DiagLab.Tests/bin/Debug/net10.0/DiagLab.Tests.dll (net10.0|x64)
+  200 quotes took 7.9 s; threads now 57
+    at DiagLab.Tests.DiagTests.Two_hundred_concurrent_quotes_finish_in_about_two_round_trips() in /home/user/dotnet-handbook/labs/45-runtime-diagnostics/tests/DiagLab.Tests/DiagTests.cs:27
+    --- End of stack trace from previous location ---
+/home/user/dotnet-handbook/labs/45-runtime-diagnostics/tests/DiagLab.Tests/bin/Debug/net10.0/DiagLab.Tests.dll (net10.0|x64) failed with 2 error(s) (8s 942ms)
+Exit code: 2
+
+Test run summary: Failed!
+  total: 2
+  failed: 2
+  succeeded: 0
+  skipped: 0
+  duration: 9s 207ms
+Test run completed with non-success exit code: 2 (see: https://aka.ms/testingplatform/exitcodes)

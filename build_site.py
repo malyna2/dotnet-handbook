@@ -57,7 +57,7 @@ PART_RANGES = [
     (235, 237, "Part 2 · Incidents, Seniority and Career"),
     (238, 243, "Part 2 · Beyond Senior: The Trusted Advisor"),
     (244, 299, "Part 2 · Capstone and Review"),
-    (900, 900, "Appendix"),
+    (900, 998, "Appendix"),
     (999, 10**9, "What's New"),
 ]
 # Old chapter and section addresses -> where they live now, so old links and bookmarks still open.

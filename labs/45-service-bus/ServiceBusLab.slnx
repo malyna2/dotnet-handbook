@@ -1,0 +1,3 @@
+<Solution>
+  <Project Path="tests/ServiceBusLab.Tests/ServiceBusLab.Tests.csproj" />
+</Solution>

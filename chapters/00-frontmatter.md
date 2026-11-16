@@ -21,6 +21,8 @@ This book grew out of a simple roadmap — a checklist of "things a middle .NET 
 
 *Pay attention* callouts spell out the mechanism behind the most common wrong answer, the one an interviewer's "why?" finds. Where a topic is taught in another chapter, the text links there instead of repeating it.
 
+**🎯 Interview markers.** A callout that opens with **🎯 Interview · P1** or **🎯 Interview · P2** marks a section an interviewer is likely to test: P1 for the topics that come up in nearly every backend .NET interview at Regular (mid) level, P2 for those that decide the second half of the loop. Each one links to its entry in the [Appendix: Interview Priority Map](#appendix-interview-priority-map), with the usual wrong answer and the questions to expect.
+
 ---
 
 ## Contents

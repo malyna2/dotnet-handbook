@@ -1,0 +1,43 @@
+# Environment: Intel(R) Xeon(R) Processor @ 2.10GHz, 4 vCPU, 15 GB RAM, Docker 29.9.2
+# Stack: servicebus-emulator:2.0.1 on SQL Server 2022 CU27; Azure.Messaging.ServiceBus 7.20.2; .NET SDK 10.0.114
+# Captured: 2026-11-05 10:40 UTC by verify.sh (lock duration 5 s, scaled down from the 1-minute default)
+
+Running tests from /home/user/dotnet-handbook/labs/45-service-bus/tests/ServiceBusLab.Tests/bin/Debug/net10.0/ServiceBusLab.Tests.dll (net10.0|x64)
+[+0/x0/?0] ServiceBusLab.Tests.dll (net10.0|x64)(2s)
+
+[+0/x0/?0] ServiceBusLab.Tests.dll (net10.0|x64)(5s)
+
+failed ServiceBusLab.ServiceBusTests.A_declined_card_is_charged_once_and_dead_lettered_with_a_reason (603ms)
+  from /home/user/dotnet-handbook/labs/45-service-bus/tests/ServiceBusLab.Tests/bin/Debug/net10.0/ServiceBusLab.Tests.dll (net10.0|x64)
+  Assert.Equal() Failure: Strings differ
+             ↓ (pos 0)
+  Expected: "CardDeclined"
+  Actual:   "MaxDeliveryCountExceeded"
+             ↑ (pos 0)
+    at ServiceBusLab.ServiceBusTests.A_declined_card_is_charged_once_and_dead_lettered_with_a_reason() in /home/user/dotnet-handbook/labs/45-service-bus/tests/ServiceBusLab.Tests/ServiceBusTests.cs:154
+    at ServiceBusLab.ServiceBusTests.A_declined_card_is_charged_once_and_dead_lettered_with_a_reason() in /home/user/dotnet-handbook/labs/45-service-bus/tests/ServiceBusLab.Tests/ServiceBusTests.cs:155
+    at ServiceBusLab.ServiceBusTests.A_declined_card_is_charged_once_and_dead_lettered_with_a_reason() in /home/user/dotnet-handbook/labs/45-service-bus/tests/ServiceBusLab.Tests/ServiceBusTests.cs:155
+    at ServiceBusLab.ServiceBusTests.A_declined_card_is_charged_once_and_dead_lettered_with_a_reason() in /home/user/dotnet-handbook/labs/45-service-bus/tests/ServiceBusLab.Tests/ServiceBusTests.cs:155
+    --- End of stack trace from previous location ---
+  Standard output
+    charges: 5; dead-letter reason: MaxDeliveryCountExceeded
+    
+  Error output
+[+2/x1/?0] ServiceBusLab.Tests.dll (net10.0|x64)(8s)
+
+[+2/x1/?0] ServiceBusLab.Tests.dll (net10.0|x64)(11s)
+
+[+4/x1/?0] ServiceBusLab.Tests.dll (net10.0|x64)(14s)
+
+[+4/x1/?0] ServiceBusLab.Tests.dll (net10.0|x64)(17s)
+
+/home/user/dotnet-handbook/labs/45-service-bus/tests/ServiceBusLab.Tests/bin/Debug/net10.0/ServiceBusLab.Tests.dll (net10.0|x64) failed with 1 error(s) (19s 922ms)
+Exit code: 2
+
+Test run summary: Failed!
+  total: 6
+  failed: 1
+  succeeded: 5
+  skipped: 0
+  duration: 20s 366ms
+Test run completed with non-success exit code: 2 (see: https://aka.ms/testingplatform/exitcodes)

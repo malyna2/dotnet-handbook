@@ -72,6 +72,8 @@
 
 ## Співбесіди: як перетворити поведінку на відповіді
 
+> **🎯 Співбесіда · P2.** Спершу відповідь, потім обґрунтування й компроміси; STAR-історії англійською, підготовлені до співбесіди. Типова хибна відповідь і питання, яких варто чекати: [P2-13 у карті пріоритетів для співбесіди](#p2-13-the-interview-itself).
+
 За годину співбесіди доводиться стисло показати все описане вище, і оцінюють те, що можуть почути. Технічні питання містяться у відповідних розділах — кожен завершується підрозділом *Запитання для співбесіди*. Тут ідеться про універсальний підхід і поведінкові запитання, що безпосередньо перевіряють досвідченість.
 
 ### Як підходити до будь-якої співбесіди
@@ -92,6 +94,20 @@
 
 **Як показати досвідченість, а не лише знання фактів?**
 Говоріть про компроміси, режими відмови, експлуатацію й витрати, а не лише про типовий сценарій. Молодші розробники пояснюють, як щось працює; досвідчені — коли *не* слід цього використовувати й що може зламатися о третій ночі.
+
+### Спершу відповідь: форма усної технічної відповіді
+
+Більшість технічних питань на співбесіді рівня Regular відповідають уголос за одну-дві хвилини, і вже з першого речення інтерв’юер вирішує, чи знаєте ви відповідь. Дайте йому це речення першим, а потім підкріпіть його:
+
+1. **Відповідь одним реченням.** «Read Committed, а те, чи блокуються читання, залежить від `READ_COMMITTED_SNAPSHOT`.»
+2. **Механізм, завдяки якому це правда.** «Без нього читачі беруть спільні блокування й чекають на записувачів; з ним вони читають останню закомічену версію рядка.»
+3. **Компроміс або пастка.** «RCSI коштує місця у сховищі версій у `tempdb` і все одно не запобігає втраченим оновленням.»
+4. **Де ви з цим стикалися**, якщо є такий досвід, одним реченням. «Ми ввімкнули його, коли `SELECT` почали падати з тайм-аутом за нічним пакетним завданням.»
+
+На цьому зупиніться й дайте інтерв’юерові потягнути ту нитку, яка його цікавить. Довга відповідь, що поступово підводить до висновку, втрачає інтерв’юера раніше, ніж з’явиться суть; коротка, що закінчується компромісом, запрошує до уточнювального питання, до якого ви готові. Коли чесна відповідь — «залежить», назвіть, від чого саме, і того ж подиху оберіть варіант за замовчуванням.
+
+> **Рекомендація.** Тренуйте вголос і англійською перше речення відповідей на питання з [Додатка: карта пріоритетів для співбесіди](#appendix-interview-priority-map), записуючи себе. Якщо перше речення триває довше за десять секунд, це ще не відповідь.
+
 
 ### Поведінкові питання й досвідченість
 
@@ -118,6 +134,90 @@
 Наведіть дані, а не скарги: оцінку, компроміси й варіанти (скоротити обсяг, розбити доставку на етапи, погодитися з ризиком або перенести дату). Дайте зацікавленим сторонам змогу обрати, знаючи всі обставини. Досвідчений підхід — перетворити «ні» на «ось компроміси — який варіант ви обираєте?»
 
 > **Уточнення:** *Розкажіть про випадок, коли вам довелося ухвалювати рішення без повної інформації.* Покажіть, як обмежили ризик: зробили зворотний вибір, випустили невелике рішення, щоб навчитися, призначили момент повторного оцінювання та повідомили про невизначеність, а не вдавали впевненість.
+
+### Три історії, які варто мати напоготові
+
+Поведінкові раунди обертаються навколо невеликого набору запитів, і три історії покривають більшість із них: помилка, конфлікт і складна технічна задача з числом наприкінці. Підготуйте кожну англійською, у форматі STAR, приблизно на дві хвилини, з власної роботи. Скелети нижче задають форму; кожну дужку заповнюєте ви, а числа мають бути справжніми, такими, які ви зможете захистити в уточнювальних питаннях. Історія про реального роботодавця лишається у ваших приватних нотатках; [Розділ 37](#chapter-37-the-story-bank-evidence-portfolio) показує, як зібрати й відрепетирувати банк історій.
+
+```text
+**Story 1: a mistake** (also answers "a failure", "a bad decision", "what did you learn")
+Situation: On [project], we [context in one sentence].
+Task:      I was responsible for [the thing that went wrong].
+Action:    I chose [decision] because [why it seemed right]. It caused [consequence],
+           which I noticed when [signal]. I [fixed it how], and told [who] [when].
+Result:    [impact, measured]. Since then I [the practice you changed], and the team
+           [the safeguard: a test, a check, a review rule].
+
+**Story 2: a conflict** (also answers "a disagreement", "pushing back", "working with a difficult colleague")
+Situation: [colleague's role] and I disagreed about [technical choice].
+Task:      We had to decide by [deadline] because [why it mattered].
+Action:    I wrote down both options and their trade-offs: [A: pro/con], [B: pro/con].
+           I proposed [a spike / a measurement / a time-boxed trial]. It showed [finding].
+           We chose [option]; I [committed to it / changed my mind] and [what I did next].
+Result:    [outcome]. What I took from it: [one sentence].
+
+**Story 3: a hard technical problem** (also answers "your proudest work", "a difficult bug")
+Situation: [system] was [symptom], affecting [who / how many].
+Task:      I owned [the investigation / the fix].
+Action:    I reproduced it by [how], ruled out [hypothesis] with [tool and evidence],
+           and found [root cause]. I fixed it by [change] and prevented a repeat with
+           [test / alert / design change].
+Result:    [metric] went from [before] to [after], measured with [how].
+```
+
+> **Пастка.** Казати «ми» впродовж усієї частини Action. Наймають вас, а не команду: кажіть «я» про те, що робили ви, і «ми» лише про те, що команда вирішила разом, і тримайте Situation достатньо короткою, щоб Action і Result отримали більшу частину двох хвилин.
+
+
+### Шкала глибини: користувався, розумію, будував, експлуатував
+
+> **🎯 Співбесіда · P1.** Як описати, що ви насправді робили з технологією, не применшуючи й не перебільшуючи. Типова хибна відповідь і питання, яких варто чекати: [P1-18 у карті пріоритетів для співбесіди](#p1-18-telling-the-depth-of-your-experience-honestly).
+
+«Ви працювали з Kafka?» має чотири чесні відповіді, і інтерв’юери уточнюють, доки не зрозуміють, яка з них ваша. Скажіть це самі першими.
+
+| Рівень | Що це означає | На що ви можете відповісти | Як це сказати |
+|---|---|---|---|
+| **1. Користувався** | Ви працювали в системі, де це вже було налаштовано: надсилали чи споживали через наявну обгортку | для чого це, API, який ви викликали, симптоми, які бачили | «I worked with it as a consumer: the infrastructure was set up by the platform team, and I wrote the handlers for [X].» |
+| **2. Розумію** | Ви знаєте, як це працює всередині й чому: блокування, партиції, offsets, слоти | питання «що станеться, коли…»; чому стався збій | «I understand the delivery model well enough to [design idempotent consumers / debug redeliveries]; I haven't built the infrastructure myself.» |
+| **3. Будував** | Ви налаштовували чи розширювали це: писали конфігурацію конектора, топологію, IaC, outbox | компроміси, які ви обрали, і що відкинули | «I built [the outbox and the Debezium connector] for [service]; I chose [X] over [Y] because [reason].» |
+| **4. Експлуатував** | Ви вели це в продакшені: чергування, оновлення, ємність, інциденти | режими збоїв із досвіду, числа, runbooks | «I was on call for it for [period]; the incident I remember best is [one line], and we changed [practice] after it.» |
+
+Лабораторні в [Розділі 45](#chapter-45-the-systems-lab-brokers-diagnostics-azure-and-incidents) існують, щоб перевести технологію з рівня 1 на рівень 2, а частково й на 3, на вашій власній машині. Кажіть про це прямо: «I haven’t run Debezium in production, but I built an outbox pipeline with it in a lab and broke it on purpose: I stopped the connector and watched the replication slot hold 150 MB of WAL.» Така відповідь сильніша за розмите «так», бо показує, що ви знаєте і де це знання закінчується.
+
+### Чесні формулювання: фрази й рядки резюме
+
+Для розробника, який розширював інфраструктуру, збудовану іншими, чесне формулювання водночас найсильніше, бо воно конкретне:
+
+- «The Service Bus namespace and topology existed when I joined. I added [n] consumers, made them idempotent after [a duplicate-payment bug], and set up the dead-letter alert.»
+- «I didn’t design the multi-tenant model, but I worked inside it for a year across [100+] client companies: I [specific change], and I know where it leaks, because I [fixed one such case].»
+- «On the RAG project I owned [the chunking and evaluation part]; the hosting and the model choice were [someone else’s].»
+- Коли не знаєте: «I haven’t done that. Here is how I’d approach it: [mechanism]. I’d verify [assumption] first.»
+
+У резюме рівень несе дієслово, тож обирайте його свідомо: *worked with* чи *integrated* (рівень 1), *designed* чи *debugged* конкретну частину (рівень 2), *built*, *implemented* чи *migrated* (рівень 3), *ran*, *was on call for*, *operated* (рівень 4). Кожен рядок має витримати уточнення «tell me more»; рядок, який ви не можете захищати п’ять хвилин, шкодить більше, ніж допомагає. Числа — з вашої власної роботи, з контекстом, що робить їх правдою (`[metric] from [a] to [b] over [period]`), і ніколи не оцінки, видані за результати.
+
+### Таблиця самооцінки
+
+Скопіюйте її у свої приватні нотатки, для кожного рядка вкажіть рівень за шкалою вище й одне речення доказу і повторюйте кожні кілька місяців. Вона показує, де лабораторна чи розділ піднімуть вас на рівень вище; вона для вас, а не для резюме, і не потрапляє в жоден публічний репозиторій.
+
+```text
+| Technology / topic                    | Level (1-4) | Evidence (what I did, where)  | Next step               |
+|---------------------------------------|-------------|-------------------------------|-------------------------|
+| SQL: plans, indexes, isolation        |             |                               |                         |
+| EF Core in depth                      |             |                               |                         |
+| ASP.NET Core pipeline, DI, options    |             |                               |                         |
+| Async, thread pool, diagnostics       |             |                               |                         |
+| Memory and GC, dotnet-counters/gcdump |             |                               |                         |
+| Security: OAuth/OIDC, authz, OWASP    |             |                               |                         |
+| Azure Service Bus                     |             |                               |                         |
+| Azure Event Hubs / Kafka              |             |                               |                         |
+| Debezium / CDC / outbox               |             |                               |                         |
+| Multi-tenancy                         |             |                               |                         |
+| Azure: App Service, SQL, Key Vault    |             |                               |                         |
+| IaC (Bicep/Terraform), CI/CD          |             |                               |                         |
+| Observability: logs, traces, SLOs     |             |                               |                         |
+| RAG and LLM features                  |             |                               |                         |
+| Testing: integration, Testcontainers  |             |                               |                         |
+```
+
 
 ## Як продовжувати навчання
 

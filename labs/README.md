@@ -6,6 +6,11 @@ Starter kits for the lab chapters of *The Middle → Senior .NET Developer Handb
 |---|---|---|
 | [`36-evidence-portfolio/`](36-evidence-portfolio/) | Chapter 37: The Story Bank & Evidence Portfolio | A private story bank, a weekly brag doc, a public portfolio repo, and scored mock interviews |
 | [`37-execution-plans/`](37-execution-plans/) | Chapter 19: The Slow-Query Lab — Reading Execution Plans | Nine slow EF Core queries fixed and proven: a before/after results table with plans, fix costs, and an optional SQL Server comparison |
+| [`45-outbox-debezium/`](45-outbox-debezium/) | Chapter 45, Lab 1: Outbox, Debezium and an Idempotent Consumer | An outbox pipeline to Kafka with an idempotent consumer, retries with jitter and a DLQ, and a replication-slot experiment |
+| [`45-service-bus/`](45-service-bus/) | Chapter 45, Lab 2: Service Bus Settlement, Dead-Lettering and Sessions | Five emulator experiments with predictions and observations, and a handler that dead-letters permanent failures |
+| [`45-runtime-diagnostics/`](45-runtime-diagnostics/) | Chapter 45, Labs 3 and 4: Thread Pool Starvation and a Memory Leak | Before/after counters and heap snapshots, and the fixed endpoints |
+| [`45-azure-bicep/`](45-azure-bicep/) | Chapter 45, Lab 6: Azure Infrastructure as Code with a Budget | A deployed and cleaned-up App Service + Azure SQL + Key Vault + managed identity stack, with its cost |
+| [`45-incident-drill/`](45-incident-drill/) | Chapter 45, Lab 7: Incident Drill | A runbook, an incident timeline and a blameless post-mortem |
 
 More kits land here as their chapters are written.
 

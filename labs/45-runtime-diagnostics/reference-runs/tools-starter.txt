@@ -1,0 +1,41 @@
+# Environment: Intel(R) Xeon(R) Processor @ 2.10GHz, 4 vCPU, 15 GB RAM
+# .NET SDK 10.0.114; dotnet-counters and dotnet-gcdump 10.0.745401; Release build
+# Captured: 2026-11-05 10:44 UTC by verify.sh
+
+## Variant: starter (pid 18468)
+
+## Load: 400 GET /quote, 100 concurrent
+400 requests, 100 concurrent, 8.3 s: p50 2335 ms, p95 3978 ms, max 3984 ms, 48 req/s
+
+## Thread pool, sampled every second during the load (max of each instrument)
+dotnet.gc.last_collection.heap.size (By)[gc.heap.generation=gen0]: max 287896
+dotnet.gc.last_collection.heap.size (By)[gc.heap.generation=gen1]: max 9912
+dotnet.gc.last_collection.heap.size (By)[gc.heap.generation=gen2]: max 833464
+dotnet.gc.last_collection.heap.size (By)[gc.heap.generation=loh]: max 0
+dotnet.gc.last_collection.heap.size (By)[gc.heap.generation=poh]: max 29696
+dotnet.process.cpu.count ({cpu}): max 4
+dotnet.process.cpu.time (s / 1 sec)[cpu.mode=system]: max 0.016825
+dotnet.process.cpu.time (s / 1 sec)[cpu.mode=user]: max 0.598216
+dotnet.thread_pool.queue.length ({work_item} / 1 sec): max 89
+dotnet.thread_pool.thread.count ({thread} / 1 sec): max 12
+dotnet.thread_pool.work_item.count ({work_item} / 1 sec): max 359
+
+## Leak: 500 POST /watchers, then a heap snapshot
+500 requests, 20 concurrent, 0.2 s: p50 1 ms, p95 13 ms, max 115 ms, 2784 req/s
+{"subscriberCount":500,"threadCount":58,"pendingWorkItemCount":0,"heapMb":32}
+
+## dotnet-gcdump report (top of the list)
+     34,473,840  GC Heap bytes
+         17,341  GC Heap objects
+
+   Object Bytes     Count  Type
+         56,508         1  System.String (Bytes > 10K)  [System.Private.CoreLib.dll]
+         49,200         1  System.Int32[] (Bytes > 10K)  [System.Private.CoreLib.dll]
+         16,592       501  System.Byte[] (Bytes > 10K)  [System.Private.CoreLib.dll]
+         16,344         1  System.Object[] (Bytes > 10K)  [System.Private.CoreLib.dll]
+          9,256         2  System.Text.Encodings.Web.OptimizedInboxTextEncoder (Bytes > 1K)  [System.Text.Encodings.Web.dll]
+          8,216        10  System.Char[] (Bytes > 1K)  [System.Private.CoreLib.dll]
+          8,184         3  System.Object[] (Bytes > 1K)  [System.Private.CoreLib.dll]
+          7,904         1  Entry<Microsoft.Extensions.DependencyInjection.ServiceLookup.ServiceIdentifier,Microsoft.Extensions.DependencyInjection.ServiceLookup.CallSiteFactory+ServiceDescriptorCacheItem>[] (Bytes > 1K)  [System.Private.CoreLib.dll]
+          7,376         1  VolatileNode<Microsoft.Extensions.DependencyInjection.ServiceLookup.ServiceCacheKey,Microsoft.Extensions.DependencyInjection.ServiceLookup.ServiceCallSite>[] (Bytes > 1K)  [System.Collections.Concurrent.dll]
+          6,216         1  Entry<System.Runtime.CompilerServices.VirtualDispatchHelpers+VirtualResolutionData,System.IntPtr>[] (Bytes > 1K)  [System.Private.CoreLib.dll]

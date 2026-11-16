@@ -294,6 +294,8 @@ builder.Services.AddHttpClient<CatalogClient>(...)
 
 ## Pipeline middleware і життєвий цикл запиту
 
+> **🎯 Співбесіда · P1.** Порядок middleware і чому саме такий, `IExceptionHandler` і `ProblemDetails`, CORS, rate limiting і forwarded headers за проксі. Типова хибна відповідь і питання, яких варто чекати: [P1-5 у карті пріоритетів для співбесіди](#p1-5-aspnet-core).
+
 **Запит проходить ланцюжок компонентів, кожен із яких може виконати роботу до й після наступного компонента.** Цей ланцюжок — *pipeline middleware*. Компонент може й перервати його: відповісти самостійно, не викликаючи решту. На зворотному шляху відповідь проходить ті самі компоненти у зворотному порядку, тож зовнішній middleware обгортає все всередині.
 
 Компонент middleware — функція, що приймає поточний `HttpContext` і делегат для «решти pipeline» (`RequestDelegate`, який зазвичай називають `next`).
@@ -770,11 +772,71 @@ builder.Services.AddRateLimiter(o =>
 app.UseRateLimiter();
 ```
 
+Чотири вбудовані обмежувачі відрізняються тим, що вони рахують:
+
+| Обмежувач | Що рахує | Поведінка на межі вікна | Для чого підходить |
+|---|---|---|---|
+| Fixed window | запити за вікно (100 за хвилину) | лічильник скидається одразу, тож клієнт може надіслати 100 запитів о 0:59 і ще 100 о 1:00 | прості квоти |
+| Sliding window | запити за вікно, поділене на сегменти | вікно зсувається на один сегмент за раз, тож сплеск на межі згладжується | та сама квота без сплеску на межі |
+| Token bucket | токени, що поповнюються з фіксованою швидкістю до верхньої межі | повне «відро» дозволяє сплеск, а далі швидкість поповнення — це стале обмеження | API, які допускають короткі сплески |
+| Concurrency | запити, що виконуються одночасно | вікна немає; дозвіл повертається, коли запит завершується | захист дорогого ресурсу (звіти, експорт) |
+
+```csharp
+builder.Services.AddRateLimiter(o =>
+{
+    o.RejectionStatusCode = StatusCodes.Status429TooManyRequests;   // the default is 503
+    o.AddSlidingWindowLimiter("search", opt =>
+    {
+        opt.PermitLimit = 100;
+        opt.Window = TimeSpan.FromMinutes(1);
+        opt.SegmentsPerWindow = 6;          // the window moves in 10-second steps
+    });
+    o.AddTokenBucketLimiter("burst", opt =>
+    {
+        opt.TokenLimit = 20;                // a burst of up to 20...
+        opt.TokensPerPeriod = 5;            // ...then 5 more every second
+        opt.ReplenishmentPeriod = TimeSpan.FromSeconds(1);
+    });
+    o.AddConcurrencyLimiter("reports", opt => opt.PermitLimit = 4);  // at most 4 in flight
+});
+```
+
+Прив’яжіть політику до endpoint через `RequireRateLimiting("search")` або `[EnableRateLimiting("search")]`.
+
+> **Зверніть увагу.** **Відхилений запит отримує `503`, якщо ви не вкажете інше.** `RateLimiterOptions.RejectionStatusCode` за замовчуванням дорівнює `503 Service Unavailable`, а це каже клієнтам і балансувальникам навантаження, що нездоровий *сервер*, і дехто з них одразу повторить запит або виведе інстанс з ротації. Задайте `429 Too Many Requests` і, де обмежувач це знає, надсилайте `Retry-After` з `OnRejected`. Місце `UseRateLimiter` випливає з того, за чим він ділить запити на партиції: після `UseRouting`, щоб бачити політику endpoint; після `UseAuthentication`, коли партиція — це користувач; і перед ним, коли мета — захистити саму автентифікацію від потоку запитів із партиціями за IP-адресою.
+
+
 **Кешування виводу** зберігає на сервері *сформовану відповідь* і повертає її для відповідних запитів — чудово підходить для дорогих `GET`-запитів, дані яких рідко змінюються. Це не те саме, що *кешування відповідей*, яке задає HTTP-заголовки кешу й покладається на клієнтів і проксі ([CDN і заголовки кешування](#cdns-and-caching-headers) у Розділ 26).
 
 **Стискання відповіді** (Brotli/Gzip) зменшує розмір даних. Якщо зворотний проксі (nginx, YARP) уже стискає їх, повторне стискання в застосунку марнує процесорний час — враховуйте топологію.
 
+### За reverse proxy: forwarded headers
+
+У продакшені застосунок рідко бачить клієнта напряму. Балансувальник навантаження, ingress controller, фронтенд App Service чи YARP завершує TLS і відкриває до Kestrel нове з’єднання звичайним HTTP. Для Kestrel кожен запит тоді приходить з IP-адреси проксі через `http`. Проксі передає початкові значення в заголовках: `X-Forwarded-For` (IP клієнта, з одним записом на кожен перехід), `X-Forwarded-Proto` (початкова схема) і `X-Forwarded-Host`.
+
+ASP.NET Core ігнорує ці заголовки, доки не запрацює **Forwarded Headers middleware**. Без нього `Request.Scheme` дорівнює `http`, тож `UseHttpsRedirection` перенаправляє запити, які вже прийшли через HTTPS (нескінченний цикл перенаправлень), OpenID Connect будує redirect URI з `http://`, які identity provider відхиляє, посилання з `Url.Action` ведуть на `http`, а кожен рядок журналу й кожна партиція rate limiter бачать IP проксі замість IP клієнта.
+
+```csharp
+builder.Services.Configure<ForwardedHeadersOptions>(o =>
+{
+    o.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
+    o.KnownIPNetworks.Add(System.Net.IPNetwork.Parse("10.0.0.0/8"));   // the proxy's subnet, nobody else's
+});
+
+var app = builder.Build();
+app.UseForwardedHeaders();      // first, so everything after sees the client's scheme and IP
+app.UseExceptionHandler();
+app.UseHsts();
+```
+
+Цей middleware переписує `HttpContext.Connection.RemoteIpAddress` і `Request.Scheme` із заголовків, і він має працювати перед кожним middleware, що їх читає; документація Microsoft дозволяє ставити його після діагностики й обробки помилок, але обов’язково перед `UseHsts`.
+
+> **Зверніть увагу.** **Middleware довіряє лише тим проксі, які ви назвали.** За замовчуванням він приймає заголовки лише з loopback (`KnownProxies` містить `::1`, `KnownIPNetworks` містить `127.0.0.0/8`) і обробляє лише крайній правий запис кожного заголовка (`ForwardLimit` дорівнює `1`). У контейнері за проксі на `10.0.0.5` заголовки тому мовчки ігноруються, і застосунок далі бачить `http`: додайте адресу чи підмережу проксі. Якщо очистити обидва списки, щоб довіряти будь-якому відправникові, будь-який клієнт зможе одним заголовком назватися будь-якою IP-адресою, і це зводить нанівець rate limits за IP та журнали аудиту. Змінна середовища `ASPNETCORE_FORWARDEDHEADERS_ENABLED` зі значенням `true` вмикає middleware для `X-Forwarded-For` і `X-Forwarded-Proto` без коду, з налаштуваннями для хмарних хостів, де платформа — єдиний шлях усередину, і без жодного обмеження на відомі проксі. Хостинг IIS поза процесом (out-of-process) вмикає його за вас.
+
+
 ## REST і OpenAPI
+
+> **🎯 Співбесіда · P2.** Ресурси й методи, коди стану, пагінація, `Idempotency-Key`, версіонування, `ETag`/`If-Match` і breaking changes. Типова хибна відповідь і питання, яких варто чекати: [P2-8 у карті пріоритетів для співбесіди](#p2-8-rest-design).
 
 **REST** — набір обмежень, а не закон, але кілька принципів приносять користь: моделюйте API навколо **ресурсів** (іменників), а не дій; використовуйте **методи** HTTP за призначенням (GET — читання, POST — створення, `PUT` — заміна, PATCH — часткове оновлення, `DELETE` — видалення) із гарантованими властивостями безпеки й ідемпотентності ([Методи HTTP та ідемпотентність](#http-methods-and-idempotency)); результат повідомляйте **кодом стану** ([Важливі коди стану й заголовки](#status-codes-and-headers-that-matter)).
 

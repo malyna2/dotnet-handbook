@@ -381,3 +381,17 @@ Planned as one session per batch:
 
 **Carried into M3:** check `ghcr.io`/`quay.io` reachability (E4), and whether the Azure Service Bus emulator runs in compose here (D-decision for the broker). Reuse `labs/Directory.*.props` and extend `labs.yml` with the new kit's `verify.sh`.
 
+### Session — 2026-11-05 — Chapter 45, the systems lab (outside the M-plan)
+
+**Built:** five kits under `labs/45-*` and Chapter 45 (seven labs; Lab 5 reuses Chapter 19's kit).
+
+**Verified**
+- `labs/45-outbox-debezium/verify.sh`: `POST /orders` returns 201; the starter fails exactly `A_redelivered_event_awards_points_once`; the solution passes 5 of 5. `break-it-slot.sh`: slot 48 bytes behind → 152 MB after 200,000 rows with Debezium stopped → 1077 kB after restart. Stack: postgres:17.11, apache/kafka:3.9.1, debezium/connect:2.7.3.Final (quay.io is blocked here, so not 3.x).
+- `labs/45-service-bus/verify.sh` (emulator 2.0.1): the starter fails only the exercise; the solution passes 6 of 6; observations recorded (redelivery after 5.0 s with delivery count 2, `MaxDeliveryCountExceeded`, per-session order 1–5 for three sessions, duplicate detection drops a resend).
+- `labs/45-runtime-diagnostics/verify.sh`: the starter fails both tests and the solution passes both; tool output for both variants (p95 3978 vs 154 ms; queue length 89 vs 0; GC heap 34.5 MB vs 1.4 MB after 500 requests).
+- `labs/45-azure-bicep/verify.sh`: `bicep build` and `bicep lint` clean with Bicep CLI 0.38.33.
+
+**Not verified**
+- Lab 6 was not deployed (no subscription here): TODO(verify) a first deployment and record the outputs and cost.
+- Lab 7 is a drill on templates; its fault is the Lab 3 starter, which was verified.
+

@@ -1,0 +1,13 @@
+# Environment: Intel(R) Xeon(R) Processor @ 2.10GHz, 4 vCPU, 15 GB RAM, 29.9.2
+# Stack: postgres:17.11, apache/kafka:3.9.1, debezium/connect:2.7.3.Final; .NET SDK 10.0.114
+# Captured: 2026-11-05 10:50 UTC by verify.sh
+
+## One event as the consumer sees it (key | headers | value)
+id:26d1a07b-3fb6-46e3-a3f9-b6fb63318da8,eventType:OrderPlaced | 1 | {"Total":42.5,"OrderId":1,"CustomerId":7}
+
+## The replication slot
+  slot_name  |  plugin  | slot_type | active | behind 
+-------------+----------+-----------+--------+--------
+ outbox_slot | pgoutput | logical   | t      | 16 kB
+(1 row)
+

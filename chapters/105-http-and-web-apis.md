@@ -294,6 +294,8 @@ Bulkheads, and what these patterns do across many services, are in [Chapter 20: 
 
 ## The Middleware Pipeline & Request Lifecycle
 
+> **🎯 Interview · P1.** Middleware order and why, `IExceptionHandler` and `ProblemDetails`, CORS, rate limiting, and forwarded headers behind a proxy. The usual wrong answer and the questions to expect: [P1-5 in the Interview Priority Map](#p1-5-aspnet-core).
+
 **A request flows through a chain of components, each of which can do work before and after the next one runs.** This chain is the *middleware pipeline*. A component can also short-circuit: answer without calling the rest. On the way out, the response passes back through the same components in reverse order, so the outermost middleware wraps everything inside it.
 
 A middleware component is a function that takes the current `HttpContext` and a delegate to "the rest of the pipeline" (`RequestDelegate`, usually called `next`).
@@ -772,11 +774,71 @@ builder.Services.AddRateLimiter(o =>
 app.UseRateLimiter();
 ```
 
+The four built-in limiters differ in what they count:
+
+| Limiter | Counts | Behaviour at the edge of the window | Fits |
+|---|---|---|---|
+| Fixed window | requests per window (100 per minute) | the counter resets at once, so a client can send 100 at 0:59 and 100 more at 1:00 | simple quotas |
+| Sliding window | requests per window, split into segments | the window moves one segment at a time, so the burst at the boundary is smoothed | the same quota without the boundary burst |
+| Token bucket | tokens, refilled at a fixed rate up to a cap | a full bucket allows a burst, then the refill rate is the sustained limit | APIs that tolerate short bursts |
+| Concurrency | requests in flight at the same moment | no window; a permit is returned when the request ends | protecting an expensive resource (reports, exports) |
+
+```csharp
+builder.Services.AddRateLimiter(o =>
+{
+    o.RejectionStatusCode = StatusCodes.Status429TooManyRequests;   // the default is 503
+    o.AddSlidingWindowLimiter("search", opt =>
+    {
+        opt.PermitLimit = 100;
+        opt.Window = TimeSpan.FromMinutes(1);
+        opt.SegmentsPerWindow = 6;          // the window moves in 10-second steps
+    });
+    o.AddTokenBucketLimiter("burst", opt =>
+    {
+        opt.TokenLimit = 20;                // a burst of up to 20...
+        opt.TokensPerPeriod = 5;            // ...then 5 more every second
+        opt.ReplenishmentPeriod = TimeSpan.FromSeconds(1);
+    });
+    o.AddConcurrencyLimiter("reports", opt => opt.PermitLimit = 4);  // at most 4 in flight
+});
+```
+
+Attach a policy to an endpoint with `RequireRateLimiting("search")` or `[EnableRateLimiting("search")]`.
+
+> **Pay attention.** **A rejected request gets `503` unless you say otherwise.** `RateLimiterOptions.RejectionStatusCode` defaults to `503 Service Unavailable`, which tells clients and load balancers the *server* is unhealthy, and some will retry immediately or take the instance out of rotation. Set it to `429 Too Many Requests` and, where the limiter knows it, send `Retry-After` from `OnRejected`. Where `UseRateLimiter` goes follows from what it partitions by: after `UseRouting` so it can see the endpoint's policy, after `UseAuthentication` when the partition is the user, and before it when the point is to shield the authentication work from a flood partitioned by IP address.
+
+
 **Output caching** stores the *rendered response* server-side and replays it for matching requests — great for expensive, rarely-changing GETs. It differs from *response caching*, which sets HTTP cache headers and trusts clients and proxies to honour them ([CDNs and Caching Headers](#cdns-and-caching-headers) in Chapter 26).
 
 **Response compression** (Brotli/Gzip) shrinks payloads. Note that if a reverse proxy (nginx, YARP) already compresses, doing it again in-app is wasted CPU — know your topology.
 
+### Behind a Reverse Proxy: Forwarded Headers
+
+In production the app rarely faces the client directly. A load balancer, an ingress controller, App Service's front end or YARP terminates TLS and opens a new plain-HTTP connection to Kestrel. To Kestrel, every request then comes from the proxy's IP address over `http`. The proxy passes the original values along in headers: `X-Forwarded-For` (the client IP, with one entry appended per hop), `X-Forwarded-Proto` (the original scheme) and `X-Forwarded-Host`.
+
+ASP.NET Core ignores those headers until the **Forwarded Headers middleware** runs. Without it, `Request.Scheme` is `http`, so `UseHttpsRedirection` redirects requests that already came over HTTPS (a redirect loop), OpenID Connect builds `http://` redirect URIs that the identity provider rejects, links generated with `Url.Action` point to `http`, and every log line and rate-limiter partition sees the proxy's IP instead of the client's.
+
+```csharp
+builder.Services.Configure<ForwardedHeadersOptions>(o =>
+{
+    o.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
+    o.KnownIPNetworks.Add(System.Net.IPNetwork.Parse("10.0.0.0/8"));   // the proxy's subnet, nobody else's
+});
+
+var app = builder.Build();
+app.UseForwardedHeaders();      // first, so everything after sees the client's scheme and IP
+app.UseExceptionHandler();
+app.UseHsts();
+```
+
+The middleware rewrites `HttpContext.Connection.RemoteIpAddress` and `Request.Scheme` from the headers, and it should run before every middleware that reads them; Microsoft's documentation allows it after diagnostics and error handling, but it must come before `UseHsts`.
+
+> **Pay attention.** **The middleware trusts only the proxies you name.** By default it accepts the headers only from loopback (`KnownProxies` holds `::1`, `KnownIPNetworks` holds `127.0.0.0/8`), and it processes only the rightmost entry of each header (`ForwardLimit` is `1`). In a container behind a proxy on `10.0.0.5`, the headers are therefore silently ignored and the app still sees `http`: add the proxy's address or subnet. Clearing both lists so every sender is trusted lets any client claim any IP address with one header, which defeats IP-based rate limits and audit logs. Setting the `ASPNETCORE_FORWARDEDHEADERS_ENABLED` environment variable to `true` turns the middleware on for `X-Forwarded-For` and `X-Forwarded-Proto` without code, with settings meant for cloud hosts where the platform is the only way in, and without any known-proxy restriction. IIS out-of-process hosting enables it for you.
+
+
 ## REST and OpenAPI
+
+> **🎯 Interview · P2.** Resources and methods, status codes, pagination, `Idempotency-Key`, versioning, `ETag`/`If-Match`, and breaking changes. The usual wrong answer and the questions to expect: [P2-8 in the Interview Priority Map](#p2-8-rest-design).
 
 **REST** is a set of constraints, not a law, but a few principles pay dividends: model your API around **resources** (nouns), not actions; use the HTTP **methods** for intent (GET read, POST create, PUT replace, PATCH partial update, DELETE remove) with the safety and idempotency they promise ([HTTP Methods and Idempotency](#http-methods-and-idempotency)); and let the **status code** carry the outcome ([Status Codes and Headers That Matter](#status-codes-and-headers-that-matter)).
 

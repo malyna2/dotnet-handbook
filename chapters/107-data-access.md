@@ -35,6 +35,8 @@ Normalization optimizes for correct writes; it can make reads slower by requirin
 
 ## SQL Fundamentals
 
+> **🎯 Interview · P1.** Queries written by hand: joins, `GROUP BY`/`HAVING`, CTEs, window functions and top N per group, `APPLY`, indexes, execution plans, parameter sniffing, isolation levels and deadlocks. The usual wrong answer and the questions to expect: [P1-1 in the Interview Priority Map](#p1-1-sql-written-by-hand).
+
 Every ORM call ends as SQL. A senior developer reads the generated SQL and the execution plan, not just the C#.
 
 ### Joins
@@ -238,6 +240,55 @@ It returns orders 10 and 11 for customer 1, 13 and 14 for customer 2, 15 for cus
 
 LINQ has no operator for a window function, but EF Core writes `ROW_NUMBER` itself for the top N per group: `ctx.Customers.Select(c => new { c.Name, Top = c.Orders.OrderByDescending(o => o.Total).ThenBy(o => o.Id).Take(2).ToList() })` becomes a `ROW_NUMBER() OVER(PARTITION BY [o].[CustomerId] ORDER BY [o].[Total] DESC, [o].[Id])` subquery filtered on `<= 2`, on SQL Server and PostgreSQL alike. Ranks, running totals and CTEs go in [raw SQL](#stored-procedures-views-and-raw-sql) or [Dapper](#dapper-when-the-orm-is-too-much).
 
+### CROSS APPLY and OUTER APPLY
+
+A join combines two row sets that exist independently. **`APPLY`** (SQL Server) runs a table expression *once for each row* of its left side, and that expression may refer to the left row's columns: a correlated subquery that is allowed to return several rows and several columns. `CROSS APPLY` keeps a left row only when the expression returns something, like an inner join; `OUTER APPLY` keeps every left row and fills the expression's columns with NULL, like a left join. PostgreSQL writes the same thing as `CROSS JOIN LATERAL` and `LEFT JOIN LATERAL … ON true`.
+
+That gives a second way to write top N per group, with the N inside the subquery:
+
+```sql
+SELECT c.Name, t.Id, t.Total
+FROM Customers AS c
+CROSS APPLY (
+    SELECT TOP (3) o.Id, o.Total
+    FROM Orders AS o
+    WHERE o.CustomerId = c.Id        -- the inner query sees the outer row
+    ORDER BY o.Total DESC, o.Id
+) AS t;   -- the three largest orders of each customer; Dan has none, so no row
+```
+
+Ada gets orders 10, 11 and 12, Ben 13 and 14, Cleo 15. The expression returns nothing for Dan, so `CROSS APPLY` drops him, and the guest order 16 belongs to no customer row, so unlike in the `ROW_NUMBER` version above it never appears. `OUTER APPLY` keeps every customer, which is the shape of "each customer with their latest order":
+
+```sql
+SELECT c.Name, t.Id, t.Total
+FROM Customers AS c
+OUTER APPLY (
+    SELECT TOP (1) o.Id, o.Total
+    FROM Orders AS o
+    WHERE o.CustomerId = c.Id
+    ORDER BY o.CreatedAt DESC, o.Id DESC
+) AS t;   -- every customer with their latest order; Dan with NULLs
+```
+
+The PostgreSQL spelling of the same query:
+
+```sql
+SELECT c.Name, t.Id, t.Total
+FROM Customers AS c
+LEFT JOIN LATERAL (
+    SELECT o.Id, o.Total
+    FROM Orders AS o
+    WHERE o.CustomerId = c.Id
+    ORDER BY o.CreatedAt DESC, o.Id DESC
+    LIMIT 1
+) AS t ON true;   -- PostgreSQL's OUTER APPLY
+```
+
+> **Pay attention.** **`APPLY` and `ROW_NUMBER` read the data differently.** `ROW_NUMBER() OVER (PARTITION BY CustomerId …)` numbers *every* order and then filters, so it reads the whole table or index once. `APPLY` runs its subquery once per outer row; with an index on `Orders (CustomerId, Total DESC)`, each run is a seek that stops after three rows. Many customers with a few orders each: the single pass of `ROW_NUMBER` usually wins. Few customers with many orders each, or an outer side already filtered to a handful of rows: `APPLY` reads three rows per customer instead of all of them. Without that index, every execution of the subquery scans and sorts, and `APPLY` is the slow choice. Compare the logical reads of both on your own data before choosing.
+
+`APPLY` has two other everyday uses: calling a table-valued function for each row (`CROSS APPLY STRING_SPLIT(p.Tags, ',')`, `CROSS APPLY OPENJSON(e.Payload)`), and naming a computed expression once so `WHERE` and `SELECT` can both use it (`CROSS APPLY (SELECT o.Total * 1.23 AS Gross) AS x`). EF Core produces it as well: a `SelectMany` whose inner collection refers to the outer element becomes `CROSS APPLY` on SQL Server and a lateral join on PostgreSQL.
+
+
 ### SQL Queries in EF Core LINQ
 
 How the SQL above maps to LINQ, as EF Core 10 translates it on both providers. [IEnumerable vs IQueryable](#ienumerable-vs-iqueryable) in Chapter 1 explains why the lambdas become SQL at all.
@@ -302,6 +353,29 @@ A predicate can seek only if it is **sargable**: it compares the stored column i
 
 Plans are easiest to learn on PostgreSQL, whose `EXPLAIN` output is plain text and tells you both what it *expected* and what actually *happened*. [Chapter 18: Data in Depth](#chapter-18-data-in-depth) reads it line by line, and [Chapter 19](#chapter-19-the-slow-query-lab-reading-execution-plans) is the hands-on lab.
 
+### Parameter Sniffing
+
+SQL Server compiles a parameterized query or a stored procedure once and caches the plan. On that first execution it *sniffs* the parameter values it was given and estimates row counts from the column statistics for those values; every later execution, with any value, reuses the plan. EF Core and Dapper send parameterized SQL through `sp_executesql`, so application queries are cached and reused this way too, not only stored procedures.
+
+Reuse is the point, because compiling costs CPU. It goes wrong when the data is skewed. Take `WHERE CustomerId = @c`, where most customers have a dozen orders and one has a hundred thousand. If a small customer compiles the plan, it is an index seek plus a key lookup per row: perfect for twelve rows, a disaster as 100,000 lookups for the big customer. If the big customer compiles it, every small customer gets a scan. Same query, same index, and the speed depends on which caller came first after the plan was last compiled: a restart, a statistics update, or the plan evicted under memory pressure.
+
+The symptoms: a query fast for most callers and slow for some; a query that "suddenly" got slow with no deployment; and "slow in the application, fast in SSMS". SSMS runs with different `SET` options (`ARITHABORT ON`), which gives it a separate cache entry compiled for your test value, so you never see the application's plan. The proof is in the actual plan: its parameter list shows the compiled value next to the runtime value, and the estimated rows are far from the actual ones.
+
+```sql
+-- A fresh plan on every execution: right for each value, at the cost of a compile each time.
+SELECT Id, Total FROM Orders WHERE CustomerId = @c
+OPTION (RECOMPILE);
+
+-- One plan for the average value instead of the sniffed one: predictable, rarely the best.
+SELECT Id, Total FROM Orders WHERE CustomerId = @c
+OPTION (OPTIMIZE FOR (@c UNKNOWN));
+```
+
+The fixes, from the narrowest: `OPTION (RECOMPILE)` on a query that runs rarely enough to afford a compile per execution; `OPTIMIZE FOR UNKNOWN`, or `OPTIMIZE FOR (@c = …)` with a representative value, when one plan must serve every caller; a known-good plan forced with Query Store; and on SQL Server 2022 and later, *parameter sensitive plan optimization*, which at database compatibility level 160 keeps several cached plans for one statement and picks one by the parameter's expected row count. Flushing the plan cache (`DBCC FREEPROCCACHE`) is not a fix: the next first caller decides again. Rung 9 of [Chapter 19](#chapter-19-the-slow-query-lab-reading-execution-plans) measures a sniffed plan on the lab's data.
+
+The same estimate also sizes memory. Before a sort or a hash join runs, SQL Server reserves a **memory grant** computed from the *estimated* row count. Underestimate, and the operator runs out of memory and **spills** to `tempdb`, shown as a warning on the Sort or Hash Match operator in the actual plan; overestimate, and concurrent queries queue for memory they don't need (the `RESOURCE_SEMAPHORE` wait). A wrong estimate costs twice: the wrong operator, and the wrong amount of memory for it.
+
+
 ### Transactions and ACID
 
 A transaction groups statements so they succeed or fail as a unit. ACID names its four guarantees:
@@ -339,6 +413,9 @@ The four standard levels, from loosest to strictest:
 
 Serializable is safest but takes the most locks and most reduces concurrency. Most systems run Read Committed and tighten specific transactions when correctness demands it. (SQL Server also offers `SNAPSHOT` isolation, which uses row versioning to give consistent reads without blocking writers.)
 
+> **Pay attention.** **In SQL Server, Read Committed is one level with two mechanisms.** With the database option `READ_COMMITTED_SNAPSHOT` off, the default on a SQL Server you install, Read Committed takes a shared lock to read each row, so a `SELECT` waits behind any open transaction that has changed the rows it needs: readers and writers block each other. With the option on (RCSI), the same level reads the last committed version of each row from the version store instead: readers don't block writers and writers don't block readers, and each statement sees the data as of its own start. `READ_COMMITTED_SNAPSHOT` is on by default in Azure SQL Database, so code that blocks against a local SQL Server may not block in Azure, and the other way round. PostgreSQL's Read Committed always works the second way. Neither prevents a lost update; [Concurrency: Optimistic vs Pessimistic](#concurrency-optimistic-vs-pessimistic) does. Check a database with `SELECT is_read_committed_snapshot_on FROM sys.databases WHERE name = DB_NAME();`.
+
+
 ### Deadlocks
 
 A deadlock occurs when transaction A holds a lock B needs, while B holds a lock A needs — a circular wait, each waiting forever. The database detects the cycle and kills one transaction (the "victim"), which errors out. The classic cause is two code paths that lock the same rows **in different orders**.
@@ -346,6 +423,8 @@ A deadlock occurs when transaction A holds a lock B needs, while B holds a lock 
 > **Best practice:** Always access tables and rows in a **consistent order** across your application, keep transactions short, and be ready to catch a deadlock error (SQL Server error 1205) and retry the operation.
 
 ## Entity Framework Core: The Object-Relational Mapper
+
+> **🎯 Interview · P2.** N+1, projections, split queries, `AsNoTracking`, `ExecuteUpdate`, concurrency tokens, Dapper in the same transaction, and migrations in production. `DbContext` lifetime, pooling and thread safety belong to P1-6. The usual wrong answer and the questions to expect: [P2-9 in the Interview Priority Map](#p2-9-ef-core-in-depth).
 
 An ORM's job is to bridge two worlds that think differently. Your C# code thinks in objects, references, and collections. A relational database thinks in tables, rows, and foreign keys. EF Core translates between them. The danger is that the translation is *so* smooth you forget it is happening — and every performance problem in EF comes from forgetting that a property access or a `foreach` might quietly become a database round trip.
 

@@ -833,6 +833,8 @@ This is a perfectly reasonable default for many applications, and dismissing it 
 
 ## Clean, Onion, and Hexagonal Architecture
 
+> **🎯 Interview · P2.** The dependency rule, and where EF Core and MediatR sit. The usual wrong answer and the questions to expect: [P2-7 in the Interview Priority Map](#p2-7-architecture).
+
 Clean Architecture, Onion Architecture, and Hexagonal Architecture (Ports & Adapters) are three names that arrived from different authors but describe essentially the same idea.
 
 ### The Dependency Rule

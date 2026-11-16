@@ -6,6 +6,8 @@ This chapter is about what `async` and `await` do to three things: the thread, t
 
 ## Why Async Exists: I/O-Bound vs CPU-Bound Work
 
+> **🎯 Interview · P1.** `async`/`await` versus `Task.Run` versus `Parallel.ForEach`, `Task.WhenAll`, `async void`, sync-over-async, `ConfigureAwait`, `ValueTask`, `SemaphoreSlim` and cancellation. The usual wrong answer and the questions to expect: [P1-6 in the Interview Priority Map](#p1-6-async-and-concurrency).
+
 **CPU-bound work** keeps a core busy: hashing a password, resizing an image, summing a billion numbers. Doing more of it at once needs more cores.
 
 **I/O-bound work** spends almost all its time *waiting*: on a database query, an HTTP call, a file read. During the wait no core works on your behalf.

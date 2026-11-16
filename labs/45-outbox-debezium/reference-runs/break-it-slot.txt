@@ -1,0 +1,4 @@
+# Captured: 2026-11-05 10:32 UTC; postgres:17.11, debezium/connect:2.7.3.Final
+slot (active | WAL behind) with Debezium running:   t|48 bytes
+after stopping Debezium and writing 200,000 rows:    f|152 MB
+after starting Debezium again and letting it catch up: t|1077 kB

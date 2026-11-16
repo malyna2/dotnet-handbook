@@ -528,6 +528,8 @@ In a fleet of containers, SSHing into a box to `tail` a log file is hopeless —
 
 ## Correlation Across Services
 
+> **🎯 Interview · P2.** Structured logs, trace IDs across services and OpenTelemetry. The usual wrong answer and the questions to expect: [P2-12 in the Interview Priority Map](#p2-12-production-and-incidents).
+
 Given a single symptom, reconstruct the whole story: that requires **correlation**, the ability to jump from a metric spike to the exact traces behind it, and from a trace to the exact logs of each span.
 
 The unifying key is the **trace ID**. W3C Trace Context propagates it over HTTP, and `Activity.Current` holds it for the code handling the request, so logs only need to record it. With `Microsoft.Extensions.Logging` under the generic host this is on by default: the host sets `ActivityTrackingOptions` to `TraceId | SpanId | ParentId`, which adds them to every entry's scope (a provider prints scopes only if configured to, such as the console's `IncludeScopes`). Current Serilog versions read `Activity.Current` themselves and store `TraceId` and `SpanId` on every event; older code used the `Serilog.Enrichers.Span` package for this. To add it by hand:

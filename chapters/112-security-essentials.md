@@ -22,6 +22,8 @@ Four principles, used as decision procedures when the "how" is unclear:
 
 ## Authentication vs. Authorization
 
+> **🎯 Interview · P1.** `401` versus `403`, roles versus policies, resource ownership (IDOR), and what a JWT does and doesn't protect. The usual wrong answer and the questions to expect: [P1-2 in the Interview Priority Map](#p1-2-security).
+
 - **Authentication (AuthN)** answers *"Who are you?"* — it establishes and verifies identity. Logging in with a password, presenting a certificate, or validating a JWT are authentication. In ASP.NET Core it produces a `ClaimsPrincipal`.
 - **Authorization (AuthZ)** answers *"What are you allowed to do?"* — it decides whether an already-identified principal may perform an action. Checking a role, a scope, or resource ownership is authorization.
 
@@ -302,6 +304,8 @@ Passkeys are public-key credentials standardized by WebAuthn/FIDO2, and they rem
 
 ## Secrets Management
 
+> **🎯 Interview · P1.** Where secrets live: Key Vault and managed identity, never a committed `.env` or `appsettings` file. The usual wrong answer and the questions to expect: [P1-2 in the Interview Priority Map](#p1-2-security).
+
 A secret is any value that grants access: connection strings, API keys, client secrets, signing keys, encryption keys. The cardinal rule: **secrets never live in source code or in `appsettings.json` committed to git.** Once a secret is in git history, treat it as compromised and rotate it — deleting the line does not remove it from history.
 
 **In development**, use the .NET **Secret Manager** (`user-secrets`), which stores values in a JSON file in your user profile (`~/.microsoft/usersecrets/<id>/secrets.json`, or under `%APPDATA%\Microsoft\UserSecrets` on Windows), *outside* the project tree, keyed by a `UserSecretsId`. It keeps secrets out of git; it doesn't encrypt them, so it is for development only:
@@ -452,6 +456,8 @@ app.UseHsts(); // production only
 Use modern TLS (1.2 minimum, prefer 1.3), and automate certificate issuance and renewal (Let's Encrypt / ACME, or your cloud's managed certificates).
 
 ## Web-Facing Defenses
+
+> **🎯 Interview · P1.** XSS, CSRF and anti-forgery, `SameSite`, and why CORS is not a defence against CSRF. The usual wrong answer and the questions to expect: [P1-2 in the Interview Priority Map](#p1-2-security).
 
 ### Input Validation and Output Encoding
 

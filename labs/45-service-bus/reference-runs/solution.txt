@@ -1,0 +1,25 @@
+# Environment: Intel(R) Xeon(R) Processor @ 2.10GHz, 4 vCPU, 15 GB RAM, Docker 29.9.2
+# Stack: servicebus-emulator:2.0.1 on SQL Server 2022 CU27; Azure.Messaging.ServiceBus 7.20.2; .NET SDK 10.0.114
+# Captured: 2026-11-05 10:40 UTC by verify.sh (lock duration 5 s, scaled down from the 1-minute default)
+
+Running tests from /home/user/dotnet-handbook/labs/45-service-bus/tests/ServiceBusLab.Tests/bin/Debug/net10.0/ServiceBusLab.Tests.dll (net10.0|x64)
+[+0/x0/?0] ServiceBusLab.Tests.dll (net10.0|x64)(2s)
+
+[+2/x0/?0] ServiceBusLab.Tests.dll (net10.0|x64)(5s)
+
+[+3/x0/?0] ServiceBusLab.Tests.dll (net10.0|x64)(8s)
+
+[+3/x0/?0] ServiceBusLab.Tests.dll (net10.0|x64)(11s)
+
+[+5/x0/?0] ServiceBusLab.Tests.dll (net10.0|x64)(14s)
+
+[+5/x0/?0] ServiceBusLab.Tests.dll (net10.0|x64)(17s)
+
+/home/user/dotnet-handbook/labs/45-service-bus/tests/ServiceBusLab.Tests/bin/Debug/net10.0/ServiceBusLab.Tests.dll (net10.0|x64) passed (18s 128ms)
+
+Test run summary: Passed!
+  total: 6
+  failed: 0
+  succeeded: 6
+  skipped: 0
+  duration: 18s 677ms

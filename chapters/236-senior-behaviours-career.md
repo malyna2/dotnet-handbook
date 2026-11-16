@@ -72,6 +72,8 @@ You don't have to pick forever, but knowing which one energizes you tells you wh
 
 ## Interviews: Turning Behaviour into Answers
 
+> **🎯 Interview · P2.** Answer first, then the reasoning and the trade-offs; STAR stories in English, ready before the interview. The usual wrong answer and the questions to expect: [P2-13 in the Interview Priority Map](#p2-13-the-interview-itself).
+
 An interview compresses everything above into an hour, and it scores what it can hear. The technical question banks live with their topics — each chapter ends with its own *Interview Questions* — so this section is about the approach that applies to all of them and the behavioural questions that probe seniority directly.
 
 ### How to Approach Any Interview
@@ -92,6 +94,20 @@ Only if you then say *what* it depends on and pick a default. "It depends on rea
 
 **How do you show seniority beyond just knowing facts?**
 Talk about trade-offs, failure modes, operability, and cost — not just the happy path. Juniors describe how a thing works; seniors describe when *not* to use it and what breaks it at 3 a.m.
+
+### Answer First: The Shape of a Spoken Technical Answer
+
+Most technical questions in a Regular-level interview are answered out loud in one or two minutes, and the interviewer decides in the first sentence whether you know the answer. Give them that sentence first, then earn it:
+
+1. **The answer, in one sentence.** "Read Committed, and whether reads block depends on `READ_COMMITTED_SNAPSHOT`."
+2. **The mechanism that makes it true.** "Without it, readers take shared locks and wait for writers; with it, they read the last committed row version."
+3. **The trade-off or the trap.** "RCSI costs version-store space in `tempdb`, and it still doesn't prevent lost updates."
+4. **Where you met it**, if you have one, in a sentence. "We switched it on after `SELECT`s were timing out behind a nightly batch."
+
+Stop there and let the interviewer pull the thread they care about. A long answer that builds up to the conclusion loses the interviewer before the point arrives; a short one that ends with a trade-off invites the follow-up you have prepared for. When the honest answer is "it depends", name what it depends on and pick a default in the same breath.
+
+> **Best practice.** Practise the first sentence of your answers to the questions in the [Appendix: Interview Priority Map](#appendix-interview-priority-map) out loud and in English, recording yourself. If the first sentence takes more than ten seconds, it isn't the answer yet.
+
 
 ### Behavioral / Seniority
 
@@ -118,6 +134,90 @@ Make it visible and quantify its cost (slower delivery, more bugs), then negotia
 Bring data, not complaints: present the estimate, the trade-offs, and options (cut scope, phase delivery, add risk-acceptance, or move the date). Let stakeholders choose with full information. The senior move is turning "no" into "here are the trade-offs — which do you want?"
 
 > **Follow-up:** *Tell me about a time you had to make a decision without complete information.* Show how you bounded the risk: made a reversible choice, shipped small to learn, set a checkpoint to re-evaluate, and communicated the uncertainty rather than pretending certainty.
+
+### Three Stories to Have Ready
+
+Behavioural rounds rotate through a small set of prompts, and three stories cover most of them: a mistake, a conflict, and a hard technical problem with a number at the end. Prepare each one in English, in STAR, timed to about two minutes, from your own work. The skeletons below hold the shape; every bracket is yours to fill, and the numbers must be real ones you can defend in the follow-up. A story about a real employer stays in your private notes; [Chapter 37](#chapter-37-the-story-bank-evidence-portfolio) shows how to build and rehearse the bank.
+
+```text
+**Story 1: a mistake** (also answers "a failure", "a bad decision", "what did you learn")
+Situation: On [project], we [context in one sentence].
+Task:      I was responsible for [the thing that went wrong].
+Action:    I chose [decision] because [why it seemed right]. It caused [consequence],
+           which I noticed when [signal]. I [fixed it how], and told [who] [when].
+Result:    [impact, measured]. Since then I [the practice you changed], and the team
+           [the safeguard: a test, a check, a review rule].
+
+**Story 2: a conflict** (also answers "a disagreement", "pushing back", "working with a difficult colleague")
+Situation: [colleague's role] and I disagreed about [technical choice].
+Task:      We had to decide by [deadline] because [why it mattered].
+Action:    I wrote down both options and their trade-offs: [A: pro/con], [B: pro/con].
+           I proposed [a spike / a measurement / a time-boxed trial]. It showed [finding].
+           We chose [option]; I [committed to it / changed my mind] and [what I did next].
+Result:    [outcome]. What I took from it: [one sentence].
+
+**Story 3: a hard technical problem** (also answers "your proudest work", "a difficult bug")
+Situation: [system] was [symptom], affecting [who / how many].
+Task:      I owned [the investigation / the fix].
+Action:    I reproduced it by [how], ruled out [hypothesis] with [tool and evidence],
+           and found [root cause]. I fixed it by [change] and prevented a repeat with
+           [test / alert / design change].
+Result:    [metric] went from [before] to [after], measured with [how].
+```
+
+> **Pitfall.** Saying "we" through the whole Action. The interviewer is hiring you, not the team: say "I" for what you did and "we" only for what the team decided together, and keep the Situation short enough that the Action and Result get most of the two minutes.
+
+
+### The Depth Scale: Used, Understood, Built, Operated
+
+> **🎯 Interview · P1.** How to describe what you have actually done with a technology, without understating or inflating it. The usual wrong answer and the questions to expect: [P1-18 in the Interview Priority Map](#p1-18-telling-the-depth-of-your-experience-honestly).
+
+"Have you worked with Kafka?" has four honest answers, and interviewers probe until they know which one is yours. Say it yourself first.
+
+| Level | What it means | What you can answer | How to say it |
+|---|---|---|---|
+| **1. Used** | You worked in a system where it was already set up: you produced or consumed through an existing wrapper | what it is for, the API you called, the symptoms you saw | "I worked with it as a consumer: the infrastructure was set up by the platform team, and I wrote the handlers for [X]." |
+| **2. Understand** | You know how it works inside and why: locks, partitions, offsets, slots | the "what happens when…" questions; why a failure happened | "I understand the delivery model well enough to [design idempotent consumers / debug redeliveries]; I haven't built the infrastructure myself." |
+| **3. Built** | You set it up or extended it: wrote the connector config, the topology, the IaC, the outbox | the trade-offs you chose and what you rejected | "I built [the outbox and the Debezium connector] for [service]; I chose [X] over [Y] because [reason]." |
+| **4. Operated** | You ran it in production: on call, upgrades, capacity, incidents | failure modes from experience, numbers, runbooks | "I was on call for it for [period]; the incident I remember best is [one line], and we changed [practice] after it." |
+
+The labs in [Chapter 45](#chapter-45-the-systems-lab-brokers-diagnostics-azure-and-incidents) exist to move a technology from level 1 to level 2, and partly to 3, on your own machine. Say so plainly: "I haven't run Debezium in production, but I built an outbox pipeline with it in a lab and broke it on purpose: I stopped the connector and watched the replication slot hold 150 MB of WAL." That is a stronger answer than a vague "yes", because it shows what you know and where it stops.
+
+### Saying It Honestly: Phrases and CV Lines
+
+For a developer who extended infrastructure that others built, the honest phrasing is also the strongest, because it is specific:
+
+- "The Service Bus namespace and topology existed when I joined. I added [n] consumers, made them idempotent after [a duplicate-payment bug], and set up the dead-letter alert."
+- "I didn't design the multi-tenant model, but I worked inside it for a year across [100+] client companies: I [specific change], and I know where it leaks, because I [fixed one such case]."
+- "On the RAG project I owned [the chunking and evaluation part]; the hosting and the model choice were [someone else's]."
+- When you don't know: "I haven't done that. Here is how I'd approach it: [mechanism]. I'd verify [assumption] first."
+
+On a CV, the verb carries the level, so choose it deliberately: *worked with* or *integrated* (level 1), *designed* or *debugged* a specific part (level 2), *built*, *implemented* or *migrated* (level 3), *ran*, *was on call for*, *operated* (level 4). Every line should survive the follow-up "tell me more"; one you can't defend for five minutes costs more than it adds. Numbers come from your own work, with the context that makes them true (`[metric] from [a] to [b] over [period]`), never estimates dressed as results.
+
+### A Self-Assessment Table
+
+Copy this into your private notes, fill in a level from the scale above and one line of evidence for each row, and repeat it every few months. It shows where a lab or a chapter would move you up a level; it is for you, not for a CV, and it stays out of any public repository.
+
+```text
+| Technology / topic                    | Level (1-4) | Evidence (what I did, where)  | Next step               |
+|---------------------------------------|-------------|-------------------------------|-------------------------|
+| SQL: plans, indexes, isolation        |             |                               |                         |
+| EF Core in depth                      |             |                               |                         |
+| ASP.NET Core pipeline, DI, options    |             |                               |                         |
+| Async, thread pool, diagnostics       |             |                               |                         |
+| Memory and GC, dotnet-counters/gcdump |             |                               |                         |
+| Security: OAuth/OIDC, authz, OWASP    |             |                               |                         |
+| Azure Service Bus                     |             |                               |                         |
+| Azure Event Hubs / Kafka              |             |                               |                         |
+| Debezium / CDC / outbox               |             |                               |                         |
+| Multi-tenancy                         |             |                               |                         |
+| Azure: App Service, SQL, Key Vault    |             |                               |                         |
+| IaC (Bicep/Terraform), CI/CD          |             |                               |                         |
+| Observability: logs, traces, SLOs     |             |                               |                         |
+| RAG and LLM features                  |             |                               |                         |
+| Testing: integration, Testcontainers  |             |                               |                         |
+```
+
 
 ## How to Keep Learning
 

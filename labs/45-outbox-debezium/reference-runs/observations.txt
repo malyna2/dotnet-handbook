@@ -1,0 +1,1 @@
+key=63929472606157 partition=1 value={"Total":42.5,"OrderId":63929472606157,"CustomerId":7}

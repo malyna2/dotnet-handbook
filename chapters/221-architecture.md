@@ -137,6 +137,8 @@ Because specifications return `Expression<Func<T, bool>>`, EF Core translates th
 
 ## CQRS and Event Sourcing
 
+> **🎯 Interview · P2.** CQRS without a second database or event sourcing, MediatR and pipeline behaviours. The usual wrong answer and the questions to expect: [P2-7 in the Interview Priority Map](#p2-7-architecture).
+
 ### CQRS
 
 **Command Query Responsibility Segregation** rests on a simple observation: the way you *change* data and the way you *read* data have different needs. Writes care about invariants, validation, and consistency. Reads care about speed and shape — they often want denormalized, screen-ready data. CQRS says: use separate models for the two.
@@ -167,6 +169,38 @@ At its heaviest, CQRS uses *physically separate stores*: writes go to a normaliz
 ```
 
 > **Trade-off:** Full CQRS with separate stores gives you independently scalable reads, tailor-made query models, and no more contorting one ORM model to serve both a complex edit form and a dashboard. The price is significant: two data models to keep in sync, eventual consistency the UI must account for, and real operational complexity. **Start with the lightweight command/query split. Reach for separate read stores only when read and write scaling or modeling needs genuinely diverge.** Do not adopt heavyweight CQRS by default — it is one of the most over-applied patterns in the field.
+
+### Pipeline Behaviours: Cross-Cutting Code Around Every Handler
+
+The part of MediatR that pays for its indirection is `IPipelineBehavior<TRequest, TResponse>`. A behaviour wraps the handler the way middleware wraps an endpoint: it receives the request and a `next` delegate, does its work before and after, and decides whether to call `next` at all. One behaviour registered as an open generic runs around *every* request, so validation, logging, timing and a transaction per command are written once instead of in every handler.
+
+```csharp
+public sealed class ValidationBehavior<TRequest, TResponse>(IEnumerable<IValidator<TRequest>> validators)
+    : IPipelineBehavior<TRequest, TResponse> where TRequest : notnull
+{
+    public async Task<TResponse> Handle(TRequest request, RequestHandlerDelegate<TResponse> next,
+                                        CancellationToken ct)
+    {
+        foreach (var validator in validators)
+            await validator.ValidateAndThrowAsync(request, ct);   // throws before the handler runs
+        return await next();                                       // the next behaviour, or the handler
+    }
+}
+```
+
+```csharp
+services.AddMediatR(cfg =>
+{
+    cfg.RegisterServicesFromAssemblyContaining<PlaceOrder>();
+    cfg.AddOpenBehavior(typeof(LoggingBehavior<,>));     // outermost: registered first, runs first
+    cfg.AddOpenBehavior(typeof(ValidationBehavior<,>));  // then validation, then the handler
+});
+```
+
+The registration order is the nesting order: here logging wraps validation, which wraps the handler, so a request that fails validation is still logged and timed. A request type with no validators passes straight through, because `IEnumerable<IValidator<TRequest>>` resolves to an empty sequence. The code above was compiled and run against MediatR 12.5.0, the last Apache-2.0 release before the licensing change in the note above.
+
+> **Pitfall.** A transaction behaviour that wraps *every* request also wraps queries, and a behaviour that catches exceptions to return a "result" hides failures from the exception handler and the logs. Constrain such behaviours to commands, with a marker interface (`where TRequest : ICommand<TResponse>`), and let exceptions travel. The pipeline is also invisible at the call site, so keep it short: a reader of the handler should not need to know about five behaviours to understand what happens.
+
 
 ### Event Sourcing
 
@@ -223,6 +257,8 @@ The philosophy: **maximize cohesion within a feature and minimize coupling betwe
 
 ## Monolith vs Microservices vs Modular Monolith
 
+> **🎯 Interview · P2.** Modular monolith versus microservices, aggregates as consistency boundaries, and extracting a module step by step. The usual wrong answer and the questions to expect: [P2-7 in the Interview Priority Map](#p2-7-architecture).
+
 ### The Spectrum
 
 A **monolith** is a single deployable unit. All modules run in one process, share one database, and ship together. A **microservices** architecture decomposes the system into small, independently deployable services, each owning its own data, communicating over the network. A **modular monolith** sits between: a single deployable unit, but internally partitioned into strict modules with enforced boundaries and, ideally, separate schemas per module.
@@ -258,6 +294,18 @@ Notice most of these benefits are *organizational and scaling* benefits, not cod
 > **Best practice — start with a Modular Monolith.** You get clean boundaries (Bounded Contexts as modules), a single simple deployment, in-process calls, and real transactions. If a module later proves it needs independent scaling or a dedicated team, its clean boundary makes extraction to a microservice tractable. Do not begin a greenfield project with microservices unless you already know the boundaries cold and have the team structure and operational muscle to match. **The modular monolith is the pragmatic senior default.**
 
 The corollary: bad boundaries in a monolith are cheap to fix (move a class). Bad boundaries between microservices are agony to fix (coordinated multi-service migration). Get the boundaries right *before* you distribute.
+
+### Worked Example: Pulling Reporting Out of the Monolith
+
+A classic interview prompt: *the reports run on the main database and slow down checkout; what do you do?* The senior answer is a ladder of reversible steps, each taken only when the previous one is not enough.
+
+1. **Measure and fix the queries.** The slow reports usually lack an index or scan years of data ([Chapter 19](#chapter-19-the-slow-query-lab-reading-execution-plans)). A covering index or a precomputed summary table refreshed every night can end the problem in a day.
+2. **Move the reads to a replica.** Point the reporting module's `DbContext` at a read replica ([Scaling Reads with Replication](#scaling-reads-with-replication)). Checkout no longer competes for CPU and I/O. The cost is replication lag: a report may be seconds behind, and the business has to agree that's acceptable.
+3. **Give reporting its own read model.** When reports need a shape the transactional schema can't serve (denormalized, aggregated, historical), project changes into tables or a store built for them, fed by the outbox or by CDC ([Change Data Capture (CDC)](#change-data-capture-cdc)). This is CQRS at the module boundary. The report is now eventually consistent, and the projection needs monitoring for lag and for failed events.
+4. **Extract a service, if anything still demands it.** Only when a separate team owns reporting, or it needs to scale and deploy on its own, does the module become a service that owns its read store and consumes events. The module boundary built in the monolith is what makes this a move rather than a rewrite.
+
+Every step is a strangler move ([Chapter 24](#chapter-24-working-with-legacy-brownfield-code)): build the new path beside the old one, send traffic to it behind a feature flag (one report, one customer, then all), compare the two outputs for the same period, and delete the old path only when they agree. Name the trade-off at each rung: freshness for isolation at step 2, a second model to keep correct at step 3, and a network boundary with its failure modes at step 4.
+
 
 ## API Gateway and Backend for Frontend
 

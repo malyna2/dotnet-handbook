@@ -262,6 +262,8 @@ The last long-lived secret in most teams is the one their CI uses to deploy. **W
 
 ## Compute: Choosing It and Running It
 
+> **🎯 Interview · P2.** Managed identity, Key Vault, Azure SQL, private endpoints, Application Insights, Functions and their cold starts, and where background work runs. The usual wrong answer and the questions to expect: [P2-10 in the Interview Priority Map](#p2-10-azure-and-devops).
+
 Start with the decision and learn the details of the option you pick:
 
 | You have … | Reach for | Because |
@@ -433,6 +435,21 @@ Container Apps runs your containers on a managed Kubernetes cluster that you nev
 - **Ingress** is *external* (public) or *internal* (inside the environment's VNet only). Pull images from Azure Container Registry with a managed identity that has *AcrPull*, not with admin credentials.
 
 It is the natural home for a .NET system of a handful of services, which is exactly what [Chapter 14](#chapter-14-containers-and-linux) builds towards. Move to AKS when you need something Container Apps does not expose: custom operators, service-mesh control, node-level tuning, or a platform team that wants the whole Kubernetes API.
+
+### Where Background Work Runs
+
+Background work is the question that crosses all of the options above: a queue consumer, a nightly import, a report generated on demand. The choice depends on how the work starts and how long it runs.
+
+| The work | Reach for | Because | Watch for |
+|---|---|---|---|
+| Light work tied to the web app (refresh a cache, drain a small in-process queue) | a `BackgroundService` in the app itself ([Chapter 3](#the-generic-host-and-background-services)) | No extra deployment | It runs on every instance and stops when the app scales in or restarts; in App Service it also needs *Always On*, or the idle app is unloaded |
+| Event-driven work: a queue message, a blob upload, a timer | **Azure Functions** | Scales per event and down to zero; triggers and bindings replace the polling code | The plan's execution time limit and cold starts ([Azure Functions](#azure-functions)) |
+| A long-running consumer with steady load | a **worker** (the Worker Service template) on **Container Apps** or AKS, scaled by KEDA on queue length | No time limit; you own the loop, the concurrency and graceful shutdown | Scale-to-zero means a cold start on the first message |
+| Run-to-completion work: a scheduled import, an export started on demand, one execution per batch of messages | **Container Apps jobs** (manual, scheduled or event-driven) | Each execution is a container that starts, works and exits, with retries and a timeout per execution | State between runs belongs in storage, not in the container |
+| Scripts or a WebJobs SDK program next to an existing App Service app | **WebJobs** (continuous or triggered) | Same plan, same deployment, no new resource | Shares CPU and memory with the web app; scheduled WebJobs need *Always On*, which the Free and Shared tiers lack |
+
+Whichever host you pick, the work is at-least-once: a function retried after a timeout, a job execution retried after a crash, or two instances of a `BackgroundService` all repeat work, so the consumer must be idempotent ([Chapter 11](#idempotent-consumers)), and work that must run once across instances needs a lock or a job framework that provides one ([Ensuring a job runs once across instances](#ensuring-a-job-runs-once-across-instances)).
+
 
 ## Storage Accounts and Blob Storage
 
@@ -688,6 +705,8 @@ The database tuning skills from [Chapter 19](#chapter-19-the-slow-query-lab-read
 
 ## Messaging: Service Bus, Event Hubs and Event Grid
 
+> **🎯 Interview · P1.** How Service Bus, Event Hubs and Event Grid work inside, not only how to call them: settlement, locks, sessions, partitions, checkpoints. The usual wrong answer and the questions to expect: [P1-14 in the Interview Priority Map](#p1-14-brokers-under-the-hood).
+
 [Chapter 11](#chapter-11-messaging-and-background-work) teaches the patterns: outbox, idempotent consumer, saga. This section is about the three Azure brokers, which are three different tools rather than three brands of the same one:
 
 | | **Service Bus** | **Event Hubs** | **Event Grid** |
@@ -766,6 +785,40 @@ await processor.StartProcessingAsync();
 
 Throw on *transient* failures so the message is retried; dead-letter *permanent* ones at once, with a reason. Otherwise a message that can never succeed burns all 10 delivery attempts, each one possibly repeating a side effect.
 
+### Service Bus Under the Hood
+
+The section above is how you *use* Service Bus. This one is the model underneath, the part an interviewer probes with "and what happens when…".
+
+**Queues, topics and subscriptions.** A queue is one entity with competing receivers: each message goes to one of them. A topic is the send side only; every **subscription** under it is a queue of its own, holding a copy of each message that passes the subscription's **rules**. A new subscription gets a rule named `$Default` with a true filter, so it receives everything until you replace that rule. A **correlation filter** matches properties by equality (`Subject = "OrderPlaced"`, `CorrelationId`, application properties); a **SQL filter** evaluates an expression (`region = 'EU' AND amount > 100`). Microsoft's documentation warns that SQL filters lower throughput at the subscription, topic and namespace level, so prefer correlation filters wherever equality is enough. A rule can also carry an *action* that sets properties on the copy. A subscription can auto-forward its messages to another queue or topic, which is how fan-out chains are built.
+
+```
+                         ┌── subscription "billing"  (rule: Subject = 'OrderPlaced') ──► its own queue, its own DLQ
+ sender ──► topic ───────┼── subscription "shipping" (rule: SQL region = 'EU')        ──► its own queue, its own DLQ
+                         └── subscription "audit"    ($Default: true filter)          ──► every message
+```
+
+**Receive modes and settlement.** In *peek-lock* the message stays in the entity, locked to one receiver, until it is settled: **Complete** deletes it; **Abandon** releases the lock and increments the delivery count; **Dead-letter** moves it to the entity's `$deadletterqueue` with a reason and a description you choose; **Defer** leaves it in the entity but hides it from normal receives, so only `ReceiveDeferredMessageAsync(sequenceNumber)` gets it back, which is for "I can't process this one until another message arrives" (the sequence number must be stored somewhere, or the message is lost in plain sight). *ReceiveAndDelete* removes the message as it is handed over: at-most-once, acceptable only for data you can afford to lose.
+
+**Expiry.** Every message has a time-to-live, from the message or the entity's default; if neither is set it is effectively unlimited. An expired message is **dropped**, not dead-lettered, unless the entity has dead-lettering on expiry enabled. That default surprises people: a queue whose consumers were down for longer than the TTL silently loses work.
+
+**What the lock really is.** The lock is a lease held by the service, not by your process. If it expires (1 minute by default, 5 at most) before you settle, the message is delivered again, even though your handler may still be running and may finish its side effect. `ServiceBusProcessor` renews the lock in the background up to `MaxAutoLockRenewalDuration`. **Prefetch** fills a local buffer *with messages already locked*, so their lock clocks run while they wait, which is why a large prefetch with slow handlers produces redeliveries.
+
+**Typical failures, by symptom:**
+
+| Symptom | Mechanism | Fix |
+|---|---|---|
+| The same order processed twice | lock expired mid-handler, or a crash between the effect and `Complete` | idempotent handler; longer lock renewal; smaller prefetch |
+| `MessageLockLostException` on `Complete` | the handler outlived the lock | a processor with lock renewal; don't hold received batches |
+| The DLQ fills up quietly | permanent failures retried to `MaxDeliveryCount`, nobody alerting on it | dead-letter permanent failures at once with a reason; alert on the dead-letter count |
+| Messages vanish while consumers were down | TTL expired, dead-lettering on expiry off | set a realistic TTL and enable dead-lettering on expiry |
+| One slow customer blocks others | one session per customer is a single ordered lane | more sessions and `MaxConcurrentSessions`, or don't use sessions where order doesn't matter |
+| Throughput falls after adding subscriptions | many SQL filters | correlation filters; fewer, coarser subscriptions |
+
+**Standard or Premium.** Standard is shared, metered per operation, messages up to 256 KB, and no VNet integration. Premium is dedicated capacity in messaging units: predictable latency, larger messages, private endpoints, and geo-replication options. Choose Premium for production systems that need network isolation or steady latency; Standard is right for most others and for development.
+
+[Lab 2 of Chapter 45](#chapter-45-the-systems-lab-brokers-diagnostics-azure-and-incidents) runs these mechanisms against the Service Bus emulator: a message that is never completed came back after the 5-second lock with its delivery count at 2, and a message abandoned three times under `MaxDeliveryCount = 3` was dead-lettered with the reason `MaxDeliveryCountExceeded`.
+
+
 ### Event Hubs
 
 Event Hubs is a **partitioned log**, the same model as Kafka (it even speaks the Kafka protocol).
@@ -775,6 +828,19 @@ Event Hubs is a **partitioned log**, the same model as Kafka (it even speaks the
 - **Retention** is 1 day on Basic, up to 7 on Standard, and up to 90 on Premium and Dedicated. Consumers can re-read anything still retained, which is how you replay after a bug fix.
 - **Checkpointing.** `EventProcessorClient` balances partitions across your instances and stores each partition's position in a Blob container. You choose when to checkpoint: after every event is safest and slowest; every N events or T seconds is faster, and on restart the events since the last checkpoint are read again. So Event Hubs consumers must be idempotent too.
 - **Capture** writes the stream to Blob Storage or Data Lake as Avro files, which gives you an archive with no consumer code.
+
+### Event Hubs Under the Hood
+
+**A stream, not a queue.** Service Bus hands a *message* to one consumer and deletes it once settled; Event Hubs appends *events* to a log that nobody deletes from. Each consumer group keeps its own position, so ten applications can read the same events at their own pace, and a fixed consumer can rewind and replay. There is no per-event lock, no dead-letter queue and no per-event retry: if one event can't be processed, the consumer decides what to do with it (skip it, park it in a queue of your own, or stop), because the next event in the partition waits behind it.
+
+**Partitions decide everything.** The partition is the unit of order, parallelism and throughput. Events with the same partition key always land in the same partition, so ordering per key holds; across partitions there is none. Within a consumer group there should be **one active reader per partition** (the service allows up to five in special cases, each of which then receives every event of the partition), so the number of partitions caps the number of useful consumer instances. `EventProcessorClient` assigns partitions to instances and moves them when instances come and go.
+
+**Checkpoints are your offsets.** A checkpoint is the position you stored in Blob Storage for a partition. On restart or rebalance, the new owner starts from the last checkpoint, so everything after it is read again: at-least-once, exactly like Kafka. Checkpointing after every event is the slowest and repeats the least; every N events or T seconds is the usual trade.
+
+**Kafka endpoint.** Standard, Premium and Dedicated namespaces expose a Kafka-compatible endpoint on port 9093 (`<namespace>.servicebus.windows.net:9093`, SASL over TLS, with Entra ID OAuth or a connection string). Existing Kafka producers and consumers work by changing configuration; features such as Kafka Streams and transactions are limited to Premium and Dedicated, so check the feature list before you promise a migration "without code changes". Basic has no Kafka endpoint.
+
+**Typical failures:** a hot partition because the key is skewed (one tenant producing half the events); consumers that can't keep up because there are more instances than partitions (the extra ones sit idle) or fewer than needed; reprocessing after every deployment because checkpoints are written rarely; and events lost to retention because a consumer was down for longer than the retention period.
+
 
 ### Event Grid
 
