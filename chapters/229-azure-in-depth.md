@@ -816,7 +816,7 @@ The section above is how you *use* Service Bus. This one is the model underneath
 
 **Standard or Premium.** Standard is shared, metered per operation, messages up to 256 KB, and no VNet integration. Premium is dedicated capacity in messaging units: predictable latency, larger messages, private endpoints, and geo-replication options. Choose Premium for production systems that need network isolation or steady latency; Standard is right for most others and for development.
 
-[Lab 2 of Chapter 45](#chapter-45-the-systems-lab-brokers-diagnostics-azure-and-incidents) runs these mechanisms against the Service Bus emulator: a message that is never completed came back after the 5-second lock with its delivery count at 2, and a message abandoned three times under `MaxDeliveryCount = 3` was dead-lettered with the reason `MaxDeliveryCountExceeded`.
+[Lab 2 of Chapter 46](#chapter-46-the-systems-lab-brokers-diagnostics-azure-and-incidents) runs these mechanisms against the Service Bus emulator: a message that is never completed came back after the 5-second lock with its delivery count at 2, and a message abandoned three times under `MaxDeliveryCount = 3` was dead-lettered with the reason `MaxDeliveryCountExceeded`.
 
 
 ### Event Hubs
@@ -1226,7 +1226,7 @@ ACCEPT_EULA=Y verify/exercises/Ch51/verify.sh
 - run migrations as a gated step, expand-then-contract, so the previous build still runs against the new schema;
 - put one change behind a feature flag and release it without a deployment.
 
-Done when you can show a rollback in minutes and no stored secret. The capstone in [Chapter 44](#chapter-44-capstone-one-project-growing-up) takes the same route in its Steps 4 and 8.
+Done when you can show a rollback in minutes and no stored secret. The capstone in [Chapter 45](#chapter-45-capstone-one-project-growing-up) takes the same route in its Steps 4 and 8.
 
 The pipeline, your decision memo and your notes belong in **your own public portfolio repo**, not in this one; anything about a real employer's system stays private.
 

@@ -381,7 +381,7 @@ Planned as one session per batch:
 
 **Carried into M3:** check `ghcr.io`/`quay.io` reachability (E4), and whether the Azure Service Bus emulator runs in compose here (D-decision for the broker). Reuse `labs/Directory.*.props` and extend `labs.yml` with the new kit's `verify.sh`.
 
-### Session — 2026-11-05 — Chapter 45, the systems lab (outside the M-plan)
+### Session — 2026-11-05 — Chapter 45, the systems lab (renumbered Chapter 46 when Chapter 44 was added) (outside the M-plan)
 
 **Built:** five kits under `labs/45-*` and Chapter 45 (seven labs; Lab 5 reuses Chapter 19's kit).
 

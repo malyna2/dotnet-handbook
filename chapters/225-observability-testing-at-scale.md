@@ -239,7 +239,7 @@ Walk the chain again: the metric said *something is wrong and where*, the trace 
 
 One more step exists when the trace points inside a single process — a span that is slow but makes no outbound calls. Then the next tool is a profiler on that process: `dotnet-counters` first, then whatever its reading points to ([Chapter 17: Profiling](#profiling-finding-the-bottleneck-in-a-running-system)).
 
-> **Capstone tie-in:** This half of the chapter is exercised by ShopCore [Step 5](#step-5-caching-auth-and-observability) and [Step 8](#step-8-deploy-with-infrastructure-as-code) of [Chapter 44](#chapter-44-capstone-one-project-growing-up) — you'd add Serilog structured logging and OpenTelemetry so a single checkout produces one connected trace, then watch it cross service boundaries in a hosted backend.
+> **Capstone tie-in:** This half of the chapter is exercised by ShopCore [Step 5](#step-5-caching-auth-and-observability) and [Step 8](#step-8-deploy-with-infrastructure-as-code) of [Chapter 45](#chapter-45-capstone-one-project-growing-up) — you'd add Serilog structured logging and OpenTelemetry so a single checkout produces one connected trace, then watch it cross service boundaries in a hosted backend.
 
 Observability tells you what production is doing. The rest of the chapter is about finding out before production does — the tests that catch the defect classes unit and in-process integration tests structurally miss.
 

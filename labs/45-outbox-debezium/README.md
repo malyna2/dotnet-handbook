@@ -1,4 +1,4 @@
-# Lab kit — Chapter 45, Lab 1: Outbox, Debezium and an Idempotent Consumer
+# Lab kit — Chapter 46, Lab 1: Outbox, Debezium and an Idempotent Consumer
 
 An order API writes the order and an `OrderPlaced` outbox row in one PostgreSQL transaction. Debezium reads the outbox table from the write-ahead log through a replication slot, its Outbox Event Router turns each row into a Kafka message keyed by the order, and a .NET consumer awards loyalty points: idempotently, with retries (exponential backoff and jitter) for transient failures and a dead-letter topic for the rest.
 

@@ -335,7 +335,7 @@ A **Backend for Frontend (BFF)** takes this further: instead of one general-purp
 
 **2. A system design in 90 minutes (1 h 30 min).** Pick a prompt you haven't seen designed, for example "deliver webhooks to partners, with retries, at a few hundred thousand events a day". Follow [Chapter 23](#chapter-23-system-design)'s approach and write each step down: requirements (functional and not), estimates (requests per second, storage per year), the API, the data model, the components, the first two bottlenecks, and for each major choice the option you rejected and why. Then mark every place where [Chapter 20](#chapter-20-distributed-systems)'s guarantees (outbox, idempotency, ordering) apply.
 
-**3. The capstone, as a longer project.** [Chapter 44](#chapter-44-capstone-one-project-growing-up)'s Steps 6 and 7 ([Refactor Toward Clean Architecture and DDD](#step-6-refactor-toward-clean-architecture-and-ddd) and [Split Into Microservices](#step-7-split-into-microservices)) are this chapter's material built for real; write an ADR for each split you make.
+**3. The capstone, as a longer project.** [Chapter 45](#chapter-45-capstone-one-project-growing-up)'s Steps 6 and 7 ([Refactor Toward Clean Architecture and DDD](#step-6-refactor-toward-clean-architecture-and-ddd) and [Split Into Microservices](#step-7-split-into-microservices)) are this chapter's material built for real; write an ADR for each split you make.
 
 **Evidence to keep**, in your own public portfolio repo, not in this one: the ADRs and the design write-up. Decisions about a real employer's system stay private; publish a version about the capstone or an invented system.
 

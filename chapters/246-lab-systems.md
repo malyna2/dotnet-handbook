@@ -1,4 +1,4 @@
-# Chapter 45: The Systems Lab: Brokers, Diagnostics, Azure and Incidents
+# Chapter 46: The Systems Lab: Brokers, Diagnostics, Azure and Incidents
 
 Reading how Service Bus settles a message or how Debezium holds a replication slot moves you from *used it* to *understand it*. This chapter moves you one step further, to *built it and broke it*: seven labs, each with a goal, steps with checkable acceptance, the things you must be able to explain afterwards, and an artifact for your portfolio. Five of them come with a kit in `labs/` that starts with one command and has been run end to end; one uses [Chapter 19](#chapter-19-the-slow-query-lab-reading-execution-plans)'s kit; one is a drill on paper and on your machine.
 

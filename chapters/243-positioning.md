@@ -55,7 +55,7 @@ Most outstaffing work is sold as procedure work: a seniority band, a rate, a sta
 
 ### The trust equation
 
-Maister, Green and Galford's *The Trusted Advisor* (the source of the *trusted advisor* stance in Chapters 38–43) gives a model for why proof matters. They write trustworthiness as:
+Maister, Green and Galford's *The Trusted Advisor* (the source of the *trusted advisor* stance in Chapters 38–44) gives a model for why proof matters. They write trustworthiness as:
 
 ```
                 credibility + reliability + intimacy
@@ -698,7 +698,7 @@ Most engineers find that the brag doc has more post candidates than they expecte
 - **David C. Baker, *The Business of Expertise: How Entrepreneurial Experts Convert Insight to Impact + Wealth*** (2017) — positioning as the degree to which a client can find a substitute for you; vertical and horizontal positioning; narrowing over time.
 - **Philip Morgan, *The Positioning Manual for Technical Firms*** (2015) — the generalist-to-specialist move for developers and technical consultancies, with vertical and horizontal specialization. Morgan's site, philipmorgan.net, has his later guides on specialization and point of view.
 - **David H. Maister, *Managing the Professional Service Firm*** (1993) — the brains / grey hair / procedure classification of professional work, and how each is sold and priced.
-- **David H. Maister, Charles H. Green and Robert M. Galford, *The Trusted Advisor*** (2000) — the trust equation (credibility + reliability + intimacy, over self-orientation) and the advisor stance Chapters 38–43 are built on.
+- **David H. Maister, Charles H. Green and Robert M. Galford, *The Trusted Advisor*** (2000) — the trust equation (credibility + reliability + intimacy, over self-orientation) and the advisor stance Chapters 38–44 are built on.
 - **Blair Enns, *The Win Without Pitching Manifesto*** (2010) — winning work without giving away your thinking in speculative pitches; the line between public generosity and free consulting.
 - **Adam Grant, *Give and Take*** (2013) — givers, matchers and takers; why givers are over-represented at both the top and the bottom, and what separates the two groups.
 - **Alan Weiss, *Value-Based Fees*** and **Jonathan Stark, *Hourly Billing Is Nuts*** — the commercial case for moving from hours to value; read alongside [Chapter 41](#chapter-41-recommendations-proposals-and-estimates).

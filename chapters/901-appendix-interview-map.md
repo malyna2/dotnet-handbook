@@ -269,7 +269,7 @@ A `lock` is owned by a thread, and the code after `await` may resume on another 
 
 ## P1-14. Brokers Under the Hood
 
-**Where it is taught.** [Service Bus Under the Hood](#service-bus-under-the-hood) and [Event Hubs Under the Hood](#event-hubs-under-the-hood) in Chapter 29; [Debezium Under the Hood](#debezium-under-the-hood) in Chapter 18; Labs 1 and 2 of [Chapter 45](#chapter-45-the-systems-lab-brokers-diagnostics-azure-and-incidents).
+**Where it is taught.** [Service Bus Under the Hood](#service-bus-under-the-hood) and [Event Hubs Under the Hood](#event-hubs-under-the-hood) in Chapter 29; [Debezium Under the Hood](#debezium-under-the-hood) in Chapter 18; Labs 1 and 2 of [Chapter 46](#chapter-46-the-systems-lab-brokers-diagnostics-azure-and-incidents).
 
 **Why it is asked.** Many candidates have *used* a broker that someone else set up. The interviewer separates them by asking what happens inside: when a lock expires, where a partition's order ends, what a replication slot does while the connector is down.
 
@@ -417,7 +417,7 @@ After a time box, in the team channel, with the goal, what you tried, what you e
 
 ## P1-18. Telling the Depth of Your Experience Honestly
 
-**Where it is taught.** [The Depth Scale: Used, Understood, Built, Operated](#the-depth-scale-used-understood-built-operated), [Saying It Honestly: Phrases and CV Lines](#saying-it-honestly-phrases-and-cv-lines) and [A Self-Assessment Table](#a-self-assessment-table) in Chapter 36; the labs in [Chapter 45](#chapter-45-the-systems-lab-brokers-diagnostics-azure-and-incidents).
+**Where it is taught.** [The Depth Scale: Used, Understood, Built, Operated](#the-depth-scale-used-understood-built-operated), [Saying It Honestly: Phrases and CV Lines](#saying-it-honestly-phrases-and-cv-lines) and [A Self-Assessment Table](#a-self-assessment-table) in Chapter 36; the labs in [Chapter 46](#chapter-46-the-systems-lab-brokers-diagnostics-azure-and-incidents).
 
 **Why it is asked.** Interviewers probe every line of a CV until they reach the edge of the candidate's experience; the question is whether you name the edge or they find it.
 

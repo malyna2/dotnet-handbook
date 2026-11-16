@@ -1,4 +1,4 @@
-# Lab kit — Chapter 45, Lab 7: Incident Drill
+# Lab kit — Chapter 46, Lab 7: Incident Drill
 
 A 90-minute rehearsal of a production incident, run on your own machine with the faulty release from Lab 3 (`labs/45-runtime-diagnostics`). One person (or a timer) injects the fault; you run the incident from the first alert to the post-mortem, and you write the two documents real teams keep: a runbook and a blameless post-mortem.
 

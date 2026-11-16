@@ -1,4 +1,4 @@
-# Lab kit — Chapter 45, Lab 2: Service Bus Settlement, Dead-Lettering and Sessions
+# Lab kit — Chapter 46, Lab 2: Service Bus Settlement, Dead-Lettering and Sessions
 
 Five experiments and one exercise against the **Service Bus emulator**, no Azure subscription needed: a message that is never completed comes back after its lock expires; abandoning it `MaxDeliveryCount` times dead-letters it; sessions keep each order's messages in sequence while sessions run in parallel; duplicate detection drops a resent `MessageId`; scheduled and deferred messages. The exercise: a declined card must be charged once and dead-lettered with a reason, not retried ten times.
 

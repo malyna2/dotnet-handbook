@@ -602,7 +602,7 @@ What you don't do is quietly deliver a proposal you believe won't work. The acco
 - **Peter Block, *Flawless Consulting*.** The standard text on the consulting relationship, including how to handle a client's resistance to a diagnosis.
 - **Donald C. Gause and Gerald M. Weinberg, *Are Your Lights On? How to Figure Out What the Problem Really Is*.** A short book on problem definition: the antidote to solving the request instead of the problem.
 - **Gerald M. Weinberg, *The Secrets of Consulting*.** Rules of thumb for giving advice and getting it taken.
-- **David H. Maister, Charles H. Green and Robert M. Galford, *The Trusted Advisor*.** How trust in advisory relationships is built and lost; the frame for Chapters 38–43.
+- **David H. Maister, Charles H. Green and Robert M. Galford, *The Trusted Advisor*.** How trust in advisory relationships is built and lost; the frame for Chapters 38–44.
 - **Rob Fitzpatrick, *The Mom Test*.** Asking about past behaviour, not opinions or hypotheticals.
 - **Taiichi Ohno, *Toyota Production System*.** The origin of the five whys as a working method.
 - **Melvin E. Conway, "How Do Committees Invent?"** (1968). The original paper behind Conway's law.
