@@ -33388,7 +33388,7 @@ One problem, your method (reproduce, hypothesise, measure, fix, prevent) and a b
 
 This page is the handbook's changelog. When a new release lands, a popup announces it on your next visit. Under each release, **Site & functionality** items are plain notes, while **Content updates** link to every chapter that changed — a link is ticked off (✓, stored locally in your browser) once you visit it, so you can work through an update at your own pace and see what's still unread.
 
-## Release — November 5, 2026
+## Release — November 16, 2026
 
 **🔧 Site & functionality**
 
