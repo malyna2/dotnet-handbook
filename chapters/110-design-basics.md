@@ -113,6 +113,131 @@ Dependency Inversion is the principle behind the entire .NET [dependency injecti
 - **Law of Demeter (principle of least knowledge):** A method should talk only to its immediate collaborators, not reach through them. `order.Customer.Address.Country.Code` is a "train wreck" that couples you to the whole object graph; ask the nearest object for what you need instead. (LINQ chains are a deliberate exception — they operate on one pipeline, not a web of distinct objects.)
 - **Composition over Inheritance:** Prefer assembling behavior from small, injected parts over deep inheritance trees. Inheritance is rigid — it's decided at compile time, exposes you to fragile-base-class problems, and forces the whole contract of the parent onto the child. Composition (the engine behind Strategy, Decorator, and DI) is flexible and testable. When you're about to write `class X : Y` for code reuse rather than a true "is-a" relationship, stop and ask whether X should instead *have* a Y.
 
+### SRP and Separation of Concerns Are Different Rules
+
+The two are confused because they usually point the same way, but they measure different things. SRP is measured in *reasons to change*: who would ask for an edit to this class? Separation of Concerns is measured in *kinds of work*: are HTTP, business rules and data access kept in different places, so each can be understood and replaced on its own?
+
+| | Single Responsibility Principle | Separation of Concerns |
+|---|---|---|
+| Unit | A class or module | A system, layer or feature |
+| Splits by | Source of change (one stakeholder, one rule set) | Kind of work (presentation, domain, persistence, transport) |
+| The question to ask | "Who would ask me to change this, and how many of them are there?" | "Is this code doing two different kinds of job?" |
+| How it fails | One class edited for unrelated reasons, each edit risking the others | SQL in a controller, HTTP status codes in the domain, business rules in the UI |
+| At a larger scale | Cohesive modules | [Layered](#layered-n-tier-architecture) and [Clean](#clean-onion-and-hexagonal-architecture) architectures |
+
+Code can satisfy one and break the other, which is the quickest way to show you know the difference.
+
+```csharp
+// Application layer, no SQL and no HTTP: Separation of Concerns holds.
+// Three reasons to change: the discount rule, the loyalty programme and the confirmation email.
+public sealed class OrderService(IOrderRepository orders, IEmailSender email)
+{
+    public async Task PlaceAsync(PlacedOrder order)
+    {
+        order.Total = order.Lines.Sum(l => l.Price * l.Quantity) * (order.IsFirstOrder ? 0.9m : 1m);
+        order.LoyaltyPoints = (int)(order.Total / 10);
+        await orders.AddAsync(order);
+        await email.SendAsync(order.CustomerEmail, $"Order {order.Id} confirmed");
+    }
+}
+```
+
+```csharp
+// One reason to change (how a tax rate is looked up), so SRP holds.
+// HTTP, SQL and the not-found rule share one lambda, so SoC does not.
+app.MapGet("/tax-rate/{country}", async (string country, NpgsqlConnection db) =>
+    await db.QuerySingleOrDefaultAsync<decimal?>(
+        "SELECT rate FROM tax_rates WHERE country = @country", new { country })
+        is decimal rate ? Results.Ok(rate) : Results.NotFound());
+```
+
+The first needs splitting: marketing, the loyalty team and whoever owns the email template will each edit it. The second may be fine as it is. A single read with no business logic is the case [vertical slices](#vertical-slice-architecture) (Chapter 21) accept on purpose, and adding a repository and a service around one query is YAGNI ignored. It becomes a problem when a second rule arrives and lands in the same lambda.
+
+**The one-sentence answer:** SRP keeps one class answerable to one source of change; Separation of Concerns keeps different kinds of work in different places, at every scale from a method to a system.
+
+### Design by Contract: Preconditions, Postconditions, Invariants
+
+Every method has a contract, written down or not, with three parts:
+
+- **Preconditions:** what the caller must guarantee before the call (`seats > 0`, the order isn't already paid).
+- **Postconditions:** what the method guarantees when it returns normally (the seat count went up by exactly `seats`).
+- **Invariants:** what is true of an object between any two public calls (booked seats never exceed capacity).
+
+The value of naming them is that they assign blame. A broken precondition is the caller's bug; a broken postcondition or invariant is this class's bug. That decides what to throw and where to look. Bertrand Meyer built the idea into the Eiffel language, where contracts are checked at run time.
+
+.NET has no contract checker today. `System.Diagnostics.Contracts` still exists, but its methods are marked `[Conditional("CONTRACTS_FULL")]`, so the compiler removes every call unless that symbol is defined, and the rewriter that made them work was never ported to .NET Core. The contract is expressed with ordinary tools instead:
+
+```csharp
+public sealed class Reservation
+{
+    public int Capacity { get; }
+    public int Seats { get; private set; }
+
+    public Reservation(int capacity)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(capacity);   // precondition on the argument
+        Capacity = capacity;
+    }
+
+    public void Book(int seats)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(seats);      // precondition: the caller's bug
+        if (Seats + seats > Capacity)                                  // precondition on the object's state
+            throw new InvalidOperationException("Not enough seats left.");
+
+        Seats += seats;
+
+        Debug.Assert(Seats <= Capacity, "Invariant broken: more seats booked than exist.");
+    }
+}
+```
+
+| Contract part | How it's expressed in .NET |
+|---|---|
+| Precondition on an argument | A [guard clause](#null-object-guard-clauses-brief) throwing `ArgumentException` or one of its subtypes; nullable reference types move the null check to compile time |
+| Precondition on the object's state | `InvalidOperationException`: the argument is fine, but the object can't accept the call now |
+| Invariant | A type that can't be built invalid: validate in the constructor, no public setters, change state only through methods that keep it true (see [the value object refactoring](#a-worked-refactoring-primitive-obsession-value-object)) |
+| Postcondition | Unit tests, which check it from outside; `Debug.Assert` for internal assumptions |
+
+> **Gotcha.** `Debug.Assert` is marked `[Conditional("DEBUG")]`, so Release builds remove the call and its argument entirely. Use it only for "this can't happen unless this class has a bug", never to validate input: in production the check doesn't exist.
+
+Contracts also give Liskov substitution its precise form: a subtype may *weaken* a precondition (accept more) and *strengthen* a postcondition (promise more), never the reverse. The `Square` in [SOLID](#solid) breaks the setter's postcondition: after setting `Width`, `Height` should be unchanged, and it isn't.
+
+### GRASP: Who Should Own This Responsibility?
+
+SOLID tells you whether a design is healthy; GRASP (General Responsibility Assignment Software Patterns, from Craig Larman's *Applying UML and Patterns*) answers the question you face first: *which class should do this?* Most of its nine principles appear elsewhere in this chapter under other names, so GRASP is mainly a vocabulary for decisions you already make.
+
+| Principle | The question it answers | Where you've met it |
+|---|---|---|
+| Information Expert | Give the work to the class that has the data it needs | A rich domain model: `order.Total`, not a service summing `order.Lines` |
+| Creator | B creates A when B contains A, or holds the data to initialize it | `order.AddLine(...)` creates the `OrderLine`; a factory when creation gets complex |
+| Controller | Which object first receives a system operation from the UI or the API? | A thin controller or endpoint handing over to an application service or a handler |
+| Low Coupling | Assign work so that a change touches few classes | Dependency Inversion, the Law of Demeter |
+| High Cohesion | Keep each class's work focused and related | SRP |
+| Polymorphism | Behaviour varies by type: let the types carry it, not a `switch` | Open/Closed, [Strategy](#strategy) |
+| Pure Fabrication | Invent a class that isn't in the domain when that keeps the domain cohesive | [Repositories](#repository-unit-of-work), `IEmailSender` |
+| Indirection | Put an intermediary between two things to decouple them | [Mediator](#mediator), [Adapter](#adapter), every injected interface |
+| Protected Variations | Wrap a known point of change behind a stable interface | An adapter around a payment provider, the [Options pattern](#options-pattern) |
+
+```csharp
+public sealed class Order
+{
+    private readonly List<OrderLine> _lines = [];
+
+    // Information Expert: the object that holds the lines computes the total.
+    public decimal Total => _lines.Sum(l => l.UnitPrice * l.Quantity);
+
+    // Creator: Order contains its lines, so Order creates them.
+    public void AddLine(Product product, int quantity) =>
+        _lines.Add(new OrderLine(product.Id, product.Price, quantity));
+}
+
+public sealed record OrderLine(int ProductId, decimal UnitPrice, int Quantity);
+public sealed record Product(int Id, decimal Price);
+```
+
+> **Pitfall:** Protected Variations is YAGNI's opposite number, and the two are reconciled by evidence. Wrap the variation you know is coming (a second payment provider is in the contract, the tax rules change every year), not every variation you can imagine. An interface around something that never changes is indirection you pay for on every read.
+
 ## What a Design Pattern Actually Is
 
 A design pattern is a named, reusable solution to a recurring design problem.
@@ -1019,4 +1144,28 @@ A `Result<T>` for expected failures that are part of the business flow: validati
 <summary>Answer</summary>
 
 The direction of one arrow. In layers, business logic references the data layer, so the rules depend on EF Core and the table shapes. In Clean, Onion or Hexagonal architecture the core defines the interfaces it needs and infrastructure implements them, so every source dependency points inward and the domain can be tested without a database. The price is more projects, interfaces and mapping, which a CRUD tool doesn't repay ([The Dependency Rule](#the-dependency-rule)).
+</details>
+
+**SRP and Separation of Concerns: what's the difference?**
+
+<details>
+<summary>Answer</summary>
+
+They measure different things. SRP counts reasons to change: a class should answer to one source of change. Separation of Concerns sorts kinds of work: HTTP, business rules and persistence live apart, at every scale. An application service with no SQL in it can still have three reasons to change (SoC holds, SRP doesn't), and a one-query endpoint mixing HTTP and SQL has one (SRP holds, SoC doesn't). See [SRP and Separation of Concerns](#srp-and-separation-of-concerns-are-different-rules).
+</details>
+
+**What is design by contract, and how do you do it in .NET without a contracts library?**
+
+<details>
+<summary>Answer</summary>
+
+A method's contract is its preconditions (what the caller guarantees), postconditions (what it guarantees on return) and the class's invariants (what is always true between public calls); a broken precondition is the caller's bug, the others are the class's. In .NET: guard clauses throwing `ArgumentException` for arguments and `InvalidOperationException` for state, nullable reference types, types that can't be constructed invalid, and tests for postconditions. `Debug.Assert` is for internal assumptions only, because Release builds remove it. See [Design by Contract](#design-by-contract-preconditions-postconditions-invariants).
+</details>
+
+**What is GRASP, and which of its principles do you use most?**
+
+<details>
+<summary>Answer</summary>
+
+Nine principles for deciding which class gets a responsibility: Information Expert, Creator, Controller, Low Coupling, High Cohesion, Polymorphism, Pure Fabrication, Indirection and Protected Variations. Information Expert does the most work day to day: putting `Total` on `Order` instead of in a service that reads its lines keeps the logic next to the data it needs. Protected Variations needs the most restraint, because it's justified only for change you have evidence for. See [GRASP](#grasp-who-should-own-this-responsibility).
 </details>
