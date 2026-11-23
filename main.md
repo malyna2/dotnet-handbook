@@ -34192,6 +34192,19 @@ One problem, your method (reproduce, hypothesise, measure, fix, prevent) and a b
 
 This page is the handbook's changelog. When a new release lands, a popup announces it on your next visit. Under each release, **Site & functionality** items are plain notes, while **Content updates** link to every chapter that changed — a link is ticked off (✓, stored locally in your browser) once you visit it, so you can work through an update at your own pace and see what's still unread.
 
+## Release — November 23, 2026
+
+**🔧 Site & functionality**
+
+- Chapter 9's new Find the bug exercise is compiled and tested alongside the other exercise samples.
+
+**📖 Content updates**
+
+- [Chapter 26: Delivery and Platform](#chapter-26-delivery-and-platform) — A/B testing as experimentation: sticky assignment, one primary metric, sample size, peeking and sample ratio mismatch.
+- [Chapter 10: Design Basics](#chapter-10-design-basics) — SRP and Separation of Concerns side by side, Design by Contract in modern .NET, and GRASP mapped to familiar patterns.
+- [Chapter 9: Exceptions, Logging and First Diagnosis](#chapter-9-exceptions-logging-and-first-diagnosis) — A latency map from symptom to fix, a fan-out tail callout, and new exercises on code that on-call can debug.
+- [Chapter 32: The AI-Native Developer — Thriving in the AI Era](#chapter-32-the-ai-native-developer-thriving-in-the-ai-era) — Choosing between conventions file, skill, hook, sub-agent and MCP server, and autonomous agent loops.
+
 ## Release — November 16, 2026
 
 **🔧 Site & functionality**
