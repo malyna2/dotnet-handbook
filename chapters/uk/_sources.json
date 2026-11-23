@@ -40,12 +40,12 @@
     "translation": "ed7c5b5e0505c9a7c393e0135148c0aa56d95ebdb1089574765315b1173a24f3"
   },
   "109-exceptions-logging-diagnosis": {
-    "source": "8ac7d48a45e24c9d4bd625883723bf304a2530f365290d6461cc4d733456f8a7",
-    "translation": "5c794af73d4b05aa75a241e3ca88a778eec93efa488164c707b03e3039200386"
+    "source": "e2b9f86aec891436021434575f3a8b40bb3e8f5349e2e0cff76c31a9d37812c6",
+    "translation": "c89203b03b6daa416d5e88c5b7961adcfe958e595fb7518037c9daf4114ee24b"
   },
   "110-design-basics": {
-    "source": "56a29e1324b57166ec5a82b962120e9b9a0820763e5a234ca0ee52f5398b7929",
-    "translation": "67893381bdd8579c6fed3fadecd02f86dc68365fe7720a4e2ecc826a190c9e67"
+    "source": "2dbc67377ec3882e8a0ac6b49587551efd5323e8f9b0bbb2848975a092f03ce6",
+    "translation": "ad8ccc2f5371f33d11f7fff91dc3ed2d8a30c5aee23b2ea6c465a6793809a78c"
   },
   "111-messaging-and-background-work": {
     "source": "148283c4a963f3083594f43a4801151e387b3bd41303614cc84c917eca9dd531",
@@ -116,8 +116,8 @@
     "translation": "aa38ab30b479319ba7317fb953c78686f084ba09a7e657dbe1f55f1612b6c6ec"
   },
   "226-delivery-and-platform": {
-    "source": "b4fdf01fe5ea936f1c933abd719332c4d30208df2fc411629d6dbe851ddf47b7",
-    "translation": "2b5390bfb1b0fac311dd23f0a3114f09f7bb3dab005cde96add897b95b475191"
+    "source": "e48013f75f147dad23ce7add6274f20eca42518b382e9f510ed463eb06463fc0",
+    "translation": "89414211f3b4cb3e6813207a5d50340c9bf4d61ae5f118255947b96bf2ba1e52"
   },
   "227-security-in-depth": {
     "source": "2443ea90ce58b7139e8448af1f9d8f0ee60a2c7a5d2c40408f1b530037d8f1d4",
@@ -140,8 +140,8 @@
     "translation": "423eed2da17b88e2a73496e0b686568bd9d028cf429e3d60c8cadc0a35216797"
   },
   "232-ai-native": {
-    "source": "42328ca8792fdb3779c721a2c84a140f2d7b8d69448d9a8cd54488d2d73ae351",
-    "translation": "fd31e2621cdf81aa18c2834a0f5e1b0570bb4c7051431989933960d7bc9ea7e3"
+    "source": "5792f448120845883c8e15dbf3adaaa01084e46b8ec51fc6e6694cef2e38d9fe",
+    "translation": "4a443da3ca3dd02d2f3b74105b40d9cd2b5b2dcaa2510aafed67817569a2b3da"
   },
   "233-ai-systems": {
     "source": "c552862de644b0ba8340e97a59c19f801f3a93b9550bf356c9cd3cf5e2e1ceff",
@@ -212,7 +212,7 @@
     "translation": "cf0a1f9356be1b072118963a7449d2348e4957ac4b948b32f7288169f672fd8b"
   },
   "999-whats-new": {
-    "source": "99d55a7b34c1879611d52ce8cacb8f3ab0c2683dc0a89c462311fabdb274aaea",
-    "translation": "d6ae14e8668670e09e4e0f55463d2df9d4153905a86188014be270d27096cc4f"
+    "source": "16d127d6dbe5fb31817e1b205d0b8bebea436a7c6f209661b14a1d481d842ef0",
+    "translation": "d8be04862f8729535ee88cd9145ddb6faff7fb767878beef95b2d06f064ab130"
   }
 }

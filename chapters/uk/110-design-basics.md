@@ -113,6 +113,131 @@ public interface IEmailSender { void Send(string to, string body); }
 - **Закон Деметри (принцип найменшої обізнаності):** метод має взаємодіяти лише з безпосередніми співпрацівниками, а не проходити крізь них. `order.Customer.Address.Country.Code` — «катастрофа потяга», що зв’язує вас з усім графом об’єктів; натомість попросіть найближчий об’єкт надати потрібне. (Ланцюжки LINQ — свідомий exception (виняток): вони працюють в одному pipeline (конвеєрі), а не з мережею окремих об’єктів.)
 - **Композиція замість успадкування:** віддавайте перевагу збиранню поведінки з малих впроваджених частин замість глибоких ієрархій успадкування. Успадкування жорстке: воно визначається під час компіляції, створює проблеми крихкого базового класу й нав’язує дочірньому класу весь контракт батьківського. Композиція (основа Strategy, Decorator і DI) гнучка й тестована. Якщо збираєтеся написати `class X : Y` заради повторного використання коду, а не справжнього відношення «є різновидом», зупиніться й подумайте, чи має X натомість *містити* Y.
 
+### SRP і Separation of Concerns — різні правила
+
+Їх плутають, бо зазвичай вони вказують в одному напрямку, але вимірюють різне. SRP вимірюють у *причинах змін*: хто попросить змінити цей клас? Separation of Concerns (розділення відповідальностей) вимірюють у *видах роботи*: чи тримаються HTTP, бізнес-правила й доступ до даних у різних місцях, щоб кожну частину можна було зрозуміти й замінити окремо?
+
+| | Single Responsibility Principle | Separation of Concerns |
+|---|---|---|
+| Одиниця | Клас або модуль | Система, шар чи функціональність |
+| Ділить за | Джерелом змін (одна зацікавлена сторона, один набір правил) | Видом роботи (представлення, домен, зберігання, транспорт) |
+| Запитання, яке варто поставити | «Хто попросить мене це змінити і скільки їх?» | «Чи робить цей код дві різні за природою роботи?» |
+| Як порушується | Один клас змінюють із не пов’язаних причин, і кожна зміна ризикує зламати інші | SQL у контролері, HTTP-коди статусу в домені, бізнес-правила в UI |
+| У більшому масштабі | Згуртовані модулі | [Шарова](#layered-n-tier-architecture) і [Clean](#clean-onion-and-hexagonal-architecture) архітектури |
+
+Код може дотримуватися одного правила й порушувати інше, і це найшвидший спосіб показати, що ви розумієте різницю.
+
+```csharp
+// Application layer, no SQL and no HTTP: Separation of Concerns holds.
+// Three reasons to change: the discount rule, the loyalty programme and the confirmation email.
+public sealed class OrderService(IOrderRepository orders, IEmailSender email)
+{
+    public async Task PlaceAsync(PlacedOrder order)
+    {
+        order.Total = order.Lines.Sum(l => l.Price * l.Quantity) * (order.IsFirstOrder ? 0.9m : 1m);
+        order.LoyaltyPoints = (int)(order.Total / 10);
+        await orders.AddAsync(order);
+        await email.SendAsync(order.CustomerEmail, $"Order {order.Id} confirmed");
+    }
+}
+```
+
+```csharp
+// One reason to change (how a tax rate is looked up), so SRP holds.
+// HTTP, SQL and the not-found rule share one lambda, so SoC does not.
+app.MapGet("/tax-rate/{country}", async (string country, NpgsqlConnection db) =>
+    await db.QuerySingleOrDefaultAsync<decimal?>(
+        "SELECT rate FROM tax_rates WHERE country = @country", new { country })
+        is decimal rate ? Results.Ok(rate) : Results.NotFound());
+```
+
+Перший приклад треба розділити: його змінюватимуть і маркетинг, і команда програми лояльності, і власник шаблону листа. Другий може бути цілком прийнятним. Одне читання без бізнес-логіки — саме той випадок, який [vertical slices](#vertical-slice-architecture) (вертикальні зрізи, Розділ 21) свідомо допускають, а репозиторій і сервіс навколо одного запиту — це проігнорований YAGNI. Проблемою це стає, коли з’являється друге правило й потрапляє в ту саму лямбду.
+
+**Відповідь одним реченням:** SRP робить клас підзвітним одному джерелу змін; Separation of Concerns тримає різні види роботи в різних місцях на кожному рівні — від методу до системи.
+
+### Design by Contract: передумови, постумови, інваріанти
+
+Кожен метод має контракт, записаний чи ні, із трьох частин:
+
+- **Передумови:** що викликач має гарантувати до виклику (`seats > 0`, замовлення ще не оплачене).
+- **Постумови:** що метод гарантує, коли нормально повертає керування (кількість місць зросла рівно на `seats`).
+- **Інваріанти:** що істинно для об’єкта між будь-якими двома публічними викликами (заброньованих місць ніколи не більше, ніж є).
+
+Цінність цих назв у тому, що вони визначають, чия це помилка. Порушена передумова — помилка викликача; порушена постумова чи інваріант — помилка цього класу. Від цього залежить, що кидати й де шукати. Бертран Меєр вбудував цю ідею в мову Eiffel, де контракти перевіряються під час виконання.
+
+У .NET сьогодні немає засобу перевірки контрактів. `System.Diagnostics.Contracts` досі існує, але його методи позначено `[Conditional("CONTRACTS_FULL")]`, тож компілятор видаляє кожен виклик, якщо цей символ не визначено, а інструмент переписування, завдяки якому вони працювали, так і не перенесли на .NET Core. Натомість контракт виражають звичайними засобами:
+
+```csharp
+public sealed class Reservation
+{
+    public int Capacity { get; }
+    public int Seats { get; private set; }
+
+    public Reservation(int capacity)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(capacity);   // precondition on the argument
+        Capacity = capacity;
+    }
+
+    public void Book(int seats)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(seats);      // precondition: the caller's bug
+        if (Seats + seats > Capacity)                                  // precondition on the object's state
+            throw new InvalidOperationException("Not enough seats left.");
+
+        Seats += seats;
+
+        Debug.Assert(Seats <= Capacity, "Invariant broken: more seats booked than exist.");
+    }
+}
+```
+
+| Частина контракту | Як її виражають у .NET |
+|---|---|
+| Передумова щодо аргументу | [Guard clause](#null-object-guard-clauses-brief), що кидає `ArgumentException` або один із його підтипів; nullable reference types переносять перевірку на null на етап компіляції |
+| Передумова щодо стану об’єкта | `InvalidOperationException`: аргумент коректний, але об’єкт зараз не може прийняти виклик |
+| Інваріант | Тип, який неможливо створити некоректним: перевірка в конструкторі, без публічних сеттерів, зміна стану лише через методи, що його зберігають (див. [рефакторинг до value object](#a-worked-refactoring-primitive-obsession-value-object)) |
+| Постумова | Модульні тести, які перевіряють її ззовні; `Debug.Assert` для внутрішніх припущень |
+
+> **Нюанс.** `Debug.Assert` позначено `[Conditional("DEBUG")]`, тож Release-збирання видаляє і виклик, і його аргумент повністю. Використовуйте його лише для «такого не може бути, якщо в цьому класі немає помилки», і ніколи — для перевірки вхідних даних: у production цієї перевірки не існує.
+
+Контракти також дають принципу підстановки Лісков точне формулювання: підтип може *послабити* передумову (приймати більше) і *посилити* постумову (обіцяти більше), але не навпаки. `Square` із розділу [SOLID](#solid) порушує постумову сеттера: після встановлення `Width` значення `Height` має лишитися незмінним, а воно змінюється.
+
+### GRASP: хто має відповідати за це?
+
+SOLID показує, чи здоровий дизайн; GRASP (General Responsibility Assignment Software Patterns, із книжки Крейга Лармана *Applying UML and Patterns*) відповідає на запитання, яке постає раніше: *який клас має це робити?* Більшість із його дев’яти принципів трапляються в цьому розділі під іншими назвами, тож GRASP — це передусім словник для рішень, які ви вже ухвалюєте.
+
+| Принцип | На яке запитання відповідає | Де ви його вже бачили |
+|---|---|---|
+| Information Expert | Доручіть роботу класу, який має потрібні для неї дані | Багата доменна модель: `order.Total`, а не сервіс, що підсумовує `order.Lines` |
+| Creator | B створює A, коли B містить A або має дані для його ініціалізації | `order.AddLine(...)` створює `OrderLine`; фабрика, коли створення ускладнюється |
+| Controller | Який об’єкт першим отримує системну операцію від UI чи API? | Тонкий контролер або endpoint, що передає роботу прикладному сервісу чи обробнику |
+| Low Coupling | Розподіляйте роботу так, щоб зміна зачіпала мало класів | Dependency Inversion, закон Деметри |
+| High Cohesion | Робота кожного класу має бути сфокусованою й пов’язаною | SRP |
+| Polymorphism | Поведінка залежить від типу: нехай її несуть типи, а не `switch` | Open/Closed, [Strategy](#strategy) |
+| Pure Fabrication | Створіть клас, якого немає в домені, якщо це зберігає згуртованість домену | [Репозиторії](#repository-unit-of-work), `IEmailSender` |
+| Indirection | Поставте посередника між двома частинами, щоб розв’язати їх | [Mediator](#mediator), [Adapter](#adapter), кожен інжектований інтерфейс |
+| Protected Variations | Сховайте відому точку змін за стабільним інтерфейсом | Адаптер навколо платіжного провайдера, [шаблон Options](#options-pattern) |
+
+```csharp
+public sealed class Order
+{
+    private readonly List<OrderLine> _lines = [];
+
+    // Information Expert: the object that holds the lines computes the total.
+    public decimal Total => _lines.Sum(l => l.UnitPrice * l.Quantity);
+
+    // Creator: Order contains its lines, so Order creates them.
+    public void AddLine(Product product, int quantity) =>
+        _lines.Add(new OrderLine(product.Id, product.Price, quantity));
+}
+
+public sealed record OrderLine(int ProductId, decimal UnitPrice, int Quantity);
+public sealed record Product(int Id, decimal Price);
+```
+
+> **Пастка:** Protected Variations — протилежність YAGNI, і примиряють їх факти. Обгортайте ту варіацію, яка точно буде (другий платіжний провайдер уже в договорі, податкові правила змінюються щороку), а не кожну, яку можна уявити. Інтерфейс навколо того, що ніколи не змінюється, — це опосередкування, за яке ви платите під час кожного читання коду.
+
 ## Що насправді являє собою design pattern
 
 Design pattern (шаблон проєктування) — це іменоване багаторазове рішення типової проблеми проєктування.
@@ -1019,4 +1144,28 @@ Decorator реалізує той самий інтерфейс і тримає 
 <summary>Відповідь</summary>
 
 Напрямок однієї стрілки. У шарах бізнес-логіка посилається на шар даних, тож правила залежать від EF Core і форми таблиць. У Clean, цибулевій або гексагональній архітектурі ядро визначає потрібні йому інтерфейси, а інфраструктура їх реалізує, тож кожна залежність у коді спрямована всередину, і домен можна тестувати без бази даних. Ціна — більше проєктів, інтерфейсів і перетворень між моделями, яких CRUD-інструмент не окупить ([Правило залежностей](#the-dependency-rule)).
+</details>
+
+**SRP і Separation of Concerns: у чому різниця?**
+
+<details>
+<summary>Відповідь</summary>
+
+Вони вимірюють різне. SRP рахує причини змін: клас має відповідати одному джерелу змін. Separation of Concerns розподіляє види роботи: HTTP, бізнес-правила й зберігання живуть окремо на кожному рівні. Прикладний сервіс без SQL може мати три причини змін (SoC дотримано, SRP — ні), а endpoint з одним запитом, що змішує HTTP і SQL, має одну (SRP дотримано, SoC — ні). Див. [SRP і Separation of Concerns](#srp-and-separation-of-concerns-are-different-rules).
+</details>
+
+**Що таке design by contract і як застосовувати його в .NET без бібліотеки контрактів?**
+
+<details>
+<summary>Відповідь</summary>
+
+Контракт методу — це його передумови (що гарантує викликач), постумови (що гарантує метод під час повернення) та інваріанти класу (що завжди істинно між публічними викликами); порушена передумова — помилка викликача, решта — помилка класу. У .NET: guard clauses, що кидають `ArgumentException` для аргументів і `InvalidOperationException` для стану, nullable reference types, типи, які неможливо створити некоректними, і тести для постумов. `Debug.Assert` — лише для внутрішніх припущень, бо Release-збирання його видаляє. Див. [Design by Contract](#design-by-contract-preconditions-postconditions-invariants).
+</details>
+
+**Що таке GRASP і якими його принципами ви користуєтеся найчастіше?**
+
+<details>
+<summary>Відповідь</summary>
+
+Дев’ять принципів для вирішення, який клас отримує відповідальність: Information Expert, Creator, Controller, Low Coupling, High Cohesion, Polymorphism, Pure Fabrication, Indirection і Protected Variations. Найбільше щоденної роботи виконує Information Expert: `Total` на `Order`, а не в сервісі, що читає його рядки, тримає логіку поруч із даними, які їй потрібні. Найбільшої стриманості потребує Protected Variations, бо він виправданий лише для змін, на які є докази. Див. [GRASP](#grasp-who-should-own-this-responsibility).
 </details>
