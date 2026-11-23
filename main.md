@@ -19608,7 +19608,7 @@ Checkout calls Payments and Inventory, each owned by another team and deployed o
 
 # Chapter 26: Delivery and Platform
 
-_⏱️ Estimated read time: ~1 h 25 min · 13996 words (study pace)_
+_⏱️ Estimated read time: ~1 h 30 min · 15006 words (study pace)_
 
 Part 1 taught you to build, test and containerize one service ([Chapter 13: Git and CI/CD](#chapter-13-git-and-cicd), [Chapter 14: Containers and Linux](#chapter-14-containers-and-linux)). This chapter is about everything between that image and a user, and about doing it for many services and many teams.
 
@@ -20366,6 +20366,73 @@ Flags are configured externally—`appsettings.json`, Azure App Configuration, o
 
 > **Pitfall:** Feature flags are debt if you never remove them. A codebase littered with stale flags becomes an unreadable maze of dead branches. Track flags and delete both the flag and the losing code path once a feature is fully rolled out and stable.
 
+### From Rollout to Experiment: A/B Testing
+
+A percentage rollout and an A/B test use the same switch to answer different questions. A rollout asks *is it safe?*: you watch error rate and latency while the percentage climbs, and the goal is 100%. An A/B test asks *is it better?*: two variants run side by side on comparable users, you compare one outcome metric between them, and the goal is a decision, after which the losing variant is deleted.
+
+| | Percentage rollout | A/B test |
+|---|---|---|
+| Question | Does the new code break anything? | Does variant B move the metric we care about? |
+| Watched signals | Errors, latency, saturation | One primary outcome metric, plus guardrails |
+| Ends when | 100% of users have it | The planned sample size is reached |
+| Who decides | The team shipping the code | The metric, read against a threshold set in advance |
+
+Four mechanics make the comparison trustworthy.
+
+- **Sticky assignment.** A user must see the same variant on every request, or their behaviour mixes both variants and the difference between the groups shrinks toward zero. So assignment is a function of the user, not a coin flip per request: hash a stable user ID with a per-experiment seed and map the result onto 0–100. `Microsoft.FeatureManagement` does exactly this: it takes the SHA-256 of `"{userId}\n{seed}"`, reads the first four bytes as a percentage, and gives the user the variant whose `from`–`to` range contains it. Nothing is stored, and every instance of the service computes the same answer.
+- **The unit of randomization.** Randomize by the thing whose behaviour you measure, which is usually the user. Randomizing per request lets one person see both checkouts. Anonymous visitors need a stable ID too, such as a first-party cookie, or every visit counts as a new user.
+- **One primary metric, chosen before the start.** Conversion rate or revenue per visitor: one metric, written down with the smallest change worth acting on, plus guardrail metrics that must not get worse (p95 latency, error rate, refunds). Choosing the metric after looking at a dashboard of twenty finds a winner by chance: at a 5% significance level, about one metric in twenty differs when nothing real changed.
+- **A sample size fixed in advance.** Small effects need large samples. A rule of thumb for 80% power at a 5% significance level is n ≈ 16 · p(1 − p) / δ² users per variant, where p is the baseline rate and δ the absolute change to detect. A 5% conversion rate and a lift to 5.5% give 16 · 0.05 · 0.95 / 0.005² ≈ 30,400 users per variant. If your traffic can't reach that in a few weeks, the test can't answer the question: ship on judgment and watch the guardrails instead.
+
+With `Microsoft.FeatureManagement` 4.x, a flag with variants and a percentile allocation is the experiment:
+
+```json
+{
+  "feature_management": {
+    "feature_flags": [
+      {
+        "id": "CheckoutLayout",
+        "enabled": true,
+        "variants": [ { "name": "Control" }, { "name": "OneStep" } ],
+        "allocation": {
+          "percentile": [
+            { "variant": "Control", "from": 0, "to": 50 },
+            { "variant": "OneStep", "from": 50, "to": 100 }
+          ],
+          "seed": "checkout-layout-1"
+        },
+        "telemetry": { "enabled": true }
+      }
+    ]
+  }
+}
+```
+
+```csharp
+builder.Services.AddFeatureManagement()
+    .WithTargeting();   // the user ID comes from HttpContext.User.Identity.Name
+
+app.MapGet("/checkout", async (IVariantFeatureManager features, ILogger<Program> log, CancellationToken ct) =>
+{
+    Variant? variant = await features.GetVariantAsync("CheckoutLayout", ct);
+    string layout = variant?.Name ?? "Control";
+
+    // Every event the analysis joins on carries the experiment and the variant.
+    log.LogInformation("Checkout shown: {Experiment} {Variant}", "CheckoutLayout", layout);
+    return Results.Ok(new { layout });
+});
+```
+
+The analysis joins the exposure event (who saw which variant) to the outcome event (who converted), so both must carry the variant, or the user ID it can be recomputed from. With `telemetry` enabled, the library also records each evaluation with its variant and the reason it was assigned, for a telemetry publisher such as Application Insights to collect. Without the exposure event, users who never reached the checkout dilute both groups equally and hide the effect.
+
+> **Pay attention.** **Peeking turns noise into a winner.**
+>
+> A significance test answers one question once: how surprising is this difference if there is no real effect, at the planned sample size? Checking the dashboard daily and stopping on the first day it shows p < 0.05 runs that test many times, and each look is another chance for noise to cross the line. With ten looks the false-positive rate is close to 20%, not 5%. Fix the sample size and end date before the start and decide only then, or use a method built for continuous monitoring (sequential testing), which most experimentation platforms offer.
+
+> **Gotcha.** A 50/50 split that arrives as 52,000 to 48,000 users is not bad luck: with 100,000 users the standard deviation of a fair split is about 160, so that gap is over twelve of them. A *sample ratio mismatch* means assignment or logging is broken (one variant crashes before it logs the exposure, a redirect drops a cookie, bots favour one path), and the results can't be trusted until you find out why.
+
+> **Pitfall:** Two experiments that share a seed and the same ranges put the same users in both treatments, so neither result can be separated from the other. The library's default seed is derived from the flag's name, which keeps allocations independent; the trap is a seed copied from another flag's configuration.
+
 ## Load Balancers, Reverse Proxies, API Gateways, and CDNs
 
 Between your users and your servers sits a stack of infrastructure whose job is to distribute, protect, and accelerate traffic.
@@ -20821,6 +20888,14 @@ A fixed window lets a client spend a full allowance at the end of one window and
 <summary>Answer</summary>
 
 Deployment frequency, lead time for changes, change failure rate and failed deployment recovery time. They measure throughput and stability, not value. Each can be gamed alone: frequency rises with reckless shipping, and failure rate falls with paralysis, so only the pair shows improvement. Use them as a team's own trend, never to compare teams or people. See [DORA](#dora-four-metrics-and-exactly-how-each-is-gamed).
+</details>
+
+**A percentage rollout behind a feature flag and an A/B test: what's the difference?**
+
+<details>
+<summary>Answer</summary>
+
+The same switch, a different question. A rollout asks whether the new code is safe: you watch errors and latency while the percentage climbs to 100%. An A/B test asks whether a variant is better: users are assigned stickily by hashing their ID with a seed, one primary metric and the sample size are fixed before the start, and the decision is read once at the end, because stopping on the first good day inflates false positives. See [From Rollout to Experiment](#from-rollout-to-experiment-ab-testing).
 </details>
 
 
