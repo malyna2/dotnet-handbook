@@ -612,6 +612,29 @@ Check CPU while the endpoint is slow. High CPU with low throughput → CPU-bound
 **The DB is the bottleneck — now what?**
 Pull the execution plan for the slow query ([Execution Plans](#execution-plans) in Chapter 7; [Chapter 19](#chapter-19-the-slow-query-lab-reading-execution-plans) is a lab on reading them). Look for scans that should be seeks (a missing index, or one the predicate can't use because it wraps the column in a function or forces an implicit conversion), bad join order from stale statistics, or far more rows than the caller needs. Then consider, cheapest first: indexing, a query rewrite, pagination, caching, read replicas.
 
+## Where the Time Goes: A Latency Map
+
+A request's latency is the sum of the waits on its critical path: the chain of steps where each one starts only after the previous one ends. Every latency-reduction technique does one of four things to a wait. It **removes** it (a round trip you don't need), **shortens** it (an index, a smaller payload), **overlaps** it with another (independent calls run in parallel), or **moves** it off the path (work the user doesn't wait for goes to a queue). A trace shows the critical path directly, so the method above, measure first, decides which of the four applies.
+
+Each technique is taught in its own chapter; the table maps a symptom to it.
+
+| Cause | How it shows up | First fix | Where it's taught |
+|---|---|---|---|
+| Many small queries (N+1) | A trace with dozens of near-identical short database spans | One query with a join or a projection | [The N+1 problem](#the-n1-problem-seeing-it-and-killing-it) (Chapter 7) |
+| One slow query | One long database span; a scan in the plan | An index the predicate can use, a rewritten query | [Execution Plans](#execution-plans) (Chapter 7), [Chapter 19](#chapter-19-the-slow-query-lab-reading-execution-plans) |
+| Independent calls made one after another | Downstream spans in a staircase, none overlapping | Start them together and `await Task.WhenAll` | [Composing Concurrent Work](#composing-concurrent-work-whenall-and-whenany) (Chapter 4) |
+| The same work repeated for every request | Identical queries or calls across requests; database load on read-mostly data | A cache: in-memory, distributed or output caching | [Caching](#caching) (Chapter 7), [Cross-Cutting HTTP Concerns](#cross-cutting-http-concerns) (Chapter 5), [Caching in depth](#caching-in-depth) (Chapter 18) |
+| Connection setup on every call | DNS, TCP and TLS time at the start of each outgoing span; sockets piling up in `TIME_WAIT` | Pooled connections through `IHttpClientFactory` | [Keep-Alive and Connection Pooling](#keep-alive-connection-pooling-and-socket-exhaustion) (Chapter 5) |
+| Threads blocked on async work | Every endpoint slow, CPU low, thread-pool queue growing | Remove the `.Result` and `.Wait()` calls | [The Sync-Over-Async Deadlock](#the-sync-over-async-deadlock) (Chapter 4), the callout above |
+| Large payloads | Big response sizes; serialization high in a CPU profile | Pagination, projection to the fields needed, response compression | [Cross-Cutting HTTP Concerns](#cross-cutting-http-concerns) (Chapter 5) |
+| Garbage-collection pauses | p99 spikes lining up with gen-2 collections | Fewer allocations on the hot path | [Memory and Allocations](#memory-and-allocations-the-quiet-performance-killer) (Chapter 17) |
+| Work the user doesn't need to wait for | A span for sending email or rendering a PDF inside the request | Queue it and return `202 Accepted` | [Async Request-Reply](#async-request-reply-202-a-status-resource-and-retry-after) (Chapter 11) |
+| Distance | A constant floor on every request from far-away users; static files served by the app | A CDN, or a region closer to the users | [CDNs and Caching Headers](#cdns-and-caching-headers) (Chapter 26) |
+
+> **Pay attention.** **Fan-out makes the tail everyone's problem.**
+>
+> When a request calls ten services in parallel, it finishes only when the slowest one answers. If each service is under its p99 99% of the time, all ten are under it together 0.99¹⁰ ≈ 90% of the time, so about one request in ten waits for at least one service's p99. A tail that is rare per service becomes common per request, which is why fan-out endpoints show a bad p99 when every dependency's dashboard looks healthy. Fix it by fanning out to fewer services, putting a timeout and a fallback on the slow ones, caching what they return, or sending a second request when the first is slow (a *hedged request*), which only suits idempotent reads.
+
 ## Prove it
 
 Predict each output before you run it.
@@ -769,6 +792,81 @@ A good result: each hit is a deliberate boundary. A bad one: a `catch` in every 
 
 **Measure.** In a test environment, make one request fail. Count the `Error` entries it produced (one is right), then search your log store for the `traceId` from its ProblemDetails response and count the services whose entries you get back. During the next busy hour, run `dotnet-counters monitor` against one instance and write down CPU usage, thread-pool queue length and thread count: that is your baseline for the next slow day.
 
+## Exercises
+
+### Find the bug
+
+This method has handled payments for a year. Last night some customers saw "payment declined", and the only log entries say `Payment failed: Gateway timeout`. Nobody can tell which orders failed, or why.
+
+```csharp
+public async Task<bool> ChargeAsync(Guid orderId, decimal amount, CancellationToken ct)
+{
+    try
+    {
+        await gateway.ChargeAsync(orderId, amount, ct);
+        return true;
+    }
+    catch (Exception ex)
+    {
+        logger.LogError($"Payment failed: {ex.Message}");
+        return false;
+    }
+}
+```
+
+What makes this failure undebuggable, and what else is wrong with the `catch`?
+
+<details>
+<summary>Answer</summary>
+
+Three defects, and the first two are why nobody can debug it.
+
+- **The exception isn't passed to the logger.** Only `ex.Message` survives, so the exception type, the stack trace and the inner exception (the `TimeoutException` saying which call timed out) are gone. Every logging provider records the exception separately when it's passed as the first argument.
+- **The message is interpolated.** The order ID isn't in the message at all, and even if it were, an interpolated string arrives as flat text: there's no `OrderId` property to filter on or to join to the request's trace ([Why Structured Beats String Logging](#why-structured-beats-string-logging)).
+- **`catch (Exception)` also catches cancellation.** When the client disconnects, the token cancels, `OperationCanceledException` is caught, the caller is told the payment was declined, and on-call gets an error entry for something that isn't a failure.
+
+The fix:
+
+```csharp
+catch (Exception ex) when (ex is not OperationCanceledException)
+{
+    logger.LogError(ex, "Payment for order {OrderId} of {Amount} failed", orderId, amount);
+    return false;
+}
+```
+
+The tests in `verify/exercises/Ch09/` show each defect on the printed code (no exception and no `OrderId` property on the entry, a cancelled request logged as an error) and their absence on the fix.
+
+The general test for code you're about to merge: could someone on call find this failure, by order, from the logs alone, and see the exception that caused it?
+</details>
+
+### What would you do
+
+You've written a background job that sends new orders to a partner's API every five minutes. It works on your machine and passes review. Before it ships, a teammate asks: "When this breaks at 3 a.m., what will on-call see?" What do you add?
+
+<details>
+<summary>How a senior engineer reasons about it</summary>
+
+Start from the questions on-call will ask, and make sure telemetry answers each one without anyone reading the source:
+
+- **Is it running at all?** A span per run with its outcome, and a counter of runs. A job that silently stopped produces no errors, so an absence has to be visible.
+- **Is it falling behind?** The age of the oldest unsent order, as a gauge. That's the one signal worth an alert, because it captures "stuck", "slow" and "failing" in one number and maps directly to what the partner experiences.
+- **What is failing, and for which orders?** Structured log entries with `OrderId`, the partner's status code, and the exception passed to the logger; a failure counter tagged with a reason (timeout, 4xx, 5xx) so a dashboard shows which kind is growing.
+- **Is it us or them?** An outgoing span per partner call, so the trace shows the time spent waiting on the partner, separately from the job's own work.
+
+Two things to leave out: request and response bodies, which carry customer data ([What Not to Log](#what-not-to-log-secrets-and-pii)), and an `Information` entry per order, which turns into noise at volume. Then write a short note on what to do when the lag alert fires.
+
+The test is whether a teammate who has never seen the code can answer "stuck, slow or failing, and for which orders?" from the dashboard. If they can't, the job isn't finished.
+</details>
+
+### Go check
+
+In your own service:
+
+- Search for `LogError($"` and `LogWarning($"`. Each match is a failure that can't be filtered by its values. Then search for `catch (Exception` blocks whose logging call doesn't pass the exception.
+- Take one error from last week's logs and try to reach its trace. If the entry carries no trace ID, correlation isn't wired ([Correlation Across Services](#correlation-across-services)).
+- Pick your slowest endpoint, open one trace of a slow request, and name which row of [the latency map](#where-the-time-goes-a-latency-map) it matches before changing anything.
+
 ## Interview Questions
 
 The questions on diagnosing a slow endpoint (CPU-bound or waiting, which tools, the usual culprits, a slow database) are answered in [Diagnosing a Performance Problem](#diagnosing-a-performance-problem-a-worked-methodology) above.
@@ -869,4 +967,12 @@ Break mode suspends the process: every request it serves stops, callers time out
 <summary>Answer</summary>
 
 Monitoring answers questions you decided on in advance: dashboards and alerts for known failure modes, such as error rate above 1%. Observability is the property that lets you ask new questions of the running system without shipping code, because its logs, metrics and traces carry enough context, correlated by trace id, to slice by any dimension after the fact. Monitoring tells you that something is wrong; observability helps you find out why.
+</details>
+
+**How do you reduce an endpoint's latency?**
+
+<details>
+<summary>Answer</summary>
+
+Measure first: a trace shows the critical path, the chain of waits the request can't finish without. Then each technique does one of four things to a wait: remove it (an N+1 turned into one query, a cache hit instead of a call), shorten it (an index, a smaller payload, pooled connections), overlap it (independent calls with `Task.WhenAll`), or move it off the path (email or PDF work queued behind a `202`). For a fan-out endpoint, watch the tail as well: ten parallel calls each under p99 99% of the time are all under it only about 90% of the time. See [Where the Time Goes](#where-the-time-goes-a-latency-map).
 </details>

@@ -16,6 +16,7 @@ CHAPTERS = os.path.join(HERE, "..", "..", "chapters")
 SAMPLES = [
     ("107-data-access.md", "### Find the bug", "Ch04/SummaryEndpoint.cs"),
     ("104-async-essentials.md", "### Find the bug", "Ch08/ReportsController.cs"),
+    ("109-exceptions-logging-diagnosis.md", "### Find the bug", "Ch09/PaymentService.cs"),
 ]
 
 
