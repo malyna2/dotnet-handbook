@@ -149,6 +149,17 @@ mark.find-hit{background:var(--accent-strong);color:var(--accent-fg);border-radi
 .stepper button{flex:0 0 56px;font-weight:700}
 .stepper button:disabled{opacity:.4;cursor:default}
 .stepper output{flex:1;text-align:center;font-weight:600;font-variant-numeric:tabular-nums}
+/* Cross-device sync row. */
+.sync-btn,.sync-join input{padding:8px 10px;border:1px solid var(--border);border-radius:8px;background:var(--bg-alt);
+  color:var(--fg);font:inherit;font-size:13px}
+.sync-btn{cursor:pointer;white-space:nowrap}
+.sync-join{display:flex;gap:6px;align-items:center;margin-top:8px}
+#syncOn .sync-join{margin:0 0 8px}
+.sync-join input{flex:1 1 0;min-width:0;letter-spacing:.04em}
+#syncNickText{flex:1 1 0;min-width:0;overflow-wrap:anywhere;font-weight:600}
+#syncCreate,#syncCancel{flex:1 1 0}
+#syncNow,#syncStop{flex:1 1 0}
+.sync-btn:focus-visible,.sync-join input:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 
 /* Headings reached by an in-page link or the outline land below both sticky bars. */
 #content h1,#content h2,#content h3,#content h4{scroll-margin-top:calc(var(--bars) + 14px)}

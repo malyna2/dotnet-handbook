@@ -1,0 +1,24 @@
+name: Keep the sync database awake
+
+# Free Supabase projects pause after 7 days without activity. One harmless read every
+# few days (the public anon key, a key that does not exist) keeps the progress sync alive.
+on:
+  schedule:
+    - cron: '17 6 */3 * *'
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Call sync_get with a dummy key
+        run: |
+          url=$(sed -n 's/.*url: *"\([^"]*\)".*/\1/p' site/sync-config.js)
+          key=$(sed -n 's/.*anonKey: *"\([^"]*\)".*/\1/p' site/sync-config.js)
+          [ -n "$url" ] || { echo "sync is not configured"; exit 0; }
+          curl --fail --silent --show-error --max-time 30 -X POST "$url/rest/v1/rpc/sync_get" \
+            -H "apikey: $key" -H "Content-Type: application/json" \
+            -d '{"p_key":"KEEPALIVEKEEPALIVEKEEPALIVE"}'

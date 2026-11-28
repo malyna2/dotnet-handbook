@@ -55,6 +55,32 @@
               <button type="button" id="font-serif" aria-pressed="false" title="Georgia">Serif</button>
             </div>
           </div>
+          <!-- Cross-device sync. Hidden unless sync-config.js names a Supabase project. -->
+          <div class="rp-row" id="syncRow" hidden>
+            <div class="rp-lbl" id="syncLbl">Sync progress between devices</div>
+            <div id="syncOff">
+              <div class="sync-join">
+                <input id="syncInput" type="text" placeholder="Nickname" aria-label="Nickname" maxlength="32" autocomplete="off" spellcheck="false" autocapitalize="none">
+                <button type="button" id="syncJoin" class="sync-btn">Connect</button>
+              </div>
+            </div>
+            <div id="syncConfirm" hidden>
+              <p class="rp-hint" id="syncConfirmText"></p>
+              <div class="seg">
+                <button type="button" id="syncCreate">Create</button>
+                <button type="button" id="syncCancel">Cancel</button>
+              </div>
+            </div>
+            <div id="syncOn" hidden>
+              <div class="sync-join"><span id="syncNickText"></span></div>
+              <div class="seg">
+                <button type="button" id="syncNow">Sync now</button>
+                <button type="button" id="syncStop">Turn off</button>
+              </div>
+            </div>
+            <p class="rp-hint" id="syncStatus" aria-live="polite"></p>
+            <p class="rp-hint" id="syncHint">Enter a nickname. The same nickname on another device syncs the same progress. There is no password, so anyone who types it sees your progress.</p>
+          </div>
         </div>
       </div>
     </div>
@@ -97,6 +123,7 @@
 <div id="toast" class="toast" hidden></div>
 
 <script src="content.js"></script>
+<script src="sync-config.js"></script>
 <script src="app.js"></script>
 </body>
 </html>

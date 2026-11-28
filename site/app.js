@@ -41,7 +41,13 @@ var UI = {
     themeHint:"Light and Paper suit a lit room; Dark suits a dim room at night. Auto follows your device.",
     auto:"Auto", light:"Light", paper:"Paper", dark:"Dark",
     textSize:"Text size", smaller:"Smaller text", larger:"Larger text",
-    font:"Font", sans:"Sans", wide:"Wide", serif:"Serif"
+    font:"Font", sans:"Sans", wide:"Wide", serif:"Serif",
+    syncLbl:"Sync progress between devices",
+    syncHint:"Enter a nickname. The same nickname on another device syncs the same progress. There is no password, so anyone who types it sees your progress.",
+    syncNick:"Nickname", syncJoin:"Connect", syncNow:"Sync now", syncStop:"Turn off",
+    syncNew:"There is no “{nick}” yet. Create it?", syncCreate:"Create", syncCancel:"Cancel", syncAs:"Connected as",
+    syncBusy:"Syncing…", syncDone:"Synced", syncFailed:"Sync failed. It will retry on the next change.",
+    syncBadNick:"Use 3–32 letters, digits, _ . or -."
   },
   uk: {
     brand:"Довідник .NET", menu:"Показати або приховати навігацію", search:"Шукати розділи…",
@@ -58,7 +64,13 @@ var UI = {
     themeHint:"«Світла» і «Папір» — для освітленої кімнати, «Темна» — для тьмяного світла ввечері. «Авто» повторює налаштування пристрою.",
     auto:"Авто", light:"Світла", paper:"Папір", dark:"Темна",
     textSize:"Розмір тексту", smaller:"Менший текст", larger:"Більший текст",
-    font:"Шрифт", sans:"Без засічок", wide:"Широкий", serif:"Із засічками"
+    font:"Шрифт", sans:"Без засічок", wide:"Широкий", serif:"Із засічками",
+    syncLbl:"Синхронізація прогресу між пристроями",
+    syncHint:"Введіть нік. Той самий нік на іншому пристрої синхронізує той самий прогрес. Пароля немає, тож будь-хто, хто введе цей нік, побачить ваш прогрес.",
+    syncNick:"Нік", syncJoin:"Підключити", syncNow:"Синхронізувати", syncStop:"Вимкнути",
+    syncNew:"Ніка «{nick}» ще немає. Створити?", syncCreate:"Створити", syncCancel:"Скасувати", syncAs:"Підключено як",
+    syncBusy:"Синхронізація…", syncDone:"Синхронізовано", syncFailed:"Не вдалося синхронізувати. Повторимо після наступної зміни.",
+    syncBadNick:"Від 3 до 32 літер, цифр, _ . або -."
   }
 };
 function ui(key){ return UI[language][key]; }
@@ -73,7 +85,12 @@ function localizeShell(){
   var panelText={rpThemeLbl:"theme", rpThemeHint:"themeHint", rpSizeLbl:"textSize", rpFontLbl:"font",
     "theme-auto":"auto", "theme-light":"light", "theme-paper":"paper", "theme-dark":"dark",
     "font-sans":"sans", "font-wide":"wide", "font-serif":"serif"};
+  Object.assign(panelText,{syncLbl:"syncLbl", syncHint:"syncHint", syncJoin:"syncJoin",
+    syncNow:"syncNow", syncStop:"syncStop", syncCreate:"syncCreate", syncCancel:"syncCancel"});
   Object.keys(panelText).forEach(function(id){ document.getElementById(id).textContent=ui(panelText[id]); });
+  document.getElementById("syncInput").placeholder=ui("syncNick");
+  document.getElementById("syncInput").setAttribute("aria-label",ui("syncNick"));
+  renderSync();
   document.getElementById("brandHome").textContent=ui("brand");
   document.getElementById("search").placeholder=ui("search");
   document.getElementById("search").setAttribute("aria-label",ui("search"));
@@ -333,8 +350,12 @@ function saveProgress(){ if(!current) return; try{
   var i=(now>=was||!prev||typeof prev.i!=="number")?topBlockIndex():prev.i;
   // "finished" is sticky too: once a chapter has been read to the end, it stays ✓
   var done=((prev&&prev.d)||p>=97)?1:0;
-  localStorage.setItem("pos:"+current.slug, JSON.stringify({p:p, d:done, i:i}));
+  // "t" (ms) stamps the last real change, so a reset made on one device can beat older
+  // progress from another when the devices sync (see "Cross-device sync" below).
+  var changed=!prev||prev.p!==p||prev.d!==done||prev.i!==i||prev.z;
+  localStorage.setItem("pos:"+current.slug, JSON.stringify({p:p, d:done, i:i, t:changed?Date.now():(prev.t||0)}));
   updateNavProgress(current.slug);
+  if(changed) syncSchedule();
 }catch(e){} }
 function hasProgress(slug){ var d=savedPos(slug); return !!(d&&typeof d.p==="number"&&d.p>0); }
 // Scroll to the stored resume point. Only ever called for an explicit Continue.
@@ -346,7 +367,13 @@ function resumeTo(c){
   }
 }
 function resetProgress(slug){
-  try{ localStorage.removeItem("pos:"+slug); }catch(e){}
+  // With sync on, a reset is stored as a dated zero record, so other devices learn about it
+  // instead of pushing their old progress back.
+  try{
+    if(syncCode()) localStorage.setItem("pos:"+slug, JSON.stringify({p:0, d:0, i:0, t:Date.now(), z:1}));
+    else localStorage.removeItem("pos:"+slug);
+  }catch(e){}
+  syncSchedule();
   // If it is the chapter on screen, go back to the top too — otherwise the next scroll
   // event would immediately re-record the position you just cleared.
   if(current && current.slug===slug) window.scrollTo(0,0);
@@ -863,6 +890,135 @@ document.getElementById("wnClose").addEventListener("click",wnHide);
 document.getElementById("wnOpen").addEventListener("click",function(){ wnHide(); if(WN) navigate(WN.slug); });
 wnModal.addEventListener("click",function(e){ if(e.target===wnModal) wnHide(); });
 
+/* ---------------- Cross-device sync (optional, Supabase) ----------------
+   Progress lives in localStorage, so each browser has its own. When site/sync-config.js names a
+   Supabase project, the Aa panel offers a nickname login: the nickname is the key to one row
+   in the database (supabase/schema.sql), and devices that use the same nickname share it. There
+   is deliberately no password: anyone who types a nickname sees that reading progress. Progress only moves forward, so merging is deterministic and needs no accounts:
+   per chapter the larger percentage wins, "finished" is sticky, and a reset (a dated zero
+   record) beats progress older than itself. The merge runs here, in the browser; the row's
+   version number turns two simultaneous writers into a retry instead of a lost update. */
+var SYNC=window.SYNC_CONFIG||{};
+var SYNC_AVAILABLE=!!(SYNC.url&&SYNC.anonKey);
+var syncState={busy:false,again:false,timer:0,status:"idle",at:0,pending:""};
+function syncNick(){ return SYNC_AVAILABLE?readSetting("sync_nick",""):""; }
+function syncCode(){ var n=syncNick(); return n?"u:"+n:""; }   // the row key
+function normalizeNick(v){ var n=String(v||"").trim().toLowerCase(); return /^[\p{L}\p{N}_.-]{3,32}$/u.test(n)?n:""; }
+var SLUGS=EN_BOOK.map(function(c){ return c.slug; });
+function cleanRec(r){
+  if(!r || typeof r!=="object" || typeof r.p!=="number" || !(r.p>=0 && r.p<=100)) return null;
+  var o={p:r.p, d:(r.d||r.p>=97)?1:0, i:(typeof r.i==="number"&&r.i>=0)?Math.floor(r.i):0, t:(typeof r.t==="number"&&r.t>0)?r.t:0};
+  if(r.z) o.z=1;
+  return o;
+}
+function mergeRec(a,b){
+  if(!a) return b; if(!b) return a;
+  if(a.z || b.z){
+    if(a.z && b.z) return a.t>=b.t?a:b;
+    var zero=a.z?a:b, other=a.z?b:a;
+    return zero.t>other.t?zero:other;         // a reset only beats progress older than itself
+  }
+  var hi=b.p>a.p?b:a;
+  return {p:hi.p, d:(a.d||b.d)?1:0, i:hi.i, t:Math.max(a.t,b.t)};
+}
+function syncLocal(){
+  var all={}; SLUGS.forEach(function(s){ var r=cleanRec(savedPos(s)); if(r) all[s]=r; }); return all;
+}
+function syncClean(data){
+  var all={}; if(!data||typeof data!=="object") return all;
+  SLUGS.forEach(function(s){ var r=cleanRec(data[s]); if(r) all[s]=r; }); return all;
+}
+function syncMerge(x,y){
+  var out={}; SLUGS.forEach(function(s){ var r=mergeRec(x[s],y[s]); if(r) out[s]=r; }); return out;
+}
+function syncSame(x,y){
+  return SLUGS.every(function(s){ return JSON.stringify(x[s]||null)===JSON.stringify(y[s]||null); });
+}
+function syncApply(merged,local){
+  SLUGS.forEach(function(s){
+    if(JSON.stringify(merged[s]||null)===JSON.stringify(local[s]||null)) return;
+    try{ localStorage.setItem("pos:"+s,JSON.stringify(merged[s])); }catch(e){}
+    updateNavProgress(s);
+  });
+}
+function syncRpc(name,body){
+  var headers={"Content-Type":"application/json",apikey:SYNC.anonKey};
+  if(/^eyJ/.test(SYNC.anonKey)) headers.Authorization="Bearer "+SYNC.anonKey;   // legacy JWT keys
+  return Promise.resolve().then(function(){
+    return fetch(String(SYNC.url).replace(/\/+$/,"")+"/rest/v1/rpc/"+name,
+      {method:"POST",headers:headers,body:JSON.stringify(body)});
+  }).then(function(res){ if(!res.ok) throw new Error("HTTP "+res.status); return res.json(); });
+}
+function syncRun(){
+  var code=syncCode(); if(!code) return Promise.resolve();
+  clearTimeout(syncState.timer);
+  if(syncState.busy){ syncState.again=true; return Promise.resolve(); }
+  syncState.busy=true; syncState.status="syncing"; renderSync();
+  var tries=0;
+  function attempt(){
+    return syncRpc("sync_get",{p_key:code}).then(function(row){
+      var local=syncLocal(), remote=syncClean(row.data), merged=syncMerge(local,remote);
+      syncApply(merged,local);
+      if(syncSame(merged,remote)) return;                       // the server already has it all
+      return syncRpc("sync_put",{p_key:code,p_data:merged,p_version:row.version}).then(function(w){
+        if(w.ok) return;
+        if(++tries>=3) throw new Error("conflict");
+        return attempt();                                       // another device wrote first: merge again
+      });
+    });
+  }
+  return attempt().then(function(){ syncState.status="ok"; syncState.at=Date.now(); },
+                        function(){ syncState.status="error"; })
+    .then(function(){
+      syncState.busy=false; renderSync();
+      if(syncState.again){ syncState.again=false; syncSchedule(); }
+    });
+}
+function syncSchedule(){
+  if(!syncCode()) return;
+  clearTimeout(syncState.timer); syncState.timer=setTimeout(syncRun,3000);
+}
+function renderSync(){
+  document.getElementById("syncRow").hidden=!SYNC_AVAILABLE;
+  var nick=syncNick(), pending=!nick&&syncState.pending;
+  document.getElementById("syncOff").hidden=!!nick||!!pending;
+  document.getElementById("syncConfirm").hidden=!pending;
+  document.getElementById("syncOn").hidden=!nick;
+  document.getElementById("syncConfirmText").textContent=pending?ui("syncNew").replace("{nick}",syncState.pending):"";
+  document.getElementById("syncNickText").textContent=nick?ui("syncAs")+" "+nick:"";
+  var st=syncState.status, text="";
+  if(st==="syncing") text=ui("syncBusy");
+  else if(st==="error") text=ui("syncFailed");
+  else if(st==="ok") text=ui("syncDone")+" · "+new Date(syncState.at).toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"});
+  document.getElementById("syncStatus").textContent=text;
+}
+function syncConnect(nick){
+  writeSetting("sync_nick",nick); syncState.pending=""; syncState.status="idle"; renderSync();
+  return syncRun().then(function(){ if(syncState.status==="ok") toast(ui("syncDone")); });
+}
+// An unknown nickname is not created silently (a typo would start a new, empty account):
+// the reader confirms first. A known one connects and merges straight away.
+function syncLogin(nick){
+  syncState.status="syncing"; renderSync();
+  return syncRpc("sync_get",{p_key:"u:"+nick}).then(function(row){
+    if(row.version===0){ syncState.pending=nick; syncState.status="idle"; renderSync(); }
+    else return syncConnect(nick);
+  },function(){ syncState.status="error"; renderSync(); });
+}
+document.getElementById("syncJoin").addEventListener("click",function(){
+  var nick=normalizeNick(document.getElementById("syncInput").value);
+  if(!nick){ toast(ui("syncBadNick")); return; }
+  syncLogin(nick);
+});
+document.getElementById("syncCreate").addEventListener("click",function(){ if(syncState.pending) syncConnect(syncState.pending); });
+document.getElementById("syncCancel").addEventListener("click",function(){ syncState.pending=""; renderSync(); });
+document.getElementById("syncNow").addEventListener("click",function(){ syncRun(); });
+document.getElementById("syncStop").addEventListener("click",function(){
+  try{ localStorage.removeItem("sync_nick"); }catch(e){}
+  syncState.status="idle"; renderSync();
+});
+document.addEventListener("visibilitychange",function(){ if(syncCode()) syncRun(); });
+
 /* ---------------- Boot ---------------- */
 function currentSlug(){var m=location.hash.match(/^#\/(.+)$/);return m?m[1]:null;}
 window.addEventListener("hashchange",function(){var s=currentSlug();if(s)go(s,false);});
@@ -878,5 +1034,6 @@ loadEdition(wantedLanguage,function(){
   try{ localStorage.removeItem("last"); }catch(e){}   // no longer used
   wnMaybeShow();
   swipeHintOnce();
+  syncRun();
 });
 })();
