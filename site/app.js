@@ -41,7 +41,12 @@ var UI = {
     themeHint:"Light and Paper suit a lit room; Dark suits a dim room at night. Auto follows your device.",
     auto:"Auto", light:"Light", paper:"Paper", dark:"Dark",
     textSize:"Text size", smaller:"Smaller text", larger:"Larger text",
-    font:"Font", sans:"Sans", wide:"Wide", serif:"Serif"
+    font:"Font", sans:"Sans", wide:"Wide", serif:"Serif",
+    syncLbl:"Sync progress between devices",
+    syncHint:"Turn it on here, then enter the same code on your other devices. Only your reading progress is sent.",
+    syncStart:"Turn on sync", syncJoin:"Connect", syncCode:"Sync code", syncNow:"Sync now", syncStop:"Turn off",
+    syncBusy:"Syncing…", syncDone:"Synced", syncFailed:"Sync failed. It will retry on the next change.",
+    syncBadCode:"That is not a valid sync code."
   },
   uk: {
     brand:"Довідник .NET", menu:"Показати або приховати навігацію", search:"Шукати розділи…",
@@ -58,7 +63,12 @@ var UI = {
     themeHint:"«Світла» і «Папір» — для освітленої кімнати, «Темна» — для тьмяного світла ввечері. «Авто» повторює налаштування пристрою.",
     auto:"Авто", light:"Світла", paper:"Папір", dark:"Темна",
     textSize:"Розмір тексту", smaller:"Менший текст", larger:"Більший текст",
-    font:"Шрифт", sans:"Без засічок", wide:"Широкий", serif:"Із засічками"
+    font:"Шрифт", sans:"Без засічок", wide:"Широкий", serif:"Із засічками",
+    syncLbl:"Синхронізація прогресу між пристроями",
+    syncHint:"Увімкніть тут, а потім введіть той самий код на інших пристроях. Надсилається лише прогрес читання.",
+    syncStart:"Увімкнути синхронізацію", syncJoin:"Підключити", syncCode:"Код синхронізації", syncNow:"Синхронізувати", syncStop:"Вимкнути",
+    syncBusy:"Синхронізація…", syncDone:"Синхронізовано", syncFailed:"Не вдалося синхронізувати. Повторимо після наступної зміни.",
+    syncBadCode:"Це не схоже на код синхронізації."
   }
 };
 function ui(key){ return UI[language][key]; }
@@ -73,7 +83,12 @@ function localizeShell(){
   var panelText={rpThemeLbl:"theme", rpThemeHint:"themeHint", rpSizeLbl:"textSize", rpFontLbl:"font",
     "theme-auto":"auto", "theme-light":"light", "theme-paper":"paper", "theme-dark":"dark",
     "font-sans":"sans", "font-wide":"wide", "font-serif":"serif"};
+  Object.assign(panelText,{syncLbl:"syncLbl", syncHint:"syncHint", syncStart:"syncStart", syncJoin:"syncJoin",
+    syncNow:"syncNow", syncStop:"syncStop", syncCopy:"copy"});
   Object.keys(panelText).forEach(function(id){ document.getElementById(id).textContent=ui(panelText[id]); });
+  document.getElementById("syncInput").placeholder=ui("syncCode");
+  document.getElementById("syncInput").setAttribute("aria-label",ui("syncCode"));
+  renderSync();
   document.getElementById("brandHome").textContent=ui("brand");
   document.getElementById("search").placeholder=ui("search");
   document.getElementById("search").setAttribute("aria-label",ui("search"));
@@ -333,8 +348,12 @@ function saveProgress(){ if(!current) return; try{
   var i=(now>=was||!prev||typeof prev.i!=="number")?topBlockIndex():prev.i;
   // "finished" is sticky too: once a chapter has been read to the end, it stays ✓
   var done=((prev&&prev.d)||p>=97)?1:0;
-  localStorage.setItem("pos:"+current.slug, JSON.stringify({p:p, d:done, i:i}));
+  // "t" (ms) stamps the last real change, so a reset made on one device can beat older
+  // progress from another when the devices sync (see "Cross-device sync" below).
+  var changed=!prev||prev.p!==p||prev.d!==done||prev.i!==i||prev.z;
+  localStorage.setItem("pos:"+current.slug, JSON.stringify({p:p, d:done, i:i, t:changed?Date.now():(prev.t||0)}));
   updateNavProgress(current.slug);
+  if(changed) syncSchedule();
 }catch(e){} }
 function hasProgress(slug){ var d=savedPos(slug); return !!(d&&typeof d.p==="number"&&d.p>0); }
 // Scroll to the stored resume point. Only ever called for an explicit Continue.
@@ -346,7 +365,13 @@ function resumeTo(c){
   }
 }
 function resetProgress(slug){
-  try{ localStorage.removeItem("pos:"+slug); }catch(e){}
+  // With sync on, a reset is stored as a dated zero record, so other devices learn about it
+  // instead of pushing their old progress back.
+  try{
+    if(syncCode()) localStorage.setItem("pos:"+slug, JSON.stringify({p:0, d:0, i:0, t:Date.now(), z:1}));
+    else localStorage.removeItem("pos:"+slug);
+  }catch(e){}
+  syncSchedule();
   // If it is the chapter on screen, go back to the top too — otherwise the next scroll
   // event would immediately re-record the position you just cleared.
   if(current && current.slug===slug) window.scrollTo(0,0);
@@ -863,6 +888,139 @@ document.getElementById("wnClose").addEventListener("click",wnHide);
 document.getElementById("wnOpen").addEventListener("click",function(){ wnHide(); if(WN) navigate(WN.slug); });
 wnModal.addEventListener("click",function(e){ if(e.target===wnModal) wnHide(); });
 
+/* ---------------- Cross-device sync (optional, Supabase) ----------------
+   Progress lives in localStorage, so each browser has its own. When site/sync-config.js names a
+   Supabase project, the Aa panel offers a sync code: a random 128-bit secret that is the only
+   key to one row in the database (supabase/schema.sql). Devices that share the code share the
+   row. Progress only moves forward, so merging is deterministic and needs no accounts:
+   per chapter the larger percentage wins, "finished" is sticky, and a reset (a dated zero
+   record) beats progress older than itself. The merge runs here, in the browser; the row's
+   version number turns two simultaneous writers into a retry instead of a lost update. */
+var SYNC=window.SYNC_CONFIG||{};
+var SYNC_AVAILABLE=!!(SYNC.url&&SYNC.anonKey);
+var syncState={busy:false,again:false,timer:0,status:"idle",at:0};
+var BASE32="ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
+function syncCode(){ return SYNC_AVAILABLE?readSetting("sync_code",""):""; }
+function newSyncCode(){
+  var bytes=new Uint8Array(16); crypto.getRandomValues(bytes);
+  var out="", bits=0, val=0;
+  for(var k=0;k<bytes.length;k++){
+    val=(val<<8)|bytes[k]; bits+=8;
+    while(bits>=5){ out+=BASE32.charAt((val>>>(bits-5))&31); bits-=5; val&=(1<<bits)-1; }
+  }
+  if(bits>0) out+=BASE32.charAt((val<<(5-bits))&31);
+  return out;
+}
+function normalizeCode(s){ var c=String(s||"").toUpperCase().replace(/[^A-Z2-7]/g,""); return c.length===26?c:""; }
+function formatCode(c){ return c.replace(/(.{5})(?=.)/g,"$1-"); }
+var SLUGS=EN_BOOK.map(function(c){ return c.slug; });
+function cleanRec(r){
+  if(!r || typeof r!=="object" || typeof r.p!=="number" || !(r.p>=0 && r.p<=100)) return null;
+  var o={p:r.p, d:(r.d||r.p>=97)?1:0, i:(typeof r.i==="number"&&r.i>=0)?Math.floor(r.i):0, t:(typeof r.t==="number"&&r.t>0)?r.t:0};
+  if(r.z) o.z=1;
+  return o;
+}
+function mergeRec(a,b){
+  if(!a) return b; if(!b) return a;
+  if(a.z || b.z){
+    if(a.z && b.z) return a.t>=b.t?a:b;
+    var zero=a.z?a:b, other=a.z?b:a;
+    return zero.t>other.t?zero:other;         // a reset only beats progress older than itself
+  }
+  var hi=b.p>a.p?b:a;
+  return {p:hi.p, d:(a.d||b.d)?1:0, i:hi.i, t:Math.max(a.t,b.t)};
+}
+function syncLocal(){
+  var all={}; SLUGS.forEach(function(s){ var r=cleanRec(savedPos(s)); if(r) all[s]=r; }); return all;
+}
+function syncClean(data){
+  var all={}; if(!data||typeof data!=="object") return all;
+  SLUGS.forEach(function(s){ var r=cleanRec(data[s]); if(r) all[s]=r; }); return all;
+}
+function syncMerge(x,y){
+  var out={}; SLUGS.forEach(function(s){ var r=mergeRec(x[s],y[s]); if(r) out[s]=r; }); return out;
+}
+function syncSame(x,y){
+  return SLUGS.every(function(s){ return JSON.stringify(x[s]||null)===JSON.stringify(y[s]||null); });
+}
+function syncApply(merged,local){
+  SLUGS.forEach(function(s){
+    if(JSON.stringify(merged[s]||null)===JSON.stringify(local[s]||null)) return;
+    try{ localStorage.setItem("pos:"+s,JSON.stringify(merged[s])); }catch(e){}
+    updateNavProgress(s);
+  });
+}
+function syncRpc(name,body){
+  var headers={"Content-Type":"application/json",apikey:SYNC.anonKey};
+  if(/^eyJ/.test(SYNC.anonKey)) headers.Authorization="Bearer "+SYNC.anonKey;   // legacy JWT keys
+  return Promise.resolve().then(function(){
+    return fetch(String(SYNC.url).replace(/\/+$/,"")+"/rest/v1/rpc/"+name,
+      {method:"POST",headers:headers,body:JSON.stringify(body)});
+  }).then(function(res){ if(!res.ok) throw new Error("HTTP "+res.status); return res.json(); });
+}
+function syncRun(){
+  var code=syncCode(); if(!code) return Promise.resolve();
+  clearTimeout(syncState.timer);
+  if(syncState.busy){ syncState.again=true; return Promise.resolve(); }
+  syncState.busy=true; syncState.status="syncing"; renderSync();
+  var tries=0;
+  function attempt(){
+    return syncRpc("sync_get",{p_key:code}).then(function(row){
+      var local=syncLocal(), remote=syncClean(row.data), merged=syncMerge(local,remote);
+      syncApply(merged,local);
+      if(syncSame(merged,remote)) return;                       // the server already has it all
+      return syncRpc("sync_put",{p_key:code,p_data:merged,p_version:row.version}).then(function(w){
+        if(w.ok) return;
+        if(++tries>=3) throw new Error("conflict");
+        return attempt();                                       // another device wrote first: merge again
+      });
+    });
+  }
+  return attempt().then(function(){ syncState.status="ok"; syncState.at=Date.now(); },
+                        function(){ syncState.status="error"; })
+    .then(function(){
+      syncState.busy=false; renderSync();
+      if(syncState.again){ syncState.again=false; syncSchedule(); }
+    });
+}
+function syncSchedule(){
+  if(!syncCode()) return;
+  clearTimeout(syncState.timer); syncState.timer=setTimeout(syncRun,3000);
+}
+function renderSync(){
+  var row=document.getElementById("syncRow"); row.hidden=!SYNC_AVAILABLE;
+  var code=syncCode();
+  document.getElementById("syncOff").hidden=!!code;
+  document.getElementById("syncOn").hidden=!code;
+  document.getElementById("syncCodeText").textContent=code?formatCode(code):"";
+  var st=syncState.status, text="";
+  if(st==="syncing") text=ui("syncBusy");
+  else if(st==="error") text=ui("syncFailed");
+  else if(st==="ok") text=ui("syncDone")+" · "+new Date(syncState.at).toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"});
+  document.getElementById("syncStatus").textContent=text;
+}
+function syncConnect(code){
+  writeSetting("sync_code",code); syncState.status="idle"; renderSync();
+  return syncRun().then(function(){ if(syncState.status==="ok") toast(ui("syncDone")); });
+}
+document.getElementById("syncStart").addEventListener("click",function(){
+  try{ syncConnect(newSyncCode()); }catch(e){ toast(ui("syncFailed")); }
+});
+document.getElementById("syncJoin").addEventListener("click",function(){
+  var code=normalizeCode(document.getElementById("syncInput").value);
+  if(!code){ toast(ui("syncBadCode")); return; }
+  syncConnect(code);
+});
+document.getElementById("syncNow").addEventListener("click",function(){ syncRun(); });
+document.getElementById("syncStop").addEventListener("click",function(){
+  try{ localStorage.removeItem("sync_code"); }catch(e){}
+  syncState.status="idle"; renderSync();
+});
+document.getElementById("syncCopy").addEventListener("click",function(){
+  try{ navigator.clipboard.writeText(formatCode(syncCode())); toast(ui("copied")); }catch(e){}
+});
+document.addEventListener("visibilitychange",function(){ if(syncCode()) syncRun(); });
+
 /* ---------------- Boot ---------------- */
 function currentSlug(){var m=location.hash.match(/^#\/(.+)$/);return m?m[1]:null;}
 window.addEventListener("hashchange",function(){var s=currentSlug();if(s)go(s,false);});
@@ -878,5 +1036,6 @@ loadEdition(wantedLanguage,function(){
   try{ localStorage.removeItem("last"); }catch(e){}   // no longer used
   wnMaybeShow();
   swipeHintOnce();
+  syncRun();
 });
 })();

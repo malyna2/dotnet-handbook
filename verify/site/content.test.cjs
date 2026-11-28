@@ -45,5 +45,9 @@ test('both local editions load without a runtime translation service', () => {
   assert.match(app, /"content\."\+lang\+"\.js"/);
   assert.match(html, /id="languageToggle"/);
   assert.doesNotMatch(html + app, /MyMemory|mymemory\.translated|easyToggle|selTranslate|langModal/);
-  assert.doesNotMatch(app, /\bfetch\s*\(/);
+  // The one network call the reader may make is the optional progress sync (Supabase RPC);
+  // nothing translates or loads content at runtime.
+  const fetches = app.match(/\bfetch\s*\([^\n]*/g) || [];
+  assert.equal(fetches.length, 1);
+  assert.match(app, /fetch\(String\(SYNC\.url\)[^\n]*\/rest\/v1\/rpc\//);
 });

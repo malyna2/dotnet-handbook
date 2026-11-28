@@ -6,7 +6,7 @@ const source = fs.readFileSync(path.join(__dirname, '../../site/app.js'), 'utf8'
 // Exercise the actual reader, renderer, event handlers and storage with a
 // minimal DOM boundary and a small bilingual book; no dependencies are needed.
 function boot({ en, uk, storage = {}, blockedStorage = false, hash = '#/chapter-1-example',
-               browserLanguage = 'en-US', ukUnavailable = false } = {}) {
+               browserLanguage = 'en-US', ukUnavailable = false, sync = null, fetch = undefined } = {}) {
   class Element {
     constructor() {
       this.innerHTML = ''; this.textContent = ''; this.children = []; this.listeners = {};
@@ -38,7 +38,7 @@ function boot({ en, uk, storage = {}, blockedStorage = false, hash = '#/chapter-
   };
   const loaded = [];
   const window = {
-    BOOK: structuredClone(en), ALIASES: { legacy: 'chapter-1-example' },
+    BOOK: structuredClone(en), SYNC_CONFIG: sync || undefined, ALIASES: { legacy: 'chapter-1-example' },
     listeners: {}, pageYOffset: 0,
     addEventListener(name, fn) { this.listeners[name] = fn; },
     scrollTo(x, y) { this.pageYOffset = y; document.documentElement.scrollTop = y; }
@@ -50,7 +50,7 @@ function boot({ en, uk, storage = {}, blockedStorage = false, hash = '#/chapter-
   };
   const location = { hash };
   const context = vm.createContext({ window, document, localStorage, location,
-    history: { replaceState() {} }, navigator: { language: browserLanguage }, setTimeout() {}, clearTimeout() {} });
+    history: { replaceState() {} }, navigator: { language: browserLanguage }, fetch, crypto: globalThis.crypto, Promise, setTimeout() {}, clearTimeout() {} });
   vm.runInContext(source, context, { timeout: 5000 });
   function switchTo(language) {
     const toggle = elements.languageToggle;

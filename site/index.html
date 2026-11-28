@@ -55,6 +55,26 @@
               <button type="button" id="font-serif" aria-pressed="false" title="Georgia">Serif</button>
             </div>
           </div>
+          <!-- Cross-device sync. Hidden unless sync-config.js names a Supabase project. -->
+          <div class="rp-row" id="syncRow" hidden>
+            <div class="rp-lbl" id="syncLbl">Sync progress between devices</div>
+            <div id="syncOff">
+              <button type="button" id="syncStart" class="sync-btn">Turn on sync</button>
+              <div class="sync-join">
+                <input id="syncInput" type="text" placeholder="Sync code" aria-label="Sync code" autocomplete="off" spellcheck="false" autocapitalize="characters">
+                <button type="button" id="syncJoin" class="sync-btn">Connect</button>
+              </div>
+            </div>
+            <div id="syncOn" hidden>
+              <div class="sync-join"><code id="syncCodeText"></code><button type="button" id="syncCopy" class="sync-btn">Copy</button></div>
+              <div class="seg">
+                <button type="button" id="syncNow">Sync now</button>
+                <button type="button" id="syncStop">Turn off</button>
+              </div>
+            </div>
+            <p class="rp-hint" id="syncStatus" aria-live="polite"></p>
+            <p class="rp-hint" id="syncHint">Turn it on here, then enter the same code on your other devices. Only your reading progress is sent.</p>
+          </div>
         </div>
       </div>
     </div>
@@ -97,6 +117,7 @@
 <div id="toast" class="toast" hidden></div>
 
 <script src="content.js"></script>
+<script src="sync-config.js"></script>
 <script src="app.js"></script>
 </body>
 </html>

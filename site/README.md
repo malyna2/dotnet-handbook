@@ -22,6 +22,7 @@ A self-contained, responsive website for the handbook. No build step, no server,
 - **Reading settings** — the **Aa** button (top right) sets the theme (Auto, Light, Paper, Dark), the text size (85–160%) and the font (Sans, Wide = Verdana, Serif = Georgia). Choices are remembered in `localStorage` (`theme`, `text_size`, `font`).
 - **Readable defaults** — 19px article text (18px on tablets, 17px on phones), lines of 65–70 characters, a dark grey dark theme with light grey text instead of near-black and near-white, and 5% larger text in the dark theme. Code blocks and tables can grow wider than the prose to fit their longest line, up to about 100 columns. On screens wider than 1920px, the chapter list, page and outline stay together in the middle.
 - **Reading progress bar** and scroll-spy outline.
+- **Cross-device progress sync** (optional) — when `sync-config.js` names a Supabase project, the **Aa** panel can sync reading progress between devices with a random sync code (`sync_code` in `localStorage`). Setup and design: [`../supabase/README.md`](../supabase/README.md).
 
 ## English / Ukrainian editions
 

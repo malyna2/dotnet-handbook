@@ -21,6 +21,11 @@ A self-contained .NET study handbook: English Markdown chapters in `chapters/` a
 - Run `python3 build_site.py`, `python3 verify/check_links.py`, `python3 verify/site/build_test.py` and `node --test verify/site/*.test.cjs`. The build rejects missing translations, altered examples or structure, and English source changes whose Ukrainian file has not been updated. Do not hand-edit `chapters/uk/_sources.json` to bypass this check.
 - The reader opens in the saved language, else the browser's (Ukrainian for `uk*`, English otherwise). `index.html` loads only `content.js`; `content.uk.js` is added on demand. The toggle switches the prebuilt editions locally and remembers the choice. Do not add runtime translation APIs or translate content when readers switch languages.
 
+## Progress sync (Supabase)
+
+- Optional cross-device sync of `pos:*` progress: client at the end of `site/app.js` (*Cross-device sync*), config in `site/sync-config.js` (public URL + publishable key; never a `service_role` key), schema in `supabase/schema.sql`, docs in `supabase/README.md`. The only network call the reader may make is the sync RPC (`content.test.cjs` enforces it).
+- Progress records carry `t` and resets are `z` tombstones while sync is on; keep `mergeRec` in `app.js` and the tests in `verify/site/sync.test.cjs` in step when changing the record shape. A schema change needs a new migration on the live project, not just an edit to `schema.sql`.
+
 ## Release process (pushing)
 
 **Never push without the user explicitly asking.** The user always initiates a push; a push is a "release".
