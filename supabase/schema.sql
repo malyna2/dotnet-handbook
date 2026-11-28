@@ -1,18 +1,22 @@
 -- Reading-progress sync for the handbook reader (site/app.js).
 -- Run once in the Supabase SQL editor. Safe to re-run.
 --
--- Model: one row per sync code. The code is a random 128-bit secret generated in the
--- reader; whoever holds it can read and write that row, nobody can list or guess rows.
+-- Model: one row per nickname (key "u:<nick>"). There is deliberately no password: whoever
+-- types a nickname can read and write that row. Nobody can list rows.
 -- The table itself is locked (RLS on, no policies, no grants): the browser can only call
 -- the two functions below with the public anon key. Merging happens in the browser;
 -- the version column makes concurrent writes from two devices a retry, not a lost update.
 
 create table if not exists public.sync_progress (
-  key        text primary key check (char_length(key) between 20 and 64),
+  key        text primary key check (char_length(key) between 3 and 64),
   data       jsonb  not null default '{}'::jsonb,
   version    bigint not null default 1,
   updated_at timestamptz not null default now()
 );
+
+-- Existing projects: relax the key length (the first version required 20+ characters).
+alter table public.sync_progress drop constraint if exists sync_progress_key_check;
+alter table public.sync_progress add constraint sync_progress_key_check check (char_length(key) between 3 and 64);
 
 alter table public.sync_progress enable row level security;
 revoke all on public.sync_progress from anon, authenticated;
@@ -41,7 +45,7 @@ as $$
 declare
   new_version bigint;
 begin
-  if p_key is null or char_length(p_key) not between 20 and 64 then
+  if p_key is null or char_length(p_key) not between 3 and 64 then
     raise exception 'invalid key';
   end if;
   if p_data is null or jsonb_typeof(p_data) <> 'object' or octet_length(p_data::text) > 65536 then

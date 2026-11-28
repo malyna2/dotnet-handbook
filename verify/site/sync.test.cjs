@@ -39,14 +39,22 @@ test('the sync row is hidden unless a Supabase project is configured', () => {
   assert.equal(device(fakeServer()).elements.syncRow.hidden, false);
 });
 
-test('turning sync on creates a 128-bit code and uploads local progress', async () => {
+const type = (app, nick) => { app.elements.syncInput.value = nick; return click(app, 'syncJoin'); };
+
+test('an unknown nickname asks before creating the account; confirming uploads local progress', async () => {
   const server = fakeServer();
   const a = device(server, { 'pos:chapter-1-a': '{"p":40,"d":0,"i":3}' });
-  click(a, 'syncStart'); await settle();
-  assert.match(a.storage.sync_code, /^[A-Z2-7]{26}$/);
+  await type(a, '  Malyna '); await settle();
+  assert.equal(a.storage.sync_nick, undefined);            // nothing is created yet
+  assert.equal(server.rows.size, 0);
+  assert.equal(a.elements.syncConfirm.hidden, false);
+  assert.match(a.elements.syncConfirmText.textContent, /malyna/);
+  await click(a, 'syncCreate'); await settle();
+  assert.equal(a.storage.sync_nick, 'malyna');
   assert.equal(a.elements.syncOn.hidden, false);
-  assert.equal(a.elements.syncOff.hidden, true);
-  const row = server.rows.get(a.storage.sync_code);
+  assert.equal(a.elements.syncConfirm.hidden, true);
+  assert.match(a.elements.syncNickText.textContent, /malyna/);
+  const row = server.rows.get('u:malyna');
   assert.equal(row.data['chapter-1-a'].p, 40);
   assert.equal(row.data['chapter-1-a'].i, 3);
   const get = server.calls[0];
@@ -55,29 +63,37 @@ test('turning sync on creates a 128-bit code and uploads local progress', async 
   assert.equal(get.headers.Authorization, undefined);   // publishable keys are not JWTs
 });
 
+test('cancelling the confirmation creates nothing', async () => {
+  const server = fakeServer();
+  const a = device(server);
+  await type(a, 'typo'); await settle(); await click(a, 'syncCancel');
+  assert.equal(a.elements.syncConfirm.hidden, true);
+  assert.equal(a.elements.syncOff.hidden, false);
+  assert.equal(server.rows.size, 0);
+  assert.equal(a.storage.sync_nick, undefined);
+});
+
 test('two devices converge: the larger progress wins and finished stays finished', async () => {
   const server = fakeServer();
   const a = device(server, { 'pos:chapter-1-a': '{"p":40,"d":0,"i":3}', 'pos:chapter-2-b': '{"p":100,"d":1,"i":9}' });
-  click(a, 'syncStart'); await settle();
-  const code = a.storage.sync_code;
+  await type(a, 'malyna'); await settle(); await click(a, 'syncCreate'); await settle();
   const b = device(server, { 'pos:chapter-1-a': '{"p":70,"d":0,"i":8}', 'pos:chapter-2-b': '{"p":20,"d":0,"i":1}' });
-  b.elements.syncInput.value = code.slice(0, 5).toLowerCase() + ' - ' + code.slice(5);   // typed by hand
-  click(b, 'syncJoin'); await settle();
-  assert.equal(b.storage.sync_code, code);
+  await type(b, 'MALYNA'); await settle();                 // known nickname: connects without asking
+  assert.equal(b.elements.syncConfirm.hidden, true);
+  assert.equal(b.storage.sync_nick, 'malyna');
   assert.deepEqual([pos(b, 'chapter-1-a').p, pos(b, 'chapter-1-a').i], [70, 8]);
   assert.deepEqual([pos(b, 'chapter-2-b').p, pos(b, 'chapter-2-b').d], [100, 1]);
   click(a, 'syncNow'); await settle();
   assert.deepEqual([pos(a, 'chapter-1-a').p, pos(a, 'chapter-1-a').i], [70, 8]);
-  const stored = server.rows.get(code).data['chapter-1-a'];
+  const stored = server.rows.get('u:malyna').data['chapter-1-a'];
   assert.deepEqual([stored.p, stored.i], [70, 8]);
 });
 
 test('a reset made after the progress beats it on every device, and later reading counts again', async () => {
   const server = fakeServer();
   const a = device(server, { 'pos:chapter-1-a': '{"p":60,"d":0,"i":5,"t":1000}' });
-  click(a, 'syncStart'); await settle();
-  const code = a.storage.sync_code;
-  const b = device(server, { sync_code: code, 'pos:chapter-1-a': '{"p":0,"d":0,"i":0,"t":2000,"z":1}' });
+  await type(a, 'malyna'); await settle(); await click(a, 'syncCreate'); await settle();
+  const b = device(server, { sync_nick: 'malyna', 'pos:chapter-1-a': '{"p":0,"d":0,"i":0,"t":2000,"z":1}' });
   await settle();                                   // the boot sync pushes B's reset
   click(a, 'syncNow'); await settle();
   assert.equal(pos(a, 'chapter-1-a').p, 0);
@@ -90,25 +106,27 @@ test('a reset made after the progress beats it on every device, and later readin
 test('a write that loses a race is merged again and retried', async () => {
   const server = fakeServer({ failPuts: 1 });
   const a = device(server, { 'pos:chapter-1-a': '{"p":30,"d":0,"i":2}' });
-  click(a, 'syncStart'); await settle();
+  await type(a, 'malyna'); await settle(); await click(a, 'syncCreate'); await settle();
   assert.equal(server.calls.filter(c => c.name === 'sync_put').length, 2);
-  assert.equal(server.rows.get(a.storage.sync_code).data['chapter-1-a'].p, 30);
+  assert.equal(server.rows.get('u:malyna').data['chapter-1-a'].p, 30);
   assert.match(a.elements.syncStatus.textContent, /Synced|Синхронізовано/);
 });
 
-test('a bad code is refused without touching the network', async () => {
+test('an invalid nickname is refused without touching the network', async () => {
   const server = fakeServer();
   const a = device(server);
-  a.elements.syncInput.value = 'not-a-code';
-  click(a, 'syncJoin'); await settle();
+  for (const bad of ['', 'ab', 'has space', 'x'.repeat(33), 'a/b']) { await type(a, bad); await settle(); }
   assert.equal(server.calls.length, 0);
-  assert.equal(a.storage.sync_code, undefined);
+  assert.equal(a.storage.sync_nick, undefined);
+  await type(a, 'Андрій_01'); await settle();               // letters of any script are fine
+  assert.equal(server.calls.length, 1);
 });
 
 test('an unreachable server leaves local progress alone and says so', async () => {
   const a = bootReader({ en, uk, sync: CONFIG, storage: { 'pos:chapter-1-a': '{"p":50,"d":0,"i":4}' },
     fetch: async () => { throw new Error('offline'); } });
-  click(a, 'syncStart'); await settle();
+  await type(a, 'malyna'); await settle();
+  assert.equal(a.storage.sync_nick, undefined);
   assert.equal(pos(a, 'chapter-1-a').p, 50);
   assert.match(a.elements.syncStatus.textContent, /failed|Не вдалося/);
 });
@@ -116,14 +134,14 @@ test('an unreachable server leaves local progress alone and says so', async () =
 test('turning sync off keeps the progress and forgets the code', async () => {
   const server = fakeServer();
   const a = device(server, { 'pos:chapter-1-a': '{"p":50,"d":0,"i":4}' });
-  click(a, 'syncStart'); await settle(); click(a, 'syncStop');
-  assert.equal(a.storage.sync_code, undefined);
+  await type(a, 'malyna'); await settle(); await click(a, 'syncCreate'); await settle(); click(a, 'syncStop');
+  assert.equal(a.storage.sync_nick, undefined);
   assert.equal(pos(a, 'chapter-1-a').p, 50);
   assert.equal(a.elements.syncOff.hidden, false);
 });
 
 test('the sync strings are localized', () => {
   const a = bootReader({ en, uk, sync: CONFIG, fetch: fakeServer().fetch, browserLanguage: 'uk-UA' });
-  assert.equal(a.elements.syncStart.textContent, 'Увімкнути синхронізацію');
-  assert.equal(bootReader({ en, uk, sync: CONFIG, fetch: fakeServer().fetch }).elements.syncStart.textContent, 'Turn on sync');
+  assert.equal(a.elements.syncJoin.textContent, 'Підключити');
+  assert.equal(bootReader({ en, uk, sync: CONFIG, fetch: fakeServer().fetch }).elements.syncJoin.textContent, 'Connect');
 });

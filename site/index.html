@@ -59,21 +59,27 @@
           <div class="rp-row" id="syncRow" hidden>
             <div class="rp-lbl" id="syncLbl">Sync progress between devices</div>
             <div id="syncOff">
-              <button type="button" id="syncStart" class="sync-btn">Turn on sync</button>
               <div class="sync-join">
-                <input id="syncInput" type="text" placeholder="Sync code" aria-label="Sync code" autocomplete="off" spellcheck="false" autocapitalize="characters">
+                <input id="syncInput" type="text" placeholder="Nickname" aria-label="Nickname" maxlength="32" autocomplete="off" spellcheck="false" autocapitalize="none">
                 <button type="button" id="syncJoin" class="sync-btn">Connect</button>
               </div>
             </div>
+            <div id="syncConfirm" hidden>
+              <p class="rp-hint" id="syncConfirmText"></p>
+              <div class="seg">
+                <button type="button" id="syncCreate">Create</button>
+                <button type="button" id="syncCancel">Cancel</button>
+              </div>
+            </div>
             <div id="syncOn" hidden>
-              <div class="sync-join"><code id="syncCodeText"></code><button type="button" id="syncCopy" class="sync-btn">Copy</button></div>
+              <div class="sync-join"><span id="syncNickText"></span></div>
               <div class="seg">
                 <button type="button" id="syncNow">Sync now</button>
                 <button type="button" id="syncStop">Turn off</button>
               </div>
             </div>
             <p class="rp-hint" id="syncStatus" aria-live="polite"></p>
-            <p class="rp-hint" id="syncHint">Turn it on here, then enter the same code on your other devices. Only your reading progress is sent.</p>
+            <p class="rp-hint" id="syncHint">Enter a nickname. The same nickname on another device syncs the same progress. There is no password, so anyone who types it sees your progress.</p>
           </div>
         </div>
       </div>

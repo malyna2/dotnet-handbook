@@ -43,10 +43,11 @@ var UI = {
     textSize:"Text size", smaller:"Smaller text", larger:"Larger text",
     font:"Font", sans:"Sans", wide:"Wide", serif:"Serif",
     syncLbl:"Sync progress between devices",
-    syncHint:"Turn it on here, then enter the same code on your other devices. Only your reading progress is sent.",
-    syncStart:"Turn on sync", syncJoin:"Connect", syncCode:"Sync code", syncNow:"Sync now", syncStop:"Turn off",
+    syncHint:"Enter a nickname. The same nickname on another device syncs the same progress. There is no password, so anyone who types it sees your progress.",
+    syncNick:"Nickname", syncJoin:"Connect", syncNow:"Sync now", syncStop:"Turn off",
+    syncNew:"There is no “{nick}” yet. Create it?", syncCreate:"Create", syncCancel:"Cancel", syncAs:"Connected as",
     syncBusy:"Syncing…", syncDone:"Synced", syncFailed:"Sync failed. It will retry on the next change.",
-    syncBadCode:"That is not a valid sync code."
+    syncBadNick:"Use 3–32 letters, digits, _ . or -."
   },
   uk: {
     brand:"Довідник .NET", menu:"Показати або приховати навігацію", search:"Шукати розділи…",
@@ -65,10 +66,11 @@ var UI = {
     textSize:"Розмір тексту", smaller:"Менший текст", larger:"Більший текст",
     font:"Шрифт", sans:"Без засічок", wide:"Широкий", serif:"Із засічками",
     syncLbl:"Синхронізація прогресу між пристроями",
-    syncHint:"Увімкніть тут, а потім введіть той самий код на інших пристроях. Надсилається лише прогрес читання.",
-    syncStart:"Увімкнути синхронізацію", syncJoin:"Підключити", syncCode:"Код синхронізації", syncNow:"Синхронізувати", syncStop:"Вимкнути",
+    syncHint:"Введіть нік. Той самий нік на іншому пристрої синхронізує той самий прогрес. Пароля немає, тож будь-хто, хто введе цей нік, побачить ваш прогрес.",
+    syncNick:"Нік", syncJoin:"Підключити", syncNow:"Синхронізувати", syncStop:"Вимкнути",
+    syncNew:"Ніка «{nick}» ще немає. Створити?", syncCreate:"Створити", syncCancel:"Скасувати", syncAs:"Підключено як",
     syncBusy:"Синхронізація…", syncDone:"Синхронізовано", syncFailed:"Не вдалося синхронізувати. Повторимо після наступної зміни.",
-    syncBadCode:"Це не схоже на код синхронізації."
+    syncBadNick:"Від 3 до 32 літер, цифр, _ . або -."
   }
 };
 function ui(key){ return UI[language][key]; }
@@ -83,11 +85,11 @@ function localizeShell(){
   var panelText={rpThemeLbl:"theme", rpThemeHint:"themeHint", rpSizeLbl:"textSize", rpFontLbl:"font",
     "theme-auto":"auto", "theme-light":"light", "theme-paper":"paper", "theme-dark":"dark",
     "font-sans":"sans", "font-wide":"wide", "font-serif":"serif"};
-  Object.assign(panelText,{syncLbl:"syncLbl", syncHint:"syncHint", syncStart:"syncStart", syncJoin:"syncJoin",
-    syncNow:"syncNow", syncStop:"syncStop", syncCopy:"copy"});
+  Object.assign(panelText,{syncLbl:"syncLbl", syncHint:"syncHint", syncJoin:"syncJoin",
+    syncNow:"syncNow", syncStop:"syncStop", syncCreate:"syncCreate", syncCancel:"syncCancel"});
   Object.keys(panelText).forEach(function(id){ document.getElementById(id).textContent=ui(panelText[id]); });
-  document.getElementById("syncInput").placeholder=ui("syncCode");
-  document.getElementById("syncInput").setAttribute("aria-label",ui("syncCode"));
+  document.getElementById("syncInput").placeholder=ui("syncNick");
+  document.getElementById("syncInput").setAttribute("aria-label",ui("syncNick"));
   renderSync();
   document.getElementById("brandHome").textContent=ui("brand");
   document.getElementById("search").placeholder=ui("search");
@@ -890,29 +892,18 @@ wnModal.addEventListener("click",function(e){ if(e.target===wnModal) wnHide(); }
 
 /* ---------------- Cross-device sync (optional, Supabase) ----------------
    Progress lives in localStorage, so each browser has its own. When site/sync-config.js names a
-   Supabase project, the Aa panel offers a sync code: a random 128-bit secret that is the only
-   key to one row in the database (supabase/schema.sql). Devices that share the code share the
-   row. Progress only moves forward, so merging is deterministic and needs no accounts:
+   Supabase project, the Aa panel offers a nickname login: the nickname is the key to one row
+   in the database (supabase/schema.sql), and devices that use the same nickname share it. There
+   is deliberately no password: anyone who types a nickname sees that reading progress. Progress only moves forward, so merging is deterministic and needs no accounts:
    per chapter the larger percentage wins, "finished" is sticky, and a reset (a dated zero
    record) beats progress older than itself. The merge runs here, in the browser; the row's
    version number turns two simultaneous writers into a retry instead of a lost update. */
 var SYNC=window.SYNC_CONFIG||{};
 var SYNC_AVAILABLE=!!(SYNC.url&&SYNC.anonKey);
-var syncState={busy:false,again:false,timer:0,status:"idle",at:0};
-var BASE32="ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
-function syncCode(){ return SYNC_AVAILABLE?readSetting("sync_code",""):""; }
-function newSyncCode(){
-  var bytes=new Uint8Array(16); crypto.getRandomValues(bytes);
-  var out="", bits=0, val=0;
-  for(var k=0;k<bytes.length;k++){
-    val=(val<<8)|bytes[k]; bits+=8;
-    while(bits>=5){ out+=BASE32.charAt((val>>>(bits-5))&31); bits-=5; val&=(1<<bits)-1; }
-  }
-  if(bits>0) out+=BASE32.charAt((val<<(5-bits))&31);
-  return out;
-}
-function normalizeCode(s){ var c=String(s||"").toUpperCase().replace(/[^A-Z2-7]/g,""); return c.length===26?c:""; }
-function formatCode(c){ return c.replace(/(.{5})(?=.)/g,"$1-"); }
+var syncState={busy:false,again:false,timer:0,status:"idle",at:0,pending:""};
+function syncNick(){ return SYNC_AVAILABLE?readSetting("sync_nick",""):""; }
+function syncCode(){ var n=syncNick(); return n?"u:"+n:""; }   // the row key
+function normalizeNick(v){ var n=String(v||"").trim().toLowerCase(); return /^[\p{L}\p{N}_.-]{3,32}$/u.test(n)?n:""; }
 var SLUGS=EN_BOOK.map(function(c){ return c.slug; });
 function cleanRec(r){
   if(!r || typeof r!=="object" || typeof r.p!=="number" || !(r.p>=0 && r.p<=100)) return null;
@@ -988,36 +979,43 @@ function syncSchedule(){
   clearTimeout(syncState.timer); syncState.timer=setTimeout(syncRun,3000);
 }
 function renderSync(){
-  var row=document.getElementById("syncRow"); row.hidden=!SYNC_AVAILABLE;
-  var code=syncCode();
-  document.getElementById("syncOff").hidden=!!code;
-  document.getElementById("syncOn").hidden=!code;
-  document.getElementById("syncCodeText").textContent=code?formatCode(code):"";
+  document.getElementById("syncRow").hidden=!SYNC_AVAILABLE;
+  var nick=syncNick(), pending=!nick&&syncState.pending;
+  document.getElementById("syncOff").hidden=!!nick||!!pending;
+  document.getElementById("syncConfirm").hidden=!pending;
+  document.getElementById("syncOn").hidden=!nick;
+  document.getElementById("syncConfirmText").textContent=pending?ui("syncNew").replace("{nick}",syncState.pending):"";
+  document.getElementById("syncNickText").textContent=nick?ui("syncAs")+" "+nick:"";
   var st=syncState.status, text="";
   if(st==="syncing") text=ui("syncBusy");
   else if(st==="error") text=ui("syncFailed");
   else if(st==="ok") text=ui("syncDone")+" · "+new Date(syncState.at).toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"});
   document.getElementById("syncStatus").textContent=text;
 }
-function syncConnect(code){
-  writeSetting("sync_code",code); syncState.status="idle"; renderSync();
+function syncConnect(nick){
+  writeSetting("sync_nick",nick); syncState.pending=""; syncState.status="idle"; renderSync();
   return syncRun().then(function(){ if(syncState.status==="ok") toast(ui("syncDone")); });
 }
-document.getElementById("syncStart").addEventListener("click",function(){
-  try{ syncConnect(newSyncCode()); }catch(e){ toast(ui("syncFailed")); }
-});
+// An unknown nickname is not created silently (a typo would start a new, empty account):
+// the reader confirms first. A known one connects and merges straight away.
+function syncLogin(nick){
+  syncState.status="syncing"; renderSync();
+  return syncRpc("sync_get",{p_key:"u:"+nick}).then(function(row){
+    if(row.version===0){ syncState.pending=nick; syncState.status="idle"; renderSync(); }
+    else return syncConnect(nick);
+  },function(){ syncState.status="error"; renderSync(); });
+}
 document.getElementById("syncJoin").addEventListener("click",function(){
-  var code=normalizeCode(document.getElementById("syncInput").value);
-  if(!code){ toast(ui("syncBadCode")); return; }
-  syncConnect(code);
+  var nick=normalizeNick(document.getElementById("syncInput").value);
+  if(!nick){ toast(ui("syncBadNick")); return; }
+  syncLogin(nick);
 });
+document.getElementById("syncCreate").addEventListener("click",function(){ if(syncState.pending) syncConnect(syncState.pending); });
+document.getElementById("syncCancel").addEventListener("click",function(){ syncState.pending=""; renderSync(); });
 document.getElementById("syncNow").addEventListener("click",function(){ syncRun(); });
 document.getElementById("syncStop").addEventListener("click",function(){
-  try{ localStorage.removeItem("sync_code"); }catch(e){}
+  try{ localStorage.removeItem("sync_nick"); }catch(e){}
   syncState.status="idle"; renderSync();
-});
-document.getElementById("syncCopy").addEventListener("click",function(){
-  try{ navigator.clipboard.writeText(formatCode(syncCode())); toast(ui("copied")); }catch(e){}
 });
 document.addEventListener("visibilitychange",function(){ if(syncCode()) syncRun(); });
 
